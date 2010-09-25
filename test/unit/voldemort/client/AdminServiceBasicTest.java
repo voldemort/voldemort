@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -62,6 +63,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
 
 /**
  */
@@ -394,6 +396,30 @@ public class AdminServiceBasicTest extends TestCase {
         generateAndFetchFiles(10, 1, 1000, 1000);
     }
 
+    private void generateFiles(int numChunks,
+                               long indexSize,
+                               long dataSize,
+                               List<Integer> partitions,
+                               File versionDir) throws IOException {
+        for(Integer partitionId: partitions) {
+            for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                File index = new File(versionDir, Integer.toString(partitionId) + "_"
+                                                  + Integer.toString(chunkId) + ".index");
+                File data = new File(versionDir, Integer.toString(partitionId) + "_"
+                                                 + Integer.toString(chunkId) + ".data");
+                // write some random crap for index and data
+                FileOutputStream dataOs = new FileOutputStream(data);
+                for(int i = 0; i < dataSize; i++)
+                    dataOs.write(i);
+                dataOs.close();
+                FileOutputStream indexOs = new FileOutputStream(index);
+                for(int i = 0; i < indexSize; i++)
+                    indexOs.write(i);
+                indexOs.close();
+            }
+        }
+    }
+
     private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
             throws IOException {
         for(Node node: cluster.getNodes()) {
@@ -404,23 +430,7 @@ public class AdminServiceBasicTest extends TestCase {
             File newVersionDir = new File(store.getStoreDirPath(), "version-"
                                                                    + Long.toString(versionId));
             Utils.mkdirs(newVersionDir);
-            for(Integer partitionId: node.getPartitionIds()) {
-                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File index = new File(newVersionDir, Integer.toString(partitionId) + "_"
-                                                         + Integer.toString(chunkId) + ".index");
-                    File data = new File(newVersionDir, Integer.toString(partitionId) + "_"
-                                                        + Integer.toString(chunkId) + ".data");
-                    // write some random crap for index and data
-                    FileOutputStream dataOs = new FileOutputStream(data);
-                    for(int i = 0; i < dataSize; i++)
-                        dataOs.write(i);
-                    dataOs.close();
-                    FileOutputStream indexOs = new FileOutputStream(index);
-                    for(int i = 0; i < indexSize; i++)
-                        indexOs.write(i);
-                    indexOs.close();
-                }
-            }
+            generateFiles(numChunks, indexSize, dataSize, node.getPartitionIds(), newVersionDir);
 
             // Swap it...
             store.swapFiles(newVersionDir.getAbsolutePath());
@@ -451,6 +461,73 @@ public class AdminServiceBasicTest extends TestCase {
 
             }
         }
+    }
+
+    @Test
+    public void testGetROVersions() throws IOException {
+
+        // Tests get current version
+        Map<String, Long> storesToVersions = getAdminClient().getROCurrentVersion(0,
+                                                                                  Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                                     "test-readonly-versions"));
+        assertEquals(storesToVersions.size(), 2);
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
+        assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
+
+        // Tests get maximum version
+        storesToVersions = getAdminClient().getROMaxVersion(0,
+                                                            Lists.newArrayList("test-readonly-fetchfiles",
+                                                                               "test-readonly-versions"));
+        assertEquals(storesToVersions.size(), 2);
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
+        assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
+
+        // Tests global get maximum versions
+        storesToVersions = getAdminClient().getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
+                                                                               "test-readonly-versions"));
+        assertEquals(storesToVersions.size(), 2);
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
+        assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
+
+        ReadOnlyStorageEngine storeNode0 = (ReadOnlyStorageEngine) getStore(0,
+                                                                            "test-readonly-fetchfiles");
+        ReadOnlyStorageEngine storeNode1 = (ReadOnlyStorageEngine) getStore(1,
+                                                                            "test-readonly-fetchfiles");
+
+        Utils.mkdirs(new File(storeNode0.getStoreDirPath(), "version-10"));
+        File newVersionNode1 = new File(storeNode1.getStoreDirPath(), "version-11");
+        Utils.mkdirs(newVersionNode1);
+        generateFiles(10, 20, 20, cluster.getNodeById(1).getPartitionIds(), newVersionNode1);
+        storeNode1.swapFiles(newVersionNode1.getAbsolutePath());
+
+        // Node 0
+        // Test current version
+        storesToVersions = getAdminClient().getROCurrentVersion(0,
+                                                                Lists.newArrayList("test-readonly-fetchfiles"));
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
+
+        // Test max version
+        storesToVersions = getAdminClient().getROMaxVersion(0,
+                                                            Lists.newArrayList("test-readonly-fetchfiles"));
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 10);
+
+        // Node 1
+        // Test current version
+        storesToVersions = getAdminClient().getROCurrentVersion(1,
+                                                                Lists.newArrayList("test-readonly-fetchfiles"));
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
+
+        // Test max version
+        storesToVersions = getAdminClient().getROMaxVersion(1,
+                                                            Lists.newArrayList("test-readonly-fetchfiles"));
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
+
+        // Test global max
+        storesToVersions = getAdminClient().getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
+                                                                               "test-readonly-versions"));
+        assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
+        assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
+
     }
 
     @Test

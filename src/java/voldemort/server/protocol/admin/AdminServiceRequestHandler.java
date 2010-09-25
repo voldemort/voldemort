@@ -227,17 +227,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.GetROCurrentVersionResponse handleGetROCurrentVersion(VAdminProto.GetROCurrentVersionRequest request) {
         final List<String> storeNames = request.getStoreNameList();
         VAdminProto.GetROCurrentVersionResponse.Builder response = VAdminProto.GetROCurrentVersionResponse.newBuilder();
-        VAdminProto.ROStoreVersionMap.Builder storeResponse = VAdminProto.ROStoreVersionMap.newBuilder();
 
         try {
             for(String storeName: storeNames) {
 
                 ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
                                                                                        storeName);
-
-                storeResponse.setStoreName(storeName).setPushVersion(store.getCurrentVersionId());
-
-                response.addRoStoreVersions(storeResponse.build());
+                VAdminProto.ROStoreVersionMap storeResponse = VAdminProto.ROStoreVersionMap.newBuilder()
+                                                                                           .setStoreName(storeName)
+                                                                                           .setPushVersion(store.getCurrentVersionId())
+                                                                                           .build();
+                response.addRoStoreVersions(storeResponse);
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -250,7 +250,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.GetROMaxVersionResponse handleGetROMaxVersion(VAdminProto.GetROMaxVersionRequest request) {
         final List<String> storeNames = request.getStoreNameList();
         VAdminProto.GetROMaxVersionResponse.Builder response = VAdminProto.GetROMaxVersionResponse.newBuilder();
-        VAdminProto.ROStoreVersionMap.Builder storeResponse = VAdminProto.ROStoreVersionMap.newBuilder();
 
         try {
             for(String storeName: storeNames) {
@@ -268,10 +267,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                   versionDirs.length - 1,
                                                                   versionDirs.length - 1);
 
-                storeResponse.setStoreName(storeName)
-                             .setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]));
+                VAdminProto.ROStoreVersionMap storeResponse = VAdminProto.ROStoreVersionMap.newBuilder()
+                                                                                           .setStoreName(storeName)
+                                                                                           .setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]))
+                                                                                           .build();
 
-                response.addRoStoreVersions(storeResponse.build());
+                response.addRoStoreVersions(storeResponse);
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
