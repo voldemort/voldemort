@@ -16,9 +16,9 @@
 
 package voldemort.store.readonly.mapreduce;
 
+import org.apache.hadoop.conf.Configurable;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapreduce.Partitioner;
 
 import voldemort.VoldemortException;
@@ -31,20 +31,25 @@ import voldemort.utils.ByteUtils;
  * 
  * 
  */
-@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderPartitioner extends Partitioner<BytesWritable, BytesWritable>
-        implements JobConfigurable {
+        implements Configurable {
 
     private int numChunks;
+    private Configuration conf;
 
     @Override
     public int getPartition(BytesWritable key, BytesWritable value, int numPartitions) {
-        int nodeId = ByteUtils.readInt(value.get(), 0);
-        int chunkId = ReadOnlyUtils.chunk(key.get(), numChunks);
+        int nodeId = ByteUtils.readInt(value.getBytes(), 0);
+        int chunkId = ReadOnlyUtils.chunk(key.getBytes(), numChunks);
         return (nodeId * numChunks + chunkId) % numPartitions;
     }
 
-    public void configure(JobConf conf) {
+    public Configuration getConf() {
+        return conf;
+    }
+
+    public void setConf(Configuration conf) {
+        this.conf = conf;
         this.numChunks = conf.getInt("num.chunks", -1);
         if(this.numChunks < 1)
             throw new VoldemortException("num.chunks not specified in the job conf.");
