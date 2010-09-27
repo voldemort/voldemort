@@ -190,7 +190,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
                                                                                                     3),
                                                                                       Arrays.asList(2,
                                                                                                     3),
-                                                                                      Arrays.asList(testStoreName),
+                                                                                      Arrays.asList(testStoreNameRW),
                                                                                       0);
         int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
         logger.info("started rebalanceNode, request id = " + requestId);

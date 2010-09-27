@@ -73,21 +73,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
-    public static final String CLUSTER_STATE_KEY = "cluster.state";
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
 
-    public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY,
-                                                                  STORES_KEY,
-                                                                  CLUSTER_STATE_KEY);
+    public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
     public static final Set<String> REQUIRED_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO,
-                                                                    CLUSTER_STATE_KEY);
+                                                                    REBALANCING_STEAL_INFO);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -100,8 +96,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static enum VoldemortState {
         NORMAL_SERVER,
         REBALANCING_MASTER_SERVER,
-        REBALANCING_CLUSTER,
-        NORMAL_CLUSTER
     }
 
     private final Store<String, String> innerStore;
@@ -332,10 +326,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         throw new VoldemortException("Store " + storeName + " not found in MetadataStore");
     }
 
-    public Object getClusterState() {
-        return VoldemortState.valueOf(metadataCache.get(CLUSTER_STATE_KEY).getValue().toString());
-    }
-
     public VoldemortState getServerState() {
         return VoldemortState.valueOf(metadataCache.get(SERVER_STATE_KEY).getValue().toString());
     }
@@ -417,7 +407,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
-        initCache(CLUSTER_STATE_KEY, VoldemortState.NORMAL_CLUSTER.toString());
 
         // set transient values
         updateRoutingStrategies(getCluster(), getStoreDefList());
@@ -471,8 +460,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
             RebalancerState rebalancerState = (RebalancerState) value.getValue();
             valueStr = rebalancerState.toJsonString();
-        } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)
-                  || NODE_ID_KEY.equals(key)) {
+        } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
         } else {
             throw new VoldemortException("Unhandled key:'" + key
@@ -499,7 +487,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
             valueObject = clusterMapper.readCluster(new StringReader(value.getValue()));
         } else if(STORES_KEY.equals(key)) {
             valueObject = storeMapper.readStoreList(new StringReader(value.getValue()));
-        } else if(SERVER_STATE_KEY.equals(key) || CLUSTER_STATE_KEY.equals(key)) {
+        } else if(SERVER_STATE_KEY.equals(key)) {
             valueObject = VoldemortState.valueOf(value.getValue());
         } else if(NODE_ID_KEY.equals(key)) {
             valueObject = Integer.parseInt(value.getValue());

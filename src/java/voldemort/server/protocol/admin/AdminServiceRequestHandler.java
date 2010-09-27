@@ -731,9 +731,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         // don't try to delete a store in the middle of rebalancing
         if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
-           || metadataStore.getServerState()
-                           .equals(MetadataStore.VoldemortState.REBALANCING_CLUSTER)) {
+                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();
@@ -793,9 +791,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         // don't try to add a store in the middle of rebalancing
         if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
-           || metadataStore.getServerState()
-                           .equals(MetadataStore.VoldemortState.REBALANCING_CLUSTER)) {
+                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();

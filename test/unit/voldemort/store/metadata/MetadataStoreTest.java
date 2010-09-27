@@ -153,15 +153,9 @@ public class MetadataStoreTest extends TestCase {
     public void testCleanAllStates() {
         // put state entries.
         incrementVersionAndPut(metadataStore,
-                               MetadataStore.CLUSTER_STATE_KEY,
-                               MetadataStore.VoldemortState.REBALANCING_CLUSTER);
-        incrementVersionAndPut(metadataStore,
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
-        assertEquals("Values should match.",
-                     metadataStore.getClusterState(),
-                     VoldemortState.REBALANCING_CLUSTER);
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.REBALANCING_MASTER_SERVER);
@@ -170,9 +164,6 @@ public class MetadataStoreTest extends TestCase {
         metadataStore.cleanAllRebalancingState();
 
         // check all values revert back to default.
-        assertEquals("Values should match.",
-                     metadataStore.getClusterState(),
-                     VoldemortState.NORMAL_CLUSTER);
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.NORMAL_SERVER);

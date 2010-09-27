@@ -1124,19 +1124,6 @@ public class AdminClient {
     }
 
     /**
-     * Update the server
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} on a
-     * remote node.
-     */
-    public void updateRemoteClusterState(int nodeId,
-                                         MetadataStore.VoldemortState state,
-                                         Version clock) {
-        updateRemoteMetadata(nodeId,
-                             MetadataStore.CLUSTER_STATE_KEY,
-                             new Versioned<String>(state.toString(), clock));
-    }
-
-    /**
      * Add a new store definition to all active nodes in the cluster.
      * <p>
      * 

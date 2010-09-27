@@ -125,12 +125,23 @@ public class RebalanceController {
         logger.debug("Current Cluster configuration:" + currentCluster);
         logger.debug("Target Cluster configuration:" + targetCluster);
 
-        adminClient.setAdminClientCluster(targetCluster);
+        adminClient.setAdminClientCluster(currentCluster);
 
         // Retrieve list of stores
         List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
                                                                            adminClient);
-        // Maintain nodeId to map of store name to version ids
+
+        final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
+                                                                                   targetCluster,
+                                                                                   storesList,
+                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
+        logger.info(rebalanceClusterPlan);
+
+        // Add all new nodes to currentCluster
+        currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
+        adminClient.setAdminClientCluster(currentCluster);
+
+        // Maintain nodeId to map of read-only store name to version ids
         Map<Integer, Map<String, Long>> currentROStoreVersions = Maps.newHashMapWithExpectedSize(storesList.size());
 
         // Retrieve list of read-only stores
@@ -151,16 +162,7 @@ public class RebalanceController {
             }
         }
 
-        adminClient.setAdminClientCluster(currentCluster);
-        final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
-                                                                                   targetCluster,
-                                                                                   storesList,
-                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
-        logger.info(rebalanceClusterPlan);
-
-        // add all new nodes to currentCluster and propagate to all
-        currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
-        adminClient.setAdminClientCluster(currentCluster);
+        // propagate new cluster information to all
         Node firstNode = currentCluster.getNodes().iterator().next();
         VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                 adminClient)

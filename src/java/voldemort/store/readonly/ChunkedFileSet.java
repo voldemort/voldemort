@@ -54,51 +54,56 @@ public class ChunkedFileSet {
         setRoutingStrategy(routingStrategy);
 
         int globalChunkId = 0;
-        for(Integer partitionId: this.partitionIds) {
-            int chunkId = 0;
-            while(true) {
-                String fileName = Integer.toString(partitionId) + "_" + Integer.toString(chunkId);
-                File index = new File(baseDir, fileName + ".index");
-                File data = new File(baseDir, fileName + ".data");
-                if(!index.exists() && !data.exists()) {
-                    if(chunkId == 0) {
-                        // create empty files for this partition
-                        try {
-                            new File(baseDir, fileName + ".index").createNewFile();
-                            new File(baseDir, fileName + ".data").createNewFile();
-                            logger.info("No index or data files found, creating empty files for partition "
-                                        + partitionId);
-                        } catch(IOException e) {
-                            throw new VoldemortException("Error creating empty read-only files.", e);
+        if(this.partitionIds != null) {
+            for(Integer partitionId: this.partitionIds) {
+                int chunkId = 0;
+                while(true) {
+                    String fileName = Integer.toString(partitionId) + "_"
+                                      + Integer.toString(chunkId);
+                    File index = new File(baseDir, fileName + ".index");
+                    File data = new File(baseDir, fileName + ".data");
+                    if(!index.exists() && !data.exists()) {
+                        if(chunkId == 0) {
+                            // create empty files for this partition
+                            try {
+                                new File(baseDir, fileName + ".index").createNewFile();
+                                new File(baseDir, fileName + ".data").createNewFile();
+                                logger.info("No index or data files found, creating empty files for partition "
+                                            + partitionId);
+                            } catch(IOException e) {
+                                throw new VoldemortException("Error creating empty read-only files.",
+                                                             e);
+                            }
+                        } else {
+                            break;
                         }
-                    } else {
-                        break;
-                    }
-                } else if(index.exists() ^ data.exists())
-                    throw new VoldemortException("One of the following does not exist: "
-                                                 + index.toString() + " and " + data.toString()
-                                                 + ".");
-                if(chunkId == 0)
-                    partitionToChunkStart.put(partitionId, globalChunkId);
+                    } else if(index.exists() ^ data.exists())
+                        throw new VoldemortException("One of the following does not exist: "
+                                                     + index.toString() + " and " + data.toString()
+                                                     + ".");
+                    if(chunkId == 0)
+                        partitionToChunkStart.put(partitionId, globalChunkId);
 
-                /* Deal with file sizes */
-                long indexLength = index.length();
-                long dataLength = data.length();
-                validateFileSizes(indexLength, dataLength);
-                indexFileSizes.add((int) indexLength);
-                dataFileSizes.add((int) dataLength);
+                    /* Deal with file sizes */
+                    long indexLength = index.length();
+                    long dataLength = data.length();
+                    validateFileSizes(indexLength, dataLength);
+                    indexFileSizes.add((int) indexLength);
+                    dataFileSizes.add((int) dataLength);
 
-                /* Add the file channel for data */
-                dataFiles.add(openChannel(data));
-                indexFiles.add(mapFile(index));
-                chunkId++;
-                globalChunkId++;
+                    /* Add the file channel for data */
+                    dataFiles.add(openChannel(data));
+                    indexFiles.add(mapFile(index));
+                    chunkId++;
+                    globalChunkId++;
+                }
+                partitionToNumChunks.put(partitionId, chunkId);
             }
-            partitionToNumChunks.put(partitionId, chunkId);
-        }
 
-        if(indexFileSizes.size() == 0)
-            throw new VoldemortException("No data chunks found in directory " + baseDir.toString());
+            if(indexFileSizes.size() == 0)
+                throw new VoldemortException("No data chunks found in directory "
+                                             + baseDir.toString());
+        }
 
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
@@ -117,8 +122,6 @@ public class ChunkedFileSet {
                 break;
             }
         }
-        if(this.partitionIds == null)
-            throw new VoldemortException("Could not open store since the node id could not be found");
     }
 
     public void validateFileSizes(long indexLength, long dataLength) {
@@ -175,6 +178,7 @@ public class ChunkedFileSet {
         partitionList.retainAll(partitionIds);
         if(partitionList.size() != 1)
             throw new VoldemortException("Partition list returned is incorrect");
+
         Integer chunkId = ReadOnlyUtils.chunk(ByteUtils.md5(key),
                                               partitionToNumChunks.get(partitionList.get(0)));
         return partitionToChunkStart.get(partitionList.get(0)) + chunkId;
