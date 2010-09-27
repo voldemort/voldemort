@@ -19,6 +19,7 @@ package voldemort.performance.benchmark;
 import voldemort.client.StoreClient;
 import voldemort.client.UpdateAction;
 import voldemort.utils.Time;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class VoldemortWrapper {
@@ -85,8 +86,14 @@ public class VoldemortWrapper {
             @Override
             public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
-                storeClient.get(key);
-                storeClient.put(key, newValue);
+                Versioned<Object> vs = storeClient.get(key);
+                VectorClock version;
+                if(vs == null)
+                    version = new VectorClock();
+                else
+                    version = (VectorClock) vs.getVersion();
+                version.incrementVersion(0, 847584375);
+                storeClient.put(key, Versioned.value(newValue, version));
                 long endNs = System.nanoTime();
                 measurement.recordLatency(Operations.Mixed.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
@@ -108,7 +115,7 @@ public class VoldemortWrapper {
             @Override
             public void update(StoreClient<Object, Object> storeClient) {
                 long startNs = System.nanoTime();
-                storeClient.put(key, value);
+                storeClient.put(key, Versioned.value(value));
                 long endNs = System.nanoTime();
                 measurement.recordLatency(Operations.Write.getOpString(),
                                           (int) ((endNs - startNs) / Time.NS_PER_MS));
