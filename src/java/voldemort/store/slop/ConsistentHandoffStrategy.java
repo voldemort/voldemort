@@ -18,8 +18,10 @@ package voldemort.store.slop;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import voldemort.client.ClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.store.StoreDefinition;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +42,10 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
      * @param prefListSize The number of nodes adjacent to the failed node in the
      *        that could be selected to receive given hint
      */
-    public ConsistentHandoffStrategy(Cluster cluster, int prefListSize) {
+    public ConsistentHandoffStrategy(Cluster cluster,
+                                     int prefListSize,
+                                     boolean enableZoneRouting,
+                                     int clientZoneId) {
         int nodesInCluster = cluster.getNumberOfNodes();
         if(prefListSize > nodesInCluster - 1)
             throw new IllegalArgumentException("Preference list size must be less than " +
@@ -54,7 +59,19 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
             while(n < prefListSize) {
                 i = (i + 1) % cluster.getNumberOfNodes();
                 if(i != node.getId()) {
-                    prefList.add(cluster.getNodeById(i));
+                    Node peer = cluster.getNodeById(i);
+                    if(enableZoneRouting && cluster.getZones().size() > 1) {
+                        // don't handoff hints to the same zone
+                        int zoneId = node.getZoneId();
+                        if(clientZoneId == zoneId) {
+                            if(peer.getZoneId() != zoneId)
+                                continue;
+                        } else {
+                            if(peer.getZoneId() == zoneId)
+                                continue;
+                        }
+                    }
+                    prefList.add(peer);
                     n++;
                 }
             }

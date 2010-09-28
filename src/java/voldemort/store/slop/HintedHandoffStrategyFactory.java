@@ -9,8 +9,13 @@ import voldemort.store.StoreDefinition;
  * {@link HintedHandoffStrategyType}.
  */
 public class HintedHandoffStrategyFactory {
-    
-    public HintedHandoffStrategyFactory() {}
+    private final boolean enableZoneRouting;
+    private final int clientZoneId;
+
+    public HintedHandoffStrategyFactory(boolean enableZoneRouting, int clientZoneId) {
+        this.enableZoneRouting = enableZoneRouting;
+        this.clientZoneId = clientZoneId;
+    }
 
     public HintedHandoffStrategy updateHintedHandoffStrategy(StoreDefinition storeDef,
                                                              Cluster cluster) {
@@ -22,9 +27,12 @@ public class HintedHandoffStrategyFactory {
                 else
                     hintPrefListSize = cluster.getNumberOfNodes();
             }
-            return new ConsistentHandoffStrategy(cluster, hintPrefListSize);
+            return new ConsistentHandoffStrategy(cluster,
+                                                 hintPrefListSize,
+                                                 enableZoneRouting,
+                                                 clientZoneId);
         } else if(HintedHandoffStrategyType.TO_ALL_STRATEGY.equals(storeDef.getHintedHandoffStrategyType())) {
-            return new HandoffToAllStrategy(cluster);
+            return new HandoffToAllStrategy(cluster, enableZoneRouting, clientZoneId);
         } else {
             throw new VoldemortException("HintedHandoffStrategyType:" + storeDef.getHintedHandoffStrategyType()
                                          + " not handled by " + this.getClass());

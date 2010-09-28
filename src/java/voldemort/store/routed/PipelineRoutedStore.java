@@ -115,7 +115,9 @@ public class PipelineRoutedStore extends RoutedStore {
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.isHintedHandoffEnabled()) {
-            this.handoffStrategy = new HintedHandoffStrategyFactory().updateHintedHandoffStrategy(storeDef, cluster);
+            HintedHandoffStrategyFactory factory = new HintedHandoffStrategyFactory(zoneRoutingEnabled,
+                                                                                    clientZone.getId());
+            this.handoffStrategy = factory.updateHintedHandoffStrategy(storeDef, cluster);
         } else {
             this.handoffStrategy = null;
         }

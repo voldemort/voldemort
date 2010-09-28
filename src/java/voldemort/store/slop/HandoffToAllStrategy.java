@@ -19,7 +19,9 @@ package voldemort.store.slop;
 import com.google.common.collect.Lists;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -29,20 +31,39 @@ import java.util.List;
 public class HandoffToAllStrategy implements HintedHandoffStrategy {
 
     private final List<Node> nodes;
+    private final Collection<Zone> zones;
+    private final boolean enableZoneRouting;
+    private final int clientZoneId;
 
     /**
      * Creates a to-all handoff strategy instance
      * @param cluster The cluster
+     * @param enableZoneRouting Is zone routing enabled
+     * @param clientZoneId Client zone id
      */
-    public HandoffToAllStrategy(Cluster cluster) {
-        nodes = Lists.newArrayList(cluster.getNodes());
+    public HandoffToAllStrategy(Cluster cluster, boolean enableZoneRouting, int clientZoneId) {
+        this.nodes = Lists.newArrayList(cluster.getNodes());
+        this.zones = cluster.getZones();
+        this.enableZoneRouting = enableZoneRouting;
+        this.clientZoneId = clientZoneId;
     }
 
     public List<Node> routeHint(Node origin) {
         List<Node> prefList = Lists.newArrayListWithCapacity(nodes.size());
+        int originZoneId = origin.getZoneId();
         for(Node node: nodes) {
-            if(node.getId() != origin.getId())
+            if(node.getId() != origin.getId()) {
+                if(enableZoneRouting && zones.size() > 1) {
+                    if(originZoneId == node.getZoneId()) {
+                        if(node.getZoneId() != originZoneId)
+                            continue;
+                    } else {
+                        if(node.getZoneId() == originZoneId)
+                            continue;
+                    }
+                }
                 prefList.add(node);
+            }
         }
         Collections.shuffle(prefList);
         return prefList;
