@@ -16,13 +16,9 @@
 
 package voldemort.store.nonblockingstore;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -37,15 +33,13 @@ import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.Lists;
-
 public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
 
     private final ExecutorService executor;
 
     private final Store<ByteArray, byte[]> innerStore;
 
-    private final Logger logger = Logger.getLogger(getClass());
+    private final Logger logger = Logger.getLogger(ThreadPoolBasedNonblockingStoreImpl.class);
 
     public ThreadPoolBasedNonblockingStoreImpl(ExecutorService executor,
                                                Store<ByteArray, byte[]> innerStore) {
@@ -116,60 +110,56 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
         }, callback, timeoutMs, "delete");
     }
 
-    @SuppressWarnings("unchecked")
     private void submit(final StoreRequest<?> request,
                         final NonblockingStoreCallback callback,
-                        long timeoutMs,
-                        String operationName) {
-        final AtomicBoolean isRequestComplete = new AtomicBoolean(false);
-        final long start = System.nanoTime();
+                        final long timeoutMs,
+                        final String operationName) {
+        executor.submit(new Runnable() {
 
-        Callable<Object> callable = new Callable<Object>() {
-
-            public Object call() {
-                Object result = null;
+            public void run() {
+                long start = System.nanoTime();
+                final long timeoutNs = timeoutMs * Time.NS_PER_MS;
 
                 try {
-                    result = request.request(innerStore);
+                    Object result = request.request(innerStore);
 
-                    if(isRequestComplete.compareAndSet(false, true)) {
-                        if(callback != null)
-                            callback.requestComplete(result, (System.nanoTime() - start)
-                                                             / Time.NS_PER_MS);
+                    if(callback != null) {
+                        long diff = System.nanoTime() - start;
+
+                        if(diff <= timeoutNs) {
+                            try {
+                                callback.requestComplete(result, diff / Time.NS_PER_MS);
+                            } catch(Exception e) {
+                                if(logger.isEnabledFor(Level.WARN))
+                                    logger.warn(e, e);
+                            }
+                        } else {
+                            UnreachableStoreException ex = new UnreachableStoreException("Failure in "
+                                                                                         + operationName
+                                                                                         + ": time out exceeded");
+                            try {
+                                callback.requestComplete(ex, diff);
+                            } catch(Exception e) {
+                                if(logger.isEnabledFor(Level.WARN))
+                                    logger.warn(e, e);
+                            }
+                        }
                     }
                 } catch(Exception e) {
-                    if(isRequestComplete.compareAndSet(false, true)) {
-                        if(callback != null)
-                            callback.requestComplete(e, (System.nanoTime() - start)
-                                                        / Time.NS_PER_MS);
+                    if(callback != null) {
+                        long diff = System.nanoTime() - start;
+
+                        try {
+                            callback.requestComplete(e, diff / Time.NS_PER_MS);
+                        } catch(Exception ex) {
+                            if(logger.isEnabledFor(Level.WARN))
+                                logger.warn(ex, ex);
+                        }
                     }
                 }
-
-                return result;
             }
 
-        };
-
-        Collection<Callable<Object>> tasks = Lists.newArrayList(callable);
-
-        try {
-            executor.invokeAll(tasks, timeoutMs, TimeUnit.MILLISECONDS);
-        } catch(InterruptedException e) {
-            if(isRequestComplete.compareAndSet(false, true)) {
-                if(callback != null) {
-                    UnreachableStoreException ex = new UnreachableStoreException("Failure in "
-                                                                                         + operationName
-                                                                                         + ": "
-                                                                                         + e.getMessage(),
-                                                                                 e);
-                    callback.requestComplete(ex, (System.nanoTime() - start) / Time.NS_PER_MS);
-                }
-            }
-
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn(e);
-        }
-
+        });
     }
 
     public void close() throws VoldemortException {

@@ -83,12 +83,18 @@ public class PerformParallelGetAllRequests
                                      + " response received (" + requestTime + " ms.) from node "
                                      + node.getId());
 
-                    responses.put(node.getId(),
-                                  new Response<Iterable<ByteArray>, Object>(node,
-                                                                            keys,
-                                                                            result,
-                                                                            requestTime));
+                    Response<Iterable<ByteArray>, Object> response = new Response<Iterable<ByteArray>, Object>(node,
+                                                                                                               keys,
+                                                                                                               result,
+                                                                                                               requestTime);
+                    responses.put(node.getId(), response);
                     latch.countDown();
+
+                    // Note errors that come in after the pipeline has finished.
+                    // These will *not* get a chance to be called in the loop of
+                    // responses below.
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
+                        handleResponseError(response, pipeline, failureDetector);
                 }
 
             };

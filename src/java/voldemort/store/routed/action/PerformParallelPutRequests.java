@@ -141,6 +141,12 @@ public class PerformParallelPutRequests extends
                     if(logger.isTraceEnabled())
                         logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
                                      + " for " + blocksLatch.getCount() + " more ");
+
+                    // Note errors that come in after the pipeline has finished.
+                    // These will *not* get a chance to be called in the loop of
+                    // responses below.
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
+                        handleResponseError(response, pipeline, failureDetector);
                 }
 
             };

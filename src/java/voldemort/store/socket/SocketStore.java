@@ -23,6 +23,9 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
 import voldemort.client.protocol.RequestFormatFactory;
@@ -72,6 +75,7 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
     private final SocketDestination destination;
     private final RequestFormat requestFormat;
     private final RequestRoutingType requestRoutingType;
+    private final Logger logger = Logger.getLogger(SocketStore.class);
 
     public SocketStore(String storeName,
                        long timeoutMs,
@@ -225,7 +229,8 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
 
         try {
-            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate, timeoutMs);
+            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate,
+                                                                                          timeoutMs);
             clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
@@ -274,7 +279,13 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                 e = new UnreachableStoreException("Failure in " + operationName + ": "
                                                   + e.getMessage(), e);
 
-            callback.requestComplete(e, 0);
+            try {
+                callback.requestComplete(e, 0);
+            } catch(Exception ex) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(ex, ex);
+            }
+
             return;
         }
 
@@ -310,11 +321,24 @@ public class SocketStore implements Store<ByteArray, byte[]>, NonblockingStore {
                 clientRequest.complete();
                 Object result = clientRequest.getResult();
 
-                if(callback != null)
-                    callback.requestComplete(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+                if(callback != null) {
+                    try {
+                        callback.requestComplete(result, (System.nanoTime() - startNs)
+                                                         / Time.NS_PER_MS);
+                    } catch(Exception e) {
+                        if(logger.isEnabledFor(Level.WARN))
+                            logger.warn(e, e);
+                    }
+                }
             } catch(Exception e) {
-                if(callback != null)
-                    callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+                if(callback != null) {
+                    try {
+                        callback.requestComplete(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
+                    } catch(Exception ex) {
+                        if(logger.isEnabledFor(Level.WARN))
+                            logger.warn(ex, ex);
+                    }
+                }
             } finally {
                 pool.checkin(destination, clientRequestExecutor);
                 isComplete = true;
