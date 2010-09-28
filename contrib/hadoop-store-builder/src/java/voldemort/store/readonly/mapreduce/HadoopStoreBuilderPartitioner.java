@@ -39,9 +39,9 @@ public class HadoopStoreBuilderPartitioner extends Partitioner<BytesWritable, By
 
     @Override
     public int getPartition(BytesWritable key, BytesWritable value, int numPartitions) {
-        int nodeId = ByteUtils.readInt(value.getBytes(), 0);
+        int partitionId = ByteUtils.readInt(value.getBytes(), 4);
         int chunkId = ReadOnlyUtils.chunk(key.getBytes(), numChunks);
-        return (nodeId * numChunks + chunkId) % numPartitions;
+        return (partitionId * numChunks + chunkId) % numPartitions;
     }
 
     public Configuration getConf() {

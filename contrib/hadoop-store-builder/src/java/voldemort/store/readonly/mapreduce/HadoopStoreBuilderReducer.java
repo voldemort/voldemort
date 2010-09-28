@@ -56,6 +56,7 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
     private int numChunks = -1;
     private int nodeId = -1;
     private int chunkId = -1;
+    private int partitionId = -1;
     private Path taskIndexFileName;
     private Path taskValueFileName;
     private String outputDir;
@@ -77,6 +78,8 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
 
         if(this.nodeId == -1)
             this.nodeId = ByteUtils.readInt(valueBytes, 0);
+        if(this.partitionId == -1)
+            this.partitionId = ByteUtils.readInt(valueBytes, 4);
         if(this.chunkId == -1)
             this.chunkId = ReadOnlyUtils.chunk(key.getBytes(), this.numChunks);
 
@@ -89,12 +92,12 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
         }
 
         // Write length and value
-        int valueLength = writable.getLength() - 4;
+        int valueLength = writable.getLength() - 8;
         this.valueFileStream.writeInt(valueLength);
-        this.valueFileStream.write(valueBytes, 4, valueLength);
+        this.valueFileStream.write(valueBytes, 8, valueLength);
         if(this.checkSumDigestValue != null) {
             this.checkSumDigestValue.update(valueLength);
-            this.checkSumDigestValue.update(valueBytes, 4, valueLength);
+            this.checkSumDigestValue.update(valueBytes, 8, valueLength);
         }
         this.position += 4 + valueLength;
         if(this.position < 0)
@@ -148,14 +151,14 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
         this.indexFileStream.close();
         this.valueFileStream.close();
 
-        if(this.nodeId == -1 || this.chunkId == -1) {
+        if(this.nodeId == -1 || this.chunkId == -1 || this.partitionId == -1) {
             // No data was read in the reduce phase, do not create any output
             // directory (Also Issue 258)
             return;
         }
         Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
-        Path indexFile = new Path(nodeDir, this.chunkId + ".index");
-        Path valueFile = new Path(nodeDir, this.chunkId + ".data");
+        Path indexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".index");
+        Path valueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".data");
 
         // create output directory
         FileSystem fs = indexFile.getFileSystem(this.conf);
@@ -163,8 +166,10 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
 
         if(this.checkSumType != CheckSumType.NONE) {
             if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
-                Path checkSumIndexFile = new Path(nodeDir, this.chunkId + ".index.checksum");
-                Path checkSumValueFile = new Path(nodeDir, this.chunkId + ".data.checksum");
+                Path checkSumIndexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
+                                                           + ".index.checksum");
+                Path checkSumValueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
+                                                           + ".data.checksum");
 
                 FSDataOutputStream output = fs.create(checkSumIndexFile);
                 output.write(this.checkSumDigestIndex.getCheckSum());

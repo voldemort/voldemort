@@ -36,6 +36,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -48,6 +49,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.fetcher.HdfsFetcher;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.Versioned;
@@ -111,7 +113,6 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                           .setPreferredWrites(1)
                                                           .setRequiredWrites(1)
                                                           .build();
-
         HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
                                                             TextStoreMapper.class,
                                                             TextInputFormat.class,
@@ -146,22 +147,27 @@ public class HadoopStoreBuilderTest extends TestCase {
         DataInputStream in = new DataInputStream(new FileInputStream(checkSumFile));
         in.read(md5);
         in.close();
-        checkSumFile.delete();
 
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
         assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
-        // rename files
+        // check if fetching works
+        HdfsFetcher fetcher = new HdfsFetcher();
+
+        // Fetch to version directory
         File versionDir = new File(storeDir, "version-0");
-        versionDir.mkdirs();
-        assertTrue("Rename failed.", nodeFile.renameTo(versionDir));
+        fetcher.fetch(nodeFile.getAbsolutePath(), versionDir.getAbsolutePath());
+        assertTrue(versionDir.exists());
 
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
                                                                                       new BinarySearchStrategy(),
+                                                                                      new RoutingStrategyFactory().updateRoutingStrategy(def,
+                                                                                                                                         cluster),
+                                                                                      0,
                                                                                       storeDir,
                                                                                       1),
                                                             serializer,

@@ -166,8 +166,10 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
         if(this.checkSumType != CheckSumType.NONE) {
             if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
-                Path checkSumIndexFile = new Path(nodeDir, this.chunkId + ".index.checksum");
-                Path checkSumValueFile = new Path(nodeDir, this.chunkId + ".data.checksum");
+                Path checkSumIndexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
+                                                           + ".index.checksum");
+                Path checkSumValueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
+                                                           + ".data.checksum");
 
                 FSDataOutputStream output = fs.create(checkSumIndexFile);
                 output.write(this.checkSumDigestIndex.getCheckSum());
