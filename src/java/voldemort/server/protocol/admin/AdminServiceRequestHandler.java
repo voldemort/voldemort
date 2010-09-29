@@ -206,13 +206,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRollbackStore(request.getRollbackStore()));
                 break;
-            case GET_RO_MAX_VERSION:
+            case GET_RO_MAX_VERSION_DIR:
                 ProtoUtils.writeMessage(outputStream,
-                                        handleGetROMaxVersion(request.getGetRoMaxVersion()));
+                                        handleGetROMaxVersionDir(request.getGetRoMaxVersionDir()));
                 break;
-            case GET_RO_CURRENT_VERSION:
+            case GET_RO_CURRENT_VERSION_DIR:
                 ProtoUtils.writeMessage(outputStream,
-                                        handleGetROCurrentVersion(request.getGetRoCurrentVersion()));
+                                        handleGetROCurrentVersionDir(request.getGetRoCurrentVersionDir()));
                 break;
             case FETCH_PARTITION_FILES:
                 return handleFetchPartitionFiles(request.getFetchPartitionFiles());
@@ -224,19 +224,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return null;
     }
 
-    public VAdminProto.GetROCurrentVersionResponse handleGetROCurrentVersion(VAdminProto.GetROCurrentVersionRequest request) {
+    public VAdminProto.GetROCurrentVersionDirResponse handleGetROCurrentVersionDir(VAdminProto.GetROCurrentVersionDirRequest request) {
         final List<String> storeNames = request.getStoreNameList();
-        VAdminProto.GetROCurrentVersionResponse.Builder response = VAdminProto.GetROCurrentVersionResponse.newBuilder();
+        VAdminProto.GetROCurrentVersionDirResponse.Builder response = VAdminProto.GetROCurrentVersionDirResponse.newBuilder();
 
         try {
             for(String storeName: storeNames) {
 
                 ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
                                                                                        storeName);
-                VAdminProto.ROStoreVersionMap storeResponse = VAdminProto.ROStoreVersionMap.newBuilder()
-                                                                                           .setStoreName(storeName)
-                                                                                           .setPushVersion(store.getCurrentVersionId())
-                                                                                           .build();
+                VAdminProto.ROStoreVersionDirMap storeResponse = VAdminProto.ROStoreVersionDirMap.newBuilder()
+                                                                                                 .setStoreName(storeName)
+                                                                                                 .setStoreDir(store.getCurrentDirPath())
+                                                                                                 .build();
                 response.addRoStoreVersions(storeResponse);
             }
         } catch(VoldemortException e) {
@@ -247,9 +247,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.GetROMaxVersionResponse handleGetROMaxVersion(VAdminProto.GetROMaxVersionRequest request) {
+    public VAdminProto.GetROMaxVersionDirResponse handleGetROMaxVersionDir(VAdminProto.GetROMaxVersionDirRequest request) {
         final List<String> storeNames = request.getStoreNameList();
-        VAdminProto.GetROMaxVersionResponse.Builder response = VAdminProto.GetROMaxVersionResponse.newBuilder();
+        VAdminProto.GetROMaxVersionDirResponse.Builder response = VAdminProto.GetROMaxVersionDirResponse.newBuilder();
 
         try {
             for(String storeName: storeNames) {
@@ -267,10 +267,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                   versionDirs.length - 1,
                                                                   versionDirs.length - 1);
 
-                VAdminProto.ROStoreVersionMap storeResponse = VAdminProto.ROStoreVersionMap.newBuilder()
-                                                                                           .setStoreName(storeName)
-                                                                                           .setPushVersion(ReadOnlyUtils.getVersionId(kthDir[0]))
-                                                                                           .build();
+                VAdminProto.ROStoreVersionDirMap storeResponse = VAdminProto.ROStoreVersionDirMap.newBuilder()
+                                                                                                 .setStoreName(storeName)
+                                                                                                 .setStoreDir(kthDir[0].getAbsolutePath())
+                                                                                                 .build();
 
                 response.addRoStoreVersions(storeResponse);
             }
@@ -466,8 +466,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     if(fileFetcher == null) {
 
-                        logger.warn("File fetcher class has not instantiated correctly");
-                        fetchDir = new File(fetchUrl);
+                        logger.warn("File fetcher class has not instantiated correctly. Assuming local file");
+
+                        if(!Utils.isReadableDir(fetchUrl)) {
+                            throw new VoldemortException("Fetch url " + fetchUrl
+                                                         + " is not readable");
+                        }
+
+                        fetchDir = new File(store.getStoreDirPath(), "version-"
+                                                                     + Long.toString(pushVersion));
+                        Utils.move(new File(fetchUrl), fetchDir);
 
                     } else {
 
@@ -477,7 +485,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()
                                                                    + File.separator + "version-"
-                                                                   + pushVersion);
+                                                                   + Long.toString(pushVersion));
                             updateStatus("Completed fetch of " + fetchUrl);
 
                             if(fetchDir == null) {

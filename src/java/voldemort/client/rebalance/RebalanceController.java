@@ -141,8 +141,9 @@ public class RebalanceController {
         currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
         adminClient.setAdminClientCluster(currentCluster);
 
-        // Maintain nodeId to map of read-only store name to version ids
-        Map<Integer, Map<String, Long>> currentROStoreVersions = Maps.newHashMapWithExpectedSize(storesList.size());
+        // Maintain nodeId to map of read-only store name to current version
+        // dirs
+        final Map<Integer, Map<String, String>> currentROStoreVersionsDirs = Maps.newHashMapWithExpectedSize(storesList.size());
 
         // Retrieve list of read-only stores
         List<String> readOnlyStores = Lists.newArrayList();
@@ -152,13 +153,13 @@ public class RebalanceController {
             }
         }
 
-        // Retrieve current versions for all nodes (old + new), required for
-        // swapping at end
+        // Retrieve current versions dirs for all nodes (old + new), required
+        // for swapping at end
         if(readOnlyStores.size() > 0) {
-            for(Node node: targetCluster.getNodes()) {
-                currentROStoreVersions.put(node.getId(),
-                                           adminClient.getROCurrentVersion(node.getId(),
-                                                                           readOnlyStores));
+            for(Node node: currentCluster.getNodes()) {
+                currentROStoreVersionsDirs.put(node.getId(),
+                                               adminClient.getROCurrentVersionDir(node.getId(),
+                                                                                  readOnlyStores));
             }
         }
 
@@ -256,9 +257,40 @@ public class RebalanceController {
 
             });
         }// for (nThreads ..
-        executorShutDown(executor);
 
-        // TODO: Swap the read-only stores
+        try {
+            executorShutDown(executor);
+        } catch(Exception e) {
+            logger.error("Interrupted rebalance executor ", e);
+            return;
+        }
+
+        // If all successful, swap the read-only stores
+        if(readOnlyStores.size() > 0) {
+            ExecutorService swapExecutors = createExecutors(targetCluster.getNumberOfNodes());
+            for(final Node node: targetCluster.getNodes()) {
+                swapExecutors.submit(new Runnable() {
+
+                    public void run() {
+                        Map<String, String> storeDirs = currentROStoreVersionsDirs.get(node.getId());
+                        for(String storeName: storeDirs.keySet()) {
+                            logger.info("Swapping " + storeName + " on node " + node.getId());
+                            adminClient.swapStore(node.getId(), storeName, storeDirs.get(storeName));
+                            logger.info("Successfully swapped " + storeName + " on node "
+                                        + node.getId());
+                        }
+                    }
+                });
+            }
+
+            try {
+                executorShutDown(swapExecutors);
+            } catch(Exception e) {
+                logger.error("Interrupted swapping executor ", e);
+                return;
+            }
+        }
+
     }
 
     private int startNodeRebalancing(RebalancePartitionsInfo rebalanceSubTask) {

@@ -98,6 +98,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
         REBALANCING_MASTER_SERVER,
     }
 
+    public static enum StoreState {
+        NORMAL,
+        REBALANCING
+    }
+
     private final Store<String, String> innerStore;
     private final HashMap<String, Versioned<Object>> metadataCache;
 
@@ -332,6 +337,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public RebalancerState getRebalancerState() {
         return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+    }
+
+    public StoreState getStoreState(String storeName) {
+        List<RebalancePartitionsInfo> plans = getRebalancerState().find(storeName);
+        if(plans.isEmpty())
+            return StoreState.NORMAL;
+        else
+            return StoreState.REBALANCING;
     }
 
     @SuppressWarnings("unchecked")

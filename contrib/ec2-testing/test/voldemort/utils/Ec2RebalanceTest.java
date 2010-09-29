@@ -178,10 +178,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         currentCluster = startServers(currentCluster, storeDefFile, serverList, null);
         targetCluster = updateCluster(targetCluster);
 
-        populateData(currentCluster, Arrays.asList(0));
-
         AdminClient adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
                                                   new AdminClientConfig());
+        populateData(currentCluster, Arrays.asList(0), adminClient);
+
         RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
                                                                                       0,
                                                                                       Arrays.asList(2,

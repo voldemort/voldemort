@@ -67,7 +67,7 @@ public class ReadOnlyStorageEngineTestInstance {
         return data;
     }
 
-    private static JsonReader makeTestDataReader(Map<String, String> data, File dir)
+    public static JsonReader makeTestDataReader(Map<String, String> data, File dir)
             throws Exception {
         File dataFile = File.createTempFile("test-data", ".txt", dir);
         dataFile.deleteOnExit();

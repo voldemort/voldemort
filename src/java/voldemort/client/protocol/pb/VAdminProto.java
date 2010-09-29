@@ -25,8 +25,8 @@ public final class VAdminProto {
     FETCH_STORE(13, 13),
     SWAP_STORE(14, 14),
     ROLLBACK_STORE(15, 15),
-    GET_RO_MAX_VERSION(16, 16),
-    GET_RO_CURRENT_VERSION(17, 17),
+    GET_RO_MAX_VERSION_DIR(16, 16),
+    GET_RO_CURRENT_VERSION_DIR(17, 17),
     FETCH_PARTITION_FILES(18, 18),
     ;
     
@@ -51,8 +51,8 @@ public final class VAdminProto {
         case 13: return FETCH_STORE;
         case 14: return SWAP_STORE;
         case 15: return ROLLBACK_STORE;
-        case 16: return GET_RO_MAX_VERSION;
-        case 17: return GET_RO_CURRENT_VERSION;
+        case 16: return GET_RO_MAX_VERSION_DIR;
+        case 17: return GET_RO_CURRENT_VERSION_DIR;
         case 18: return FETCH_PARTITION_FILES;
         default: return null;
       }
@@ -84,7 +84,7 @@ public final class VAdminProto {
     }
     
     private static final AdminRequestType[] VALUES = {
-      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION, GET_RO_CURRENT_VERSION, FETCH_PARTITION_FILES, 
+      GET_METADATA, UPDATE_METADATA, UPDATE_PARTITION_ENTRIES, FETCH_PARTITION_ENTRIES, DELETE_PARTITION_ENTRIES, INITIATE_FETCH_AND_UPDATE, ASYNC_OPERATION_STATUS, INITIATE_REBALANCE_NODE, ASYNC_OPERATION_STOP, ASYNC_OPERATION_LIST, TRUNCATE_ENTRIES, ADD_STORE, DELETE_STORE, FETCH_STORE, SWAP_STORE, ROLLBACK_STORE, GET_RO_MAX_VERSION_DIR, GET_RO_CURRENT_VERSION_DIR, FETCH_PARTITION_FILES, 
     };
     public static AdminRequestType valueOf(
         com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
@@ -6990,317 +6990,6 @@ public final class VAdminProto {
     }
   }
   
-  public static final class ROStoreVersionMap extends
-      com.google.protobuf.GeneratedMessage {
-    // Use ROStoreVersionMap.newBuilder() to construct.
-    private ROStoreVersionMap() {}
-    
-    private static final ROStoreVersionMap defaultInstance = new ROStoreVersionMap();
-    public static ROStoreVersionMap getDefaultInstance() {
-      return defaultInstance;
-    }
-    
-    public ROStoreVersionMap getDefaultInstanceForType() {
-      return defaultInstance;
-    }
-    
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionMap_descriptor;
-    }
-    
-    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionMap_fieldAccessorTable;
-    }
-    
-    // required string store_name = 1;
-    public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private boolean hasStoreName;
-    private java.lang.String storeName_ = "";
-    public boolean hasStoreName() { return hasStoreName; }
-    public java.lang.String getStoreName() { return storeName_; }
-    
-    // required int64 push_version = 2;
-    public static final int PUSH_VERSION_FIELD_NUMBER = 2;
-    private boolean hasPushVersion;
-    private long pushVersion_ = 0L;
-    public boolean hasPushVersion() { return hasPushVersion; }
-    public long getPushVersion() { return pushVersion_; }
-    
-    public final boolean isInitialized() {
-      if (!hasStoreName) return false;
-      if (!hasPushVersion) return false;
-      return true;
-    }
-    
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (hasStoreName()) {
-        output.writeString(1, getStoreName());
-      }
-      if (hasPushVersion()) {
-        output.writeInt64(2, getPushVersion());
-      }
-      getUnknownFields().writeTo(output);
-    }
-    
-    private int memoizedSerializedSize = -1;
-    public int getSerializedSize() {
-      int size = memoizedSerializedSize;
-      if (size != -1) return size;
-    
-      size = 0;
-      if (hasStoreName()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeStringSize(1, getStoreName());
-      }
-      if (hasPushVersion()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(2, getPushVersion());
-      }
-      size += getUnknownFields().getSerializedSize();
-      memoizedSerializedSize = size;
-      return size;
-    }
-    
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data).buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data, extensionRegistry)
-               .buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data).buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return newBuilder().mergeFrom(data, extensionRegistry)
-               .buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return newBuilder().mergeFrom(input).buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return newBuilder().mergeFrom(input, extensionRegistry)
-               .buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return newBuilder().mergeDelimitedFrom(input).buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
-               .buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return newBuilder().mergeFrom(input).buildParsed();
-    }
-    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return newBuilder().mergeFrom(input, extensionRegistry)
-               .buildParsed();
-    }
-    
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap prototype) {
-      return newBuilder().mergeFrom(prototype);
-    }
-    public Builder toBuilder() { return newBuilder(this); }
-    
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap result;
-      
-      // Construct using voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.newBuilder()
-      private Builder() {}
-      
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap();
-        return builder;
-      }
-      
-      protected voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap internalGetResult() {
-        return result;
-      }
-      
-      public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
-        result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap();
-        return this;
-      }
-      
-      public Builder clone() {
-        return create().mergeFrom(result);
-      }
-      
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.getDescriptor();
-      }
-      
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.getDefaultInstance();
-      }
-      
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap build() {
-        if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return buildPartial();
-      }
-      
-      private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap buildParsed()
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        if (!isInitialized()) {
-          throw newUninitializedMessageException(
-            result).asInvalidProtocolBufferException();
-        }
-        return buildPartial();
-      }
-      
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap buildPartial() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
-        voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap returnMe = result;
-        result = null;
-        return returnMe;
-      }
-      
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-      
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.getDefaultInstance()) return this;
-        if (other.hasStoreName()) {
-          setStoreName(other.getStoreName());
-        }
-        if (other.hasPushVersion()) {
-          setPushVersion(other.getPushVersion());
-        }
-        this.mergeUnknownFields(other.getUnknownFields());
-        return this;
-      }
-      
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder(
-            this.getUnknownFields());
-        while (true) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              this.setUnknownFields(unknownFields.build());
-              return this;
-            default: {
-              if (!parseUnknownField(input, unknownFields,
-                                     extensionRegistry, tag)) {
-                this.setUnknownFields(unknownFields.build());
-                return this;
-              }
-              break;
-            }
-            case 10: {
-              setStoreName(input.readString());
-              break;
-            }
-            case 16: {
-              setPushVersion(input.readInt64());
-              break;
-            }
-          }
-        }
-      }
-      
-      
-      // required string store_name = 1;
-      public boolean hasStoreName() {
-        return result.hasStoreName();
-      }
-      public java.lang.String getStoreName() {
-        return result.getStoreName();
-      }
-      public Builder setStoreName(java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  result.hasStoreName = true;
-        result.storeName_ = value;
-        return this;
-      }
-      public Builder clearStoreName() {
-        result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
-        return this;
-      }
-      
-      // required int64 push_version = 2;
-      public boolean hasPushVersion() {
-        return result.hasPushVersion();
-      }
-      public long getPushVersion() {
-        return result.getPushVersion();
-      }
-      public Builder setPushVersion(long value) {
-        result.hasPushVersion = true;
-        result.pushVersion_ = value;
-        return this;
-      }
-      public Builder clearPushVersion() {
-        result.hasPushVersion = false;
-        result.pushVersion_ = 0L;
-        return this;
-      }
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
-  }
-  
   public static final class InitiateRebalanceNodeRequest extends
       com.google.protobuf.GeneratedMessage {
     // Use InitiateRebalanceNodeRequest.newBuilder() to construct.
@@ -11660,28 +11349,342 @@ public final class VAdminProto {
     }
   }
   
-  public static final class GetROMaxVersionRequest extends
+  public static final class ROStoreVersionDirMap extends
       com.google.protobuf.GeneratedMessage {
-    // Use GetROMaxVersionRequest.newBuilder() to construct.
-    private GetROMaxVersionRequest() {}
+    // Use ROStoreVersionDirMap.newBuilder() to construct.
+    private ROStoreVersionDirMap() {}
     
-    private static final GetROMaxVersionRequest defaultInstance = new GetROMaxVersionRequest();
-    public static GetROMaxVersionRequest getDefaultInstance() {
+    private static final ROStoreVersionDirMap defaultInstance = new ROStoreVersionDirMap();
+    public static ROStoreVersionDirMap getDefaultInstance() {
       return defaultInstance;
     }
     
-    public GetROMaxVersionRequest getDefaultInstanceForType() {
+    public ROStoreVersionDirMap getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionRequest_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionDirMap_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionRequest_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionDirMap_fieldAccessorTable;
+    }
+    
+    // required string store_name = 1;
+    public static final int STORE_NAME_FIELD_NUMBER = 1;
+    private boolean hasStoreName;
+    private java.lang.String storeName_ = "";
+    public boolean hasStoreName() { return hasStoreName; }
+    public java.lang.String getStoreName() { return storeName_; }
+    
+    // required string store_dir = 2;
+    public static final int STORE_DIR_FIELD_NUMBER = 2;
+    private boolean hasStoreDir;
+    private java.lang.String storeDir_ = "";
+    public boolean hasStoreDir() { return hasStoreDir; }
+    public java.lang.String getStoreDir() { return storeDir_; }
+    
+    public final boolean isInitialized() {
+      if (!hasStoreName) return false;
+      if (!hasStoreDir) return false;
+      return true;
+    }
+    
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (hasStoreName()) {
+        output.writeString(1, getStoreName());
+      }
+      if (hasStoreDir()) {
+        output.writeString(2, getStoreDir());
+      }
+      getUnknownFields().writeTo(output);
+    }
+    
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+    
+      size = 0;
+      if (hasStoreName()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeStringSize(1, getStoreName());
+      }
+      if (hasStoreDir()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeStringSize(2, getStoreDir());
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+    
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return newBuilder().mergeFrom(data, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input).buildParsed();
+    }
+    public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return newBuilder().mergeFrom(input, extensionRegistry)
+               .buildParsed();
+    }
+    
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+    
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder> {
+      private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap result;
+      
+      // Construct using voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder()
+      private Builder() {}
+      
+      private static Builder create() {
+        Builder builder = new Builder();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap();
+        return builder;
+      }
+      
+      protected voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap internalGetResult() {
+        return result;
+      }
+      
+      public Builder clear() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "Cannot call clear() after build().");
+        }
+        result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap();
+        return this;
+      }
+      
+      public Builder clone() {
+        return create().mergeFrom(result);
+      }
+      
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.getDescriptor();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.getDefaultInstance();
+      }
+      
+      public boolean isInitialized() {
+        return result.isInitialized();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap build() {
+        if (result != null && !isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return buildPartial();
+      }
+      
+      private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap buildParsed()
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        if (!isInitialized()) {
+          throw newUninitializedMessageException(
+            result).asInvalidProtocolBufferException();
+        }
+        return buildPartial();
+      }
+      
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap buildPartial() {
+        if (result == null) {
+          throw new IllegalStateException(
+            "build() has already been called on this Builder.");
+        }
+        voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap returnMe = result;
+        result = null;
+        return returnMe;
+      }
+      
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+      
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.getDefaultInstance()) return this;
+        if (other.hasStoreName()) {
+          setStoreName(other.getStoreName());
+        }
+        if (other.hasStoreDir()) {
+          setStoreDir(other.getStoreDir());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+      
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder(
+            this.getUnknownFields());
+        while (true) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              this.setUnknownFields(unknownFields.build());
+              return this;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                this.setUnknownFields(unknownFields.build());
+                return this;
+              }
+              break;
+            }
+            case 10: {
+              setStoreName(input.readString());
+              break;
+            }
+            case 18: {
+              setStoreDir(input.readString());
+              break;
+            }
+          }
+        }
+      }
+      
+      
+      // required string store_name = 1;
+      public boolean hasStoreName() {
+        return result.hasStoreName();
+      }
+      public java.lang.String getStoreName() {
+        return result.getStoreName();
+      }
+      public Builder setStoreName(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasStoreName = true;
+        result.storeName_ = value;
+        return this;
+      }
+      public Builder clearStoreName() {
+        result.hasStoreName = false;
+        result.storeName_ = getDefaultInstance().getStoreName();
+        return this;
+      }
+      
+      // required string store_dir = 2;
+      public boolean hasStoreDir() {
+        return result.hasStoreDir();
+      }
+      public java.lang.String getStoreDir() {
+        return result.getStoreDir();
+      }
+      public Builder setStoreDir(java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  result.hasStoreDir = true;
+        result.storeDir_ = value;
+        return this;
+      }
+      public Builder clearStoreDir() {
+        result.hasStoreDir = false;
+        result.storeDir_ = getDefaultInstance().getStoreDir();
+        return this;
+      }
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.getDescriptor();
+    }
+    
+    static {
+      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
+    }
+  }
+  
+  public static final class GetROMaxVersionDirRequest extends
+      com.google.protobuf.GeneratedMessage {
+    // Use GetROMaxVersionDirRequest.newBuilder() to construct.
+    private GetROMaxVersionDirRequest() {}
+    
+    private static final GetROMaxVersionDirRequest defaultInstance = new GetROMaxVersionDirRequest();
+    public static GetROMaxVersionDirRequest getDefaultInstance() {
+      return defaultInstance;
+    }
+    
+    public GetROMaxVersionDirRequest getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+    
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirRequest_descriptor;
+    }
+    
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirRequest_fieldAccessorTable;
     }
     
     // repeated string store_name = 1;
@@ -11728,57 +11731,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -11788,25 +11791,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest result;
+      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest internalGetResult() {
         return result;
       }
       
@@ -11815,7 +11818,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest();
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest();
         return this;
       }
       
@@ -11825,24 +11828,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest build() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -11851,7 +11854,7 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
@@ -11860,22 +11863,22 @@ public final class VAdminProto {
           result.storeName_ =
             java.util.Collections.unmodifiableList(result.storeName_);
         }
-        voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance()) return this;
         if (!other.storeName_.isEmpty()) {
           if (result.storeName_.isEmpty()) {
             result.storeName_ = new java.util.ArrayList<java.lang.String>();
@@ -11966,39 +11969,39 @@ public final class VAdminProto {
     }
   }
   
-  public static final class GetROMaxVersionResponse extends
+  public static final class GetROMaxVersionDirResponse extends
       com.google.protobuf.GeneratedMessage {
-    // Use GetROMaxVersionResponse.newBuilder() to construct.
-    private GetROMaxVersionResponse() {}
+    // Use GetROMaxVersionDirResponse.newBuilder() to construct.
+    private GetROMaxVersionDirResponse() {}
     
-    private static final GetROMaxVersionResponse defaultInstance = new GetROMaxVersionResponse();
-    public static GetROMaxVersionResponse getDefaultInstance() {
+    private static final GetROMaxVersionDirResponse defaultInstance = new GetROMaxVersionDirResponse();
+    public static GetROMaxVersionDirResponse getDefaultInstance() {
       return defaultInstance;
     }
     
-    public GetROMaxVersionResponse getDefaultInstanceForType() {
+    public GetROMaxVersionDirResponse getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionResponse_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirResponse_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionResponse_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirResponse_fieldAccessorTable;
     }
     
-    // repeated .voldemort.ROStoreVersionMap ro_store_versions = 1;
+    // repeated .voldemort.ROStoreVersionDirMap ro_store_versions = 1;
     public static final int RO_STORE_VERSIONS_FIELD_NUMBER = 1;
-    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> roStoreVersions_ =
+    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> roStoreVersions_ =
       java.util.Collections.emptyList();
-    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> getRoStoreVersionsList() {
+    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getRoStoreVersionsList() {
       return roStoreVersions_;
     }
     public int getRoStoreVersionsCount() { return roStoreVersions_.size(); }
-    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap getRoStoreVersions(int index) {
+    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getRoStoreVersions(int index) {
       return roStoreVersions_.get(index);
     }
     
@@ -12010,7 +12013,7 @@ public final class VAdminProto {
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
     public final boolean isInitialized() {
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         if (!element.isInitialized()) return false;
       }
       if (hasError()) {
@@ -12021,7 +12024,7 @@ public final class VAdminProto {
     
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         output.writeMessage(1, element);
       }
       if (hasError()) {
@@ -12036,7 +12039,7 @@ public final class VAdminProto {
       if (size != -1) return size;
     
       size = 0;
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, element);
       }
@@ -12049,57 +12052,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -12109,25 +12112,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse result;
+      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse internalGetResult() {
         return result;
       }
       
@@ -12136,7 +12139,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse();
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse();
         return this;
       }
       
@@ -12146,24 +12149,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse build() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -12172,7 +12175,7 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
@@ -12181,25 +12184,25 @@ public final class VAdminProto {
           result.roStoreVersions_ =
             java.util.Collections.unmodifiableList(result.roStoreVersions_);
         }
-        voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.getDefaultInstance()) return this;
         if (!other.roStoreVersions_.isEmpty()) {
           if (result.roStoreVersions_.isEmpty()) {
-            result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+            result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
           }
           result.roStoreVersions_.addAll(other.roStoreVersions_);
         }
@@ -12232,7 +12235,7 @@ public final class VAdminProto {
               break;
             }
             case 10: {
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.newBuilder();
+              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
               input.readMessage(subBuilder, extensionRegistry);
               addRoStoreVersions(subBuilder.buildPartial());
               break;
@@ -12251,48 +12254,48 @@ public final class VAdminProto {
       }
       
       
-      // repeated .voldemort.ROStoreVersionMap ro_store_versions = 1;
-      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> getRoStoreVersionsList() {
+      // repeated .voldemort.ROStoreVersionDirMap ro_store_versions = 1;
+      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getRoStoreVersionsList() {
         return java.util.Collections.unmodifiableList(result.roStoreVersions_);
       }
       public int getRoStoreVersionsCount() {
         return result.getRoStoreVersionsCount();
       }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap getRoStoreVersions(int index) {
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getRoStoreVersions(int index) {
         return result.getRoStoreVersions(index);
       }
-      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap value) {
+      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
         result.roStoreVersions_.set(index, value);
         return this;
       }
-      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder builderForValue) {
+      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
         result.roStoreVersions_.set(index, builderForValue.build());
         return this;
       }
-      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap value) {
+      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         result.roStoreVersions_.add(value);
         return this;
       }
-      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder builderForValue) {
+      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         result.roStoreVersions_.add(builderForValue.build());
         return this;
       }
       public Builder addAllRoStoreVersions(
-          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> values) {
+          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         super.addAll(values, result.roStoreVersions_);
         return this;
@@ -12349,28 +12352,28 @@ public final class VAdminProto {
     }
   }
   
-  public static final class GetROCurrentVersionRequest extends
+  public static final class GetROCurrentVersionDirRequest extends
       com.google.protobuf.GeneratedMessage {
-    // Use GetROCurrentVersionRequest.newBuilder() to construct.
-    private GetROCurrentVersionRequest() {}
+    // Use GetROCurrentVersionDirRequest.newBuilder() to construct.
+    private GetROCurrentVersionDirRequest() {}
     
-    private static final GetROCurrentVersionRequest defaultInstance = new GetROCurrentVersionRequest();
-    public static GetROCurrentVersionRequest getDefaultInstance() {
+    private static final GetROCurrentVersionDirRequest defaultInstance = new GetROCurrentVersionDirRequest();
+    public static GetROCurrentVersionDirRequest getDefaultInstance() {
       return defaultInstance;
     }
     
-    public GetROCurrentVersionRequest getDefaultInstanceForType() {
+    public GetROCurrentVersionDirRequest getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionRequest_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirRequest_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionRequest_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirRequest_fieldAccessorTable;
     }
     
     // repeated string store_name = 1;
@@ -12417,57 +12420,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -12477,25 +12480,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest result;
+      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest internalGetResult() {
         return result;
       }
       
@@ -12504,7 +12507,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest();
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest();
         return this;
       }
       
@@ -12514,24 +12517,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest build() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -12540,7 +12543,7 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
@@ -12549,22 +12552,22 @@ public final class VAdminProto {
           result.storeName_ =
             java.util.Collections.unmodifiableList(result.storeName_);
         }
-        voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance()) return this;
         if (!other.storeName_.isEmpty()) {
           if (result.storeName_.isEmpty()) {
             result.storeName_ = new java.util.ArrayList<java.lang.String>();
@@ -12655,39 +12658,39 @@ public final class VAdminProto {
     }
   }
   
-  public static final class GetROCurrentVersionResponse extends
+  public static final class GetROCurrentVersionDirResponse extends
       com.google.protobuf.GeneratedMessage {
-    // Use GetROCurrentVersionResponse.newBuilder() to construct.
-    private GetROCurrentVersionResponse() {}
+    // Use GetROCurrentVersionDirResponse.newBuilder() to construct.
+    private GetROCurrentVersionDirResponse() {}
     
-    private static final GetROCurrentVersionResponse defaultInstance = new GetROCurrentVersionResponse();
-    public static GetROCurrentVersionResponse getDefaultInstance() {
+    private static final GetROCurrentVersionDirResponse defaultInstance = new GetROCurrentVersionDirResponse();
+    public static GetROCurrentVersionDirResponse getDefaultInstance() {
       return defaultInstance;
     }
     
-    public GetROCurrentVersionResponse getDefaultInstanceForType() {
+    public GetROCurrentVersionDirResponse getDefaultInstanceForType() {
       return defaultInstance;
     }
     
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionResponse_descriptor;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirResponse_descriptor;
     }
     
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionResponse_fieldAccessorTable;
+      return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirResponse_fieldAccessorTable;
     }
     
-    // repeated .voldemort.ROStoreVersionMap ro_store_versions = 1;
+    // repeated .voldemort.ROStoreVersionDirMap ro_store_versions = 1;
     public static final int RO_STORE_VERSIONS_FIELD_NUMBER = 1;
-    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> roStoreVersions_ =
+    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> roStoreVersions_ =
       java.util.Collections.emptyList();
-    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> getRoStoreVersionsList() {
+    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getRoStoreVersionsList() {
       return roStoreVersions_;
     }
     public int getRoStoreVersionsCount() { return roStoreVersions_.size(); }
-    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap getRoStoreVersions(int index) {
+    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getRoStoreVersions(int index) {
       return roStoreVersions_.get(index);
     }
     
@@ -12699,7 +12702,7 @@ public final class VAdminProto {
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
     public final boolean isInitialized() {
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         if (!element.isInitialized()) return false;
       }
       if (hasError()) {
@@ -12710,7 +12713,7 @@ public final class VAdminProto {
     
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         output.writeMessage(1, element);
       }
       if (hasError()) {
@@ -12725,7 +12728,7 @@ public final class VAdminProto {
       if (size != -1) return size;
     
       size = 0;
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap element : getRoStoreVersionsList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, element);
       }
@@ -12738,57 +12741,57 @@ public final class VAdminProto {
       return size;
     }
     
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(byte[] data)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseDelimitedFrom(java.io.InputStream input)
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseDelimitedFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input).buildParsed();
     }
-    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse parseFrom(
+    public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -12798,25 +12801,25 @@ public final class VAdminProto {
     
     public static Builder newBuilder() { return Builder.create(); }
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse prototype) {
+    public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse prototype) {
       return newBuilder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse result;
+      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse result;
       
-      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.newBuilder()
+      // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.newBuilder()
       private Builder() {}
       
       private static Builder create() {
         Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse();
+        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse();
         return builder;
       }
       
-      protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse internalGetResult() {
+      protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse internalGetResult() {
         return result;
       }
       
@@ -12825,7 +12828,7 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "Cannot call clear() after build().");
         }
-        result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse();
+        result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse();
         return this;
       }
       
@@ -12835,24 +12838,24 @@ public final class VAdminProto {
       
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.getDescriptor();
+        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.getDescriptor();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse getDefaultInstanceForType() {
-        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.getDefaultInstance();
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse getDefaultInstanceForType() {
+        return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.getDefaultInstance();
       }
       
       public boolean isInitialized() {
         return result.isInitialized();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse build() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse build() {
         if (result != null && !isInitialized()) {
           throw newUninitializedMessageException(result);
         }
         return buildPartial();
       }
       
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse buildParsed()
+      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
           throw newUninitializedMessageException(
@@ -12861,7 +12864,7 @@ public final class VAdminProto {
         return buildPartial();
       }
       
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse buildPartial() {
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
@@ -12870,25 +12873,25 @@ public final class VAdminProto {
           result.roStoreVersions_ =
             java.util.Collections.unmodifiableList(result.roStoreVersions_);
         }
-        voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse returnMe = result;
+        voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse) {
-          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse)other);
+        if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse) {
+          return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
       
-      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse other) {
-        if (other == voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.getDefaultInstance()) return this;
+      public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse other) {
+        if (other == voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.getDefaultInstance()) return this;
         if (!other.roStoreVersions_.isEmpty()) {
           if (result.roStoreVersions_.isEmpty()) {
-            result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+            result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
           }
           result.roStoreVersions_.addAll(other.roStoreVersions_);
         }
@@ -12921,7 +12924,7 @@ public final class VAdminProto {
               break;
             }
             case 10: {
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.newBuilder();
+              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
               input.readMessage(subBuilder, extensionRegistry);
               addRoStoreVersions(subBuilder.buildPartial());
               break;
@@ -12940,48 +12943,48 @@ public final class VAdminProto {
       }
       
       
-      // repeated .voldemort.ROStoreVersionMap ro_store_versions = 1;
-      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> getRoStoreVersionsList() {
+      // repeated .voldemort.ROStoreVersionDirMap ro_store_versions = 1;
+      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getRoStoreVersionsList() {
         return java.util.Collections.unmodifiableList(result.roStoreVersions_);
       }
       public int getRoStoreVersionsCount() {
         return result.getRoStoreVersionsCount();
       }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap getRoStoreVersions(int index) {
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getRoStoreVersions(int index) {
         return result.getRoStoreVersions(index);
       }
-      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap value) {
+      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
         result.roStoreVersions_.set(index, value);
         return this;
       }
-      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder builderForValue) {
+      public Builder setRoStoreVersions(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
         result.roStoreVersions_.set(index, builderForValue.build());
         return this;
       }
-      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap value) {
+      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         result.roStoreVersions_.add(value);
         return this;
       }
-      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder builderForValue) {
+      public Builder addRoStoreVersions(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         result.roStoreVersions_.add(builderForValue.build());
         return this;
       }
       public Builder addAllRoStoreVersions(
-          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap> values) {
+          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
         if (result.roStoreVersions_.isEmpty()) {
-          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap>();
+          result.roStoreVersions_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
         super.addAll(values, result.roStoreVersions_);
         return this;
@@ -13181,19 +13184,19 @@ public final class VAdminProto {
     public boolean hasRollbackStore() { return hasRollbackStore; }
     public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest getRollbackStore() { return rollbackStore_; }
     
-    // optional .voldemort.GetROMaxVersionRequest get_ro_max_version = 18;
-    public static final int GET_RO_MAX_VERSION_FIELD_NUMBER = 18;
-    private boolean hasGetRoMaxVersion;
-    private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest getRoMaxVersion_ = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDefaultInstance();
-    public boolean hasGetRoMaxVersion() { return hasGetRoMaxVersion; }
-    public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest getGetRoMaxVersion() { return getRoMaxVersion_; }
+    // optional .voldemort.GetROMaxVersionDirRequest get_ro_max_version_dir = 18;
+    public static final int GET_RO_MAX_VERSION_DIR_FIELD_NUMBER = 18;
+    private boolean hasGetRoMaxVersionDir;
+    private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest getRoMaxVersionDir_ = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance();
+    public boolean hasGetRoMaxVersionDir() { return hasGetRoMaxVersionDir; }
+    public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest getGetRoMaxVersionDir() { return getRoMaxVersionDir_; }
     
-    // optional .voldemort.GetROCurrentVersionRequest get_ro_current_version = 19;
-    public static final int GET_RO_CURRENT_VERSION_FIELD_NUMBER = 19;
-    private boolean hasGetRoCurrentVersion;
-    private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest getRoCurrentVersion_ = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDefaultInstance();
-    public boolean hasGetRoCurrentVersion() { return hasGetRoCurrentVersion; }
-    public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest getGetRoCurrentVersion() { return getRoCurrentVersion_; }
+    // optional .voldemort.GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
+    public static final int GET_RO_CURRENT_VERSION_DIR_FIELD_NUMBER = 19;
+    private boolean hasGetRoCurrentVersionDir;
+    private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest getRoCurrentVersionDir_ = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance();
+    public boolean hasGetRoCurrentVersionDir() { return hasGetRoCurrentVersionDir; }
+    public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest getGetRoCurrentVersionDir() { return getRoCurrentVersionDir_; }
     
     // optional .voldemort.FetchPartitionFilesRequest fetch_partition_files = 20;
     public static final int FETCH_PARTITION_FILES_FIELD_NUMBER = 20;
@@ -13311,11 +13314,11 @@ public final class VAdminProto {
       if (hasRollbackStore()) {
         output.writeMessage(17, getRollbackStore());
       }
-      if (hasGetRoMaxVersion()) {
-        output.writeMessage(18, getGetRoMaxVersion());
+      if (hasGetRoMaxVersionDir()) {
+        output.writeMessage(18, getGetRoMaxVersionDir());
       }
-      if (hasGetRoCurrentVersion()) {
-        output.writeMessage(19, getGetRoCurrentVersion());
+      if (hasGetRoCurrentVersionDir()) {
+        output.writeMessage(19, getGetRoCurrentVersionDir());
       }
       if (hasFetchPartitionFiles()) {
         output.writeMessage(20, getFetchPartitionFiles());
@@ -13397,13 +13400,13 @@ public final class VAdminProto {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(17, getRollbackStore());
       }
-      if (hasGetRoMaxVersion()) {
+      if (hasGetRoMaxVersionDir()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(18, getGetRoMaxVersion());
+          .computeMessageSize(18, getGetRoMaxVersionDir());
       }
-      if (hasGetRoCurrentVersion()) {
+      if (hasGetRoCurrentVersionDir()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(19, getGetRoCurrentVersion());
+          .computeMessageSize(19, getGetRoCurrentVersionDir());
       }
       if (hasFetchPartitionFiles()) {
         size += com.google.protobuf.CodedOutputStream
@@ -13609,11 +13612,11 @@ public final class VAdminProto {
         if (other.hasRollbackStore()) {
           mergeRollbackStore(other.getRollbackStore());
         }
-        if (other.hasGetRoMaxVersion()) {
-          mergeGetRoMaxVersion(other.getGetRoMaxVersion());
+        if (other.hasGetRoMaxVersionDir()) {
+          mergeGetRoMaxVersionDir(other.getGetRoMaxVersionDir());
         }
-        if (other.hasGetRoCurrentVersion()) {
-          mergeGetRoCurrentVersion(other.getGetRoCurrentVersion());
+        if (other.hasGetRoCurrentVersionDir()) {
+          mergeGetRoCurrentVersionDir(other.getGetRoCurrentVersionDir());
         }
         if (other.hasFetchPartitionFiles()) {
           mergeFetchPartitionFiles(other.getFetchPartitionFiles());
@@ -13798,21 +13801,21 @@ public final class VAdminProto {
               break;
             }
             case 146: {
-              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.newBuilder();
-              if (hasGetRoMaxVersion()) {
-                subBuilder.mergeFrom(getGetRoMaxVersion());
+              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.newBuilder();
+              if (hasGetRoMaxVersionDir()) {
+                subBuilder.mergeFrom(getGetRoMaxVersionDir());
               }
               input.readMessage(subBuilder, extensionRegistry);
-              setGetRoMaxVersion(subBuilder.buildPartial());
+              setGetRoMaxVersionDir(subBuilder.buildPartial());
               break;
             }
             case 154: {
-              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.newBuilder();
-              if (hasGetRoCurrentVersion()) {
-                subBuilder.mergeFrom(getGetRoCurrentVersion());
+              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.newBuilder();
+              if (hasGetRoCurrentVersionDir()) {
+                subBuilder.mergeFrom(getGetRoCurrentVersionDir());
               }
               input.readMessage(subBuilder, extensionRegistry);
-              setGetRoCurrentVersion(subBuilder.buildPartial());
+              setGetRoCurrentVersionDir(subBuilder.buildPartial());
               break;
             }
             case 162: {
@@ -14442,77 +14445,77 @@ public final class VAdminProto {
         return this;
       }
       
-      // optional .voldemort.GetROMaxVersionRequest get_ro_max_version = 18;
-      public boolean hasGetRoMaxVersion() {
-        return result.hasGetRoMaxVersion();
+      // optional .voldemort.GetROMaxVersionDirRequest get_ro_max_version_dir = 18;
+      public boolean hasGetRoMaxVersionDir() {
+        return result.hasGetRoMaxVersionDir();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest getGetRoMaxVersion() {
-        return result.getGetRoMaxVersion();
+      public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest getGetRoMaxVersionDir() {
+        return result.getGetRoMaxVersionDir();
       }
-      public Builder setGetRoMaxVersion(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest value) {
+      public Builder setGetRoMaxVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        result.hasGetRoMaxVersion = true;
-        result.getRoMaxVersion_ = value;
+        result.hasGetRoMaxVersionDir = true;
+        result.getRoMaxVersionDir_ = value;
         return this;
       }
-      public Builder setGetRoMaxVersion(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.Builder builderForValue) {
-        result.hasGetRoMaxVersion = true;
-        result.getRoMaxVersion_ = builderForValue.build();
+      public Builder setGetRoMaxVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.Builder builderForValue) {
+        result.hasGetRoMaxVersionDir = true;
+        result.getRoMaxVersionDir_ = builderForValue.build();
         return this;
       }
-      public Builder mergeGetRoMaxVersion(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest value) {
-        if (result.hasGetRoMaxVersion() &&
-            result.getRoMaxVersion_ != voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDefaultInstance()) {
-          result.getRoMaxVersion_ =
-            voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.newBuilder(result.getRoMaxVersion_).mergeFrom(value).buildPartial();
+      public Builder mergeGetRoMaxVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest value) {
+        if (result.hasGetRoMaxVersionDir() &&
+            result.getRoMaxVersionDir_ != voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance()) {
+          result.getRoMaxVersionDir_ =
+            voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.newBuilder(result.getRoMaxVersionDir_).mergeFrom(value).buildPartial();
         } else {
-          result.getRoMaxVersion_ = value;
+          result.getRoMaxVersionDir_ = value;
         }
-        result.hasGetRoMaxVersion = true;
+        result.hasGetRoMaxVersionDir = true;
         return this;
       }
-      public Builder clearGetRoMaxVersion() {
-        result.hasGetRoMaxVersion = false;
-        result.getRoMaxVersion_ = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.getDefaultInstance();
+      public Builder clearGetRoMaxVersionDir() {
+        result.hasGetRoMaxVersionDir = false;
+        result.getRoMaxVersionDir_ = voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance();
         return this;
       }
       
-      // optional .voldemort.GetROCurrentVersionRequest get_ro_current_version = 19;
-      public boolean hasGetRoCurrentVersion() {
-        return result.hasGetRoCurrentVersion();
+      // optional .voldemort.GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
+      public boolean hasGetRoCurrentVersionDir() {
+        return result.hasGetRoCurrentVersionDir();
       }
-      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest getGetRoCurrentVersion() {
-        return result.getGetRoCurrentVersion();
+      public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest getGetRoCurrentVersionDir() {
+        return result.getGetRoCurrentVersionDir();
       }
-      public Builder setGetRoCurrentVersion(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest value) {
+      public Builder setGetRoCurrentVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        result.hasGetRoCurrentVersion = true;
-        result.getRoCurrentVersion_ = value;
+        result.hasGetRoCurrentVersionDir = true;
+        result.getRoCurrentVersionDir_ = value;
         return this;
       }
-      public Builder setGetRoCurrentVersion(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.Builder builderForValue) {
-        result.hasGetRoCurrentVersion = true;
-        result.getRoCurrentVersion_ = builderForValue.build();
+      public Builder setGetRoCurrentVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.Builder builderForValue) {
+        result.hasGetRoCurrentVersionDir = true;
+        result.getRoCurrentVersionDir_ = builderForValue.build();
         return this;
       }
-      public Builder mergeGetRoCurrentVersion(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest value) {
-        if (result.hasGetRoCurrentVersion() &&
-            result.getRoCurrentVersion_ != voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDefaultInstance()) {
-          result.getRoCurrentVersion_ =
-            voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.newBuilder(result.getRoCurrentVersion_).mergeFrom(value).buildPartial();
+      public Builder mergeGetRoCurrentVersionDir(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest value) {
+        if (result.hasGetRoCurrentVersionDir() &&
+            result.getRoCurrentVersionDir_ != voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance()) {
+          result.getRoCurrentVersionDir_ =
+            voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.newBuilder(result.getRoCurrentVersionDir_).mergeFrom(value).buildPartial();
         } else {
-          result.getRoCurrentVersion_ = value;
+          result.getRoCurrentVersionDir_ = value;
         }
-        result.hasGetRoCurrentVersion = true;
+        result.hasGetRoCurrentVersionDir = true;
         return this;
       }
-      public Builder clearGetRoCurrentVersion() {
-        result.hasGetRoCurrentVersion = false;
-        result.getRoCurrentVersion_ = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.getDefaultInstance();
+      public Builder clearGetRoCurrentVersionDir() {
+        result.hasGetRoCurrentVersionDir = false;
+        result.getRoCurrentVersionDir_ = voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance();
         return this;
       }
       
@@ -14664,11 +14667,6 @@ public final class VAdminProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_AsyncOperationListResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_ROStoreVersionMap_descriptor;
-  private static
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_ROStoreVersionMap_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -14734,25 +14732,30 @@ public final class VAdminProto {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_GetROMaxVersionRequest_descriptor;
+    internal_static_voldemort_ROStoreVersionDirMap_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_GetROMaxVersionRequest_fieldAccessorTable;
+      internal_static_voldemort_ROStoreVersionDirMap_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_GetROMaxVersionResponse_descriptor;
+    internal_static_voldemort_GetROMaxVersionDirRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_GetROMaxVersionResponse_fieldAccessorTable;
+      internal_static_voldemort_GetROMaxVersionDirRequest_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_GetROCurrentVersionRequest_descriptor;
+    internal_static_voldemort_GetROMaxVersionDirResponse_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_GetROCurrentVersionRequest_fieldAccessorTable;
+      internal_static_voldemort_GetROMaxVersionDirResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
-    internal_static_voldemort_GetROCurrentVersionResponse_descriptor;
+    internal_static_voldemort_GetROCurrentVersionDirRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_voldemort_GetROCurrentVersionResponse_fieldAccessorTable;
+      internal_static_voldemort_GetROCurrentVersionDirRequest_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_voldemort_GetROCurrentVersionDirResponse_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_voldemort_GetROCurrentVersionDirResponse_fieldAccessorTable;
   private static com.google.protobuf.Descriptors.Descriptor
     internal_static_voldemort_VoldemortAdminRequest_descriptor;
   private static
@@ -14810,84 +14813,85 @@ public final class VAdminProto {
       "nListRequest\022\022\n\nrequest_id\030\001 \002(\005\022\034\n\rshow" +
       "_complete\030\002 \002(\010:\005false\"R\n\032AsyncOperation" +
       "ListResponse\022\023\n\013request_ids\030\001 \003(\005\022\037\n\005err" +
-      "or\030\002 \001(\0132\020.voldemort.Error\"=\n\021ROStoreVer" +
-      "sionMap\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push_vers" +
-      "ion\030\002 \002(\003\"\274\001\n\034InitiateRebalanceNodeReque" +
-      "st\022\022\n\nstealer_id\030\002 \002(\005\022\020\n\010donor_id\030\003 \002(\005" +
-      "\022\022\n\npartitions\030\004 \003(\005\022\017\n\007attempt\030\005 \002(\005\022\030\n" +
-      "\020deletePartitions\030\006 \003(\005\022\030\n\020unbalanced_st" +
-      "ore\030\007 \003(\t\022\035\n\025stealMasterPartitions\030\010 \003(\005",
-      "\"\212\001\n\034AsyncOperationStatusResponse\022\022\n\nreq" +
-      "uest_id\030\001 \001(\005\022\023\n\013description\030\002 \001(\t\022\016\n\006st" +
-      "atus\030\003 \001(\t\022\020\n\010complete\030\004 \001(\010\022\037\n\005error\030\005 " +
-      "\001(\0132\020.voldemort.Error\"\'\n\026TruncateEntries" +
-      "Request\022\r\n\005store\030\001 \002(\t\":\n\027TruncateEntrie" +
-      "sResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Err" +
-      "or\"*\n\017AddStoreRequest\022\027\n\017storeDefinition" +
-      "\030\001 \002(\t\"3\n\020AddStoreResponse\022\037\n\005error\030\001 \001(" +
-      "\0132\020.voldemort.Error\"\'\n\022DeleteStoreReques" +
-      "t\022\021\n\tstoreName\030\001 \002(\t\"6\n\023DeleteStoreRespo",
-      "nse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"P\n\021" +
-      "FetchStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n" +
-      "\tstore_dir\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003\"9" +
-      "\n\020SwapStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\021" +
-      "\n\tstore_dir\030\002 \002(\t\"4\n\021SwapStoreResponse\022\037" +
-      "\n\005error\030\001 \001(\0132\020.voldemort.Error\"@\n\024Rollb" +
-      "ackStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014p" +
-      "ush_version\030\002 \002(\003\"8\n\025RollbackStoreRespon" +
-      "se\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\",\n\026G" +
-      "etROMaxVersionRequest\022\022\n\nstore_name\030\001 \003(",
-      "\t\"s\n\027GetROMaxVersionResponse\0227\n\021ro_store" +
-      "_versions\030\001 \003(\0132\034.voldemort.ROStoreVersi" +
-      "onMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"0" +
-      "\n\032GetROCurrentVersionRequest\022\022\n\nstore_na" +
-      "me\030\001 \003(\t\"w\n\033GetROCurrentVersionResponse\022" +
-      "7\n\021ro_store_versions\030\001 \003(\0132\034.voldemort.R" +
-      "OStoreVersionMap\022\037\n\005error\030\002 \001(\0132\020.voldem" +
-      "ort.Error\"\205\n\n\025VoldemortAdminRequest\022)\n\004t" +
-      "ype\030\001 \002(\0162\033.voldemort.AdminRequestType\0223" +
-      "\n\014get_metadata\030\002 \001(\0132\035.voldemort.GetMeta",
-      "dataRequest\0229\n\017update_metadata\030\003 \001(\0132 .v" +
-      "oldemort.UpdateMetadataRequest\022J\n\030update" +
-      "_partition_entries\030\004 \001(\0132(.voldemort.Upd" +
-      "atePartitionEntriesRequest\022H\n\027fetch_part" +
-      "ition_entries\030\005 \001(\0132\'.voldemort.FetchPar" +
-      "titionEntriesRequest\022J\n\030delete_partition" +
-      "_entries\030\006 \001(\0132(.voldemort.DeletePartiti" +
-      "onEntriesRequest\022K\n\031initiate_fetch_and_u" +
-      "pdate\030\007 \001(\0132(.voldemort.InitiateFetchAnd" +
-      "UpdateRequest\022F\n\026async_operation_status\030",
-      "\010 \001(\0132&.voldemort.AsyncOperationStatusRe" +
-      "quest\022H\n\027initiate_rebalance_node\030\t \001(\0132\'" +
-      ".voldemort.InitiateRebalanceNodeRequest\022" +
-      "B\n\024async_operation_stop\030\n \001(\0132$.voldemor" +
-      "t.AsyncOperationStopRequest\022B\n\024async_ope" +
-      "ration_list\030\013 \001(\0132$.voldemort.AsyncOpera" +
-      "tionListRequest\022;\n\020truncate_entries\030\014 \001(" +
-      "\0132!.voldemort.TruncateEntriesRequest\022-\n\t" +
-      "add_store\030\r \001(\0132\032.voldemort.AddStoreRequ" +
-      "est\0223\n\014delete_store\030\016 \001(\0132\035.voldemort.De",
-      "leteStoreRequest\0221\n\013fetch_store\030\017 \001(\0132\034." +
-      "voldemort.FetchStoreRequest\022/\n\nswap_stor" +
-      "e\030\020 \001(\0132\033.voldemort.SwapStoreRequest\0227\n\016" +
-      "rollback_store\030\021 \001(\0132\037.voldemort.Rollbac" +
-      "kStoreRequest\022=\n\022get_ro_max_version\030\022 \001(" +
-      "\0132!.voldemort.GetROMaxVersionRequest\022E\n\026" +
-      "get_ro_current_version\030\023 \001(\0132%.voldemort" +
-      ".GetROCurrentVersionRequest\022D\n\025fetch_par" +
-      "tition_files\030\024 \001(\0132%.voldemort.FetchPart" +
-      "itionFilesRequest*\331\003\n\020AdminRequestType\022\020",
-      "\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n" +
-      "\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_PAR" +
-      "TITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_ENT" +
-      "RIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022\032\n" +
-      "\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_RE" +
-      "BALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010" +
-      "\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE_E" +
-      "NTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020" +
-      "\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016RO" +
-      "LLBACK_STORE\020\017\022\026\n\022GET_RO_MAX_VERSION\020\020\022\032",
-      "\n\026GET_RO_CURRENT_VERSION\020\021\022\031\n\025FETCH_PART" +
+      "or\030\002 \001(\0132\020.voldemort.Error\"\274\001\n\034InitiateR" +
+      "ebalanceNodeRequest\022\022\n\nstealer_id\030\002 \002(\005\022" +
+      "\020\n\010donor_id\030\003 \002(\005\022\022\n\npartitions\030\004 \003(\005\022\017\n" +
+      "\007attempt\030\005 \002(\005\022\030\n\020deletePartitions\030\006 \003(\005" +
+      "\022\030\n\020unbalanced_store\030\007 \003(\t\022\035\n\025stealMaste" +
+      "rPartitions\030\010 \003(\005\"\212\001\n\034AsyncOperationStat" +
+      "usResponse\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013descri",
+      "ption\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030" +
+      "\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.voldemort.Error\"\'" +
+      "\n\026TruncateEntriesRequest\022\r\n\005store\030\001 \002(\t\"" +
+      ":\n\027TruncateEntriesResponse\022\037\n\005error\030\001 \001(" +
+      "\0132\020.voldemort.Error\"*\n\017AddStoreRequest\022\027" +
+      "\n\017storeDefinition\030\001 \002(\t\"3\n\020AddStoreRespo" +
+      "nse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"\'\n\022" +
+      "DeleteStoreRequest\022\021\n\tstoreName\030\001 \002(\t\"6\n" +
+      "\023DeleteStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vo" +
+      "ldemort.Error\"P\n\021FetchStoreRequest\022\022\n\nst",
+      "ore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\022\024\n\014pus" +
+      "h_version\030\003 \001(\003\"9\n\020SwapStoreRequest\022\022\n\ns" +
+      "tore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"4\n\021Sw" +
+      "apStoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemo" +
+      "rt.Error\"@\n\024RollbackStoreRequest\022\022\n\nstor" +
+      "e_name\030\001 \002(\t\022\024\n\014push_version\030\002 \002(\003\"8\n\025Ro" +
+      "llbackStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vol" +
+      "demort.Error\"=\n\024ROStoreVersionDirMap\022\022\n\n" +
+      "store_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"/\n\031G" +
+      "etROMaxVersionDirRequest\022\022\n\nstore_name\030\001",
+      " \003(\t\"y\n\032GetROMaxVersionDirResponse\022:\n\021ro" +
+      "_store_versions\030\001 \003(\0132\037.voldemort.ROStor" +
+      "eVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemor" +
+      "t.Error\"3\n\035GetROCurrentVersionDirRequest" +
+      "\022\022\n\nstore_name\030\001 \003(\t\"}\n\036GetROCurrentVers" +
+      "ionDirResponse\022:\n\021ro_store_versions\030\001 \003(" +
+      "\0132\037.voldemort.ROStoreVersionDirMap\022\037\n\005er" +
+      "ror\030\002 \001(\0132\020.voldemort.Error\"\223\n\n\025Voldemor" +
+      "tAdminRequest\022)\n\004type\030\001 \002(\0162\033.voldemort." +
+      "AdminRequestType\0223\n\014get_metadata\030\002 \001(\0132\035",
+      ".voldemort.GetMetadataRequest\0229\n\017update_" +
+      "metadata\030\003 \001(\0132 .voldemort.UpdateMetadat" +
+      "aRequest\022J\n\030update_partition_entries\030\004 \001" +
+      "(\0132(.voldemort.UpdatePartitionEntriesReq" +
+      "uest\022H\n\027fetch_partition_entries\030\005 \001(\0132\'." +
+      "voldemort.FetchPartitionEntriesRequest\022J" +
+      "\n\030delete_partition_entries\030\006 \001(\0132(.volde" +
+      "mort.DeletePartitionEntriesRequest\022K\n\031in" +
+      "itiate_fetch_and_update\030\007 \001(\0132(.voldemor" +
+      "t.InitiateFetchAndUpdateRequest\022F\n\026async",
+      "_operation_status\030\010 \001(\0132&.voldemort.Asyn" +
+      "cOperationStatusRequest\022H\n\027initiate_reba" +
+      "lance_node\030\t \001(\0132\'.voldemort.InitiateReb" +
+      "alanceNodeRequest\022B\n\024async_operation_sto" +
+      "p\030\n \001(\0132$.voldemort.AsyncOperationStopRe" +
+      "quest\022B\n\024async_operation_list\030\013 \001(\0132$.vo" +
+      "ldemort.AsyncOperationListRequest\022;\n\020tru" +
+      "ncate_entries\030\014 \001(\0132!.voldemort.Truncate" +
+      "EntriesRequest\022-\n\tadd_store\030\r \001(\0132\032.vold" +
+      "emort.AddStoreRequest\0223\n\014delete_store\030\016 ",
+      "\001(\0132\035.voldemort.DeleteStoreRequest\0221\n\013fe" +
+      "tch_store\030\017 \001(\0132\034.voldemort.FetchStoreRe" +
+      "quest\022/\n\nswap_store\030\020 \001(\0132\033.voldemort.Sw" +
+      "apStoreRequest\0227\n\016rollback_store\030\021 \001(\0132\037" +
+      ".voldemort.RollbackStoreRequest\022D\n\026get_r" +
+      "o_max_version_dir\030\022 \001(\0132$.voldemort.GetR" +
+      "OMaxVersionDirRequest\022L\n\032get_ro_current_" +
+      "version_dir\030\023 \001(\0132(.voldemort.GetROCurre" +
+      "ntVersionDirRequest\022D\n\025fetch_partition_f" +
+      "iles\030\024 \001(\0132%.voldemort.FetchPartitionFil",
+      "esRequest*\341\003\n\020AdminRequestType\022\020\n\014GET_ME" +
+      "TADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_" +
+      "PARTITION_ENTRIES\020\002\022\033\n\027FETCH_PARTITION_E" +
+      "NTRIES\020\003\022\034\n\030DELETE_PARTITION_ENTRIES\020\004\022\035" +
+      "\n\031INITIATE_FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_O" +
+      "PERATION_STATUS\020\006\022\033\n\027INITIATE_REBALANCE_" +
+      "NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020\010\022\030\n\024ASYN" +
+      "C_OPERATION_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n" +
+      "\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FET" +
+      "CH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_S",
+      "TORE\020\017\022\032\n\026GET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GE" +
+      "T_RO_CURRENT_VERSION_DIR\020\021\022\031\n\025FETCH_PART" +
       "ITION_FILES\020\022B-\n\034voldemort.client.protoc" +
       "ol.pbB\013VAdminProtoH\001"
     };
@@ -15056,16 +15060,8 @@ public final class VAdminProto {
               new java.lang.String[] { "RequestIds", "Error", },
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse.class,
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse.Builder.class);
-          internal_static_voldemort_ROStoreVersionMap_descriptor =
-            getDescriptor().getMessageTypes().get(20);
-          internal_static_voldemort_ROStoreVersionMap_fieldAccessorTable = new
-            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_ROStoreVersionMap_descriptor,
-              new java.lang.String[] { "StoreName", "PushVersion", },
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.class,
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap.Builder.class);
           internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor =
-            getDescriptor().getMessageTypes().get(21);
+            getDescriptor().getMessageTypes().get(20);
           internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor,
@@ -15073,7 +15069,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.Builder.class);
           internal_static_voldemort_AsyncOperationStatusResponse_descriptor =
-            getDescriptor().getMessageTypes().get(22);
+            getDescriptor().getMessageTypes().get(21);
           internal_static_voldemort_AsyncOperationStatusResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_AsyncOperationStatusResponse_descriptor,
@@ -15081,7 +15077,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse.class,
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse.Builder.class);
           internal_static_voldemort_TruncateEntriesRequest_descriptor =
-            getDescriptor().getMessageTypes().get(23);
+            getDescriptor().getMessageTypes().get(22);
           internal_static_voldemort_TruncateEntriesRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_TruncateEntriesRequest_descriptor,
@@ -15089,7 +15085,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest.class,
               voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest.Builder.class);
           internal_static_voldemort_TruncateEntriesResponse_descriptor =
-            getDescriptor().getMessageTypes().get(24);
+            getDescriptor().getMessageTypes().get(23);
           internal_static_voldemort_TruncateEntriesResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_TruncateEntriesResponse_descriptor,
@@ -15097,7 +15093,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse.class,
               voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse.Builder.class);
           internal_static_voldemort_AddStoreRequest_descriptor =
-            getDescriptor().getMessageTypes().get(25);
+            getDescriptor().getMessageTypes().get(24);
           internal_static_voldemort_AddStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_AddStoreRequest_descriptor,
@@ -15105,7 +15101,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.AddStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.AddStoreRequest.Builder.class);
           internal_static_voldemort_AddStoreResponse_descriptor =
-            getDescriptor().getMessageTypes().get(26);
+            getDescriptor().getMessageTypes().get(25);
           internal_static_voldemort_AddStoreResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_AddStoreResponse_descriptor,
@@ -15113,7 +15109,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.AddStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.AddStoreResponse.Builder.class);
           internal_static_voldemort_DeleteStoreRequest_descriptor =
-            getDescriptor().getMessageTypes().get(27);
+            getDescriptor().getMessageTypes().get(26);
           internal_static_voldemort_DeleteStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_DeleteStoreRequest_descriptor,
@@ -15121,7 +15117,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest.Builder.class);
           internal_static_voldemort_DeleteStoreResponse_descriptor =
-            getDescriptor().getMessageTypes().get(28);
+            getDescriptor().getMessageTypes().get(27);
           internal_static_voldemort_DeleteStoreResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_DeleteStoreResponse_descriptor,
@@ -15129,7 +15125,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse.Builder.class);
           internal_static_voldemort_FetchStoreRequest_descriptor =
-            getDescriptor().getMessageTypes().get(29);
+            getDescriptor().getMessageTypes().get(28);
           internal_static_voldemort_FetchStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_FetchStoreRequest_descriptor,
@@ -15137,7 +15133,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.Builder.class);
           internal_static_voldemort_SwapStoreRequest_descriptor =
-            getDescriptor().getMessageTypes().get(30);
+            getDescriptor().getMessageTypes().get(29);
           internal_static_voldemort_SwapStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_SwapStoreRequest_descriptor,
@@ -15145,7 +15141,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.Builder.class);
           internal_static_voldemort_SwapStoreResponse_descriptor =
-            getDescriptor().getMessageTypes().get(31);
+            getDescriptor().getMessageTypes().get(30);
           internal_static_voldemort_SwapStoreResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_SwapStoreResponse_descriptor,
@@ -15153,7 +15149,7 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.Builder.class);
           internal_static_voldemort_RollbackStoreRequest_descriptor =
-            getDescriptor().getMessageTypes().get(32);
+            getDescriptor().getMessageTypes().get(31);
           internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RollbackStoreRequest_descriptor,
@@ -15161,51 +15157,59 @@ public final class VAdminProto {
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.class,
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.Builder.class);
           internal_static_voldemort_RollbackStoreResponse_descriptor =
-            getDescriptor().getMessageTypes().get(33);
+            getDescriptor().getMessageTypes().get(32);
           internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_RollbackStoreResponse_descriptor,
               new java.lang.String[] { "Error", },
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.class,
               voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.Builder.class);
-          internal_static_voldemort_GetROMaxVersionRequest_descriptor =
+          internal_static_voldemort_ROStoreVersionDirMap_descriptor =
+            getDescriptor().getMessageTypes().get(33);
+          internal_static_voldemort_ROStoreVersionDirMap_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_voldemort_ROStoreVersionDirMap_descriptor,
+              new java.lang.String[] { "StoreName", "StoreDir", },
+              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.class,
+              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder.class);
+          internal_static_voldemort_GetROMaxVersionDirRequest_descriptor =
             getDescriptor().getMessageTypes().get(34);
-          internal_static_voldemort_GetROMaxVersionRequest_fieldAccessorTable = new
+          internal_static_voldemort_GetROMaxVersionDirRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_GetROMaxVersionRequest_descriptor,
+              internal_static_voldemort_GetROMaxVersionDirRequest_descriptor,
               new java.lang.String[] { "StoreName", },
-              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.class,
-              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionRequest.Builder.class);
-          internal_static_voldemort_GetROMaxVersionResponse_descriptor =
+              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.Builder.class);
+          internal_static_voldemort_GetROMaxVersionDirResponse_descriptor =
             getDescriptor().getMessageTypes().get(35);
-          internal_static_voldemort_GetROMaxVersionResponse_fieldAccessorTable = new
+          internal_static_voldemort_GetROMaxVersionDirResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_GetROMaxVersionResponse_descriptor,
+              internal_static_voldemort_GetROMaxVersionDirResponse_descriptor,
               new java.lang.String[] { "RoStoreVersions", "Error", },
-              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.class,
-              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionResponse.Builder.class);
-          internal_static_voldemort_GetROCurrentVersionRequest_descriptor =
+              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.Builder.class);
+          internal_static_voldemort_GetROCurrentVersionDirRequest_descriptor =
             getDescriptor().getMessageTypes().get(36);
-          internal_static_voldemort_GetROCurrentVersionRequest_fieldAccessorTable = new
+          internal_static_voldemort_GetROCurrentVersionDirRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_GetROCurrentVersionRequest_descriptor,
+              internal_static_voldemort_GetROCurrentVersionDirRequest_descriptor,
               new java.lang.String[] { "StoreName", },
-              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.class,
-              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionRequest.Builder.class);
-          internal_static_voldemort_GetROCurrentVersionResponse_descriptor =
+              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.Builder.class);
+          internal_static_voldemort_GetROCurrentVersionDirResponse_descriptor =
             getDescriptor().getMessageTypes().get(37);
-          internal_static_voldemort_GetROCurrentVersionResponse_fieldAccessorTable = new
+          internal_static_voldemort_GetROCurrentVersionDirResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_voldemort_GetROCurrentVersionResponse_descriptor,
+              internal_static_voldemort_GetROCurrentVersionDirResponse_descriptor,
               new java.lang.String[] { "RoStoreVersions", "Error", },
-              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.class,
-              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionResponse.Builder.class);
+              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.class,
+              voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.Builder.class);
           internal_static_voldemort_VoldemortAdminRequest_descriptor =
             getDescriptor().getMessageTypes().get(38);
           internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_VoldemortAdminRequest_descriptor,
-              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersion", "GetRoCurrentVersion", "FetchPartitionFiles", },
+              new java.lang.String[] { "Type", "GetMetadata", "UpdateMetadata", "UpdatePartitionEntries", "FetchPartitionEntries", "DeletePartitionEntries", "InitiateFetchAndUpdate", "AsyncOperationStatus", "InitiateRebalanceNode", "AsyncOperationStop", "AsyncOperationList", "TruncateEntries", "AddStore", "DeleteStore", "FetchStore", "SwapStore", "RollbackStore", "GetRoMaxVersionDir", "GetRoCurrentVersionDir", "FetchPartitionFiles", },
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.class,
               voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.Builder.class);
           return null;

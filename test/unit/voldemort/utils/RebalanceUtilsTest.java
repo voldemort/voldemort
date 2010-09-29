@@ -44,7 +44,7 @@ public class RebalanceUtilsTest extends TestCase {
     @Override
     public void setUp() {
         currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {}, {}, {} });
+                { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
         targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 4, 5, 6, 7, 8 },
                 { 2, 3 } });
@@ -56,25 +56,11 @@ public class RebalanceUtilsTest extends TestCase {
         }
     }
 
-    public void testRR() {
-        currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
-                { 4, 5, 6 }, { 7, 8, 9 } });
-
-        targetCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 1, 3, 5 },
-                { 7, 8, 9 }, { 2, 6 } });
-
-        RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
-                                                                      targetCluster,
-                                                                      storeDefList,
-                                                                      true);
-        System.out.println("REBALANCE PLAN = " + rebalancePlan);
-    }
-
     public void testRebalancePlan() {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      false);
+                                                                      true);
 
         // the rebalancing plan should have exactly 1 node
         assertEquals("There should have exactly one rebalancing node",

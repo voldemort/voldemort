@@ -47,7 +47,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionMap;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -58,6 +58,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -1284,70 +1285,109 @@ public class AdminClient {
      * currently
      * 
      * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the
+     * @param storeNames List of all the stores
      * @return Returns a map of store name to the respective max version number
      */
     public Map<String, Long> getROMaxVersion(int nodeId, List<String> storeNames) {
-        VAdminProto.GetROMaxVersionRequest.Builder getROMaxVersionRequest = VAdminProto.GetROMaxVersionRequest.newBuilder()
-                                                                                                              .addAllStoreName(storeNames);
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROMaxVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        }
+        return returnMap;
+    }
+
+    /**
+     * Returns the max version of push currently being used by read-only store.
+     * Important to remember that this may not be the 'current' version since
+     * multiple pushes (with greater version numbers) may be in progress
+     * currently
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective store directory
+     */
+    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
+
+        VAdminProto.GetROMaxVersionDirRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
+                                                                                                                       .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoMaxVersion(getROMaxVersionRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION)
+                                                                                          .setGetRoMaxVersionDir(getROMaxVersionDirRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
                                                                                           .build();
-        VAdminProto.GetROMaxVersionResponse.Builder response = sendAndReceive(nodeId,
-                                                                              adminRequest,
-                                                                              VAdminProto.GetROMaxVersionResponse.newBuilder());
+        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
 
         // generate map of store-name to max version
-        Map<String, Long> storeToVersion = encodeROStoreVersionMap(response.getRoStoreVersionsList());
+        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
 
-        if(storeToVersion.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersion.keySet());
+        if(storeToVersionDir.size() != storeNames.size()) {
+            storeNames.removeAll(storeToVersionDir.keySet());
             throw new VoldemortException("Did not retrieve max version id for " + storeNames);
         }
-        return storeToVersion;
+        return storeToVersionDir;
     }
 
     /**
      * Returns the 'current' version of RO store
      * 
      * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the
-     * @return Returns a map of store name to the respective max version number
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version
+     *         directory
      */
-    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
-        VAdminProto.GetROCurrentVersionRequest.Builder getROCurrentVersionRequest = VAdminProto.GetROCurrentVersionRequest.newBuilder()
-                                                                                                                          .addAllStoreName(storeNames);
+    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROCurrentVersionDirRequest.Builder getROCurrentVersionDirRequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
+                                                                                                                                   .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoCurrentVersion(getROCurrentVersionRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION)
+                                                                                          .setGetRoCurrentVersionDir(getROCurrentVersionDirRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
                                                                                           .build();
-        VAdminProto.GetROCurrentVersionResponse.Builder response = sendAndReceive(nodeId,
-                                                                                  adminRequest,
-                                                                                  VAdminProto.GetROCurrentVersionResponse.newBuilder());
+        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                     adminRequest,
+                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
 
         // generate map of store-name to current version
-        Map<String, Long> storeToVersion = encodeROStoreVersionMap(response.getRoStoreVersionsList());
+        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
 
-        if(storeToVersion.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersion.keySet());
+        if(storeToVersionDir.size() != storeNames.size()) {
+            storeNames.removeAll(storeToVersionDir.keySet());
             throw new VoldemortException("Did not retrieve current version id for " + storeNames);
         }
-        return storeToVersion;
+        return storeToVersionDir;
     }
 
-    private Map<String, Long> encodeROStoreVersionMap(List<ROStoreVersionMap> storeVersionMap) {
-        Map<String, Long> storeToVersion = Maps.newHashMap();
-        for(ROStoreVersionMap currentStore: storeVersionMap) {
-            storeToVersion.put(currentStore.getStoreName(), currentStore.getPushVersion());
+    /**
+     * Returns the 'current' version of RO store
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version number
+     */
+    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
         }
-        return storeToVersion;
+        return returnMap;
+    }
+
+    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
+        Map<String, String> storeToVersionDir = Maps.newHashMap();
+        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
+            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
+        }
+        return storeToVersionDir;
     }
 
     /**

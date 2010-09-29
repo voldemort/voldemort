@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,26 +40,36 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.ConsistentRoutingStrategy;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.serialization.json.JsonReader;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.readonly.JsonStoreBuilder;
+import voldemort.store.readonly.ReadOnlyStorageEngineTestInstance;
+import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
@@ -67,13 +79,15 @@ public abstract class AbstractRebalanceTest {
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRO = "test-ro";
     protected static String storeDefFile = "test/common/voldemort/config/two-stores.xml";
+    private List<StoreDefinition> storeDefs;
     protected SocketStoreFactory socketStoreFactory;
     HashMap<String, String> testEntries;
 
     @Before
-    public void setUp() {
+    public void setUp() throws IOException {
         testEntries = ServerTestUtils.createRandomKeyValueString(NUM_KEYS);
         socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
+        storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storeDefFile));
     }
 
     @After
@@ -126,7 +140,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(updatedCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
         } finally {
             // stop servers
@@ -154,7 +168,7 @@ public abstract class AbstractRebalanceTest {
                                                                       rebalanceConfig);
 
         try {
-            populateData(updatedCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
 
             // check that all keys are partitions 2,3 are Indeeed deleted.
@@ -194,7 +208,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(updatedCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
 
             // check that all keys are partitions 2,3 are Indeeed deleted.
@@ -234,7 +248,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       new RebalanceClientConfig());
         try {
-            populateData(updatedCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
         } finally {
             // stop servers
@@ -262,7 +276,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       config);
         try {
-            populateData(updatedCluster, Arrays.asList(0));
+            populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
         } finally {
             // stop servers
@@ -289,7 +303,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       config);
         try {
-            populateData(updatedCluster, Arrays.asList(0, 1, 2));
+            populateData(updatedCluster, Arrays.asList(0, 1, 2), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(3));
         } finally {
             // stop servers
@@ -316,7 +330,7 @@ public abstract class AbstractRebalanceTest {
                                                                                       0),
                                                                       config);
         try {
-            populateData(updatedCluster, Arrays.asList(0, 1));
+            populateData(updatedCluster, Arrays.asList(0, 1), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(3));
         } finally {
             // stop servers
@@ -340,8 +354,16 @@ public abstract class AbstractRebalanceTest {
         final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
+        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+        rebalanceClientConfig.setMaxParallelDonors(2);
+        rebalanceClientConfig.setMaxParallelRebalancing(2);
+
+        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
+                                                                                            0),
+                                                                            rebalanceClientConfig);
+
         // populate data now.
-        populateData(updatedCluster, Arrays.asList(0));
+        populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
@@ -402,13 +424,6 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
-                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-                    rebalanceClientConfig.setMaxParallelDonors(2);
-                    rebalanceClientConfig.setMaxParallelRebalancing(2);
-
-                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
-                                                                                                  0),
-                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
@@ -463,8 +478,16 @@ public abstract class AbstractRebalanceTest {
         final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
+        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+        rebalanceClientConfig.setMaxParallelDonors(2);
+        rebalanceClientConfig.setMaxParallelRebalancing(2);
+
+        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
+                                                                                            0),
+                                                                            rebalanceClientConfig);
+
         // populate data now.
-        populateData(updatedCluster, Arrays.asList(0, 1));
+        populateData(updatedCluster, Arrays.asList(0, 1), rebalanceClient.getAdminClient());
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
@@ -525,13 +548,6 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
-                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-                    rebalanceClientConfig.setMaxParallelDonors(2);
-                    rebalanceClientConfig.setMaxParallelRebalancing(2);
-
-                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
-                                                                                                  0),
-                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
@@ -590,7 +606,15 @@ public abstract class AbstractRebalanceTest {
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
         // populate data now.
-        populateData(updatedCluster, Arrays.asList(0));
+        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+        rebalanceClientConfig.setMaxParallelDonors(2);
+        rebalanceClientConfig.setMaxParallelRebalancing(2);
+
+        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
+                                                                                            0),
+                                                                            rebalanceClientConfig);
+
+        populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
 
         Node node = updatedCluster.getNodeById(0);
         final Store<ByteArray, byte[]> serverSideRoutingStore = getSocketStore(testStoreNameRW,
@@ -649,13 +673,6 @@ public abstract class AbstractRebalanceTest {
 
                     Thread.sleep(500);
 
-                    RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-                    rebalanceClientConfig.setMaxParallelDonors(2);
-                    rebalanceClientConfig.setMaxParallelRebalancing(2);
-
-                    RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
-                                                                                                  0),
-                                                                                  rebalanceClientConfig);
                     rebalanceAndCheck(updatedCluster,
                                       targetCluster,
                                       rebalanceClient,
@@ -692,7 +709,10 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    protected void populateData(Cluster cluster, List<Integer> nodeList) {
+    protected void populateData(Cluster cluster, List<Integer> nodeList, AdminClient adminClient)
+            throws Exception {
+
+        // Populate Read write stores
 
         // Create SocketStores for each Node first
         Map<Integer, Store<ByteArray, byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[]>>();
@@ -706,6 +726,7 @@ public abstract class AbstractRebalanceTest {
 
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
         for(Entry<String, String> entry: testEntries.entrySet()) {
+            System.out.println("KEY = " + entry.getKey() + " - " + entry.getValue());
             int masterNode = routing.routeRequest(ByteUtils.getBytes(entry.getKey(), "UTF-8"))
                                     .get(0)
                                     .getId();
@@ -726,6 +747,44 @@ public abstract class AbstractRebalanceTest {
         for(Store<ByteArray, byte[]> store: storeMap.values()) {
             store.close();
         }
+
+        // Populate Read only stores
+
+        File baseDir = TestUtils.createTempDir();
+        JsonReader reader = ReadOnlyStorageEngineTestInstance.makeTestDataReader(testEntries,
+                                                                                 baseDir);
+
+        StoreDefinition def = null;
+        for(StoreDefinition storeDef: storeDefs) {
+            if(storeDef.getName().compareTo(testStoreNameRO) == 0) {
+                def = storeDef;
+                break;
+            }
+        }
+
+        Utils.notNull(def);
+        RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(def, cluster);
+
+        File outputDir = TestUtils.createTempDir(baseDir);
+        JsonStoreBuilder storeBuilder = new JsonStoreBuilder(reader,
+                                                             cluster,
+                                                             def,
+                                                             router,
+                                                             outputDir,
+                                                             null,
+                                                             testEntries.size() / 5,
+                                                             1,
+                                                             2,
+                                                             10000,
+                                                             false);
+        storeBuilder.build();
+
+        AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
+                                                          Executors.newFixedThreadPool(nodeList.size()),
+                                                          adminClient,
+                                                          100000);
+        swapper.swapStoreData(testStoreNameRO, outputDir.getAbsolutePath(), 1L);
+
     }
 
     protected String getBootstrapUrl(Cluster cluster, int nodeId) {
@@ -771,9 +830,12 @@ public abstract class AbstractRebalanceTest {
         int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
-        Store<ByteArray, byte[]> store = getSocketStore(testStoreNameRW,
-                                                        node.getHost(),
-                                                        node.getSocketPort());
+        Store<ByteArray, byte[]> storeRW = getSocketStore(testStoreNameRW,
+                                                          node.getHost(),
+                                                          node.getSocketPort());
+        Store<ByteArray, byte[]> storeRO = getSocketStore(testStoreNameRO,
+                                                          node.getHost(),
+                                                          node.getSocketPort());
 
         for(Entry<String, String> entry: testEntries.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
@@ -782,7 +844,11 @@ public abstract class AbstractRebalanceTest {
 
             if(null != unavailablePartitions && unavailablePartitions.containsAll(partitions)) {
                 try {
-                    List<Versioned<byte[]>> value = store.get(keyBytes);
+                    List<Versioned<byte[]>> value = storeRW.get(keyBytes);
+                    assertEquals("unavailable partitons should return zero size list.",
+                                 0,
+                                 value.size());
+                    value = storeRO.get(keyBytes);
                     assertEquals("unavailable partitons should return zero size list.",
                                  0,
                                  value.size());
@@ -790,11 +856,23 @@ public abstract class AbstractRebalanceTest {
                     // ignore.
                 }
             } else if(null != availablePartitions && availablePartitions.containsAll(partitions)) {
-                List<Versioned<byte[]>> values = store.get(keyBytes);
+                List<Versioned<byte[]>> values = storeRW.get(keyBytes);
 
                 // expecting exactly one version
                 assertEquals("Expecting exactly one version", 1, values.size());
                 Versioned<byte[]> value = values.get(0);
+                // check version matches (expecting base version for all)
+                assertEquals("Value version should match", new VectorClock(), value.getVersion());
+                // check value matches.
+                assertEquals("Value bytes should match",
+                             entry.getValue(),
+                             ByteUtils.getString(value.getValue(), "UTF-8"));
+
+                values = storeRO.get(keyBytes);
+
+                // expecting exactly one version
+                assertEquals("Expecting exactly one version", 1, values.size());
+                value = values.get(0);
                 // check version matches (expecting base version for all)
                 assertEquals("Value version should match", new VectorClock(), value.getVersion());
                 // check value matches.
