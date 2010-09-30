@@ -76,6 +76,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
+    public static final String STORE_STATE_KEY = "store.state";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -83,7 +84,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO);
+                                                                    REBALANCING_STEAL_INFO,
+                                                                    STORE_STATE_KEY);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)

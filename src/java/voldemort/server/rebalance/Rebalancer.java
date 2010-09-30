@@ -88,7 +88,6 @@ public class Rebalancer implements Runnable {
                     try {
                         logger.warn("Rebalance server found incomplete rebalancing attempt, restarting rebalancing task "
                                     + stealInfo);
-
                         if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                             attemptRebalance(stealInfo);
                             // TODO: Swap the read-only store

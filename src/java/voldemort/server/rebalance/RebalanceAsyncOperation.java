@@ -98,7 +98,11 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
                     public void run() {
                         try {
-                            rebalanceStore(storeName, adminClient, stealInfo);
+                            boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
+                                                                   .getType()
+                                                                   .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+
+                            rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
                             List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                             tempUnbalancedStoreList.remove(storeName);
@@ -157,12 +161,9 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
     private void rebalanceStore(String storeName,
                                 AdminClient adminClient,
-                                RebalancePartitionsInfo stealInfo) throws Exception {
+                                RebalancePartitionsInfo stealInfo,
+                                boolean isReadOnlyStore) throws Exception {
         logger.info("starting partitions migration for store:" + storeName);
-
-        boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
-                                               .getType()
-                                               .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
         List<Integer> partitionList = null;
         if(isReadOnlyStore) {

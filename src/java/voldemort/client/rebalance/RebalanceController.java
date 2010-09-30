@@ -127,15 +127,10 @@ public class RebalanceController {
 
         adminClient.setAdminClientCluster(currentCluster);
 
+        Cluster oldCluster = currentCluster;
         // Retrieve list of stores
         List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
                                                                            adminClient);
-
-        final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
-                                                                                   targetCluster,
-                                                                                   storesList,
-                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
-        logger.info(rebalanceClusterPlan);
 
         // Add all new nodes to currentCluster
         currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
@@ -162,6 +157,12 @@ public class RebalanceController {
                                                                                   readOnlyStores));
             }
         }
+
+        final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(oldCluster,
+                                                                                   targetCluster,
+                                                                                   storesList,
+                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
+        logger.info(rebalanceClusterPlan);
 
         // propagate new cluster information to all
         Node firstNode = currentCluster.getNodes().iterator().next();
