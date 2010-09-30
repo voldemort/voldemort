@@ -325,10 +325,14 @@ public class PipelineRoutedStore extends RoutedStore {
         Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
-        HintedHandoff hintedHandoff = new HintedHandoff(failureDetector,
-                                                        slopStores,
-                                                        handoffStrategy,
-                                                        pipelineData.getFailedNodes());
+        HintedHandoff hintedHandoff = null;
+
+        if(isHintedHandoffEnabled())
+            hintedHandoff = new HintedHandoff(failureDetector,
+                                              slopStores,
+                                              handoffStrategy,
+                                              pipelineData.getFailedNodes());
+
         StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
             public Boolean request(Store<ByteArray, byte[]> store) {
@@ -428,10 +432,14 @@ public class PipelineRoutedStore extends RoutedStore {
         Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
-        HintedHandoff hintedHandoff = new HintedHandoff(failureDetector,
-                                                        slopStores,
-                                                        handoffStrategy,
-                                                        pipelineData.getFailedNodes());
+        HintedHandoff hintedHandoff = null;
+
+
+        if(isHintedHandoffEnabled())
+            hintedHandoff = new HintedHandoff(failureDetector,
+                                              slopStores,
+                                              handoffStrategy,
+                                              pipelineData.getFailedNodes());
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Void, PutPipelineData>(pipelineData,
