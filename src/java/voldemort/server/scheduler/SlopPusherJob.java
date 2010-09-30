@@ -72,6 +72,9 @@ public class SlopPusherJob implements Runnable {
                     throw new InterruptedException("Task cancelled!");
                 attemptedPushes++;
 
+                if(attemptedPushes % 1000 == 0)
+                    logger.info("Attempted pushing " + attemptedPushes + " slops");
+
                 try {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
