@@ -169,44 +169,47 @@ public class Pipeline {
      */
 
     public void execute() {
-        while(true) {
-            Event event = null;
+        try {
+            while(true) {
+                Event event = null;
 
-            try {
-                event = eventQueue.poll(timeout, unit);
-            } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException(operation.getSimpleName()
-                                                                + " operation interrupted!", e);
-            }
+                try {
+                    event = eventQueue.poll(timeout, unit);
+                } catch(InterruptedException e) {
+                    throw new InsufficientOperationalNodesException(operation.getSimpleName()
+                                                                    + " operation interrupted!", e);
+                }
 
-            if(event == null)
-                throw new VoldemortException(operation.getSimpleName() + " returned a null event");
+                if(event == null)
+                    throw new VoldemortException(operation.getSimpleName() + " returned a null event");
 
-            if(event.equals(Event.ERROR)) {
+                if(event.equals(Event.ERROR)) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(operation.getSimpleName()
+                                     + " request, events complete due to error");
+
+                    break;
+                } else if(event.equals(Event.COMPLETED)) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(operation.getSimpleName() + " request, events complete");
+
+                    break;
+                }
+
+                Action action = eventActions.get(event);
+
+                if(action == null)
+                    throw new IllegalStateException("action was null for event " + event);
+
                 if(logger.isTraceEnabled())
-                    logger.trace(operation.getSimpleName()
-                                 + " request, events complete due to error");
+                    logger.trace(operation.getSimpleName() + " request, action "
+                                 + action.getClass().getSimpleName() + " to handle " + event + " event");
 
-                break;
-            } else if(event.equals(Event.COMPLETED)) {
-                if(logger.isTraceEnabled())
-                    logger.trace(operation.getSimpleName() + " request, events complete");
-
-                break;
+                action.execute(this);
             }
-
-            Action action = eventActions.get(event);
-
-            if(action == null)
-                throw new IllegalStateException("action was null for event " + event);
-
-            if(logger.isTraceEnabled())
-                logger.trace(operation.getSimpleName() + " request, action "
-                             + action.getClass().getSimpleName() + " to handle " + event + " event");
-
-            action.execute(this);
+        } finally {
+            finished = true;
         }
-        finished = true;
     }
 
 }
