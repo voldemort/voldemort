@@ -54,8 +54,8 @@ public class HandoffToAllStrategy implements HintedHandoffStrategy {
         for(Node node: nodes) {
             if(node.getId() != origin.getId()) {
                 if(enableZoneRouting && zones.size() > 1) {
-                    if(originZoneId == node.getZoneId()) {
-                        if(node.getZoneId() != originZoneId)
+                    if(originZoneId == clientZoneId) {
+                        if(node.getZoneId() != clientZoneId)
                             continue;
                     } else {
                         if(node.getZoneId() == originZoneId)
