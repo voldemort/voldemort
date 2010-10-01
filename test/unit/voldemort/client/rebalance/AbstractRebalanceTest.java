@@ -183,7 +183,8 @@ public abstract class AbstractRebalanceTest {
             checkGetEntries(updatedCluster.getNodeById(0),
                             updatedCluster,
                             Arrays.asList(2, 3),
-                            null);
+                            null,
+                            false);
 
         } finally {
             // stop servers
@@ -211,7 +212,8 @@ public abstract class AbstractRebalanceTest {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
 
-            // check that all keys are partitions 2,3 are Indeeed deleted.
+            // check that all keys are partitions 2,3 are still present -
+            // applicable only for Read-write
             // assign all partitions to node 0 by force ..
             rebalanceClient.getAdminClient()
                            .updateRemoteCluster(0,
@@ -223,7 +225,8 @@ public abstract class AbstractRebalanceTest {
             checkGetEntries(updatedCluster.getNodeById(0),
                             updatedCluster,
                             null,
-                            Arrays.asList(2, 3));
+                            Arrays.asList(2, 3),
+                            true);
 
         } finally {
             // stop servers
@@ -818,7 +821,8 @@ public abstract class AbstractRebalanceTest {
             checkGetEntries(currentCluster.getNodeById(nodeId),
                             targetCluster,
                             unavailablePartitions,
-                            availablePartitions);
+                            availablePartitions,
+                            false);
         }
 
     }
@@ -826,7 +830,8 @@ public abstract class AbstractRebalanceTest {
     protected void checkGetEntries(Node node,
                                    Cluster cluster,
                                    List<Integer> unavailablePartitions,
-                                   List<Integer> availablePartitions) {
+                                   List<Integer> availablePartitions,
+                                   boolean onlyReadWrite) {
         int matchedEntries = 0;
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
 
@@ -852,13 +857,15 @@ public abstract class AbstractRebalanceTest {
                 } catch(InvalidMetadataException e) {
                     // ignore.
                 }
-                try {
-                    List<Versioned<byte[]>> value = storeRO.get(keyBytes);
-                    assertEquals("unavailable partitons should return zero size list.",
-                                 0,
-                                 value.size());
-                } catch(InvalidMetadataException e) {
-                    // ignore.
+                if(!onlyReadWrite) {
+                    try {
+                        List<Versioned<byte[]>> value = storeRO.get(keyBytes);
+                        assertEquals("unavailable partitons should return zero size list.",
+                                     0,
+                                     value.size());
+                    } catch(InvalidMetadataException e) {
+                        // ignore.
+                    }
                 }
 
             } else if(null != availablePartitions && availablePartitions.containsAll(partitions)) {
@@ -874,17 +881,21 @@ public abstract class AbstractRebalanceTest {
                              entry.getValue(),
                              ByteUtils.getString(value.getValue(), "UTF-8"));
 
-                values = storeRO.get(keyBytes);
+                if(!onlyReadWrite) {
+                    values = storeRO.get(keyBytes);
 
-                // expecting exactly one version
-                assertEquals("Expecting exactly one version", 1, values.size());
-                value = values.get(0);
-                // check version matches (expecting base version for all)
-                assertEquals("Value version should match", new VectorClock(), value.getVersion());
-                // check value matches.
-                assertEquals("Value bytes should match",
-                             entry.getValue(),
-                             ByteUtils.getString(value.getValue(), "UTF-8"));
+                    // expecting exactly one version
+                    assertEquals("Expecting exactly one version", 1, values.size());
+                    value = values.get(0);
+                    // check version matches (expecting base version for all)
+                    assertEquals("Value version should match",
+                                 new VectorClock(),
+                                 value.getVersion());
+                    // check value matches.
+                    assertEquals("Value bytes should match",
+                                 entry.getValue(),
+                                 ByteUtils.getString(value.getValue(), "UTF-8"));
+                }
                 matchedEntries++;
             } else {
                 // dont care about these

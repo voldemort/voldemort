@@ -177,7 +177,7 @@ public class ChunkedFileSet {
         List<Integer> partitionList = routingStrategy.getPartitionList(key);
         partitionList.retainAll(partitionIds);
         if(partitionList.size() != 1)
-            throw new VoldemortException("Partition list returned is incorrect");
+            return -1;
 
         Integer chunkId = ReadOnlyUtils.chunk(ByteUtils.md5(key),
                                               partitionToNumChunks.get(partitionList.get(0)));

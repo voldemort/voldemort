@@ -385,6 +385,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[]> {
         try {
             fileModificationLock.readLock().lock();
             int chunk = fileSet.getChunkForKey(key.get());
+            if(chunk < 0) {
+                logger.warn("Routing strategy used for read-only store is inconsistent");
+                return Collections.emptyList();
+            }
             int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
                                                   ByteUtils.md5(key.get()),
                                                   fileSet.getIndexFileSize(chunk));

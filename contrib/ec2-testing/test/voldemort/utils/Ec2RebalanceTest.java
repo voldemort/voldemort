@@ -233,7 +233,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
                     checkGetEntries(currentCluster.getNodeById(nodeId),
                                     targetCluster,
                                     unavailablePartitions,
-                                    availablePartitions);
+                                    availablePartitions,
+                                    false);
                 } catch(InvalidMetadataException e) {
                     logger.warn(e);
                 }
