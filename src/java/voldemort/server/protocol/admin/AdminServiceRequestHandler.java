@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -35,6 +36,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.routing.RoutingStrategy;
@@ -70,6 +72,7 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -216,7 +219,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case FETCH_PARTITION_FILES:
                 return handleFetchPartitionFiles(request.getFetchPartitionFiles());
-
+            case SWAP_STORES_AND_CLEAN_STATE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleSwapStoresAndCleanState(request.getSwapStoresAndCleanState()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -334,12 +340,18 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
+            Map<String, String> storeToVersionDir = Maps.newHashMap();
+            for(ROStoreVersionDirMap currentStore: request.getStoreToRODirList()) {
+                storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
+            }
+
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
                                                                                      request.getDeletePartitionsList(),
                                                                                      request.getStealMasterPartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
+                                                                                     storeToVersionDir,
                                                                                      request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
@@ -403,27 +415,56 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+    public VAdminProto.SwapStoresAndCleanStateResponse handleSwapStoresAndCleanState(VAdminProto.SwapStoresAndCleanStateRequest request) {
+        VAdminProto.SwapStoresAndCleanStateResponse.Builder response = VAdminProto.SwapStoresAndCleanStateResponse.newBuilder();
+
+        Map<String, String> storeToVersionDir = Maps.newHashMap();
+        for(ROStoreVersionDirMap currentStore: request.getRoStoreVersionsList()) {
+            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
+        }
+
+        try {
+            for(String storeName: storeToVersionDir.keySet()) {
+                logger.debug("Swapping " + storeName);
+                swapStore(storeName, storeToVersionDir.get(storeName));
+            }
+
+            logger.debug("stealInfoList empty, cleaning all rebalancing state");
+            metadataStore.cleanAllRebalancingState();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleSwapStoresAndCleanState failed for request(" + request.toString()
+                         + ")", e);
+
+        }
+        return response.build();
+
+    }
+
+    private void swapStore(String storeName, String directory) throws VoldemortException {
+        ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
+                                                                               storeName);
+
+        if(!Utils.isReadableDir(directory))
+            throw new VoldemortException("Store directory '" + directory
+                                         + "' is not a readable directory.");
+
+        store.swapFiles(directory);
+    }
+
     public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
         final String dir = request.getStoreDir();
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
-        if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();
         }
 
         try {
-            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                   storeName);
-
-            if(!Utils.isReadableDir(dir))
-                throw new VoldemortException("Store directory '" + dir
-                                             + "' is not a readable directory.");
-
-            store.swapFiles(dir);
+            swapStore(storeName, dir);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleSwapStore failed for request(" + request.toString() + ")", e);
@@ -745,8 +786,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.DeleteStoreResponse.Builder response = VAdminProto.DeleteStoreResponse.newBuilder();
 
         // don't try to delete a store in the middle of rebalancing
-        if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();
@@ -805,8 +845,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
 
         // don't try to add a store in the middle of rebalancing
-        if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();

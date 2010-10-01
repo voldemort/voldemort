@@ -848,13 +848,19 @@ public abstract class AbstractRebalanceTest {
                     assertEquals("unavailable partitons should return zero size list.",
                                  0,
                                  value.size());
-                    value = storeRO.get(keyBytes);
+
+                } catch(InvalidMetadataException e) {
+                    // ignore.
+                }
+                try {
+                    List<Versioned<byte[]>> value = storeRO.get(keyBytes);
                     assertEquals("unavailable partitons should return zero size list.",
                                  0,
                                  value.size());
                 } catch(InvalidMetadataException e) {
                     // ignore.
                 }
+
             } else if(null != availablePartitions && availablePartitions.containsAll(partitions)) {
                 List<Versioned<byte[]>> values = storeRW.get(keyBytes);
 

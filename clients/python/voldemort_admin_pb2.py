@@ -87,6 +87,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='FETCH_PARTITION_FILES', index=18, number=18,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='SWAP_STORES_AND_CLEAN_STATE', index=19, number=19,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -111,6 +115,7 @@ ROLLBACK_STORE = 15
 GET_RO_MAX_VERSION_DIR = 16
 GET_RO_CURRENT_VERSION_DIR = 17
 FETCH_PARTITION_FILES = 18
+SWAP_STORES_AND_CLEAN_STATE = 19
 
 
 
@@ -770,6 +775,13 @@ _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='storeToRODir', full_name='voldemort.InitiateRebalanceNodeRequest.storeToRODir', index=7,
+      number=9, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1230,6 +1242,50 @@ _GETROCURRENTVERSIONDIRRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_SWAPSTORESANDCLEANSTATEREQUEST = descriptor.Descriptor(
+  name='SwapStoresAndCleanStateRequest',
+  full_name='voldemort.SwapStoresAndCleanStateRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='ro_store_versions', full_name='voldemort.SwapStoresAndCleanStateRequest.ro_store_versions', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_SWAPSTORESANDCLEANSTATERESPONSE = descriptor.Descriptor(
+  name='SwapStoresAndCleanStateResponse',
+  full_name='voldemort.SwapStoresAndCleanStateResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.SwapStoresAndCleanStateResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
 _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   name='VoldemortAdminRequest',
   full_name='voldemort.VoldemortAdminRequest',
@@ -1376,6 +1432,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='swap_stores_and_clean_state', full_name='voldemort.VoldemortAdminRequest.swap_stores_and_clean_state', index=20,
+      number=21, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1402,6 +1465,7 @@ _DELETEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort
 _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_INITIATEREBALANCENODEREQUEST.fields_by_name['storeToRODir'].message_type = _ROSTOREVERSIONDIRMAP
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
@@ -1412,6 +1476,8 @@ _GETROMAXVERSIONDIRRESPONSE.fields_by_name['ro_store_versions'].message_type = _
 _GETROMAXVERSIONDIRRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _GETROCURRENTVERSIONDIRRESPONSE.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONDIRMAP
 _GETROCURRENTVERSIONDIRRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_SWAPSTORESANDCLEANSTATEREQUEST.fields_by_name['ro_store_versions'].message_type = _ROSTOREVERSIONDIRMAP
+_SWAPSTORESANDCLEANSTATERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _VOLDEMORTADMINREQUEST.fields_by_name['type'].enum_type = _ADMINREQUESTTYPE
 _VOLDEMORTADMINREQUEST.fields_by_name['get_metadata'].message_type = _GETMETADATAREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['update_metadata'].message_type = _UPDATEMETADATAREQUEST
@@ -1432,6 +1498,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['rollback_store'].message_type = _ROLLBACK
 _VOLDEMORTADMINREQUEST.fields_by_name['get_ro_max_version_dir'].message_type = _GETROMAXVERSIONDIRREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['get_ro_current_version_dir'].message_type = _GETROCURRENTVERSIONDIRREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['fetch_partition_files'].message_type = _FETCHPARTITIONFILESREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['swap_stores_and_clean_state'].message_type = _SWAPSTORESANDCLEANSTATEREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1584,6 +1651,14 @@ class GetROCurrentVersionDirRequest(message.Message):
 class GetROCurrentVersionDirResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETROCURRENTVERSIONDIRRESPONSE
+
+class SwapStoresAndCleanStateRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _SWAPSTORESANDCLEANSTATEREQUEST
+
+class SwapStoresAndCleanStateResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _SWAPSTORESANDCLEANSTATERESPONSE
 
 class VoldemortAdminRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

@@ -449,12 +449,10 @@ public class StorageService extends AbstractService {
         final StorageEngine<ByteArray, byte[]> storageEngine = config.getStore(name);
         // Update the routing strategy + add listener to metadata
         if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
-            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
-                                                                                                       metadata.getCluster());
-            metadata.addMetadataStoreListener(new MetadataStoreListener() {
+            metadata.addMetadataStoreListener(name, new MetadataStoreListener() {
 
-                public void updateRoutingStrategy(Map<String, RoutingStrategy> routingStrategyMap) {
-                    ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(routingStrategy);
+                public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
+                    ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(updatedRoutingStrategy);
                 }
             });
         }

@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import org.junit.Test;
@@ -43,6 +44,7 @@ public class RebalancerStateTest {
                                                                                                            new ArrayList<Integer>(0),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
+                                                                                                           new HashMap<String, String>(),
                                                                                                            0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,
@@ -54,6 +56,7 @@ public class RebalancerStateTest {
                                                                                                            new ArrayList<Integer>(0),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
+                                                                                                           new HashMap<String, String>(),
                                                                                                            0));
 
         RebalancerState in = new RebalancerState(rebalancePartitionsInfos);

@@ -18,6 +18,7 @@ package voldemort.store.metadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -40,7 +41,8 @@ public class MetadataStoreTest extends TestCase {
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
-                                                   MetadataStore.REBALANCING_STEAL_INFO);
+                                                   MetadataStore.REBALANCING_STEAL_INFO,
+                                                   MetadataStore.SERVER_STATE_KEY);
 
     @Override
     public void setUp() throws Exception {
@@ -80,6 +82,7 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     new ArrayList<Integer>(0),
                                                                                                     new ArrayList<Integer>(0),
                                                                                                     Arrays.asList("testStoreName"),
+                                                                                                    new HashMap<String, String>(),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
@@ -167,6 +170,24 @@ public class MetadataStoreTest extends TestCase {
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.NORMAL_SERVER);
+
+        // put state entries.
+        incrementVersionAndPut(metadataStore,
+                               MetadataStore.SERVER_STATE_KEY,
+                               MetadataStore.VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
+
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
+
+        // do clean
+        metadataStore.cleanAllRebalancingState();
+
+        // check all values revert back to default.
+        assertEquals("Values should match.",
+                     metadataStore.getServerState(),
+                     VoldemortState.NORMAL_SERVER);
+
     }
 
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {

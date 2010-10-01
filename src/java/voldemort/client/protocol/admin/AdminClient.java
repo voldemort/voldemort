@@ -73,6 +73,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -616,6 +617,7 @@ public class AdminClient {
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
                                                                                                                 .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
                                                                                                                 .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
+                                                                                                                .addAllStoreToRODir(decodeROStoreVersionDirMap(stealInfo.getStoreToRODir()))
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -1279,6 +1281,30 @@ public class AdminClient {
     }
 
     /**
+     * Swap multiple read-only stores and clear the rebalancing state
+     * 
+     * @param nodeId The node id on which to swap the stores
+     * @param storeToDir A map of read-only store names with their respective
+     *        directories
+     */
+    public void swapStoresAndCleanState(int nodeId, Map<String, String> storeToDir) {
+        VAdminProto.SwapStoresAndCleanStateRequest.Builder swapStoreRequest = VAdminProto.SwapStoresAndCleanStateRequest.newBuilder()
+                                                                                                                        .addAllRoStoreVersions(decodeROStoreVersionDirMap(storeToDir));
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setSwapStoresAndCleanState(swapStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.SWAP_STORES_AND_CLEAN_STATE)
+                                                                                          .build();
+        VAdminProto.SwapStoresAndCleanStateResponse.Builder response = sendAndReceive(nodeId,
+                                                                                      adminRequest,
+                                                                                      VAdminProto.SwapStoresAndCleanStateResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+        return;
+    }
+
+    /**
      * Returns the max version of push currently being used by read-only store.
      * Important to remember that this may not be the 'current' version since
      * multiple pushes (with greater version numbers) may be in progress
@@ -1380,6 +1406,17 @@ public class AdminClient {
                           ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
         }
         return returnMap;
+    }
+
+    private List<ROStoreVersionDirMap> decodeROStoreVersionDirMap(Map<String, String> storeVersionDirMap) {
+        List<ROStoreVersionDirMap> storeToVersionDir = Lists.newArrayList();
+        for(String storeName: storeVersionDirMap.keySet()) {
+            storeToVersionDir.add(ROStoreVersionDirMap.newBuilder()
+                                                      .setStoreName(storeName)
+                                                      .setStoreDir(storeVersionDirMap.get(storeName))
+                                                      .build());
+        }
+        return storeToVersionDir;
     }
 
     private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {

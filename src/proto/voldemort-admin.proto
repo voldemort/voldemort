@@ -109,7 +109,6 @@ message AsyncOperationListResponse {
   optional Error error = 2;
 }
 
-
 message InitiateRebalanceNodeRequest {
   required int32 stealer_id =2;
   required int32 donor_id = 3;
@@ -118,6 +117,7 @@ message InitiateRebalanceNodeRequest {
   repeated int32 deletePartitions = 6;
   repeated string unbalanced_store = 7;
   repeated int32 stealMasterPartitions = 8;
+  repeated ROStoreVersionDirMap storeToRODir = 9; 
 }
 
 message AsyncOperationStatusResponse {
@@ -199,6 +199,14 @@ message GetROCurrentVersionDirResponse {
   optional Error error = 2;
 }
 
+message SwapStoresAndCleanStateRequest {
+  repeated ROStoreVersionDirMap ro_store_versions = 1;
+}
+
+message SwapStoresAndCleanStateResponse {
+  optional Error error = 1; 
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -219,6 +227,7 @@ enum AdminRequestType {
   GET_RO_MAX_VERSION_DIR = 16;
   GET_RO_CURRENT_VERSION_DIR = 17;
   FETCH_PARTITION_FILES = 18;
+  SWAP_STORES_AND_CLEAN_STATE = 19;
 }
 
 message VoldemortAdminRequest {
@@ -242,4 +251,5 @@ message VoldemortAdminRequest {
   optional GetROMaxVersionDirRequest get_ro_max_version_dir = 18;
   optional GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
   optional FetchPartitionFilesRequest fetch_partition_files = 20;
+  optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
 }

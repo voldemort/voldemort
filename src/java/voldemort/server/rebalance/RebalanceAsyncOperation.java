@@ -30,10 +30,12 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 /**
  * Individual Rebalancing Operation
@@ -89,6 +91,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                            maxParallelStoresRebalancing * 4,
                                                            maxParallelStoresRebalancing * 2);
         final List<Exception> failures = new ArrayList<Exception>();
+        final List<String> readOnlyStoresCompleted = new ArrayList<String>();
         try {
             logger.info("starting rebalancing task" + stealInfo);
 
@@ -104,10 +107,17 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
-                            List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
-                            tempUnbalancedStoreList.remove(storeName);
-                            stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                            // If read-only store then don't remove from
+                            // unbalanced list since we still need to swap
+                            if(!isReadOnlyStore) {
+                                List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
+                                tempUnbalancedStoreList.remove(storeName);
+                                stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                            } else {
+                                readOnlyStoresCompleted.add(storeName);
+                            }
                             rebalancer.setRebalancingState(stealInfo);
+
                         } catch(Exception e) {
                             logger.error("rebalanceSubTask:" + stealInfo + " failed for store:"
                                          + storeName, e);
@@ -120,14 +130,25 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
             waitForShutdown();
 
-            if(stealInfo.getUnbalancedStoreList().isEmpty()) {
+            // If empty i.e. all were read-write stores, clean state
+            List<String> unbalancedStores = Lists.newArrayList(stealInfo.getUnbalancedStoreList());
+            if(unbalancedStores.isEmpty()) {
                 logger.info("Rebalancer: rebalance " + stealInfo + " completed successfully.");
                 // clean state only if successful operation, not all
                 // operations.
                 metadataStore.cleanRebalancingState(stealInfo);
             } else {
-                throw new VoldemortRebalancingException("Failed to rebalance task " + stealInfo,
-                                                        failures);
+                unbalancedStores.removeAll(readOnlyStoresCompleted);
+                if(unbalancedStores.size() > 0) {
+                    throw new VoldemortRebalancingException("Failed to rebalance task " + stealInfo,
+                                                            failures);
+                } else {
+                    logger.info("Rebalancer: rebalance "
+                                + stealInfo
+                                + " for read-write completed successfully. Need to swap read-only stores. ");
+                    metadataStore.put(MetadataStore.SERVER_STATE_KEY,
+                                      VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
+                }
             }
 
         } finally {

@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -60,7 +61,8 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      true);
+                                                                      true,
+                                                                      null);
 
         // the rebalancing plan should have exactly 1 node
         assertEquals("There should have exactly one rebalancing node",
@@ -76,6 +78,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                            Arrays.asList(2, 3),
                                                                            Arrays.asList(2, 3),
                                                                            RebalanceUtils.getStoreNames(storeDefList),
+                                                                           new HashMap<String, String>(),
                                                                            0);
 
             assertEquals("rebalanceStealInfo should match",
@@ -94,7 +97,8 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      true);
+                                                                      true,
+                                                                      null);
 
         // the rebalancing plan should have exactly 1 node
         assertEquals("There should have exactly one rebalancing node",
@@ -111,6 +115,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                          Arrays.asList(1),
                                                                          Arrays.asList(1),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
+                                                                         new HashMap<String, String>(),
                                                                          0);
         RebalancePartitionsInfo stealInfo1 = new RebalancePartitionsInfo(3,
                                                                          1,
@@ -118,6 +123,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                          Arrays.asList(5),
                                                                          Arrays.asList(5),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
+                                                                         new HashMap<String, String>(),
                                                                          0);
 
         checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(stealInfo0, stealInfo1));
@@ -170,6 +176,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                    Arrays.asList(1, 2, 3, 4),
                                                                    new ArrayList<Integer>(0),
                                                                    Arrays.asList("test1", "test2"),
+                                                                   new HashMap<String, String>(),
                                                                    0);
         System.out.println("info:" + info.toString());
 

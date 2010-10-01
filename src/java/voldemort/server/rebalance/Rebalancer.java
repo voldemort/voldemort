@@ -90,7 +90,6 @@ public class Rebalancer implements Runnable {
                                     + stealInfo);
                         if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                             attemptRebalance(stealInfo);
-                            // TODO: Swap the read-only store
                         } else {
                             logger.warn("Rebalancing for rebalancing task " + stealInfo
                                         + " failed multiple times, Aborting more trials.");
@@ -101,6 +100,33 @@ public class Rebalancer implements Runnable {
                                      + " failed with exception", e);
                     }
                 }
+            }
+        }
+
+        metadataStore.readLock.lock();
+        try {
+            voldemortState = metadataStore.getServerState();
+            rebalancerState = metadataStore.getRebalancerState();
+        } catch(Exception e) {
+            logger.error("Error determining state", e);
+            return;
+        } finally {
+            metadataStore.readLock.unlock();
+        }
+
+        // Pick any partition info since the directory information will be same
+        // (since same stealer)
+        RebalancePartitionsInfo partitionInfo = rebalancerState.getAll().iterator().next();
+        if(VoldemortState.REBALANCING_MASTER_SWAP_SERVER.equals(voldemortState)) {
+            AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                           metadataStore.getCluster(),
+                                                                           4,
+                                                                           2);
+            try {
+                adminClient.swapStoresAndCleanState(partitionInfo.getStealerId(),
+                                                    partitionInfo.getStoreToRODir());
+            } finally {
+                adminClient.stop();
             }
         }
     }
@@ -197,6 +223,10 @@ public class Rebalancer implements Runnable {
                                                  + " is already rebalancing from: " + info
                                                  + " rejecting rebalance request:" + stealInfo);
                 }
+            }
+
+            if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SWAP_SERVER)) {
+                throw new VoldemortException("Server is still swapping the previous read-only stores");
             }
         } finally {
             metadataStore.readLock.unlock();

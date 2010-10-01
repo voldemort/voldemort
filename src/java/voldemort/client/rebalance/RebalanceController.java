@@ -18,6 +18,8 @@ package voldemort.client.rebalance;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -161,8 +163,13 @@ public class RebalanceController {
         final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(oldCluster,
                                                                                    targetCluster,
                                                                                    storesList,
-                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled());
+                                                                                   rebalanceConfig.isDeleteAfterRebalancingEnabled(),
+                                                                                   currentROStoreVersionsDirs);
         logger.info(rebalanceClusterPlan);
+
+        if(rebalanceClusterPlan.getRebalancingTaskQueue().isEmpty()) {
+            return;
+        }
 
         // propagate new cluster information to all
         Node firstNode = currentCluster.getNodes().iterator().next();
@@ -176,6 +183,10 @@ public class RebalanceController {
                                         new ArrayList<Integer>());
 
         ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+        final List<Exception> failures = new ArrayList<Exception>();
+
+        // All stealer and donor nodes
+        final Set<Integer> nodeIds = Collections.synchronizedSet(new HashSet<Integer>());
 
         // start all threads
         for(int nThreads = 0; nThreads < this.rebalanceConfig.getMaxParallelRebalancing(); nThreads++) {
@@ -190,11 +201,13 @@ public class RebalanceController {
 
                         if(null != rebalanceTask) {
                             final int stealerNodeId = rebalanceTask.getStealerNode();
+                            nodeIds.add(stealerNodeId);
                             final SetMultimap<Integer, RebalancePartitionsInfo> rebalanceSubTaskMap = divideRebalanceNodePlan(rebalanceTask);
                             final Set<Integer> parallelDonors = rebalanceSubTaskMap.keySet();
                             ExecutorService parallelDonorExecutor = createExecutors(rebalanceConfig.getMaxParallelDonors());
 
                             for(final int donorNodeId: parallelDonors) {
+                                nodeIds.add(donorNodeId);
                                 parallelDonorExecutor.execute(new Runnable() {
 
                                     public void run() {
@@ -232,14 +245,17 @@ public class RebalanceController {
                                                                      + stealerNodeId
                                                                      + " is unreachable, please make sure it is up and running.",
                                                              e);
+                                                failures.add(e);
                                             } catch(VoldemortRebalancingException e) {
                                                 logger.error(e);
                                                 for(Exception cause: e.getCauses()) {
                                                     logger.error(cause);
                                                 }
+                                                failures.add(e);
                                             } catch(Exception e) {
                                                 logger.error("Rebalancing task failed with exception",
                                                              e);
+                                                failures.add(e);
                                             }
                                         }
                                     }
@@ -250,6 +266,7 @@ public class RebalanceController {
                                 executorShutDown(parallelDonorExecutor);
                             } catch(Exception e) {
                                 logger.error("Interrupted", e);
+                                failures.add(e);
                             }
                         }
                     }
@@ -266,20 +283,23 @@ public class RebalanceController {
             return;
         }
 
-        // If all successful, swap the read-only stores
-        if(readOnlyStores.size() > 0) {
+        // If everything successful, swap the read-only stores
+        if(failures.size() == 0 && readOnlyStores.size() > 0) {
             ExecutorService swapExecutors = createExecutors(targetCluster.getNumberOfNodes());
-            for(final Node node: targetCluster.getNodes()) {
+            for(final Integer nodeId: nodeIds) {
                 swapExecutors.submit(new Runnable() {
 
                     public void run() {
-                        Map<String, String> storeDirs = currentROStoreVersionsDirs.get(node.getId());
-                        for(String storeName: storeDirs.keySet()) {
-                            logger.info("Swapping " + storeName + " on node " + node.getId());
-                            adminClient.swapStore(node.getId(), storeName, storeDirs.get(storeName));
-                            logger.info("Successfully swapped " + storeName + " on node "
-                                        + node.getId());
+                        Map<String, String> storeDirs = currentROStoreVersionsDirs.get(nodeId);
+
+                        try {
+                            logger.info("Swapping read-only stores on node " + nodeId);
+                            adminClient.swapStoresAndCleanState(nodeId, storeDirs);
+                            logger.info("Successfully swapped on node " + nodeId);
+                        } catch(Exception e) {
+                            logger.error("Failed swapping on node " + nodeId, e);
                         }
+
                     }
                 });
             }

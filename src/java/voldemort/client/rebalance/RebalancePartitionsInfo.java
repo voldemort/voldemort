@@ -21,6 +21,7 @@ public class RebalancePartitionsInfo {
     private List<String> unbalancedStoreList;
     private int attempt;
     private List<Integer> stealMasterPartitions;
+    private Map<String, String> storeToRODir;
 
     /**
      * Rebalance Partitions info maintains all information needed for
@@ -43,6 +44,7 @@ public class RebalancePartitionsInfo {
                                    List<Integer> deletePartitionsList,
                                    List<Integer> stealMasterPartitions,
                                    List<String> unbalancedStoreList,
+                                   Map<String, String> storeToRODir,
                                    int attempt) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
@@ -51,6 +53,7 @@ public class RebalancePartitionsInfo {
         this.deletePartitionsList = deletePartitionsList;
         this.unbalancedStoreList = unbalancedStoreList;
         this.stealMasterPartitions = stealMasterPartitions;
+        this.storeToRODir = storeToRODir;
     }
 
     public static RebalancePartitionsInfo create(String line) {
@@ -72,6 +75,7 @@ public class RebalancePartitionsInfo {
         int attempt = (Integer) map.get("attempt");
         List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
+        Map<String, String> storeToRODir = Utils.uncheckedCast(map.get("storeToRODir"));
 
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
@@ -79,6 +83,7 @@ public class RebalancePartitionsInfo {
                                            deletePartitionsList,
                                            stealMasterPartitions,
                                            unbalancedStoreList,
+                                           storeToRODir,
                                            attempt);
     }
 
@@ -122,6 +127,14 @@ public class RebalancePartitionsInfo {
         this.stealMasterPartitions = stealMasterPartitions;
     }
 
+    public Map<String, String> getStoreToRODir() {
+        return storeToRODir;
+    }
+
+    public void setStoreToRODir(Map<String, String> storeToRODir) {
+        this.storeToRODir = storeToRODir;
+    }
+
     @Override
     public String toString() {
         return "RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId() + " partitions:"
@@ -147,6 +160,7 @@ public class RebalancePartitionsInfo {
                       .put("unbalancedStoreList", unbalancedStoreList)
                       .put("stealMasterPartitions", stealMasterPartitions)
                       .put("deletePartitionsList", deletePartitionsList)
+                      .put("storeToRODir", storeToRODir)
                       .put("attempt", attempt)
                       .build();
     }
@@ -176,6 +190,9 @@ public class RebalancePartitionsInfo {
         if(unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList)
                                       : that.unbalancedStoreList != null)
             return false;
+        if(storeToRODir != null ? !storeToRODir.equals(that.storeToRODir)
+                               : that.storeToRODir != null)
+            return false;
 
         return true;
     }
@@ -190,6 +207,7 @@ public class RebalancePartitionsInfo {
         result = 31 * result + attempt;
         result = 31 * result
                  + (stealMasterPartitions != null ? stealMasterPartitions.hashCode() : 0);
+        result = 31 * result + (storeToRODir != null ? storeToRODir.hashCode() : 0);
         return result;
     }
 }

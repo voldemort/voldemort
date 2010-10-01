@@ -644,6 +644,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                         rebalancePartitionList,
                                                                         rebalancePartitionList,
                                                                         Arrays.asList(testStoreName),
+                                                                        new HashMap<String, String>(),
                                                                         0);
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);

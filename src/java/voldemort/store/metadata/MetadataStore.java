@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -58,7 +59,6 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
@@ -76,7 +76,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
-    public static final String STORE_STATE_KEY = "store.state";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -84,8 +83,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO,
-                                                                    STORE_STATE_KEY);
+                                                                    REBALANCING_STEAL_INFO);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -98,6 +96,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public static enum VoldemortState {
         NORMAL_SERVER,
         REBALANCING_MASTER_SERVER,
+        REBALANCING_MASTER_SWAP_SERVER
+        // The state after fetching is complete and we only need to swap
+        // read-only stores
     }
 
     public static enum StoreState {
@@ -118,30 +119,30 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
     public final Lock readLock = lock.readLock();
     public final Lock writeLock = lock.writeLock();
 
-    private final ConcurrentHashMultiset<MetadataStoreListener> listeners;
+    private final ConcurrentHashMap<String, MetadataStoreListener> storeNameTolisteners;
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
-        listeners = ConcurrentHashMultiset.create();
+        this.storeNameTolisteners = new ConcurrentHashMap<String, MetadataStoreListener>();
 
         init(nodeId);
     }
 
-    public void addMetadataStoreListener(MetadataStoreListener listener) {
-        if(listeners == null)
+    public void addMetadataStoreListener(String storeName, MetadataStoreListener listener) {
+        if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
-        listeners.add(listener);
+        this.storeNameTolisteners.put(storeName, listener);
     }
 
-    public void remoteMetadataStoreListener(MetadataStoreListener listener) {
-        if(listeners == null)
+    public void remoteMetadataStoreListener(String storeName) {
+        if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
-        listeners.remove(listener);
+        this.storeNameTolisteners.remove(storeName);
     }
 
     public static MetadataStore readFromDirectory(File dir, int nodeId) {
@@ -368,13 +369,18 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
                                                      clock.incremented(getNodeId(),
                                                                        System.currentTimeMillis())));
 
-        for(MetadataStoreListener listener: listeners.elementSet()) {
-            try {
-                listener.updateRoutingStrategy(routingStrategyMap);
-            } catch(Exception e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(e, e);
+        for(String storeName: storeNameTolisteners.keySet()) {
+            RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
+            if(updatedRoutingStrategy != null) {
+                try {
+                    storeNameTolisteners.get(storeName)
+                                        .updateRoutingStrategy(updatedRoutingStrategy);
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
             }
+
         }
     }
 

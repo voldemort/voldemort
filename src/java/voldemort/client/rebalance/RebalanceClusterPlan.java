@@ -42,7 +42,8 @@ public class RebalanceClusterPlan {
     public RebalanceClusterPlan(Cluster currentCluster,
                                 Cluster targetCluster,
                                 List<StoreDefinition> storeDefList,
-                                boolean deleteDonorPartition) {
+                                boolean deleteDonorPartition,
+                                Map<Integer, Map<String, String>> currentROStoreVersionsDirs) {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         this.storeDefList = storeDefList;
 
@@ -56,6 +57,11 @@ public class RebalanceClusterPlan {
                                                                                    node.getId(),
                                                                                    deleteDonorPartition);
             if(rebalanceNodeList.size() > 0) {
+                if(currentROStoreVersionsDirs != null && currentROStoreVersionsDirs.size() > 0) {
+                    for(RebalancePartitionsInfo partitionsInfo: rebalanceNodeList) {
+                        partitionsInfo.setStoreToRODir(currentROStoreVersionsDirs.get(partitionsInfo.getStealerId()));
+                    }
+                }
                 rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
             }
         }
@@ -120,6 +126,7 @@ public class RebalanceClusterPlan {
                                                               new ArrayList<Integer>(deletePartitions),
                                                               new ArrayList<Integer>(stealMasterPartitions),
                                                               storeList,
+                                                              new HashMap<String, String>(),
                                                               0));
             }
         }
