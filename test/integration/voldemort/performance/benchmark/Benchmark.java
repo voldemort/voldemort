@@ -100,6 +100,8 @@ public class Benchmark {
     public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
     public static final String HINTED_HANDOFF = "enable-hinted-handoff";
     public static final String CLIENT_ZONE_ID = "client-zoneid";
+    public static final String SELECTORS = "selectors";
+    public static final String SOCKET_BUFFER_SIZE = "socket-buffer-size";
     private static final String DUMMY_DB = "benchmark_db";
 
     private StoreClient<Object, Object> storeClient;
@@ -323,6 +325,8 @@ public class Benchmark {
         boolean enablePipelineRouted = benchmarkProps.getBoolean(PIPELINE_ROUTED_STORE, false);
         boolean enableHintedHandoff = benchmarkProps.getBoolean(HINTED_HANDOFF, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
+        int numSelectors = benchmarkProps.getInt(SELECTORS, 4);
+        int socketBufferSize = benchmarkProps.getInt(SOCKET_BUFFER_SIZE, 4 * 1024);
 
         if(benchmarkProps.containsKey(URL)) {
 
@@ -342,8 +346,9 @@ public class Benchmark {
                                                                                 TimeUnit.SECONDS)
                                                           .setSocketTimeout(60, TimeUnit.SECONDS)
                                                           .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
-                                                          .setSocketBufferSize(4 * 1024)
+                                                          .setSocketBufferSize(socketBufferSize)
                                                           .setEnableHintedHandoff(enableHintedHandoff)
+                                                          .setSelectors(numSelectors)
                                                           .setEnablePipelineRoutedStore(enablePipelineRouted);
 
             if(clientZoneId >= 0) {
@@ -590,6 +595,14 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("zone-id")
               .ofType(Integer.class);
+        parser.accepts(SELECTORS, "number of selectors for NIO client")
+              .withRequiredArg()
+              .describedAs("selectors")
+              .ofType(Integer.class);
+        parser.accepts(SOCKET_BUFFER_SIZE, "socket buffer size")
+              .withRequiredArg()
+              .describedAs("socket-buffer-size")
+              .ofType(Integer.class);
         parser.accepts(HELP);
 
         OptionSet options = parser.parse(args);
@@ -657,6 +670,8 @@ public class Benchmark {
             mainProps.put(PIPELINE_ROUTED_STORE, getCmdBoolean(options, PIPELINE_ROUTED_STORE));
             mainProps.put(HINTED_HANDOFF, getCmdBoolean(options, HINTED_HANDOFF));
             mainProps.put(CLIENT_ZONE_ID, CmdUtils.valueOf(options, CLIENT_ZONE_ID, -1));
+            mainProps.put(SELECTORS, CmdUtils.valueOf(options, SELECTORS, 4));
+            mainProps.put(SOCKET_BUFFER_SIZE, CmdUtils.valueOf(options, SOCKET_BUFFER_SIZE, 4 * 1024));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));
