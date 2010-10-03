@@ -7085,23 +7085,38 @@ public final class VAdminProto {
       return stealMasterPartitions_.get(index);
     }
     
-    // repeated .voldemort.ROStoreVersionDirMap storeToRODir = 9;
-    public static final int STORETORODIR_FIELD_NUMBER = 9;
-    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> storeToRODir_ =
+    // repeated .voldemort.ROStoreVersionDirMap stealer_ro_store_to_dir = 9;
+    public static final int STEALER_RO_STORE_TO_DIR_FIELD_NUMBER = 9;
+    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> stealerRoStoreToDir_ =
       java.util.Collections.emptyList();
-    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStoreToRODirList() {
-      return storeToRODir_;
+    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStealerRoStoreToDirList() {
+      return stealerRoStoreToDir_;
     }
-    public int getStoreToRODirCount() { return storeToRODir_.size(); }
-    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStoreToRODir(int index) {
-      return storeToRODir_.get(index);
+    public int getStealerRoStoreToDirCount() { return stealerRoStoreToDir_.size(); }
+    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStealerRoStoreToDir(int index) {
+      return stealerRoStoreToDir_.get(index);
+    }
+    
+    // repeated .voldemort.ROStoreVersionDirMap donor_ro_store_to_dir = 10;
+    public static final int DONOR_RO_STORE_TO_DIR_FIELD_NUMBER = 10;
+    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> donorRoStoreToDir_ =
+      java.util.Collections.emptyList();
+    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getDonorRoStoreToDirList() {
+      return donorRoStoreToDir_;
+    }
+    public int getDonorRoStoreToDirCount() { return donorRoStoreToDir_.size(); }
+    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getDonorRoStoreToDir(int index) {
+      return donorRoStoreToDir_.get(index);
     }
     
     public final boolean isInitialized() {
       if (!hasStealerId) return false;
       if (!hasDonorId) return false;
       if (!hasAttempt) return false;
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStoreToRODirList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
+        if (!element.isInitialized()) return false;
+      }
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
         if (!element.isInitialized()) return false;
       }
       return true;
@@ -7130,8 +7145,11 @@ public final class VAdminProto {
       for (int element : getStealMasterPartitionsList()) {
         output.writeInt32(8, element);
       }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStoreToRODirList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
         output.writeMessage(9, element);
+      }
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
+        output.writeMessage(10, element);
       }
       getUnknownFields().writeTo(output);
     }
@@ -7190,9 +7208,13 @@ public final class VAdminProto {
         size += dataSize;
         size += 1 * getStealMasterPartitionsList().size();
       }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStoreToRODirList()) {
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(9, element);
+      }
+      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(10, element);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -7343,9 +7365,13 @@ public final class VAdminProto {
           result.stealMasterPartitions_ =
             java.util.Collections.unmodifiableList(result.stealMasterPartitions_);
         }
-        if (result.storeToRODir_ != java.util.Collections.EMPTY_LIST) {
-          result.storeToRODir_ =
-            java.util.Collections.unmodifiableList(result.storeToRODir_);
+        if (result.stealerRoStoreToDir_ != java.util.Collections.EMPTY_LIST) {
+          result.stealerRoStoreToDir_ =
+            java.util.Collections.unmodifiableList(result.stealerRoStoreToDir_);
+        }
+        if (result.donorRoStoreToDir_ != java.util.Collections.EMPTY_LIST) {
+          result.donorRoStoreToDir_ =
+            java.util.Collections.unmodifiableList(result.donorRoStoreToDir_);
         }
         voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest returnMe = result;
         result = null;
@@ -7396,11 +7422,17 @@ public final class VAdminProto {
           }
           result.stealMasterPartitions_.addAll(other.stealMasterPartitions_);
         }
-        if (!other.storeToRODir_.isEmpty()) {
-          if (result.storeToRODir_.isEmpty()) {
-            result.storeToRODir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        if (!other.stealerRoStoreToDir_.isEmpty()) {
+          if (result.stealerRoStoreToDir_.isEmpty()) {
+            result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
           }
-          result.storeToRODir_.addAll(other.storeToRODir_);
+          result.stealerRoStoreToDir_.addAll(other.stealerRoStoreToDir_);
+        }
+        if (!other.donorRoStoreToDir_.isEmpty()) {
+          if (result.donorRoStoreToDir_.isEmpty()) {
+            result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+          }
+          result.donorRoStoreToDir_.addAll(other.donorRoStoreToDir_);
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -7458,7 +7490,13 @@ public final class VAdminProto {
             case 74: {
               voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
               input.readMessage(subBuilder, extensionRegistry);
-              addStoreToRODir(subBuilder.buildPartial());
+              addStealerRoStoreToDir(subBuilder.buildPartial());
+              break;
+            }
+            case 82: {
+              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
+              input.readMessage(subBuilder, extensionRegistry);
+              addDonorRoStoreToDir(subBuilder.buildPartial());
               break;
             }
           }
@@ -7662,54 +7700,105 @@ public final class VAdminProto {
         return this;
       }
       
-      // repeated .voldemort.ROStoreVersionDirMap storeToRODir = 9;
-      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStoreToRODirList() {
-        return java.util.Collections.unmodifiableList(result.storeToRODir_);
+      // repeated .voldemort.ROStoreVersionDirMap stealer_ro_store_to_dir = 9;
+      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStealerRoStoreToDirList() {
+        return java.util.Collections.unmodifiableList(result.stealerRoStoreToDir_);
       }
-      public int getStoreToRODirCount() {
-        return result.getStoreToRODirCount();
+      public int getStealerRoStoreToDirCount() {
+        return result.getStealerRoStoreToDirCount();
       }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStoreToRODir(int index) {
-        return result.getStoreToRODir(index);
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStealerRoStoreToDir(int index) {
+        return result.getStealerRoStoreToDir(index);
       }
-      public Builder setStoreToRODir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+      public Builder setStealerRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        result.storeToRODir_.set(index, value);
+        result.stealerRoStoreToDir_.set(index, value);
         return this;
       }
-      public Builder setStoreToRODir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        result.storeToRODir_.set(index, builderForValue.build());
+      public Builder setStealerRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
+        result.stealerRoStoreToDir_.set(index, builderForValue.build());
         return this;
       }
-      public Builder addStoreToRODir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+      public Builder addStealerRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
         if (value == null) {
           throw new NullPointerException();
         }
-        if (result.storeToRODir_.isEmpty()) {
-          result.storeToRODir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        if (result.stealerRoStoreToDir_.isEmpty()) {
+          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
-        result.storeToRODir_.add(value);
+        result.stealerRoStoreToDir_.add(value);
         return this;
       }
-      public Builder addStoreToRODir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        if (result.storeToRODir_.isEmpty()) {
-          result.storeToRODir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+      public Builder addStealerRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
+        if (result.stealerRoStoreToDir_.isEmpty()) {
+          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
-        result.storeToRODir_.add(builderForValue.build());
+        result.stealerRoStoreToDir_.add(builderForValue.build());
         return this;
       }
-      public Builder addAllStoreToRODir(
+      public Builder addAllStealerRoStoreToDir(
           java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
-        if (result.storeToRODir_.isEmpty()) {
-          result.storeToRODir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        if (result.stealerRoStoreToDir_.isEmpty()) {
+          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
         }
-        super.addAll(values, result.storeToRODir_);
+        super.addAll(values, result.stealerRoStoreToDir_);
         return this;
       }
-      public Builder clearStoreToRODir() {
-        result.storeToRODir_ = java.util.Collections.emptyList();
+      public Builder clearStealerRoStoreToDir() {
+        result.stealerRoStoreToDir_ = java.util.Collections.emptyList();
+        return this;
+      }
+      
+      // repeated .voldemort.ROStoreVersionDirMap donor_ro_store_to_dir = 10;
+      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getDonorRoStoreToDirList() {
+        return java.util.Collections.unmodifiableList(result.donorRoStoreToDir_);
+      }
+      public int getDonorRoStoreToDirCount() {
+        return result.getDonorRoStoreToDirCount();
+      }
+      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getDonorRoStoreToDir(int index) {
+        return result.getDonorRoStoreToDir(index);
+      }
+      public Builder setDonorRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        result.donorRoStoreToDir_.set(index, value);
+        return this;
+      }
+      public Builder setDonorRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
+        result.donorRoStoreToDir_.set(index, builderForValue.build());
+        return this;
+      }
+      public Builder addDonorRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        if (result.donorRoStoreToDir_.isEmpty()) {
+          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        }
+        result.donorRoStoreToDir_.add(value);
+        return this;
+      }
+      public Builder addDonorRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
+        if (result.donorRoStoreToDir_.isEmpty()) {
+          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        }
+        result.donorRoStoreToDir_.add(builderForValue.build());
+        return this;
+      }
+      public Builder addAllDonorRoStoreToDir(
+          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
+        if (result.donorRoStoreToDir_.isEmpty()) {
+          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+        }
+        super.addAll(values, result.donorRoStoreToDir_);
+        return this;
+      }
+      public Builder clearDonorRoStoreToDir() {
+        result.donorRoStoreToDir_ = java.util.Collections.emptyList();
         return this;
       }
     }
@@ -15591,95 +15680,97 @@ public final class VAdminProto {
       "nListRequest\022\022\n\nrequest_id\030\001 \002(\005\022\034\n\rshow" +
       "_complete\030\002 \002(\010:\005false\"R\n\032AsyncOperation" +
       "ListResponse\022\023\n\013request_ids\030\001 \003(\005\022\037\n\005err" +
-      "or\030\002 \001(\0132\020.voldemort.Error\"\363\001\n\034InitiateR" +
+      "or\030\002 \001(\0132\020.voldemort.Error\"\276\002\n\034InitiateR" +
       "ebalanceNodeRequest\022\022\n\nstealer_id\030\002 \002(\005\022" +
       "\020\n\010donor_id\030\003 \002(\005\022\022\n\npartitions\030\004 \003(\005\022\017\n" +
       "\007attempt\030\005 \002(\005\022\030\n\020deletePartitions\030\006 \003(\005" +
       "\022\030\n\020unbalanced_store\030\007 \003(\t\022\035\n\025stealMaste" +
-      "rPartitions\030\010 \003(\005\0225\n\014storeToRODir\030\t \003(\0132" +
-      "\037.voldemort.ROStoreVersionDirMap\"\212\001\n\034Asy",
-      "ncOperationStatusResponse\022\022\n\nrequest_id\030" +
-      "\001 \001(\005\022\023\n\013description\030\002 \001(\t\022\016\n\006status\030\003 \001" +
-      "(\t\022\020\n\010complete\030\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.vo" +
-      "ldemort.Error\"\'\n\026TruncateEntriesRequest\022" +
-      "\r\n\005store\030\001 \002(\t\":\n\027TruncateEntriesRespons" +
-      "e\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"*\n\017Ad" +
-      "dStoreRequest\022\027\n\017storeDefinition\030\001 \002(\t\"3" +
-      "\n\020AddStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vold" +
-      "emort.Error\"\'\n\022DeleteStoreRequest\022\021\n\tsto" +
-      "reName\030\001 \002(\t\"6\n\023DeleteStoreResponse\022\037\n\005e",
-      "rror\030\001 \001(\0132\020.voldemort.Error\"P\n\021FetchSto" +
-      "reRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_d" +
-      "ir\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003\"9\n\020SwapSt" +
-      "oreRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_" +
-      "dir\030\002 \002(\t\"4\n\021SwapStoreResponse\022\037\n\005error\030" +
-      "\001 \001(\0132\020.voldemort.Error\"@\n\024RollbackStore" +
-      "Request\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push_vers" +
-      "ion\030\002 \002(\003\"8\n\025RollbackStoreResponse\022\037\n\005er" +
-      "ror\030\001 \001(\0132\020.voldemort.Error\"=\n\024ROStoreVe" +
-      "rsionDirMap\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore",
-      "_dir\030\002 \002(\t\"/\n\031GetROMaxVersionDirRequest\022" +
-      "\022\n\nstore_name\030\001 \003(\t\"y\n\032GetROMaxVersionDi" +
-      "rResponse\022:\n\021ro_store_versions\030\001 \003(\0132\037.v" +
-      "oldemort.ROStoreVersionDirMap\022\037\n\005error\030\002" +
-      " \001(\0132\020.voldemort.Error\"3\n\035GetROCurrentVe" +
-      "rsionDirRequest\022\022\n\nstore_name\030\001 \003(\t\"}\n\036G" +
-      "etROCurrentVersionDirResponse\022:\n\021ro_stor" +
-      "e_versions\030\001 \003(\0132\037.voldemort.ROStoreVers" +
-      "ionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Err" +
-      "or\"\\\n\036SwapStoresAndCleanStateRequest\022:\n\021",
-      "ro_store_versions\030\001 \003(\0132\037.voldemort.ROSt" +
-      "oreVersionDirMap\"B\n\037SwapStoresAndCleanSt" +
-      "ateResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.E" +
-      "rror\"\343\n\n\025VoldemortAdminRequest\022)\n\004type\030\001" +
-      " \002(\0162\033.voldemort.AdminRequestType\0223\n\014get" +
-      "_metadata\030\002 \001(\0132\035.voldemort.GetMetadataR" +
-      "equest\0229\n\017update_metadata\030\003 \001(\0132 .voldem" +
-      "ort.UpdateMetadataRequest\022J\n\030update_part" +
-      "ition_entries\030\004 \001(\0132(.voldemort.UpdatePa" +
-      "rtitionEntriesRequest\022H\n\027fetch_partition",
-      "_entries\030\005 \001(\0132\'.voldemort.FetchPartitio" +
-      "nEntriesRequest\022J\n\030delete_partition_entr" +
-      "ies\030\006 \001(\0132(.voldemort.DeletePartitionEnt" +
-      "riesRequest\022K\n\031initiate_fetch_and_update" +
-      "\030\007 \001(\0132(.voldemort.InitiateFetchAndUpdat" +
-      "eRequest\022F\n\026async_operation_status\030\010 \001(\013" +
-      "2&.voldemort.AsyncOperationStatusRequest" +
-      "\022H\n\027initiate_rebalance_node\030\t \001(\0132\'.vold" +
-      "emort.InitiateRebalanceNodeRequest\022B\n\024as" +
-      "ync_operation_stop\030\n \001(\0132$.voldemort.Asy",
-      "ncOperationStopRequest\022B\n\024async_operatio" +
-      "n_list\030\013 \001(\0132$.voldemort.AsyncOperationL" +
-      "istRequest\022;\n\020truncate_entries\030\014 \001(\0132!.v" +
-      "oldemort.TruncateEntriesRequest\022-\n\tadd_s" +
-      "tore\030\r \001(\0132\032.voldemort.AddStoreRequest\0223" +
-      "\n\014delete_store\030\016 \001(\0132\035.voldemort.DeleteS" +
-      "toreRequest\0221\n\013fetch_store\030\017 \001(\0132\034.volde" +
-      "mort.FetchStoreRequest\022/\n\nswap_store\030\020 \001" +
-      "(\0132\033.voldemort.SwapStoreRequest\0227\n\016rollb" +
-      "ack_store\030\021 \001(\0132\037.voldemort.RollbackStor",
-      "eRequest\022D\n\026get_ro_max_version_dir\030\022 \001(\013" +
-      "2$.voldemort.GetROMaxVersionDirRequest\022L" +
-      "\n\032get_ro_current_version_dir\030\023 \001(\0132(.vol" +
-      "demort.GetROCurrentVersionDirRequest\022D\n\025" +
-      "fetch_partition_files\030\024 \001(\0132%.voldemort." +
-      "FetchPartitionFilesRequest\022N\n\033swap_store" +
-      "s_and_clean_state\030\025 \001(\0132).voldemort.Swap" +
-      "StoresAndCleanStateRequest*\202\004\n\020AdminRequ" +
-      "estType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_META" +
-      "DATA\020\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027",
-      "FETCH_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PART" +
-      "ITION_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UP" +
-      "DATE\020\005\022\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027IN" +
-      "ITIATE_REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATI" +
-      "ON_STOP\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020T" +
-      "RUNCATE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELE" +
-      "TE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STOR" +
-      "E\020\016\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VE" +
-      "RSION_DIR\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DI" +
-      "R\020\021\022\031\n\025FETCH_PARTITION_FILES\020\022\022\037\n\033SWAP_S",
-      "TORES_AND_CLEAN_STATE\020\023B-\n\034voldemort.cli" +
-      "ent.protocol.pbB\013VAdminProtoH\001"
+      "rPartitions\030\010 \003(\005\022@\n\027stealer_ro_store_to" +
+      "_dir\030\t \003(\0132\037.voldemort.ROStoreVersionDir",
+      "Map\022>\n\025donor_ro_store_to_dir\030\n \003(\0132\037.vol" +
+      "demort.ROStoreVersionDirMap\"\212\001\n\034AsyncOpe" +
+      "rationStatusResponse\022\022\n\nrequest_id\030\001 \001(\005" +
+      "\022\023\n\013description\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n" +
+      "\010complete\030\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.voldemo" +
+      "rt.Error\"\'\n\026TruncateEntriesRequest\022\r\n\005st" +
+      "ore\030\001 \002(\t\":\n\027TruncateEntriesResponse\022\037\n\005" +
+      "error\030\001 \001(\0132\020.voldemort.Error\"*\n\017AddStor" +
+      "eRequest\022\027\n\017storeDefinition\030\001 \002(\t\"3\n\020Add" +
+      "StoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort",
+      ".Error\"\'\n\022DeleteStoreRequest\022\021\n\tstoreNam" +
+      "e\030\001 \002(\t\"6\n\023DeleteStoreResponse\022\037\n\005error\030" +
+      "\001 \001(\0132\020.voldemort.Error\"P\n\021FetchStoreReq" +
+      "uest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 " +
+      "\002(\t\022\024\n\014push_version\030\003 \001(\003\"9\n\020SwapStoreRe" +
+      "quest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002" +
+      " \002(\t\"4\n\021SwapStoreResponse\022\037\n\005error\030\001 \001(\013" +
+      "2\020.voldemort.Error\"@\n\024RollbackStoreReque" +
+      "st\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push_version\030\002" +
+      " \002(\003\"8\n\025RollbackStoreResponse\022\037\n\005error\030\001",
+      " \001(\0132\020.voldemort.Error\"=\n\024ROStoreVersion" +
+      "DirMap\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030" +
+      "\002 \002(\t\"/\n\031GetROMaxVersionDirRequest\022\022\n\nst" +
+      "ore_name\030\001 \003(\t\"y\n\032GetROMaxVersionDirResp" +
+      "onse\022:\n\021ro_store_versions\030\001 \003(\0132\037.voldem" +
+      "ort.ROStoreVersionDirMap\022\037\n\005error\030\002 \001(\0132" +
+      "\020.voldemort.Error\"3\n\035GetROCurrentVersion" +
+      "DirRequest\022\022\n\nstore_name\030\001 \003(\t\"}\n\036GetROC" +
+      "urrentVersionDirResponse\022:\n\021ro_store_ver" +
+      "sions\030\001 \003(\0132\037.voldemort.ROStoreVersionDi",
+      "rMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"\\\n" +
+      "\036SwapStoresAndCleanStateRequest\022:\n\021ro_st" +
+      "ore_versions\030\001 \003(\0132\037.voldemort.ROStoreVe" +
+      "rsionDirMap\"B\n\037SwapStoresAndCleanStateRe" +
+      "sponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"" +
+      "\343\n\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002(\0162" +
+      "\033.voldemort.AdminRequestType\0223\n\014get_meta" +
+      "data\030\002 \001(\0132\035.voldemort.GetMetadataReques" +
+      "t\0229\n\017update_metadata\030\003 \001(\0132 .voldemort.U" +
+      "pdateMetadataRequest\022J\n\030update_partition",
+      "_entries\030\004 \001(\0132(.voldemort.UpdatePartiti" +
+      "onEntriesRequest\022H\n\027fetch_partition_entr" +
+      "ies\030\005 \001(\0132\'.voldemort.FetchPartitionEntr" +
+      "iesRequest\022J\n\030delete_partition_entries\030\006" +
+      " \001(\0132(.voldemort.DeletePartitionEntriesR" +
+      "equest\022K\n\031initiate_fetch_and_update\030\007 \001(" +
+      "\0132(.voldemort.InitiateFetchAndUpdateRequ" +
+      "est\022F\n\026async_operation_status\030\010 \001(\0132&.vo" +
+      "ldemort.AsyncOperationStatusRequest\022H\n\027i" +
+      "nitiate_rebalance_node\030\t \001(\0132\'.voldemort",
+      ".InitiateRebalanceNodeRequest\022B\n\024async_o" +
+      "peration_stop\030\n \001(\0132$.voldemort.AsyncOpe" +
+      "rationStopRequest\022B\n\024async_operation_lis" +
+      "t\030\013 \001(\0132$.voldemort.AsyncOperationListRe" +
+      "quest\022;\n\020truncate_entries\030\014 \001(\0132!.voldem" +
+      "ort.TruncateEntriesRequest\022-\n\tadd_store\030" +
+      "\r \001(\0132\032.voldemort.AddStoreRequest\0223\n\014del" +
+      "ete_store\030\016 \001(\0132\035.voldemort.DeleteStoreR" +
+      "equest\0221\n\013fetch_store\030\017 \001(\0132\034.voldemort." +
+      "FetchStoreRequest\022/\n\nswap_store\030\020 \001(\0132\033.",
+      "voldemort.SwapStoreRequest\0227\n\016rollback_s" +
+      "tore\030\021 \001(\0132\037.voldemort.RollbackStoreRequ" +
+      "est\022D\n\026get_ro_max_version_dir\030\022 \001(\0132$.vo" +
+      "ldemort.GetROMaxVersionDirRequest\022L\n\032get" +
+      "_ro_current_version_dir\030\023 \001(\0132(.voldemor" +
+      "t.GetROCurrentVersionDirRequest\022D\n\025fetch" +
+      "_partition_files\030\024 \001(\0132%.voldemort.Fetch" +
+      "PartitionFilesRequest\022N\n\033swap_stores_and" +
+      "_clean_state\030\025 \001(\0132).voldemort.SwapStore" +
+      "sAndCleanStateRequest*\202\004\n\020AdminRequestTy",
+      "pe\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020" +
+      "\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH" +
+      "_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION" +
+      "_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020" +
+      "\005\022\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIAT" +
+      "E_REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_ST" +
+      "OP\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCA" +
+      "TE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_ST" +
+      "ORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022" +
+      "\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION",
+      "_DIR\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021\022\031" +
+      "\n\025FETCH_PARTITION_FILES\020\022\022\037\n\033SWAP_STORES" +
+      "_AND_CLEAN_STATE\020\023B-\n\034voldemort.client.p" +
+      "rotocol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -15851,7 +15942,7 @@ public final class VAdminProto {
           internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor,
-              new java.lang.String[] { "StealerId", "DonorId", "Partitions", "Attempt", "DeletePartitions", "UnbalancedStore", "StealMasterPartitions", "StoreToRODir", },
+              new java.lang.String[] { "StealerId", "DonorId", "Partitions", "Attempt", "DeletePartitions", "UnbalancedStore", "StealMasterPartitions", "StealerRoStoreToDir", "DonorRoStoreToDir", },
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.Builder.class);
           internal_static_voldemort_AsyncOperationStatusResponse_descriptor =

@@ -45,6 +45,7 @@ public class RebalancerStateTest {
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
                                                                                                            new HashMap<String, String>(),
+                                                                                                           new HashMap<String, String>(),
                                                                                                            0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,
@@ -56,6 +57,7 @@ public class RebalancerStateTest {
                                                                                                            new ArrayList<Integer>(0),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
+                                                                                                           new HashMap<String, String>(),
                                                                                                            new HashMap<String, String>(),
                                                                                                            0));
 

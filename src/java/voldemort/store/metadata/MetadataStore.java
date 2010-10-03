@@ -95,10 +95,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[]> {
 
     public static enum VoldemortState {
         NORMAL_SERVER,
-        REBALANCING_MASTER_SERVER,
-        REBALANCING_MASTER_SWAP_SERVER
-        // The state after fetching is complete and we only need to swap
-        // read-only stores
+        REBALANCING_MASTER_SERVER
     }
 
     public static enum StoreState {

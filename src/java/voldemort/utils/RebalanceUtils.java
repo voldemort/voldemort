@@ -22,6 +22,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -336,5 +340,26 @@ public class RebalanceUtils {
             storeList.add(def.getName());
         }
         return storeList;
+    }
+
+    public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
+        try {
+            executorService.shutdown();
+            executorService.awaitTermination(timeOutSec, TimeUnit.SECONDS);
+        } catch(Exception e) {
+            logger.warn("Error while stoping executor service.", e);
+        }
+    }
+
+    public static ExecutorService createExecutors(int numThreads) {
+
+        return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(r.getClass().getName());
+                return thread;
+            }
+        });
     }
 }

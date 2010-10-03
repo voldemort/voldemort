@@ -83,6 +83,7 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     new ArrayList<Integer>(0),
                                                                                                     Arrays.asList("testStoreName"),
                                                                                                     new HashMap<String, String>(),
+                                                                                                    new HashMap<String, String>(),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
@@ -170,24 +171,6 @@ public class MetadataStoreTest extends TestCase {
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.NORMAL_SERVER);
-
-        // put state entries.
-        incrementVersionAndPut(metadataStore,
-                               MetadataStore.SERVER_STATE_KEY,
-                               MetadataStore.VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
-
-        assertEquals("Values should match.",
-                     metadataStore.getServerState(),
-                     VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
-
-        // do clean
-        metadataStore.cleanAllRebalancingState();
-
-        // check all values revert back to default.
-        assertEquals("Values should match.",
-                     metadataStore.getServerState(),
-                     VoldemortState.NORMAL_SERVER);
-
     }
 
     private void checkValues(Versioned<byte[]> value, List<Versioned<byte[]>> list, ByteArray key) {

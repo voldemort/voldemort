@@ -776,8 +776,15 @@ _INITIATEREBALANCENODEREQUEST = descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
-      name='storeToRODir', full_name='voldemort.InitiateRebalanceNodeRequest.storeToRODir', index=7,
+      name='stealer_ro_store_to_dir', full_name='voldemort.InitiateRebalanceNodeRequest.stealer_ro_store_to_dir', index=7,
       number=9, type=11, cpp_type=10, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='donor_ro_store_to_dir', full_name='voldemort.InitiateRebalanceNodeRequest.donor_ro_store_to_dir', index=8,
+      number=10, type=11, cpp_type=10, label=3,
       default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1465,7 +1472,8 @@ _DELETEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort
 _INITIATEFETCHANDUPDATEREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _ASYNCOPERATIONSTOPRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ASYNCOPERATIONLISTRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
-_INITIATEREBALANCENODEREQUEST.fields_by_name['storeToRODir'].message_type = _ROSTOREVERSIONDIRMAP
+_INITIATEREBALANCENODEREQUEST.fields_by_name['stealer_ro_store_to_dir'].message_type = _ROSTOREVERSIONDIRMAP
+_INITIATEREBALANCENODEREQUEST.fields_by_name['donor_ro_store_to_dir'].message_type = _ROSTOREVERSIONDIRMAP
 _ASYNCOPERATIONSTATUSRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _TRUNCATEENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _ADDSTORERESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR

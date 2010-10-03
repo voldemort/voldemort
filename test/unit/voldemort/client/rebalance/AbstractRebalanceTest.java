@@ -729,7 +729,6 @@ public abstract class AbstractRebalanceTest {
 
         RoutingStrategy routing = new ConsistentRoutingStrategy(cluster.getNodes(), 1);
         for(Entry<String, String> entry: testEntries.entrySet()) {
-            System.out.println("KEY = " + entry.getKey() + " - " + entry.getValue());
             int masterNode = routing.routeRequest(ByteUtils.getBytes(entry.getKey(), "UTF-8"))
                                     .get(0)
                                     .getId();

@@ -21,7 +21,7 @@ public class RebalancePartitionsInfo {
     private List<String> unbalancedStoreList;
     private int attempt;
     private List<Integer> stealMasterPartitions;
-    private Map<String, String> storeToRODir;
+    private Map<String, String> stealerNodeROStoreToDir, donorNodeROStoreToDir;
 
     /**
      * Rebalance Partitions info maintains all information needed for
@@ -36,6 +36,10 @@ public class RebalancePartitionsInfo {
      * @param stealMasterPartitions : partitions for which we should change the
      *        ownership in cluster.
      * @param unbalancedStoreList : list of store names which need rebalancing
+     * @param stealerNodeStoreToRODir : map of store name to read-only store
+     *        directory on stealer node
+     * @param donorNodeStoreToRODir : mapping of store name to read-only store
+     *        directory on donor node
      * @param attempt : attempt number
      */
     public RebalancePartitionsInfo(int stealerNodeId,
@@ -44,7 +48,8 @@ public class RebalancePartitionsInfo {
                                    List<Integer> deletePartitionsList,
                                    List<Integer> stealMasterPartitions,
                                    List<String> unbalancedStoreList,
-                                   Map<String, String> storeToRODir,
+                                   Map<String, String> stealerNodeROStoreToDir,
+                                   Map<String, String> donorNodeROStoreToDir,
                                    int attempt) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
@@ -53,7 +58,8 @@ public class RebalancePartitionsInfo {
         this.deletePartitionsList = deletePartitionsList;
         this.unbalancedStoreList = unbalancedStoreList;
         this.stealMasterPartitions = stealMasterPartitions;
-        this.storeToRODir = storeToRODir;
+        this.stealerNodeROStoreToDir = stealerNodeROStoreToDir;
+        this.donorNodeROStoreToDir = donorNodeROStoreToDir;
     }
 
     public static RebalancePartitionsInfo create(String line) {
@@ -75,7 +81,8 @@ public class RebalancePartitionsInfo {
         int attempt = (Integer) map.get("attempt");
         List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
-        Map<String, String> storeToRODir = Utils.uncheckedCast(map.get("storeToRODir"));
+        Map<String, String> stealerNodeROStoreToDir = Utils.uncheckedCast(map.get("stealerNodeROStoreToDir"));
+        Map<String, String> donorNodeROStoreToDir = Utils.uncheckedCast(map.get("donorNodeROStoreToDir"));
 
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
@@ -83,7 +90,8 @@ public class RebalancePartitionsInfo {
                                            deletePartitionsList,
                                            stealMasterPartitions,
                                            unbalancedStoreList,
-                                           storeToRODir,
+                                           stealerNodeROStoreToDir,
+                                           donorNodeROStoreToDir,
                                            attempt);
     }
 
@@ -127,12 +135,20 @@ public class RebalancePartitionsInfo {
         this.stealMasterPartitions = stealMasterPartitions;
     }
 
-    public Map<String, String> getStoreToRODir() {
-        return storeToRODir;
+    public Map<String, String> getStealerNodeROStoreToDir() {
+        return stealerNodeROStoreToDir;
     }
 
-    public void setStoreToRODir(Map<String, String> storeToRODir) {
-        this.storeToRODir = storeToRODir;
+    public void setStealerNodeROStoreToDir(Map<String, String> stealerNodeROStoreToDir) {
+        this.stealerNodeROStoreToDir = stealerNodeROStoreToDir;
+    }
+
+    public Map<String, String> getDonorNodeROStoreToDir() {
+        return donorNodeROStoreToDir;
+    }
+
+    public void setDonorNodeROStoreToDir(Map<String, String> donorNodeROStoreToDir) {
+        this.donorNodeROStoreToDir = donorNodeROStoreToDir;
     }
 
     @Override
@@ -160,7 +176,8 @@ public class RebalancePartitionsInfo {
                       .put("unbalancedStoreList", unbalancedStoreList)
                       .put("stealMasterPartitions", stealMasterPartitions)
                       .put("deletePartitionsList", deletePartitionsList)
-                      .put("storeToRODir", storeToRODir)
+                      .put("stealerNodeROStoreToDir", stealerNodeROStoreToDir)
+                      .put("donorNodeROStoreToDir", donorNodeROStoreToDir)
                       .put("attempt", attempt)
                       .build();
     }
@@ -190,8 +207,11 @@ public class RebalancePartitionsInfo {
         if(unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList)
                                       : that.unbalancedStoreList != null)
             return false;
-        if(storeToRODir != null ? !storeToRODir.equals(that.storeToRODir)
-                               : that.storeToRODir != null)
+        if(stealerNodeROStoreToDir != null ? !stealerNodeROStoreToDir.equals(that.stealerNodeROStoreToDir)
+                                          : that.stealerNodeROStoreToDir != null)
+            return false;
+        if(donorNodeROStoreToDir != null ? !donorNodeROStoreToDir.equals(that.donorNodeROStoreToDir)
+                                        : that.donorNodeROStoreToDir != null)
             return false;
 
         return true;
@@ -207,7 +227,10 @@ public class RebalancePartitionsInfo {
         result = 31 * result + attempt;
         result = 31 * result
                  + (stealMasterPartitions != null ? stealMasterPartitions.hashCode() : 0);
-        result = 31 * result + (storeToRODir != null ? storeToRODir.hashCode() : 0);
+        result = 31 * result
+                 + (stealerNodeROStoreToDir != null ? stealerNodeROStoreToDir.hashCode() : 0);
+        result = 31 * result
+                 + (donorNodeROStoreToDir != null ? donorNodeROStoreToDir.hashCode() : 0);
         return result;
     }
 }

@@ -333,6 +333,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                               networkClassLoader);
     }
 
+    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
+        Map<String, String> storeToVersionDir = Maps.newHashMap();
+        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
+            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
+        }
+        return storeToVersionDir;
+    }
+
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
@@ -340,18 +348,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node:"
                                              + metadataStore.getNodeId());
 
-            Map<String, String> storeToVersionDir = Maps.newHashMap();
-            for(ROStoreVersionDirMap currentStore: request.getStoreToRODirList()) {
-                storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
-            }
-
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
                                                                                      request.getPartitionsList(),
                                                                                      request.getDeletePartitionsList(),
                                                                                      request.getStealMasterPartitionsList(),
                                                                                      request.getUnbalancedStoreList(),
-                                                                                     storeToVersionDir,
+                                                                                     encodeROStoreVersionDirMap(request.getStealerRoStoreToDirList()),
+                                                                                     encodeROStoreVersionDirMap(request.getDonorRoStoreToDirList()),
                                                                                      request.getAttempt());
 
             int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
@@ -457,7 +461,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+        if(metadataStore.getServerState()
+                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Rebalancing in progress")));
             return response.build();

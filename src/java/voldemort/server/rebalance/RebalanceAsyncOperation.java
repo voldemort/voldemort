@@ -30,7 +30,6 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.RebalanceUtils;
 
@@ -145,9 +144,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                 } else {
                     logger.info("Rebalancer: rebalance "
                                 + stealInfo
-                                + " for read-write completed successfully. Need to swap read-only stores. ");
-                    metadataStore.put(MetadataStore.SERVER_STATE_KEY,
-                                      VoldemortState.REBALANCING_MASTER_SWAP_SERVER);
+                                + " on all read-write stores completed successfully. Read-only stores left.");
                 }
             }
 

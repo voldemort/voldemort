@@ -59,7 +59,8 @@ public class RebalanceClusterPlan {
             if(rebalanceNodeList.size() > 0) {
                 if(currentROStoreVersionsDirs != null && currentROStoreVersionsDirs.size() > 0) {
                     for(RebalancePartitionsInfo partitionsInfo: rebalanceNodeList) {
-                        partitionsInfo.setStoreToRODir(currentROStoreVersionsDirs.get(partitionsInfo.getStealerId()));
+                        partitionsInfo.setStealerNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getStealerId()));
+                        partitionsInfo.setDonorNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getDonorId()));
                     }
                 }
                 rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
@@ -126,6 +127,7 @@ public class RebalanceClusterPlan {
                                                               new ArrayList<Integer>(deletePartitions),
                                                               new ArrayList<Integer>(stealMasterPartitions),
                                                               storeList,
+                                                              new HashMap<String, String>(),
                                                               new HashMap<String, String>(),
                                                               0));
             }

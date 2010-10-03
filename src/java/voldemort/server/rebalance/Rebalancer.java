@@ -16,9 +16,14 @@
 
 package voldemort.server.rebalance;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -79,6 +84,9 @@ public class Rebalancer implements Runnable {
             metadataStore.readLock.unlock();
         }
 
+        final ConcurrentHashMap<Integer, Map<String, String>> nodeIdsToStoreDirs = new ConcurrentHashMap<Integer, Map<String, String>>();
+        final List<Exception> failures = new ArrayList<Exception>();
+
         if(VoldemortState.REBALANCING_MASTER_SERVER.equals(voldemortState)) {
             for(RebalancePartitionsInfo stealInfo: rebalancerState.getAll()) {
                 // free permit here for rebalanceLocalNode to acquire.
@@ -90,6 +98,10 @@ public class Rebalancer implements Runnable {
                                     + stealInfo);
                         if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                             attemptRebalance(stealInfo);
+                            nodeIdsToStoreDirs.put(stealInfo.getDonorId(),
+                                                   stealInfo.getDonorNodeROStoreToDir());
+                            nodeIdsToStoreDirs.put(stealInfo.getStealerId(),
+                                                   stealInfo.getStealerNodeROStoreToDir());
                         } else {
                             logger.warn("Rebalancing for rebalancing task " + stealInfo
                                         + " failed multiple times, Aborting more trials.");
@@ -98,35 +110,44 @@ public class Rebalancer implements Runnable {
                     } catch(Exception e) {
                         logger.error("RebalanceService rebalancing attempt " + stealInfo
                                      + " failed with exception", e);
+                        failures.add(e);
                     }
                 }
             }
-        }
 
-        metadataStore.readLock.lock();
-        try {
-            voldemortState = metadataStore.getServerState();
-            rebalancerState = metadataStore.getRebalancerState();
-        } catch(Exception e) {
-            logger.error("Error determining state", e);
-            return;
-        } finally {
-            metadataStore.readLock.unlock();
-        }
+            if(failures.size() == 0 && nodeIdsToStoreDirs.size() > 0) {
+                ExecutorService swapExecutors = RebalanceUtils.createExecutors(nodeIdsToStoreDirs.size());
+                for(final Integer nodeId: nodeIdsToStoreDirs.keySet()) {
+                    swapExecutors.submit(new Runnable() {
 
-        // Pick any partition info since the directory information will be same
-        // (since same stealer)
-        RebalancePartitionsInfo partitionInfo = rebalancerState.getAll().iterator().next();
-        if(VoldemortState.REBALANCING_MASTER_SWAP_SERVER.equals(voldemortState)) {
-            AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                           metadataStore.getCluster(),
-                                                                           4,
-                                                                           2);
-            try {
-                adminClient.swapStoresAndCleanState(partitionInfo.getStealerId(),
-                                                    partitionInfo.getStoreToRODir());
-            } finally {
-                adminClient.stop();
+                        public void run() {
+                            Map<String, String> storeDirs = nodeIdsToStoreDirs.get(nodeId);
+
+                            AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                                           metadataStore.getCluster(),
+                                                                                           4,
+                                                                                           2);
+                            try {
+                                logger.info("Swapping read-only stores on node " + nodeId);
+                                adminClient.swapStoresAndCleanState(nodeId, storeDirs);
+                                logger.info("Successfully swapped on node " + nodeId);
+                            } catch(Exception e) {
+                                logger.error("Failed swapping on node " + nodeId, e);
+                            } finally {
+                                adminClient.stop();
+                            }
+
+                        }
+                    });
+                }
+
+                try {
+                    RebalanceUtils.executorShutDown(swapExecutors,
+                                                    voldemortConfig.getRebalancingTimeout());
+                } catch(Exception e) {
+                    logger.error("Interrupted swapping executor ", e);
+                    return;
+                }
             }
         }
     }
@@ -223,10 +244,6 @@ public class Rebalancer implements Runnable {
                                                  + " is already rebalancing from: " + info
                                                  + " rejecting rebalance request:" + stealInfo);
                 }
-            }
-
-            if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SWAP_SERVER)) {
-                throw new VoldemortException("Server is still swapping the previous read-only stores");
             }
         } finally {
             metadataStore.readLock.unlock();

@@ -170,6 +170,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
                                                                                              new HashMap<String, String>(),
+                                                                                             new HashMap<String, String>(),
                                                                                              0))));
         checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
                                                                   testStoreName), Arrays.asList(1));
@@ -205,6 +206,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
+                                                                                             new HashMap<String, String>(),
                                                                                              new HashMap<String, String>(),
                                                                                              0))));
 
@@ -243,6 +245,7 @@ public class RedirectingStoreTest extends TestCase {
                                                                                              new ArrayList<Integer>(0),
                                                                                              new ArrayList<Integer>(0),
                                                                                              Arrays.asList(testStoreName),
+                                                                                             new HashMap<String, String>(),
                                                                                              new HashMap<String, String>(),
                                                                                              0))));
 

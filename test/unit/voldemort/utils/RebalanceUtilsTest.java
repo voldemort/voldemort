@@ -79,6 +79,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                            Arrays.asList(2, 3),
                                                                            RebalanceUtils.getStoreNames(storeDefList),
                                                                            new HashMap<String, String>(),
+                                                                           new HashMap<String, String>(),
                                                                            0);
 
             assertEquals("rebalanceStealInfo should match",
@@ -116,6 +117,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                          Arrays.asList(1),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
                                                                          new HashMap<String, String>(),
+                                                                         new HashMap<String, String>(),
                                                                          0);
         RebalancePartitionsInfo stealInfo1 = new RebalancePartitionsInfo(3,
                                                                          1,
@@ -123,6 +125,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                          Arrays.asList(5),
                                                                          Arrays.asList(5),
                                                                          RebalanceUtils.getStoreNames(storeDefList),
+                                                                         new HashMap<String, String>(),
                                                                          new HashMap<String, String>(),
                                                                          0);
 
@@ -176,6 +179,7 @@ public class RebalanceUtilsTest extends TestCase {
                                                                    Arrays.asList(1, 2, 3, 4),
                                                                    new ArrayList<Integer>(0),
                                                                    Arrays.asList("test1", "test2"),
+                                                                   new HashMap<String, String>(),
                                                                    new HashMap<String, String>(),
                                                                    0);
         System.out.println("info:" + info.toString());

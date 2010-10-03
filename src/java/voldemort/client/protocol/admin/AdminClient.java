@@ -617,7 +617,8 @@ public class AdminClient {
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
                                                                                                                 .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
                                                                                                                 .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
-                                                                                                                .addAllStoreToRODir(decodeROStoreVersionDirMap(stealInfo.getStoreToRODir()))
+                                                                                                                .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getStealerNodeROStoreToDir()))
+                                                                                                                .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getDonorNodeROStoreToDir()))
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)

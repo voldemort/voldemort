@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -67,18 +65,6 @@ public class RebalanceController {
     public RebalanceController(Cluster cluster, RebalanceClientConfig config) {
         this.adminClient = new AdminClient(cluster, config);
         this.rebalanceConfig = config;
-    }
-
-    private ExecutorService createExecutors(int numThreads) {
-
-        return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
-
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName(r.getClass().getName());
-                return thread;
-            }
-        });
     }
 
     /**
@@ -168,6 +154,7 @@ public class RebalanceController {
         logger.info(rebalanceClusterPlan);
 
         if(rebalanceClusterPlan.getRebalancingTaskQueue().isEmpty()) {
+            // Nothing to rebalance
             return;
         }
 
@@ -182,7 +169,7 @@ public class RebalanceController {
                                                                 System.currentTimeMillis()),
                                         new ArrayList<Integer>());
 
-        ExecutorService executor = createExecutors(rebalanceConfig.getMaxParallelRebalancing());
+        ExecutorService executor = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
         final List<Exception> failures = new ArrayList<Exception>();
 
         // All stealer and donor nodes
@@ -204,7 +191,7 @@ public class RebalanceController {
                             nodeIds.add(stealerNodeId);
                             final SetMultimap<Integer, RebalancePartitionsInfo> rebalanceSubTaskMap = divideRebalanceNodePlan(rebalanceTask);
                             final Set<Integer> parallelDonors = rebalanceSubTaskMap.keySet();
-                            ExecutorService parallelDonorExecutor = createExecutors(rebalanceConfig.getMaxParallelDonors());
+                            ExecutorService parallelDonorExecutor = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelDonors());
 
                             for(final int donorNodeId: parallelDonors) {
                                 nodeIds.add(donorNodeId);
@@ -263,7 +250,8 @@ public class RebalanceController {
                             }
 
                             try {
-                                executorShutDown(parallelDonorExecutor);
+                                RebalanceUtils.executorShutDown(parallelDonorExecutor,
+                                                                rebalanceConfig.getRebalancingClientTimeoutSeconds());
                             } catch(Exception e) {
                                 logger.error("Interrupted", e);
                                 failures.add(e);
@@ -277,7 +265,8 @@ public class RebalanceController {
         }// for (nThreads ..
 
         try {
-            executorShutDown(executor);
+            RebalanceUtils.executorShutDown(executor,
+                                            rebalanceConfig.getRebalancingClientTimeoutSeconds());
         } catch(Exception e) {
             logger.error("Interrupted rebalance executor ", e);
             return;
@@ -285,7 +274,8 @@ public class RebalanceController {
 
         // If everything successful, swap the read-only stores
         if(failures.size() == 0 && readOnlyStores.size() > 0) {
-            ExecutorService swapExecutors = createExecutors(targetCluster.getNumberOfNodes());
+            logger.info("Swapping stores " + readOnlyStores + " on " + nodeIds);
+            ExecutorService swapExecutors = RebalanceUtils.createExecutors(targetCluster.getNumberOfNodes());
             for(final Integer nodeId: nodeIds) {
                 swapExecutors.submit(new Runnable() {
 
@@ -305,7 +295,8 @@ public class RebalanceController {
             }
 
             try {
-                executorShutDown(swapExecutors);
+                RebalanceUtils.executorShutDown(swapExecutors,
+                                                rebalanceConfig.getRebalancingClientTimeoutSeconds());
             } catch(Exception e) {
                 logger.error("Interrupted swapping executor ", e);
                 return;
@@ -337,16 +328,6 @@ public class RebalanceController {
         throw new VoldemortException("Failed to start rebalancing at node "
                                      + rebalanceSubTask.getStealerId() + " with rebalanceInfo:"
                                      + rebalanceSubTask, exception);
-    }
-
-    private void executorShutDown(ExecutorService executorService) {
-        try {
-            executorService.shutdown();
-            executorService.awaitTermination(rebalanceConfig.getRebalancingClientTimeoutSeconds(),
-                                             TimeUnit.SECONDS);
-        } catch(Exception e) {
-            logger.warn("Error while stoping executor service.", e);
-        }
     }
 
     public AdminClient getAdminClient() {

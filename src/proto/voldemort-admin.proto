@@ -117,7 +117,8 @@ message InitiateRebalanceNodeRequest {
   repeated int32 deletePartitions = 6;
   repeated string unbalanced_store = 7;
   repeated int32 stealMasterPartitions = 8;
-  repeated ROStoreVersionDirMap storeToRODir = 9; 
+  repeated ROStoreVersionDirMap stealer_ro_store_to_dir = 9; 
+  repeated ROStoreVersionDirMap donor_ro_store_to_dir = 10; 
 }
 
 message AsyncOperationStatusResponse {
