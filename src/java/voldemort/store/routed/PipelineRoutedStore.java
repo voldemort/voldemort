@@ -115,6 +115,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(null);
 
         final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
+        boolean allowReadRepair = repairReads && transforms == null;
 
         NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
 
@@ -142,8 +143,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                                 repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                            : Event.COMPLETED,
+                                                                                                                                 allowReadRepair ? Event.RESPONSES_RECEIVED
+                                                                                                                                                : Event.COMPLETED,
                                                                                                                                  key,
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
@@ -155,8 +156,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                               repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                          : Event.COMPLETED,
+                                                                                                                               allowReadRepair ? Event.RESPONSES_RECEIVED
+                                                                                                                                              : Event.COMPLETED,
                                                                                                                                key,
                                                                                                                                failureDetector,
                                                                                                                                innerStores,
@@ -165,7 +166,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                blockingStoreRequest,
                                                                                                                                null));
 
-        if(repairReads)
+        if(allowReadRepair)
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
                                     new ReadRepair<BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                Event.COMPLETED,
@@ -176,8 +177,8 @@ public class PipelineRoutedStore extends RoutedStore {
         if(zoneRoutingEnabled)
             pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
                                     new PerformZoneSerialRequests<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
-                                                                                                                                       repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                                                  : Event.COMPLETED,
+                                                                                                                                       allowReadRepair ? Event.RESPONSES_RECEIVED
+                                                                                                                                                      : Event.COMPLETED,
                                                                                                                                        key,
                                                                                                                                        failureDetector,
                                                                                                                                        innerStores,
@@ -206,6 +207,8 @@ public class PipelineRoutedStore extends RoutedStore {
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
 
+        boolean allowReadRepair = repairReads && (transforms == null || transforms.size() == 0);
+
         GetAllPipelineData pipelineData = new GetAllPipelineData();
         if(zoneRoutingEnabled)
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
@@ -231,15 +234,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                   nonblockingStores));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialGetAllRequests(pipelineData,
-                                                                repairReads ? Event.RESPONSES_RECEIVED
-                                                                           : Event.COMPLETED,
+                                                                allowReadRepair ? Event.RESPONSES_RECEIVED
+                                                                               : Event.COMPLETED,
                                                                 keys,
                                                                 failureDetector,
                                                                 innerStores,
                                                                 storeDef.getPreferredReads(),
                                                                 storeDef.getRequiredReads()));
 
-        if(repairReads)
+        if(allowReadRepair)
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
                                     new GetAllReadRepair(pipelineData,
                                                          Event.COMPLETED,
@@ -371,8 +374,7 @@ public class PipelineRoutedStore extends RoutedStore {
         if(zoneRoutingEnabled)
             pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
                                     new PerformZoneSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                       repairReads ? Event.RESPONSES_RECEIVED
-                                                                                                                  : Event.COMPLETED,
+                                                                                                       Event.COMPLETED,
                                                                                                        key,
                                                                                                        failureDetector,
                                                                                                        innerStores,

@@ -17,7 +17,6 @@
 package voldemort.store.routed.action;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -72,17 +71,11 @@ public class PerformParallelGetAllRequests
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
                          + " operations in parallel");
 
-        Map<ByteArray, byte[]> transforms = null;
-        Map<ByteArray, byte[]> allTransforms = pipelineData.getTransforms();
+        Map<ByteArray, byte[]> transforms = pipelineData.getTransforms();
 
         for(Map.Entry<Node, List<ByteArray>> entry: pipelineData.getNodeToKeysMap().entrySet()) {
             final Node node = entry.getKey();
             final Collection<ByteArray> keys = entry.getValue();
-
-            transforms = new HashMap<ByteArray, byte[]>();
-            for(ByteArray key: keys) {
-                transforms.put(key, allTransforms.get(key));
-            }
 
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 

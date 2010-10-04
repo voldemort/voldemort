@@ -585,7 +585,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
         Store<ByteArray, byte[], byte[]> store = new InconsistencyResolvingStore<ByteArray, byte[], byte[]>(routedStore,
                                                                                                             new VectorClockInconsistencyResolver<byte[]>());
-        store.put(aKey, new Versioned<byte[]>(aValue), aTransform);
+        store.put(aKey, new Versioned<byte[]>(aValue), null);
 
         byte[] anotherValue = "john".getBytes();
 
@@ -594,14 +594,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         recordException(failureDetector, Iterables.getLast(cluster.getNodes()));
         recordSuccess(failureDetector, Iterables.get(cluster.getNodes(), 1));
         VectorClock clock = getClock(1);
-        store.put(aKey, new Versioned<byte[]>(anotherValue, clock), aTransform);
+        store.put(aKey, new Versioned<byte[]>(anotherValue, clock), null);
 
         // Enable last node and disable node 1, the following get should cause a
         // read repair on the last node in the code path that is only executed
         // if there are failures.
         recordException(failureDetector, Iterables.get(cluster.getNodes(), 1));
         recordSuccess(failureDetector, Iterables.getLast(cluster.getNodes()));
-        List<Versioned<byte[]>> versioneds = store.get(aKey, aTransform);
+        List<Versioned<byte[]>> versioneds = store.get(aKey, null);
         assertEquals(1, versioneds.size());
         assertEquals(new ByteArray(anotherValue), new ByteArray(versioneds.get(0).getValue()));
 
@@ -609,7 +609,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // It may be a good idea to use a synchronous executor service.
         Thread.sleep(100);
         for(Store<ByteArray, byte[], byte[]> innerStore: routedStore.getInnerStores().values()) {
-            List<Versioned<byte[]>> innerVersioneds = innerStore.get(aKey, aTransform);
+            List<Versioned<byte[]>> innerVersioneds = innerStore.get(aKey, null);
             assertEquals(1, versioneds.size());
             assertEquals(new ByteArray(anotherValue), new ByteArray(innerVersioneds.get(0)
                                                                                    .getValue()));

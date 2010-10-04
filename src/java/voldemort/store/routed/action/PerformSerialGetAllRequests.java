@@ -104,7 +104,11 @@ public class PerformSerialGetAllRequests
 
                 try {
                     Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
-                    List<Versioned<byte[]>> values = store.get(key, transforms.get(key));
+                    List<Versioned<byte[]>> values;
+                    if(transforms == null)
+                        values = store.get(key, null);
+                    else
+                        values = store.get(key, transforms.get(key));
 
                     if(result.get(key) == null)
                         result.put(key, Lists.newArrayList(values));

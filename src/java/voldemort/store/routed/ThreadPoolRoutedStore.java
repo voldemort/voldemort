@@ -385,7 +385,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             successCountWrapper.setValue(successCount);
         }
 
-        repairReads(nodeValues);
+        repairReads(nodeValues, repairReads && (transforms == null || transforms.size() == 0));
 
         for(Map.Entry<ByteArray, MutableInt> mapEntry: keyToSuccessCount.entrySet()) {
             int successCount = mapEntry.getValue().intValue();
@@ -400,7 +400,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return result;
     }
 
-    public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) {
+    public List<Versioned<byte[]>> get(ByteArray key, final byte[] transforms) {
         Function<List<GetResult<Versioned<byte[]>>>, Void> readRepairFunction = new Function<List<GetResult<Versioned<byte[]>>>, Void>() {
 
             public Void apply(List<GetResult<Versioned<byte[]>>> nodeResults) {
@@ -410,7 +410,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                           getResult.key,
                                           getResult.node,
                                           getResult.retrieved);
-                repairReads(nodeValues);
+                repairReads(nodeValues, repairReads && transforms == null);
                 return null;
             }
         };
@@ -548,8 +548,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         return new NodeValue<ByteArray, byte[]>(node.getId(), key, new Versioned<byte[]>(null));
     }
 
-    private void repairReads(List<NodeValue<ByteArray, byte[]>> nodeValues) {
-        if(!repairReads || nodeValues.size() <= 1 || storeDef.getPreferredReads() <= 1)
+    private void repairReads(List<NodeValue<ByteArray, byte[]>> nodeValues, boolean allowReadRepair) {
+        if(!allowReadRepair || nodeValues.size() <= 1 || storeDef.getPreferredReads() <= 1)
             return;
 
         final List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
