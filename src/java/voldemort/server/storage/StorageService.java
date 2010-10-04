@@ -188,8 +188,12 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
-            StorageEngine<ByteArray, byte[]> slopEngine = getStorageEngine("slop",
-                                                                           voldemortConfig.getSlopStoreType());
+            StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
+            if(config == null)
+                throw new ConfigurationException("Attempt to slop store failed");
+
+            StorageEngine<ByteArray, byte[]> slopEngine = config.getStore("slop");
+
             registerEngine(slopEngine);
             storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
                                                                        new ByteArraySerializer(),
@@ -220,8 +224,30 @@ public class StorageService extends AbstractService {
 
     public void openStore(StoreDefinition storeDef) {
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
-        StorageEngine<ByteArray, byte[]> engine = getStorageEngine(storeDef.getName(),
-                                                                   storeDef.getType());
+
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine of type " + storeDef.getType()
+                                             + " has not been enabled.");
+
+        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                       metadata.getCluster());
+            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
+        }
+
+        final StorageEngine<ByteArray, byte[]> engine = config.getStore(storeDef.getName());
+        // Update the routing strategy + add listener to metadata
+        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
+
+                public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
+                    ((ReadOnlyStorageEngine) engine).setRoutingStrategy(updatedRoutingStrategy);
+                }
+            });
+        }
 
         // openStore() should have atomic semantics
         try {
@@ -431,33 +457,6 @@ public class StorageService extends AbstractService {
                                 voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
                                         * Time.MS_PER_HOUR);
 
-    }
-
-    private StorageEngine<ByteArray, byte[]> getStorageEngine(String name, String type) {
-        StorageConfiguration config = storageConfigs.get(type);
-        if(config == null)
-            throw new ConfigurationException("Attempt to open store " + name + " but " + type
-                                             + " storage engine of type " + type
-                                             + " has not been enabled.");
-
-        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
-            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadata.getStoreDef(name),
-                                                                                                       metadata.getCluster());
-            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
-        }
-
-        final StorageEngine<ByteArray, byte[]> storageEngine = config.getStore(name);
-        // Update the routing strategy + add listener to metadata
-        if(type.compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
-            metadata.addMetadataStoreListener(name, new MetadataStoreListener() {
-
-                public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
-                    ((ReadOnlyStorageEngine) storageEngine).setRoutingStrategy(updatedRoutingStrategy);
-                }
-            });
-        }
-
-        return storageEngine;
     }
 
     @Override
