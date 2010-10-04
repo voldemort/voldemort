@@ -18,7 +18,6 @@ package voldemort.scheduled;
 
 import static voldemort.TestUtils.bytesEqual;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -59,7 +58,7 @@ public class SlopPusherTest extends TestCase {
         this.failingNodeId = 2;
 
         repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[]>(STORE_NAME));
-        pusher = new SlopPusherJob(repo, makeCluster(3), new NoopFailureDetector());
+        pusher = new SlopPusherJob(repo, makeCluster(3), new NoopFailureDetector(), 10 * 1000 * 1000);
     }
 
     private Cluster makeCluster(int numNodes) {

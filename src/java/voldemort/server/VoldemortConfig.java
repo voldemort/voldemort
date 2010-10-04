@@ -130,6 +130,7 @@ public class VoldemortConfig implements Serializable {
     private final long pusherPollMs;
 
     private final long slopFrequencyMs;
+    private long slopMaxWriteBytesPerSec;
 
     private int adminCoreThreads;
     private int adminMaxThreads;
@@ -256,6 +257,7 @@ public class VoldemortConfig implements Serializable {
         this.enableJmx = props.getBoolean("jmx.enable", true);
         this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", false);
         this.enableSlop = props.getBoolean("slop.enable", true);
+        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
@@ -637,6 +639,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setStreamMaxWriteBytesPerSec(long streamMaxWriteBytesPerSec) {
         this.streamMaxWriteBytesPerSec = streamMaxWriteBytesPerSec;
+    }
+
+    public long getSlopMaxWriteBytesPerSec() {
+        return slopMaxWriteBytesPerSec;
+    }
+
+    public void setSlopMaxWriteBytesPerSec(long slopMaxWriteBytesPerSec) {
+        this.slopMaxWriteBytesPerSec = slopMaxWriteBytesPerSec;
     }
 
     public void setEnableAdminServer(boolean enableAdminServer) {

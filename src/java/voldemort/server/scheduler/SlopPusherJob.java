@@ -23,6 +23,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
@@ -30,9 +31,11 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
@@ -48,11 +51,16 @@ public class SlopPusherJob implements Runnable {
     private final StoreRepository storeRepo;
     private final Cluster cluster;
     private final FailureDetector failureDetector;
+    private final long maxWriteBytesPerSec;
 
-    public SlopPusherJob(StoreRepository storeRepo, Cluster cluster, FailureDetector failureDetector) {
+    public SlopPusherJob(StoreRepository storeRepo,
+                         Cluster cluster,
+                         FailureDetector failureDetector,
+                         long maxWriteBytesPerSec) {
         this.storeRepo = storeRepo;
         this.cluster = cluster;
         this.failureDetector = failureDetector;
+        this.maxWriteBytesPerSec = maxWriteBytesPerSec;
     }
 
     /**
@@ -66,6 +74,7 @@ public class SlopPusherJob implements Runnable {
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
         try {
             StorageEngine<ByteArray, Slop> slopStore = storeRepo.getSlopStore();
+            EventThrottler throttler = new EventThrottler(maxWriteBytesPerSec);
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
                 if(Thread.interrupted())
@@ -85,9 +94,14 @@ public class SlopPusherJob implements Runnable {
                                                                                 node.getId());
                         Long startNs = System.nanoTime();
                         try {
-                            if(slop.getOperation() == Operation.PUT)
+                            int nBytes = slop.getKey().length();
+                            if(slop.getOperation() == Operation.PUT) {
                                 store.put(slop.getKey(),
                                           new Versioned<byte[]>(slop.getValue(), versioned.getVersion()));
+                                nBytes += slop.getValue().length +
+                                          ((VectorClock) versioned.getVersion()).sizeInBytes() + 1;
+
+                            }
                             else if(slop.getOperation() == Operation.DELETE)
                                 store.delete(slop.getKey(), versioned.getVersion());
                             else
@@ -95,6 +109,8 @@ public class SlopPusherJob implements Runnable {
                             failureDetector.recordSuccess(node, deltaMs(startNs));
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
                             slopsPushed++;
+
+                            throttler.maybeThrottle(nBytes);
                         } catch(ObsoleteVersionException e) {
                             // okay it is old, just delete it
                             slopStore.delete(slop.makeKey(), versioned.getVersion());

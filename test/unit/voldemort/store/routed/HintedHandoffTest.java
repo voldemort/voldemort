@@ -170,7 +170,7 @@ public class HintedHandoffTest {
             storeRepo.setSlopStore(storageEngine);
             slopStores.put(nodeId, storageEngine);
 
-            SlopPusherJob pusher = new SlopPusherJob(storeRepo, cluster, failureDetector);
+            SlopPusherJob pusher = new SlopPusherJob(storeRepo, cluster, failureDetector, 10 * 10 * 1000);
             slopPusherJobs.add(pusher);
         }
 
