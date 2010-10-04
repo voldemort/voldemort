@@ -41,6 +41,8 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
      * @param cluster The cluster
      * @param prefListSize The number of nodes adjacent to the failed node in the
      *        that could be selected to receive given hint
+     * @param enableZoneRouting is zone routing enabled?
+     * @param clientZoneId client zone id if zone routing is enabled
      */
     public ConsistentHandoffStrategy(Cluster cluster,
                                      int prefListSize,

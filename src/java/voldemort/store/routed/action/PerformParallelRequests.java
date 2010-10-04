@@ -187,12 +187,12 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 pipeline.addEvent(insufficientSuccessesEvent);
             } else {
                 pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                             + " "
-                                                                                             + pipeline.getOperation()
-                                                                                                       .getSimpleName()
-                                                                                             + "s required, but only "
-                                                                                             + pipelineData.getSuccesses()
-                                                                                             + " succeeded",
+                                                                                     + " "
+                                                                                     + pipeline.getOperation()
+                                                                                               .getSimpleName()
+                                                                                     + "s required, but only "
+                                                                                     + pipelineData.getSuccesses()
+                                                                                     + " succeeded",
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();

@@ -79,12 +79,14 @@ public class PipelineRoutedStore extends RoutedStore {
      * 
      * @param name The name of the store
      * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
-     * @param threadPool The threadpool to use
+     * @param nonblockingStores
+     * @param slopStores The stores for hints
+     * @param cluster Cluster definition
+     * @param storeDef Store definition
+     * @param repairReads Is read repair enabled?
+     * @param clientZoneId Zone the client is in
+     * @param timeoutMs Routing timeout
+     * @param failureDetector Failure detector object
      */
     public PipelineRoutedStore(String name,
                                Map<Integer, Store<ByteArray, byte[]>> innerStores,

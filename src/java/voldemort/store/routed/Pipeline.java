@@ -123,6 +123,12 @@ public class Pipeline {
         eventActions.put(event, action);
     }
 
+    /**
+     * Pipeline can't proceed further. If hinted handoff is enabled go to
+     * go to a state where it can be performed, otherwise go straight to
+     * error state.
+     */
+
     public void abort() {
         if(isHintedHandoffEnabled())
             addEvent(Event.ABORTED);
