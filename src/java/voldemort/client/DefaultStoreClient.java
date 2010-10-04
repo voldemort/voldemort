@@ -128,6 +128,19 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
+    public Versioned<V> get(K key, Versioned<V> defaultValue, Object transform) {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                List<Versioned<V>> items = store.get(key, transform);
+                return getItemOrThrow(key, defaultValue, items);
+            } catch(InvalidMetadataException e) {
+                bootStrap();
+            }
+        }
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
+    }
+
     private List<Version> getVersions(K key) {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
@@ -191,6 +204,20 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 versioned.setObject(value);
         }
         put(key, versioned);
+    }
+
+    public void put(K key, Versioned<V> versioned, Object transform)
+            throws ObsoleteVersionException {
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                store.put(key, versioned, transform);
+                return;
+            } catch(InvalidMetadataException e) {
+                bootStrap();
+            }
+        }
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
     }
 
     public boolean putIfNotObsolete(K key, Versioned<V> versioned) {
@@ -259,5 +286,49 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         else
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
                                                 + ") = " + versions, versions);
+    }
+
+    public Versioned<V> get(K key, Object transforms) {
+        return get(key, null, transforms);
+    }
+
+    public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, Object> transforms) {
+        Map<K, List<Versioned<V>>> items = null;
+        for(int attempts = 0;; attempts++) {
+            if(attempts >= this.metadataRefreshAttempts)
+                throw new VoldemortException(this.metadataRefreshAttempts
+                                             + " metadata refresh attempts failed.");
+            try {
+                items = store.getAll(keys, transforms);
+                break;
+            } catch(InvalidMetadataException e) {
+                bootStrap();
+            }
+        }
+        Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
+
+        for(Entry<K, List<Versioned<V>>> mapEntry: items.entrySet()) {
+            Versioned<V> value = getItemOrThrow(mapEntry.getKey(), null, mapEntry.getValue());
+            result.put(mapEntry.getKey(), value);
+        }
+        return result;
+    }
+
+    public void put(K key, V value, Object transforms) {
+        List<Version> versions = getVersions(key);
+        Versioned<V> versioned;
+        if(versions.isEmpty())
+            versioned = Versioned.value(value, new VectorClock());
+        else if(versions.size() == 1)
+            versioned = Versioned.value(value, versions.get(0));
+        else {
+            versioned = get(key, null);
+            if(versioned == null)
+                versioned = Versioned.value(value, new VectorClock());
+            else
+                versioned.setObject(value);
+        }
+        put(key, versioned, transforms);
+
     }
 }

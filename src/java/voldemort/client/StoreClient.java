@@ -69,6 +69,19 @@ public interface StoreClient<K, V> {
     public Versioned<V> get(K key);
 
     /**
+     * Get the versioned value associated with the given key and apply the given
+     * transforms to it before returning the value. Returns null if no value is
+     * associated with the key
+     * 
+     * @param key the key for which the value is fetched
+     * @param transforms the transforms to be applied on the value fetched from
+     *        the store
+     * @return the transformed versioned value, or null if no value is stored
+     *         for this key
+     */
+    public Versioned<V> get(K key, Object transforms);
+
+    /**
      * Gets the versioned values associated with the given keys and returns them
      * in a Map of keys to versioned values. Note that the returned map will
      * only contain entries for the keys which have a value associated with
@@ -78,6 +91,18 @@ public interface StoreClient<K, V> {
      * @return A Map of keys to versioned values.
      */
     public Map<K, Versioned<V>> getAll(Iterable<K> keys);
+
+    /**
+     * Like {@link voldemort.client.StoreClient#getAll(Iterable) getAll}, except
+     * that the transforms are applied on the value associated with each key
+     * before returning the results
+     * 
+     * @param keys the keys for which the values are fetched
+     * @param transforms the map of transforms, describing the transform to be
+     *        applied to the value for each key
+     * @return A map of keys to transformed versioned values
+     */
+    public Map<K, Versioned<V>> getAll(Iterable<K> keys, Map<K, Object> transforms);
 
     /**
      * Get the versioned value associated with the given key or the defaultValue
@@ -97,6 +122,16 @@ public interface StoreClient<K, V> {
      * @param value The value
      */
     public void put(K key, V value);
+
+    /**
+     * Like {@link voldemort.store.StoreClient#put(K, V) put}, except that the
+     * given transforms are applied on the value before writing it to the store
+     * 
+     * @param key the key
+     * @param value the value
+     * @param transforms the transforms to be applied on the value
+     */
+    public void put(K key, V value, Object transforms);
 
     /**
      * Put the given Versioned value into the store for the given key if the

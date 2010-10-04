@@ -45,7 +45,7 @@ public class RebootstrappingStoreTest {
     private Map<String, String> entries;
     private Cluster cluster;
     private List<VoldemortServer> servers;
-    private StoreClient<String, String, String> storeClient;
+    private StoreClient<String, String> storeClient;
 
     @Before
     public void setUp() throws Exception {
