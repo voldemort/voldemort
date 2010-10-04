@@ -11,7 +11,10 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
 public class ViewStorageConfiguration implements StorageConfiguration {
@@ -39,18 +42,48 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         if(target == null)
             throw new VoldemortException("View \"" + name + "\" has a target store \"" + targetName
                                          + "\" which does not exist.");
-        SerializerFactory factory = new DefaultSerializerFactory();
+        String factoryName = def.getSerializerFactory();
+        SerializerFactory factory;
+        if(factoryName == null)
+            factory = new DefaultSerializerFactory();
+        else
+            factory = loadSerializerFactory(factoryName);
+
+        CompressionStrategy valueCompressionStrategy = null;
+        if(targetDef.getValueSerializer().hasCompression()) {
+            valueCompressionStrategy = new CompressionStrategyFactory().get(targetDef.getValueSerializer()
+                                                                                     .getCompression());
+        }
+
+        View<?, ?, ?, ?> view = loadTransformation(def.getValueTransformation());
+
         return new ViewStorageEngine(name,
                                      target,
                                      factory.getSerializer(def.getValueSerializer()),
-                                     factory.getSerializer(def.getTransformsSerializer()),
+                                     def.getTransformsSerializer() != null ? factory.getSerializer(def.getTransformsSerializer())
+                                                                          : null,
                                      factory.getSerializer(targetDef.getKeySerializer()),
                                      factory.getSerializer(targetDef.getValueSerializer()),
-                                     def.getValueTransformation());
+                                     valueCompressionStrategy,
+                                     view);
     }
 
     public String getType() {
         return TYPE_NAME;
+    }
+
+    public static SerializerFactory loadSerializerFactory(String className) {
+        if(className == null)
+            return null;
+        Class<?> factoryClass = ReflectUtils.loadClass(className.trim());
+        return (SerializerFactory) ReflectUtils.callConstructor(factoryClass, new Object[] {});
+    }
+
+    public static View<?, ?, ?, ?> loadTransformation(String className) {
+        if(className == null)
+            return null;
+        Class<?> viewClass = ReflectUtils.loadClass(className.trim());
+        return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(viewClass, new Object[] {});
     }
 
 }

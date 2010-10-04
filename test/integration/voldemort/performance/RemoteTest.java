@@ -328,7 +328,7 @@ public class RemoteTest {
                                                       .setEnablePipelineRoutedStore(options.has("pipeline-routed-store"))
                                                       .setSelectors(selectors);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
-        final StoreClient<Object, Object, Object> store = factory.getStoreClient(storeName);
+        final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
         StoreDefinition storeDef = getStoreDefinition(factory, storeName);
 
         Class<?> keyType = findKeyType(storeDef);
@@ -407,18 +407,17 @@ public class RemoteTest {
                         public void run() {
                             try {
                                 final Object key = keyProvider1.next();
-                                store.applyUpdate(new UpdateAction<Object, Object, Object>() {
+                                store.applyUpdate(new UpdateAction<Object, Object>() {
 
                                     @Override
-                                    public void update(StoreClient<Object, Object, Object> storeClient) {
+                                    public void update(StoreClient<Object, Object> storeClient) {
                                         long startNs = System.nanoTime();
                                         storeClient.put(key, value);
                                         requestTimes[j] = (System.nanoTime() - startNs)
                                                           / Time.NS_PER_MS;
                                         numWrites.incrementAndGet();
                                     }
-                                },
-                                                  64);
+                                }, 64);
                             } catch(Exception e) {
                                 if(verbose) {
                                     e.printStackTrace();
@@ -513,10 +512,10 @@ public class RemoteTest {
                         try {
                             final Object key = keyProvider.next();
 
-                            store.applyUpdate(new UpdateAction<Object, Object, Object>() {
+                            store.applyUpdate(new UpdateAction<Object, Object>() {
 
                                 @Override
-                                public void update(StoreClient<Object, Object, Object> storeClient) {
+                                public void update(StoreClient<Object, Object> storeClient) {
                                     long startNs = System.nanoTime();
                                     Versioned<Object> v = store.get(key);
                                     numReads.incrementAndGet();
@@ -536,8 +535,7 @@ public class RemoteTest {
                                                       / Time.NS_PER_MS;
                                     numWrites.incrementAndGet();
                                 }
-                            },
-                                              64);
+                            }, 64);
                         } catch(Exception e) {
                             if(verbose) {
                                 e.printStackTrace();

@@ -47,7 +47,7 @@ public class EndToEndTest {
 
     private List<VoldemortServer> servers;
     private Cluster cluster;
-    private StoreClient<String, String, String> storeClient;
+    private StoreClient<String, String> storeClient;
 
     public EndToEndTest(boolean useNio) {
         this.useNio = useNio;

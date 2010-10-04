@@ -56,10 +56,14 @@ public class ViewStorageEngineTest extends TestCase {
 
     public Store<String, String, String> getEngine1(View<?, ?, ?, ?> valTrans) {
         Serializer<String> s = new StringSerializer();
-        return SerializingStore.wrap(new ViewStorageEngine("test", targetRaw1, s, s, s, s, valTrans),
-                                     s,
-                                     s,
-                                     s);
+        return SerializingStore.wrap(new ViewStorageEngine("test",
+                                                           targetRaw1,
+                                                           s,
+                                                           s,
+                                                           s,
+                                                           s,
+                                                           null,
+                                                           valTrans), s, s, s);
     }
 
     public Store<Integer, List<Integer>, List<Integer>> getEngine2(View<?, ?, ?, ?> view) {
@@ -69,6 +73,7 @@ public class ViewStorageEngineTest extends TestCase {
                                                            transSer,
                                                            keySer,
                                                            valueSer,
+                                                           null,
                                                            view), keySer, valueSer, transSer);
     }
 

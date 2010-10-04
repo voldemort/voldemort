@@ -73,7 +73,7 @@ public class CompressingStoreTest extends AbstractByteArrayStoreTest {
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls("tcp://localhost:"
                                                                                                                        + freePort)
                                                                                                      .setMaxBootstrapRetries(10));
-        StoreClient<String, String, String> storeClient = storeClientFactory.getStoreClient("test");
+        StoreClient<String, String> storeClient = storeClientFactory.getStoreClient("test");
         storeClient.put("someKey", "someValue");
         assertEquals(storeClient.getValue("someKey"), "someValue");
         socketService.stop();

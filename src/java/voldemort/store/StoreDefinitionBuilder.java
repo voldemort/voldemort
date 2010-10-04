@@ -4,7 +4,6 @@ import java.util.HashMap;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
 /**
@@ -33,7 +32,8 @@ public class StoreDefinitionBuilder {
     private HashMap<Integer, Integer> zoneReplicationFactor = null;
     private Integer zoneCountReads;
     private Integer zoneCountWrites;
-    private View<?, ?, ?, ?> view = null;
+    private String view = null;
+    private String serializerFactory = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -186,12 +186,21 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public View<?, ?, ?, ?> getView() {
+    public String getView() {
         return view;
     }
 
-    public StoreDefinitionBuilder setView(View<?, ?, ?, ?> valueTransformation) {
+    public StoreDefinitionBuilder setView(String valueTransformation) {
         this.view = valueTransformation;
+        return this;
+    }
+
+    public String getSerializerFactory() {
+        return this.serializerFactory;
+    }
+
+    public StoreDefinitionBuilder setSerializerFactory(String factory) {
+        this.serializerFactory = factory;
         return this;
     }
 
@@ -241,6 +250,7 @@ public class StoreDefinitionBuilder {
                                    this.getZoneCountReads(),
                                    this.getZoneCountWrites(),
                                    this.getRetentionPeriodDays(),
-                                   this.getRetentionScanThrottleRate());
+                                   this.getRetentionScanThrottleRate(),
+                                   this.getSerializerFactory());
     }
 }

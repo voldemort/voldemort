@@ -21,7 +21,6 @@ import java.util.HashMap;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.store.views.View;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -53,7 +52,8 @@ public class StoreDefinition implements Serializable {
     private final HashMap<Integer, Integer> zoneReplicationFactor;
     private final Integer zoneCountReads;
     private final Integer zoneCountWrites;
-    private final View<?, ?, ?, ?> valueTransformation;
+    private final String valueTransformation;
+    private final String serializerFactory;
 
     public StoreDefinition(String name,
                            String type,
@@ -68,12 +68,13 @@ public class StoreDefinition implements Serializable {
                            Integer preferredWrites,
                            int requiredWrites,
                            String viewOfStore,
-                           View<?, ?, ?, ?> valTrans,
+                           String valTrans,
                            HashMap<Integer, Integer> zoneReplicationFactor,
                            Integer zoneCountReads,
                            Integer zoneCountWrites,
                            Integer retentionDays,
-                           Integer retentionThrottleRate) {
+                           Integer retentionThrottleRate,
+                           String factory) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
@@ -93,6 +94,7 @@ public class StoreDefinition implements Serializable {
         this.zoneReplicationFactor = zoneReplicationFactor;
         this.zoneCountReads = zoneCountReads;
         this.zoneCountWrites = zoneCountWrites;
+        this.serializerFactory = factory;
         checkParameterLegality();
     }
 
@@ -138,6 +140,10 @@ public class StoreDefinition implements Serializable {
                 throw new IllegalArgumentException("Sum total of zones does not match the total replication factor");
             }
         }
+    }
+
+    public String getSerializerFactory() {
+        return this.serializerFactory;
     }
 
     public boolean hasTransformsSerializer() {
@@ -228,7 +234,7 @@ public class StoreDefinition implements Serializable {
         return this.valueTransformation != null;
     }
 
-    public View<?, ?, ?, ?> getValueTransformation() {
+    public String getValueTransformation() {
         return valueTransformation;
     }
 
@@ -271,6 +277,10 @@ public class StoreDefinition implements Serializable {
                && Objects.equal(getPreferredWrites(), def.getPreferredWrites())
                && getKeySerializer().equals(def.getKeySerializer())
                && getValueSerializer().equals(def.getValueSerializer())
+               && Objects.equal(getTransformsSerializer() != null ? getTransformsSerializer()
+                                                                 : null,
+                                def.getTransformsSerializer() != null ? def.getTransformsSerializer()
+                                                                     : null)
                && getRoutingPolicy() == def.getRoutingPolicy()
                && Objects.equal(getViewTargetStoreName(), def.getViewTargetStoreName())
                && Objects.equal(getValueTransformation() != null ? getValueTransformation().getClass()
@@ -285,7 +295,10 @@ public class StoreDefinition implements Serializable {
                && getZoneCountReads() == def.getZoneCountReads()
                && getZoneCountWrites() == def.getZoneCountWrites()
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
-               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate());
+               && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate())
+               && Objects.equal(getSerializerFactory() != null ? getSerializerFactory() : null,
+                                def.getSerializerFactory() != null ? def.getSerializerFactory()
+                                                                  : null);
     }
 
     @Override
@@ -294,6 +307,7 @@ public class StoreDefinition implements Serializable {
                                 getType(),
                                 getKeySerializer(),
                                 getValueSerializer(),
+                                getTransformsSerializer(),
                                 getRoutingPolicy(),
                                 getRoutingStrategyType(),
                                 getReplicationFactor(),
@@ -309,7 +323,8 @@ public class StoreDefinition implements Serializable {
                                 getZoneCountReads(),
                                 getZoneCountWrites(),
                                 getRetentionDays(),
-                                getRetentionScanThrottleRate());
+                                getRetentionScanThrottleRate(),
+                                getSerializerFactory());
     }
 
     @Override
@@ -324,6 +339,7 @@ public class StoreDefinition implements Serializable {
                + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
                + getValueTransformation() + ", retention-days = " + getRetentionDays()
                + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
-               + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites() + ")";
+               + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites()
+               + ", serializer factory = " + getSerializerFactory() + ")";
     }
 }

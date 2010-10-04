@@ -243,6 +243,7 @@ public class Workload {
     }
 
     private DiscreteGenerator operationChooser;
+    private DiscreteGenerator transformsChooser;
     private KeyProvider<?> warmUpKeyProvider;
     private KeyProvider<?> insertKeyProvider;
     private KeyProvider<?> keyProvider;
@@ -263,6 +264,7 @@ public class Workload {
         String keyType = props.getString(Benchmark.KEY_TYPE, Benchmark.STRING_KEY_TYPE);
         String recordSelection = props.getString(Benchmark.RECORD_SELECTION,
                                                  Benchmark.UNIFORM_RECORD_SELECTION);
+        boolean hasTransforms = props.getString(Benchmark.HAS_TRANSFORMS).compareTo("true") == 0;
 
         double readProportion = (double) readPercent / (double) 100;
         double writeProportion = (double) writePercent / (double) 100;
@@ -301,6 +303,15 @@ public class Workload {
 
         IntegerGenerator warmUpKeySequence = new CounterGenerator(insertStart);
         this.warmUpKeyProvider = getKeyProvider(keyTypeClass, warmUpKeySequence, 0);
+
+        this.transformsChooser = null;
+        if(hasTransforms) {
+            this.transformsChooser = new DiscreteGenerator();
+            List<String> transforms = BenchmarkViews.getTransforms();
+            for(String transform: transforms) {
+                this.transformsChooser.addValue(1.0, transform);
+            }
+        }
 
         operationChooser = new DiscreteGenerator();
         if(readProportion > 0) {
@@ -355,26 +366,32 @@ public class Workload {
         if(plugin != null) {
             return plugin.doWrite(key, this.value);
         }
-        db.write(key, this.value);
+        db.write(key, this.value, null);
         return true;
     }
 
     public boolean doTransaction(VoldemortWrapper db, WorkloadPlugin plugin) {
         String op = operationChooser.nextString();
+
+        String transform = null;
+        if(transformsChooser != null) {
+            transform = transformsChooser.nextString();
+        }
+
         if(plugin != null) {
-            return plugin.doTransaction(op);
+            return plugin.doTransaction(op, transform);
         }
         if(op.compareTo(Benchmark.WRITES) == 0) {
             Object key = insertKeyProvider.next();
-            db.write(key, this.value);
+            db.write(key, this.value, transform);
         } else {
             Object key = keyProvider.next(insertKeyProvider.lastInt());
             if(op.compareTo(Benchmark.MIXED) == 0) {
-                db.mixed(key, this.value);
+                db.mixed(key, this.value, transform);
             } else if(op.compareTo(Benchmark.DELETES) == 0) {
                 db.delete(key);
             } else if(op.compareTo(Benchmark.READS) == 0) {
-                db.read(key, this.value);
+                db.read(key, this.value, transform);
             }
         }
         return true;

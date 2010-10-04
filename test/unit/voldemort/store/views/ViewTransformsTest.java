@@ -15,8 +15,8 @@ import voldemort.client.StoreClient;
 public class ViewTransformsTest extends TestCase {
 
     private static String storesXml = VoldemortTestConstants.getViewStoreDefinitionXml();
-    private StoreClient<String, String, String> upperCaseClient;
-    private StoreClient<Integer, List<Integer>, List<Integer>> rangeFilterClient;
+    private StoreClient<String, String> upperCaseClient;
+    private StoreClient<Integer, List<Integer>> rangeFilterClient;
 
     @Override
     @Before

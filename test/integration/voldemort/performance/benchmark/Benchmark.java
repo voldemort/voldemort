@@ -41,11 +41,15 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.StringSerializer;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.store.StorageConfiguration;
+import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.store.views.ViewStorageEngine;
+import voldemort.utils.ByteArray;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
@@ -104,7 +108,7 @@ public class Benchmark {
     public static final String VIEW_CLASS = "voldemort.store.views.UpperCaseView";
     public static final String HAS_TRANSFORMS = "true";
 
-    private StoreClient<Object, Object, Object> storeClient;
+    private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
     private int numThreads, numIterations, targetThroughput, recordCount, opsCount,
@@ -374,7 +378,20 @@ public class Benchmark {
 
             StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                             new Object[] { ServerTestUtils.getVoldemortConfig() });
-            store = SerializingStore.wrap(conf.getStore(DUMMY_DB),
+
+            StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(DUMMY_DB);
+            if(conf.getType().compareTo(ViewStorageConfiguration.TYPE_NAME) == 0) {
+                engine = new ViewStorageEngine(STORE_NAME,
+                                               engine,
+                                               new StringSerializer(),
+                                               new StringSerializer(),
+                                               serializer,
+                                               new StringSerializer(),
+                                               null,
+                                               BenchmarkViews.loadTransformation(benchmarkProps.getString(VIEW_CLASS)
+                                                                                               .trim()));
+            }
+            store = SerializingStore.wrap(engine,
                                           serializer,
                                           new StringSerializer(),
                                           new IdentitySerializer());

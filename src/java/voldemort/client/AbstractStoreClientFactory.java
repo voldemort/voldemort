@@ -33,6 +33,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.IdentitySerializer;
+import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
@@ -120,13 +121,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, null);
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
-        return new DefaultStoreClient<K, V, T>(storeName, resolver, this, 3);
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
     }
 
     @SuppressWarnings("unchecked")
@@ -188,6 +189,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
+
+        if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
+            throw new SerializationException("Transforms serializer must be specified with a view ");
+
         Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
                                                                                                                                        : new SerializerDefinition("identity"));
 

@@ -48,9 +48,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
-import voldemort.store.views.View;
 import voldemort.store.views.ViewStorageConfiguration;
-import voldemort.utils.ReflectUtils;
 
 /**
  * Parses a stores.xml file
@@ -87,6 +85,7 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_ELMT = "view";
     public final static String VIEW_TARGET_ELMT = "view-of";
     public final static String VIEW_TRANS_ELMT = "view-class";
+    public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
 
     private final Schema schema;
@@ -264,6 +263,11 @@ public class StoreDefinitionsMapper {
                                                   STORE_PREFERRED_WRITES_ELMT,
                                                   target.getRequiredReads());
 
+        String viewSerializerFactoryName = null;
+        if(store.getChildText(VIEW_SERIALIZER_FACTORY_ELMT) != null) {
+            viewSerializerFactoryName = store.getChild(VIEW_SERIALIZER_FACTORY_ELMT).getText();
+        }
+
         SerializerDefinition keySerializer = target.getKeySerializer();
         SerializerDefinition valueSerializer = target.getValueSerializer();
         if(store.getChild(STORE_VALUE_SERIALIZER_ELMT) != null)
@@ -277,8 +281,7 @@ public class StoreDefinitionsMapper {
         if(store.getChild(STORE_ROUTING_STRATEGY) != null)
             policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
 
-        // get transformations
-        View<?, ?, ?, ?> valTrans = loadTransformation(store.getChildText(VIEW_TRANS_ELMT));
+        String viewClass = store.getChildText(VIEW_TRANS_ELMT);
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
@@ -293,15 +296,9 @@ public class StoreDefinitionsMapper {
                                            .setRequiredReads(requiredReads)
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
-                                           .setView(valTrans)
+                                           .setView(viewClass)
+                                           .setSerializerFactory(viewSerializerFactoryName)
                                            .build();
-    }
-
-    private View<?, ?, ?, ?> loadTransformation(String className) {
-        if(className == null)
-            return null;
-        Class<?> transClass = ReflectUtils.loadClass(className.trim());
-        return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(transClass, new Object[] {});
     }
 
     private SerializerDefinition readSerializer(Element elmt) {
@@ -410,9 +407,7 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.getValueTransformation() == null)
             throw new MappingException("View " + storeDefinition.getName()
                                        + " has no defined transformation class.");
-        store.addContent(new Element(VIEW_TRANS_ELMT).setText(storeDefinition.getValueTransformation()
-                                                                             .getClass()
-                                                                             .getName()));
+        store.addContent(new Element(VIEW_TRANS_ELMT).setText(storeDefinition.getValueTransformation()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
         if(storeDefinition.hasPreferredReads())
@@ -432,6 +427,11 @@ public class StoreDefinitionsMapper {
             store.addContent(transformsSerializer);
         }
 
+        Element serializerFactory = new Element(VIEW_SERIALIZER_FACTORY_ELMT);
+        if(storeDefinition.getSerializerFactory() != null) {
+            serializerFactory.setText(storeDefinition.getSerializerFactory());
+            store.addContent(serializerFactory);
+        }
         return store;
     }
 

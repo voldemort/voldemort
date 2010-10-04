@@ -47,13 +47,13 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return new DefaultStoreClient(storeName, null, this, 3);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
     }
 

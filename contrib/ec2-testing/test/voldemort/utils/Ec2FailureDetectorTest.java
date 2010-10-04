@@ -70,7 +70,7 @@ public class Ec2FailureDetectorTest {
     private static Map<String, Integer> nodeIds;
 
     private FailureDetector failureDetector;
-    private StoreClient<String, String, String> store;
+    private StoreClient<String, String> store;
 
     private static final Logger logger = Logger.getLogger(Ec2FailureDetectorTest.class);
 
@@ -233,11 +233,11 @@ public class Ec2FailureDetectorTest {
         assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
     }
 
-    private void test(StoreClient<String, String, String> store) {
+    private void test(StoreClient<String, String> store) {
         test(store, 1000);
     }
 
-    private void test(StoreClient<String, String, String> store, int tests) {
+    private void test(StoreClient<String, String> store, int tests) {
         for(int i = 0; i < tests; i++) {
             try {
                 store.get("test_" + i);

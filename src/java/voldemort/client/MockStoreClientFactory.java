@@ -31,6 +31,7 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.serialized.SerializingStore;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.versioned.VersionIncrementingStore;
+import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -95,12 +96,12 @@ public class MockStoreClientFactory implements StoreClientFactory {
         failureDetector = new NoopFailureDetector();
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
         return getStoreClient(storeName, new TimeBasedInconsistencyResolver<V>());
     }
 
-    public <K, V, T> StoreClient<K, V, T> getStoreClient(String storeName,
-                                                         InconsistencyResolver<Versioned<V>> resolver) {
+    public <K, V> StoreClient<K, V> getStoreClient(String storeName,
+                                                   InconsistencyResolver<Versioned<V>> resolver) {
         return new DefaultStoreClient(storeName, resolver, this, 3);
     }
 
@@ -143,13 +144,21 @@ public class MockStoreClientFactory implements StoreClientFactory {
 
         Serializer<K1> keySerializer = (Serializer<K1>) serializerFactory.getSerializer(storeDef.getKeySerializer());
         Serializer<V1> valueSerializer = (Serializer<V1>) serializerFactory.getSerializer(storeDef.getValueSerializer());
-        Serializer<T1> transformsSerializer = (Serializer<T1>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
+        Serializer<T1> transformsSerializer = null;
+
+        if(storeDef.isView())
+            transformsSerializer = (Serializer<T1>) serializerFactory.getSerializer(storeDef.getTransformsSerializer());
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
         InconsistencyResolver<Versioned<V1>> secondaryResolver = new TimeBasedInconsistencyResolver();
 
-        StorageEngine engine = new InMemoryStorageEngine(storeDef.getViewTargetStoreName());
+        StorageEngine engine;
+        if(storeDef.isView())
+            engine = new InMemoryStorageEngine(storeDef.getViewTargetStoreName());
+        else
+            engine = new InMemoryStorageEngine(storeDef.getName());
+
         if(storeDef.isView()) {
             // instantiate view
             String targetName = storeDef.getViewTargetStoreName();
@@ -165,7 +174,8 @@ public class MockStoreClientFactory implements StoreClientFactory {
                                                                      : serializerFactory.getSerializer(targetDef.getKeySerializer()),
                                            this.valueSerializer != null ? this.valueSerializer
                                                                        : serializerFactory.getSerializer(targetDef.getValueSerializer()),
-                                           storeDef.getValueTransformation());
+                                           null,
+                                           ViewStorageConfiguration.loadTransformation(storeDef.getValueTransformation()));
         }
 
         Store store = new VersionIncrementingStore(engine, nodeId, time);

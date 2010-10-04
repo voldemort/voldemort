@@ -52,7 +52,7 @@ public class VoldemortClientShell {
 
     private static final String PROMPT = "> ";
 
-    private static DefaultStoreClient<Object, Object, Object> client;
+    private static DefaultStoreClient<Object, Object> client;
 
     public static void main(String[] args) throws Exception {
 
@@ -98,7 +98,7 @@ public class VoldemortClientShell {
         StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
 
         try {
-            client = (DefaultStoreClient<Object, Object, Object>) factory.getStoreClient(storeName);
+            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
         } catch(Exception e) {
             Utils.croak("Could not connect to server: " + e.getMessage());
         }
