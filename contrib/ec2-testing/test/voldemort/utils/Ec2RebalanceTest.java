@@ -178,16 +178,21 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         currentCluster = startServers(currentCluster, storeDefFile, serverList, null);
         targetCluster = updateCluster(targetCluster);
 
-        populateData(currentCluster, Arrays.asList(0));
-
         AdminClient adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
                                                   new AdminClientConfig());
+        populateData(currentCluster, Arrays.asList(0), adminClient);
+
         RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
                                                                                       0,
                                                                                       Arrays.asList(2,
                                                                                                     3),
-                                                                                      new ArrayList<Integer>(0),
-                                                                                      Arrays.asList(testStoreName),
+                                                                                      Arrays.asList(2,
+                                                                                                    3),
+                                                                                      Arrays.asList(2,
+                                                                                                    3),
+                                                                                      Arrays.asList(testStoreNameRW),
+                                                                                      new HashMap<String, String>(),
+                                                                                      new HashMap<String, String>(),
                                                                                       0);
         int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
         logger.info("started rebalanceNode, request id = " + requestId);
@@ -229,7 +234,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
                     checkGetEntries(currentCluster.getNodeById(nodeId),
                                     targetCluster,
                                     unavailablePartitions,
-                                    availablePartitions);
+                                    availablePartitions,
+                                    false);
                 } catch(InvalidMetadataException e) {
                     logger.warn(e);
                 }

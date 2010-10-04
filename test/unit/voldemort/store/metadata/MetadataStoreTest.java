@@ -18,6 +18,7 @@ package voldemort.store.metadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -40,7 +41,8 @@ public class MetadataStoreTest extends TestCase {
     private MetadataStore metadataStore;
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
-                                                   MetadataStore.REBALANCING_STEAL_INFO);
+                                                   MetadataStore.REBALANCING_STEAL_INFO,
+                                                   MetadataStore.SERVER_STATE_KEY);
 
     @Override
     public void setUp() throws Exception {
@@ -78,7 +80,10 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     (int) Math.random() * 5,
                                                                                                     partition,
                                                                                                     new ArrayList<Integer>(0),
+                                                                                                    new ArrayList<Integer>(0),
                                                                                                     Arrays.asList("testStoreName"),
+                                                                                                    new HashMap<String, String>(),
+                                                                                                    new HashMap<String, String>(),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
@@ -153,15 +158,9 @@ public class MetadataStoreTest extends TestCase {
     public void testCleanAllStates() {
         // put state entries.
         incrementVersionAndPut(metadataStore,
-                               MetadataStore.CLUSTER_STATE_KEY,
-                               MetadataStore.VoldemortState.REBALANCING_CLUSTER);
-        incrementVersionAndPut(metadataStore,
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
-        assertEquals("Values should match.",
-                     metadataStore.getClusterState(),
-                     VoldemortState.REBALANCING_CLUSTER);
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.REBALANCING_MASTER_SERVER);
@@ -170,9 +169,6 @@ public class MetadataStoreTest extends TestCase {
         metadataStore.cleanAllRebalancingState();
 
         // check all values revert back to default.
-        assertEquals("Values should match.",
-                     metadataStore.getClusterState(),
-                     VoldemortState.NORMAL_CLUSTER);
         assertEquals("Values should match.",
                      metadataStore.getServerState(),
                      VoldemortState.NORMAL_SERVER);

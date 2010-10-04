@@ -18,9 +18,14 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.Socket;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -42,6 +47,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -52,12 +58,14 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -65,6 +73,8 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -596,7 +606,7 @@ public class AdminClient {
      * in case of failure and start balancing all the stores in the list only.
      * 
      * @param stealInfo
-     * @return
+     * @return The request id of the async operation
      */
     public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
@@ -606,6 +616,9 @@ public class AdminClient {
                                                                                                                 .addAllPartitions(stealInfo.getPartitionList())
                                                                                                                 .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
                                                                                                                 .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+                                                                                                                .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
+                                                                                                                .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getStealerNodeROStoreToDir()))
+                                                                                                                .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getDonorNodeROStoreToDir()))
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -1115,19 +1128,6 @@ public class AdminClient {
     }
 
     /**
-     * Update the server
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} on a
-     * remote node.
-     */
-    public void updateRemoteClusterState(int nodeId,
-                                         MetadataStore.VoldemortState state,
-                                         Version clock) {
-        updateRemoteMetadata(nodeId,
-                             MetadataStore.CLUSTER_STATE_KEY,
-                             new Versioned<String>(state.toString(), clock));
-    }
-
-    /**
      * Add a new store definition to all active nodes in the cluster.
      * <p>
      * 
@@ -1282,48 +1282,237 @@ public class AdminClient {
     }
 
     /**
+     * Swap multiple read-only stores and clear the rebalancing state
+     * 
+     * @param nodeId The node id on which to swap the stores
+     * @param storeToDir A map of read-only store names with their respective
+     *        directories
+     */
+    public void swapStoresAndCleanState(int nodeId, Map<String, String> storeToDir) {
+        VAdminProto.SwapStoresAndCleanStateRequest.Builder swapStoreRequest = VAdminProto.SwapStoresAndCleanStateRequest.newBuilder()
+                                                                                                                        .addAllRoStoreVersions(decodeROStoreVersionDirMap(storeToDir));
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setSwapStoresAndCleanState(swapStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.SWAP_STORES_AND_CLEAN_STATE)
+                                                                                          .build();
+        VAdminProto.SwapStoresAndCleanStateResponse.Builder response = sendAndReceive(nodeId,
+                                                                                      adminRequest,
+                                                                                      VAdminProto.SwapStoresAndCleanStateResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+        return;
+    }
+
+    /**
      * Returns the max version of push currently being used by read-only store.
      * Important to remember that this may not be the 'current' version since
      * multiple pushes (with greater version numbers) may be in progress
      * currently
      * 
      * @param nodeId The id of the node on which the store is present
-     * @param storeName The name of the read-only store
-     * @return The max push version
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version number
      */
-    public long getROMaxVersion(int nodeId, String storeName) {
-        VAdminProto.GetROMaxVersionRequest.Builder getROMaxVersionRequest = VAdminProto.GetROMaxVersionRequest.newBuilder()
-                                                                                                              .setStoreName(storeName);
+    public Map<String, Long> getROMaxVersion(int nodeId, List<String> storeNames) {
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROMaxVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        }
+        return returnMap;
+    }
+
+    /**
+     * Returns the max version of push currently being used by read-only store.
+     * Important to remember that this may not be the 'current' version since
+     * multiple pushes (with greater version numbers) may be in progress
+     * currently
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective store directory
+     */
+    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
+
+        VAdminProto.GetROMaxVersionDirRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
+                                                                                                                       .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoMaxVersion(getROMaxVersionRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION)
+                                                                                          .setGetRoMaxVersionDir(getROMaxVersionDirRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
                                                                                           .build();
-        VAdminProto.GetROMaxVersionResponse.Builder response = sendAndReceive(nodeId,
-                                                                              adminRequest,
-                                                                              VAdminProto.GetROMaxVersionResponse.newBuilder());
+        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
 
-        return response.getPushVersion();
+        // generate map of store-name to max version
+        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
+
+        if(storeToVersionDir.size() != storeNames.size()) {
+            storeNames.removeAll(storeToVersionDir.keySet());
+            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
+        }
+        return storeToVersionDir;
     }
 
     /**
-     * This is a wrapper around {@link AdminClient#getMaxVersion(int, String)}
+     * Returns the 'current' version of RO store
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version
+     *         directory
+     */
+    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROCurrentVersionDirRequest.Builder getROCurrentVersionDirRequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
+                                                                                                                                   .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoCurrentVersionDir(getROCurrentVersionDirRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
+                                                                                          .build();
+        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                     adminRequest,
+                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        // generate map of store-name to current version
+        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
+
+        if(storeToVersionDir.size() != storeNames.size()) {
+            storeNames.removeAll(storeToVersionDir.keySet());
+            throw new VoldemortException("Did not retrieve current version id for " + storeNames);
+        }
+        return storeToVersionDir;
+    }
+
+    /**
+     * Returns the 'current' version of RO store
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version number
+     */
+    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        }
+        return returnMap;
+    }
+
+    private List<ROStoreVersionDirMap> decodeROStoreVersionDirMap(Map<String, String> storeVersionDirMap) {
+        List<ROStoreVersionDirMap> storeToVersionDir = Lists.newArrayList();
+        for(String storeName: storeVersionDirMap.keySet()) {
+            storeToVersionDir.add(ROStoreVersionDirMap.newBuilder()
+                                                      .setStoreName(storeName)
+                                                      .setStoreDir(storeVersionDirMap.get(storeName))
+                                                      .build());
+        }
+        return storeToVersionDir;
+    }
+
+    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
+        Map<String, String> storeToVersionDir = Maps.newHashMap();
+        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
+            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
+        }
+        return storeToVersionDir;
+    }
+
+    /**
+     * This is a wrapper around
+     * {@link voldemort.client.protocol.admin.AdminClient#getROMaxVersion(int, List)}
      * where-in we find the max versions on each machine and then return the max
      * of all of them
      * 
-     * @param storeName The name of the read-only store
-     * @return The global max push version
+     * @param storeName List of all read-only stores
+     * @return A map of store-name to their corresponding max version id
      */
-    public long getROGlobalMaxVersion(String storeName) {
-        long maxVersionId = 0L;
+    public Map<String, Long> getROMaxVersion(List<String> storeNames) {
+        Map<String, Long> storeToMaxVersion = Maps.newHashMapWithExpectedSize(storeNames.size());
+        for(String storeName: storeNames) {
+            storeToMaxVersion.put(storeName, 0L);
+        }
+
         for(Node node: currentCluster.getNodes()) {
-            long currentNodeVersion = getROMaxVersion(node.getId(), storeName);
-            if(currentNodeVersion > maxVersionId) {
-                maxVersionId = currentNodeVersion;
+            Map<String, Long> currentNodeVersions = getROMaxVersion(node.getId(), storeNames);
+            for(String storeName: currentNodeVersions.keySet()) {
+                Long maxVersion = storeToMaxVersion.get(storeName);
+                if(maxVersion != null && maxVersion < currentNodeVersions.get(storeName)) {
+                    storeToMaxVersion.put(storeName, currentNodeVersions.get(storeName));
+                }
             }
         }
-        return maxVersionId;
+        return storeToMaxVersion;
+    }
+
+    public void fetchPartitionFiles(int nodeId,
+                                    String storeName,
+                                    List<Integer> partitionIds,
+                                    String destinationDirPath) {
+        if(!Utils.isReadableDir(destinationDirPath)) {
+            throw new VoldemortException("The destination path (" + destinationDirPath
+                                         + ") to store " + storeName + " does not exist");
+        }
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        final SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                    node.getAdminPort(),
+                                                                    RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        final SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        final DataInputStream inputStream = sands.getInputStream();
+
+        try {
+            VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
+                                                                                                                     .addAllPartitions(partitionIds)
+                                                                                                                     .setStore(storeName)
+                                                                                                                     .build();
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setFetchPartitionFiles(fetchPartitionFileRequest)
+                                                                                         .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_FILES)
+                                                                                         .build();
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+
+            while(true) {
+                int size = inputStream.readInt();
+                if(size == -1) {
+                    close(sands.getSocket());
+                    break;
+                }
+
+                byte[] input = new byte[size];
+                ByteUtils.read(inputStream, input);
+                VAdminProto.FileEntry fileEntry = VAdminProto.FileEntry.newBuilder()
+                                                                       .mergeFrom(input)
+                                                                       .build();
+                logger.info("Receiving file " + fileEntry.getFileName());
+                FileChannel fileChannel = new FileOutputStream(new File(destinationDirPath,
+                                                                        fileEntry.getFileName())).getChannel();
+                ReadableByteChannel channelIn = Channels.newChannel(inputStream);
+                fileChannel.transferFrom(channelIn, 0, fileEntry.getFileSizeBytes());
+                fileChannel.force(true);
+                fileChannel.close();
+
+                logger.info("Completed file " + fileEntry.getFileName());
+            }
+
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+
     }
 }

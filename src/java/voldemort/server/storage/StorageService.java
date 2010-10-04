@@ -48,6 +48,8 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SlopSerializer;
@@ -65,7 +67,9 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
@@ -185,8 +189,12 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
-            StorageEngine<ByteArray, byte[], byte[]> slopEngine = getStorageEngine("slop",
-                                                                                   voldemortConfig.getSlopStoreType());
+            StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
+            if(config == null)
+                throw new ConfigurationException("Attempt to slop store failed");
+
+            StorageEngine<ByteArray, byte[], byte[]> slopEngine = config.getStore("slop");
+
             registerEngine(slopEngine);
             storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
                                                                        new ByteArraySerializer(),
@@ -219,8 +227,30 @@ public class StorageService extends AbstractService {
     public void openStore(StoreDefinition storeDef) {
 
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
-        StorageEngine<ByteArray, byte[], byte[]> engine = getStorageEngine(storeDef.getName(),
-                                                                           storeDef.getType());
+
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine of type " + storeDef.getType()
+                                             + " has not been enabled.");
+
+        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                       metadata.getCluster());
+            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
+        }
+
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+        // Update the routing strategy + add listener to metadata
+        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+            metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
+
+                public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
+                    ((ReadOnlyStorageEngine) engine).setRoutingStrategy(updatedRoutingStrategy);
+                }
+            });
+        }
 
         // openStore() should have atomic semantics
         try {
@@ -433,15 +463,6 @@ public class StorageService extends AbstractService {
                                 voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
                                         * Time.MS_PER_HOUR);
 
-    }
-
-    private StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(String name, String type) {
-        StorageConfiguration config = storageConfigs.get(type);
-        if(config == null)
-            throw new ConfigurationException("Attempt to open store " + name + " but " + type
-                                             + " storage engine of type " + type
-                                             + " has not been enabled.");
-        return config.getStore(name);
     }
 
     @Override

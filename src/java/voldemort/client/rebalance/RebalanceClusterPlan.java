@@ -25,8 +25,14 @@ import com.google.common.collect.Multimap;
  * node-ids and partitions desired to be stolen/fetched.<br>
  * <b> returned Queue is threadsafe </b>
  * 
- * @param currentCluster
- * @param targetCluster
+ * @param currentCluster The current cluster definition
+ * @param targetCluster The target cluster definition
+ * @param storeDefList The list of store definitions to rebalance
+ * @param currentROStoreVersions A mapping of nodeId to map of store names to
+ *        version ids
+ * @param deleteDonorPartition Delete the RW partition on the donor side after
+ *        rebalance
+ * 
  */
 public class RebalanceClusterPlan {
 
@@ -36,7 +42,8 @@ public class RebalanceClusterPlan {
     public RebalanceClusterPlan(Cluster currentCluster,
                                 Cluster targetCluster,
                                 List<StoreDefinition> storeDefList,
-                                boolean deleteDonorPartition) {
+                                boolean deleteDonorPartition,
+                                Map<Integer, Map<String, String>> currentROStoreVersionsDirs) {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         this.storeDefList = storeDefList;
 
@@ -50,6 +57,12 @@ public class RebalanceClusterPlan {
                                                                                    node.getId(),
                                                                                    deleteDonorPartition);
             if(rebalanceNodeList.size() > 0) {
+                if(currentROStoreVersionsDirs != null && currentROStoreVersionsDirs.size() > 0) {
+                    for(RebalancePartitionsInfo partitionsInfo: rebalanceNodeList) {
+                        partitionsInfo.setStealerNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getStealerId()));
+                        partitionsInfo.setDonorNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getDonorId()));
+                    }
+                }
                 rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
             }
         }
@@ -59,6 +72,17 @@ public class RebalanceClusterPlan {
         return rebalanceTaskQueue;
     }
 
+    /**
+     * For a particular stealer node retrieves a list of plans corresponding to
+     * each donor node.
+     * 
+     * @param currentCluster The cluster definition of the current cluster
+     * @param targetCluster The cluster definition of the target cluster
+     * @param storeList The list of stores
+     * @param stealNodeId The node id of the stealer node
+     * @param deleteDonorPartition Delete the donor partitions after rebalance
+     * @return List of plans per donor node
+     */
     private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
                                                                Cluster targetCluster,
                                                                List<String> storeList,
@@ -81,11 +105,13 @@ public class RebalanceClusterPlan {
         for(Node donorNode: currentCluster.getNodes()) {
             Set<Integer> stealPartitions = new HashSet<Integer>();
             Set<Integer> deletePartitions = new HashSet<Integer>();
-            Set<Integer> stealMasterPartitions = new HashSet<Integer>();// create Set for steal master partitions 
-            
+            // create Set for steal master partitions
+            Set<Integer> stealMasterPartitions = new HashSet<Integer>();
+
             if(masterPartitionsMap.containsKey(donorNode.getId())) {
                 stealPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
-                stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));// add one steal master partition
+                // add one steal master partition
+                stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
                 if(deleteDonorPartition)
                     deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
             }
@@ -99,8 +125,10 @@ public class RebalanceClusterPlan {
                                                               donorNode.getId(),
                                                               new ArrayList<Integer>(stealPartitions),
                                                               new ArrayList<Integer>(deletePartitions),
-                                                              new ArrayList<Integer>(stealMasterPartitions),// create RebalancePartitionsInfo with stealMasterPartitions 
+                                                              new ArrayList<Integer>(stealMasterPartitions),
                                                               storeList,
+                                                              new HashMap<String, String>(),
+                                                              new HashMap<String, String>(),
                                                               0));
             }
         }
@@ -108,6 +136,14 @@ public class RebalanceClusterPlan {
         return stealInfoList;
     }
 
+    /**
+     * For a particular stealer node find all the partitions it will steal
+     * 
+     * @param currentCluster The cluster definition of the existing cluster
+     * @param targetCluster The target cluster definition
+     * @param stealNodeId The id of the stealer node
+     * @return Returns a list of partitions which this stealer node will get
+     */
     private List<Integer> getStealList(Cluster currentCluster,
                                        Cluster targetCluster,
                                        int stealNodeId) {
@@ -124,6 +160,18 @@ public class RebalanceClusterPlan {
         return targetList;
     }
 
+    /**
+     * For a particular stealer node id returns a mapping of donor node ids to
+     * their respective partition ids which we need to steal due to the change
+     * of replication
+     * 
+     * @param currentCluster Current cluster definition
+     * @param targetCluster Cluster definition of the target
+     * @param stealNodeId The node id of the stealer node
+     * @param currentPartitionsToNodeMap The mapping of current partitions to
+     *        their nodes
+     * @return Map of donor node ids to their partitions they'll donate
+     */
     private Map<Integer, List<Integer>> getReplicationChanges(Cluster currentCluster,
                                                               Cluster targetCluster,
                                                               int stealNodeId,
@@ -141,7 +189,6 @@ public class RebalanceClusterPlan {
             if(targetList.contains(newReplicationPartition)) {
                 // stealerNode need to replicate some new partition now.
                 int donorNode = currentPartitionsToNodeMap.get(entry.getKey());
-                // TODO LOW: not copying partitions on same node for now
                 if(donorNode != stealNodeId)
                     createAndAdd(replicationMapping, donorNode, entry.getKey());
             }
@@ -150,6 +197,16 @@ public class RebalanceClusterPlan {
         return replicationMapping;
     }
 
+    /**
+     * Converts a list of partitions ids which a stealer is going to receive to
+     * a map of donor node ids to the corresponding partitions
+     * 
+     * @param stealList The partitions ids going to be stolen
+     * @param currentPartitionsToNodeMap Mapping of current partitions to their
+     *        respective nodes ids
+     * @return Returns a mapping of donor node ids to the partitions being
+     *         stolen
+     */
     private Map<Integer, List<Integer>> getStealMasterPartitions(List<Integer> stealList,
                                                                  Map<Integer, Integer> currentPartitionsToNodeMap) {
         HashMap<Integer, List<Integer>> stealPartitionsMap = new HashMap<Integer, List<Integer>>();

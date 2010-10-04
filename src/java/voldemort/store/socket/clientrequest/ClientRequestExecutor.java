@@ -59,6 +59,9 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     }
 
     public boolean isValid() {
+        if(isClosed())
+            return false;
+
         Socket s = socketChannel.socket();
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
@@ -111,8 +114,15 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     public void close() {
-        super.close();
+        // Due to certain code paths, close may be called in a recursive
+        // fashion. Rather than trying to handle all of the cases, simply keep
+        // track of whether we've been called before and only perform the logic
+        // once.
+        if(!isClosed.compareAndSet(false, true))
+            return;
+
         completeClientRequest();
+        closeInternal();
     }
 
     @Override

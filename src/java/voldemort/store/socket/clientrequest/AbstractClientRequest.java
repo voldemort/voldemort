@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import voldemort.VoldemortException;
+import voldemort.store.UnreachableStoreException;
 
 /**
  * AbstractClientRequest implements ClientRequest to provide some basic
@@ -36,6 +37,8 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
     private Exception error;
 
     private volatile boolean isComplete = false;
+
+    private volatile boolean isParsed = false;
 
     protected abstract void formatRequestInternal(DataOutputStream outputStream) throws IOException;
 
@@ -62,12 +65,17 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
             error = e;
         } catch(VoldemortException e) {
             error = e;
+        } finally {
+            isParsed = true;
         }
     }
 
     public T getResult() throws VoldemortException, IOException {
         if(!isComplete)
             throw new IllegalStateException("Client response not complete, cannot determine result");
+
+        if(!isParsed)
+            throw new UnreachableStoreException("Client response not read/parsed, cannot determine result");
 
         if(error instanceof IOException)
             throw (IOException) error;

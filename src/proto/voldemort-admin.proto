@@ -24,6 +24,11 @@ message UpdateMetadataResponse {
   optional Error error = 1;
 }
 
+message FileEntry {
+  required string file_name = 1;
+  required int64 file_size_bytes = 2;
+}
+
 message PartitionEntry {
   required bytes key = 1;
   required Versioned versioned = 2;
@@ -42,6 +47,11 @@ message UpdatePartitionEntriesResponse {
 message VoldemortFilter {
   required string name = 1;
   required bytes data = 2;
+}
+
+message FetchPartitionFilesRequest {
+  repeated int32 partitions = 1;
+  required string store = 2;
 }
 
 message FetchPartitionEntriesRequest {
@@ -74,6 +84,7 @@ message InitiateFetchAndUpdateRequest {
   repeated int32 partitions = 2;
   required string store = 3;
   optional VoldemortFilter filter = 4;
+  optional bool is_readonly = 5;
 }
 
 message AsyncOperationStatusRequest {
@@ -103,8 +114,11 @@ message InitiateRebalanceNodeRequest {
   required int32 donor_id = 3;
   repeated int32 partitions = 4;
   required int32 attempt = 5;
-  repeated int32  deletePartitions = 6;
+  repeated int32 deletePartitions = 6;
   repeated string unbalanced_store = 7;
+  repeated int32 stealMasterPartitions = 8;
+  repeated ROStoreVersionDirMap stealer_ro_store_to_dir = 9; 
+  repeated ROStoreVersionDirMap donor_ro_store_to_dir = 10; 
 }
 
 message AsyncOperationStatusResponse {
@@ -163,15 +177,37 @@ message RollbackStoreResponse {
   optional Error error = 1;
 }
 
-message GetROMaxVersionRequest {
-  required string store_name = 1;
+message ROStoreVersionDirMap {
+ required string store_name = 1;
+ required string store_dir = 2;
 }
 
-message GetROMaxVersionResponse {
-  optional int64 push_version = 1;
+message GetROMaxVersionDirRequest {
+  repeated string store_name = 1;
+}
+
+message GetROMaxVersionDirResponse {
+  repeated ROStoreVersionDirMap ro_store_versions = 1;
   optional Error error = 2;
 }
  
+message GetROCurrentVersionDirRequest {
+  repeated string store_name = 1;
+}
+
+message GetROCurrentVersionDirResponse {
+  repeated ROStoreVersionDirMap ro_store_versions = 1;
+  optional Error error = 2;
+}
+
+message SwapStoresAndCleanStateRequest {
+  repeated ROStoreVersionDirMap ro_store_versions = 1;
+}
+
+message SwapStoresAndCleanStateResponse {
+  optional Error error = 1; 
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -189,7 +225,10 @@ enum AdminRequestType {
   FETCH_STORE = 13;
   SWAP_STORE = 14;
   ROLLBACK_STORE = 15;
-  GET_RO_MAX_VERSION = 16;
+  GET_RO_MAX_VERSION_DIR = 16;
+  GET_RO_CURRENT_VERSION_DIR = 17;
+  FETCH_PARTITION_FILES = 18;
+  SWAP_STORES_AND_CLEAN_STATE = 19;
 }
 
 message VoldemortAdminRequest {
@@ -210,10 +249,8 @@ message VoldemortAdminRequest {
   optional FetchStoreRequest fetch_store = 15;
   optional SwapStoreRequest swap_store = 16;
   optional RollbackStoreRequest rollback_store = 17;
-  optional GetROMaxVersionRequest get_ro_max_version = 18;
+  optional GetROMaxVersionDirRequest get_ro_max_version_dir = 18;
+  optional GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
+  optional FetchPartitionFilesRequest fetch_partition_files = 20;
+  optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
 }
-
-
-  
-
-

@@ -51,7 +51,7 @@ public class BdbBuildPerformanceTest {
         String storeName = args[1];
         String jsonDataFile = args[2];
 
-        final Store<ByteArray, byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
+        final Store<ByteArray, byte[], byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
@@ -75,7 +75,7 @@ public class BdbBuildPerformanceTest {
 
                     reader.next(key, value);
                     store.put(new ByteArray(ByteUtils.copy(key.get(), 0, key.getSize())),
-                              Versioned.value(ByteUtils.copy(value.get(), 0, value.getSize())));
+                              Versioned.value(ByteUtils.copy(value.get(), 0, value.getSize())), null);
                 } catch(ObsoleteVersionException e) {
                     obsoletes.incrementAndGet();
                 }

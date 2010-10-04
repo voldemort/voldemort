@@ -25,6 +25,7 @@ import java.util.Set;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -41,6 +42,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private final Set<ObjectName> registeredBeans;
     private final SearchStrategy searcher;
     private final int nodeId;
+    private RoutingStrategy routingStrategy = null;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
@@ -57,9 +59,15 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
             JmxUtils.unregisterMbean(server, name);
     }
 
+    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
+        this.routingStrategy = routingStrategy;
+    }
+
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
                                                                 this.searcher,
+                                                                this.routingStrategy,
+                                                                this.nodeId,
                                                                 new File(storageDir, name),
                                                                 numBackups);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),

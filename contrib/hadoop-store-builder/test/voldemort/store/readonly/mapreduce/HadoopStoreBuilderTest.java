@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.readonly.mr;
+package voldemort.store.readonly.mapreduce;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -30,7 +30,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -58,10 +58,7 @@ import voldemort.versioning.Versioned;
  * Unit test to check Read-Only Batch Indexer <strong>in Local mode numReduce
  * will be only one hence we will see only one node files irrespective of
  * cluster details.</strong>
- * 
- * 
  */
-@SuppressWarnings("deprecation")
 public class HadoopStoreBuilderTest extends TestCase {
 
     public static class TextStoreMapper extends
@@ -79,61 +76,6 @@ public class HadoopStoreBuilderTest extends TestCase {
             return tokens[1];
         }
 
-    }
-
-    /**
-     * Issue 258 : 'node--1' produced during store building if some reducer does
-     * not get any data.
-     * 
-     * @throws Exception
-     */
-    public void testRowsLessThanNodes() throws Exception {
-        Map<String, String> values = new HashMap<String, String>();
-        File testDir = TestUtils.createTempDir();
-        File tempDir = new File(testDir, "temp");
-        File outputDir = new File(testDir, "output");
-
-        // write test data to text file
-        File inputFile = File.createTempFile("input", ".txt", testDir);
-        inputFile.deleteOnExit();
-        StringBuilder contents = new StringBuilder();
-        for(Map.Entry<String, String> entry: values.entrySet())
-            contents.append(entry.getKey() + "\t" + entry.getValue() + "\n");
-        FileUtils.writeStringToFile(inputFile, contents.toString());
-
-        String storeName = "test";
-        SerializerDefinition serDef = new SerializerDefinition("string");
-        Cluster cluster = ServerTestUtils.getLocalCluster(10);
-
-        // Test backwards compatibility
-        StoreDefinition def = new StoreDefinitionBuilder().setName(storeName)
-                                                          .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
-                                                          .setKeySerializer(serDef)
-                                                          .setValueSerializer(serDef)
-                                                          .setRoutingPolicy(RoutingTier.CLIENT)
-                                                          .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                          .setReplicationFactor(1)
-                                                          .setPreferredReads(1)
-                                                          .setRequiredReads(1)
-                                                          .setPreferredWrites(1)
-                                                          .setRequiredWrites(1)
-                                                          .build();
-        HadoopStoreBuilder builder = new HadoopStoreBuilder(new Configuration(),
-                                                            TextStoreMapper.class,
-                                                            TextInputFormat.class,
-                                                            cluster,
-                                                            def,
-                                                            64 * 1024,
-                                                            new Path(tempDir.getAbsolutePath()),
-                                                            new Path(outputDir.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
-        builder.build();
-
-        // Should not produce node--1 directory + have one folder for every node
-        assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
-        for(File f: outputDir.listFiles()) {
-            assertFalse(f.toString().contains("node--1"));
-        }
     }
 
     public void testHadoopBuild() throws Exception {
@@ -179,7 +121,8 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             64 * 1024,
                                                             new Path(tempDir2.getAbsolutePath()),
                                                             new Path(outputDir2.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.NONE);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),

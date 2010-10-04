@@ -34,6 +34,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.routing.RoutingStrategy;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
@@ -57,18 +58,13 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
-    /*
-     * The overhead for each cache element is the key size + 4 byte array length
-     * + 12 byte object overhead + 8 bytes for a 64-bit reference to the thing
-     */
-    public static final int MEMORY_OVERHEAD_PER_KEY = ReadOnlyUtils.KEY_HASH_SIZE + 4 + 12 + 8;
-
     private final String name;
-    private final int numBackups;
+    private final int numBackups, nodeId;
     private long currentVersionId;
     private final File storeDir;
     private final ReadWriteLock fileModificationLock;
     private final SearchStrategy searchStrategy;
+    private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
 
@@ -82,12 +78,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
      */
     public ReadOnlyStorageEngine(String name,
                                  SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
                                  File storeDir,
                                  int numBackups) {
         this.storeDir = storeDir;
         this.numBackups = numBackups;
         this.name = Utils.notNull(name);
         this.searchStrategy = searchStrategy;
+        this.routingStrategy = Utils.notNull(routingStrategy);
+        this.nodeId = nodeId;
         this.fileSet = null;
         this.currentVersionId = 0L;
         /*
@@ -136,7 +136,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
-            this.fileSet = new ChunkedFileSet(versionDir);
+            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
             isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();
@@ -144,25 +144,28 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     }
 
     /**
-     * Retrieve the dir pointed to by 'latest' symbolic-link or the max version
-     * dir
+     * Set the routing strategy required to find which partition the key belongs
+     * to
+     */
+    public void setRoutingStrategy(RoutingStrategy routingStrategy) {
+        if(this.fileSet == null)
+            throw new VoldemortException("File set should not be null");
+
+        this.routingStrategy = routingStrategy;
+    }
+
+    /**
+     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
+     * version dir
      * 
-     * @return Max version directory
+     * @return Current version directory, else null
      */
     private File getCurrentVersion() {
-        File latestSymLink = new File(storeDir, "latest");
-        if(latestSymLink.exists() && Utils.isSymLink(latestSymLink)) {
-            File canonicalLatestVersion = null;
-            try {
-                canonicalLatestVersion = latestSymLink.getCanonicalFile();
-            } catch(IOException e) {}
+        File latestDir = ReadOnlyUtils.getLatestDir(storeDir);
+        if(latestDir != null)
+            return latestDir;
 
-            if(canonicalLatestVersion != null
-               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
-                return canonicalLatestVersion;
-        }
         File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDir);
-
         if(versionDirs == null || versionDirs.length == 0) {
             return null;
         } else {
@@ -170,6 +173,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                      versionDirs.length - 1,
                                                      versionDirs.length - 1)[0];
         }
+    }
+
+    public String getCurrentDirPath() {
+        return storeDir.getAbsolutePath() + File.separator + "version-"
+               + Long.toString(currentVersionId);
     }
 
     public long getCurrentVersionId() {
@@ -374,16 +382,24 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
-        byte[] keyMd5 = ByteUtils.md5(key.get());
-        int chunk = fileSet.getChunkForKey(keyMd5);
-        int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                              keyMd5,
-                                              fileSet.getIndexFileSize(chunk));
-        if(location >= 0) {
-            byte[] value = readValue(chunk, location);
-            return Collections.singletonList(Versioned.value(value));
-        } else {
-            return Collections.emptyList();
+        try {
+            fileModificationLock.readLock().lock();
+            int chunk = fileSet.getChunkForKey(key.get());
+            if(chunk < 0) {
+                logger.warn("Routing strategy used for read-only store is inconsistent");
+                return Collections.emptyList();
+            }
+            int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
+                                                  ByteUtils.md5(key.get()),
+                                                  fileSet.getIndexFileSize(chunk));
+            if(location >= 0) {
+                byte[] value = readValue(chunk, location);
+                return Collections.singletonList(Versioned.value(value));
+            } else {
+                return Collections.emptyList();
+            }
+        } finally {
+            fileModificationLock.readLock().unlock();
         }
     }
 
@@ -396,10 +412,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             fileModificationLock.readLock().lock();
             List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
-                byte[] keyMd5 = ByteUtils.md5(key.get());
-                int chunk = fileSet.getChunkForKey(keyMd5);
+                int chunk = fileSet.getChunkForKey(key.get());
                 int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                                           keyMd5,
+                                                           ByteUtils.md5(key.get()),
                                                            fileSet.getIndexFileSize(chunk));
                 if(valueLocation >= 0)
                     keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));

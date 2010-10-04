@@ -16,6 +16,11 @@
 
 package voldemort.client;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -26,6 +31,7 @@ import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
+import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
@@ -101,6 +107,23 @@ public class ClientConfig {
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
 
     /**
+     * Instantiate the client config using a properties file
+     * 
+     * @param propertyFile Properties file
+     */
+    public ClientConfig(File propertyFile) {
+        Properties properties = new Properties();
+        InputStream input = null;
+        try {
+            input = new BufferedInputStream(new FileInputStream(propertyFile.getAbsolutePath()));
+            properties.load(input);
+        } catch(IOException e) {
+            throw new ConfigurationException(e);
+        }
+        setProperties(properties);
+    }
+
+    /**
      * Initiate the client config from a set of properties. This is useful for
      * wiring from Spring or for externalizing client properties to a properties
      * file
@@ -108,6 +131,10 @@ public class ClientConfig {
      * @param properties The properties to use
      */
     public ClientConfig(Properties properties) {
+        setProperties(properties);
+    }
+
+    private void setProperties(Properties properties) {
         Props props = new Props(properties);
         if(props.containsKey(MAX_CONNECTIONS_PER_NODE_PROPERTY))
             this.setMaxConnectionsPerNode(props.getInt(MAX_CONNECTIONS_PER_NODE_PROPERTY));

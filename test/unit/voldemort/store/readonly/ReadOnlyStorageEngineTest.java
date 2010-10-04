@@ -23,12 +23,18 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.Attempt;
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
@@ -49,6 +55,9 @@ public class ReadOnlyStorageEngineTest {
     private SearchStrategy strategy;
     private SerializerDefinition serDef;
     private SerializerDefinition lzfSerDef;
+    private StoreDefinition storeDef;
+    private Node node;
+    private RoutingStrategy routingStrategy;
 
     public ReadOnlyStorageEngineTest(SearchStrategy strategy) {
         this.strategy = strategy;
@@ -58,6 +67,16 @@ public class ReadOnlyStorageEngineTest {
                                                   ImmutableMap.of(0, "'string'"),
                                                   true,
                                                   new Compression("lzf", null));
+        this.storeDef = ServerTestUtils.getStoreDef("test",
+                                                    1,
+                                                    1,
+                                                    1,
+                                                    1,
+                                                    1,
+                                                    RoutingStrategyType.CONSISTENT_STRATEGY);
+        Cluster cluster = ServerTestUtils.getLocalCluster(1);
+        this.node = cluster.getNodeById(0);
+        this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
     @After
@@ -230,10 +249,10 @@ public class ReadOnlyStorageEngineTest {
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
             throws Exception {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, indexBytes, dataBytes, 2);
+        createStoreFiles(versionDir, indexBytes, dataBytes, node, 2);
 
         try {
-            new ReadOnlyStorageEngine("test", strategy, dir, 1);
+            new ReadOnlyStorageEngine("test", strategy, routingStrategy, 0, dir, 1);
             if(!shouldWork)
                 fail("Able to open corrupt read-only store (index size = " + indexBytes
                      + ", data bytes = " + dataBytes + ").");
@@ -246,13 +265,19 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testSwap() throws Exception {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, this.node, 2);
+
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 2);
         assertVersionsExist(dir, 0);
 
         // swap to a new version with latest present
         File newDirv1 = new File(dir, "version-1");
-        createStoreFiles(newDirv1, 0, 0, 2);
+        createStoreFiles(newDirv1, 0, 0, this.node, 2);
         engine.swapFiles(newDirv1.getAbsolutePath());
         assertVersionsExist(dir, 0, 1);
 
@@ -260,7 +285,7 @@ public class ReadOnlyStorageEngineTest {
         File latestSymLink = new File(dir, "latest");
         latestSymLink.delete();
         File newDirv2 = new File(dir, "version-2");
-        createStoreFiles(newDirv2, 0, 0, 2);
+        createStoreFiles(newDirv2, 0, 0, this.node, 2);
         engine.swapFiles(newDirv2.getAbsolutePath());
         assertVersionsExist(dir, 0, 1, 2);
 
@@ -277,9 +302,9 @@ public class ReadOnlyStorageEngineTest {
         engine.close();
         latestSymLink.delete();
         File newDirv100 = new File(dir, "version-100");
-        createStoreFiles(newDirv100, 0, 0, 2);
+        createStoreFiles(newDirv100, 0, 0, this.node, 2);
         File newDirv534 = new File(dir, "version-534");
-        createStoreFiles(newDirv534, 0, 0, 2);
+        createStoreFiles(newDirv534, 0, 0, this.node, 2);
         engine.open(null);
         assertTrue(latestSymLink.getCanonicalPath().contains("version-534"));
         engine.close();
@@ -292,7 +317,12 @@ public class ReadOnlyStorageEngineTest {
 
     @Test
     public void testSwapRollbackFail() throws IOException {
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 1);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 1);
         assertVersionsExist(dir, 0);
 
         // try to rollback nothing
@@ -306,18 +336,18 @@ public class ReadOnlyStorageEngineTest {
 
         // swap to a new version
         File newDir = new File(dir, "version-100");
-        createStoreFiles(newDir, 0, 0, 2);
+        createStoreFiles(newDir, 0, 0, node, 2);
         engine.swapFiles(newDir.getAbsolutePath());
         assertVersionsExist(dir, 0, 100);
 
         // try to swap to a version with version-id less than current max
         File newDir2 = new File(dir, "version-99");
-        createStoreFiles(newDir2, 0, 0, 2);
+        createStoreFiles(newDir2, 0, 0, node, 2);
         engine.swapFiles(newDir2.getAbsolutePath());
 
         // try to swap a version with wrong name format
         File newDir3 = new File(dir, "version-1a3");
-        createStoreFiles(newDir3, 0, 0, 2);
+        createStoreFiles(newDir3, 0, 0, node, 2);
         try {
             engine.swapFiles(newDir3.getAbsolutePath());
             fail("Should have thrown an exception since version directory name format is incorrect");
@@ -328,13 +358,18 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testBadSwapNameThrows() throws IOException {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 2);
         assertVersionsExist(dir, 0);
 
         // swap to a directory with an incorrect parent directory
         File newDir = TestUtils.createTempDir();
-        createStoreFiles(newDir, 73, 1024, 2);
+        createStoreFiles(newDir, 73, 1024, node, 2);
         try {
             engine.swapFiles(newDir.getAbsolutePath());
             fail("Swap files should have failed since parent directory is incorrect");
@@ -342,7 +377,7 @@ public class ReadOnlyStorageEngineTest {
 
         // swap to a directory with incorrect name
         newDir = new File(dir, "blah");
-        createStoreFiles(newDir, 73, 1024, 2);
+        createStoreFiles(newDir, 73, 1024, node, 2);
         try {
             engine.swapFiles(newDir.getAbsolutePath());
             fail("Swap files should have failed since name is incorrect");
@@ -352,18 +387,23 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testBackupLogic() throws Exception {
         File dirv0 = new File(dir, "version-0");
-        createStoreFiles(dirv0, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 0);
+        createStoreFiles(dirv0, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 0);
         assertVersionsExist(dir, 0);
 
         // create directory to imitate a fetch state happening concurrently
         // with swap
         File dirv2 = new File(dir, "version-2");
-        createStoreFiles(dirv2, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        createStoreFiles(dirv2, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
 
         // swap in directory 1
         File dirv1 = new File(dir, "version-1");
-        createStoreFiles(dirv1, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
+        createStoreFiles(dirv1, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
         engine.swapFiles(dirv1.getAbsolutePath());
 
         // check latest symbolic link exists
@@ -387,20 +427,30 @@ public class ReadOnlyStorageEngineTest {
     @Test(expected = VoldemortException.class)
     public void testBadSwapDataThrows() throws IOException {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 2);
         assertVersionsExist(dir, 0);
 
         // swap to a directory with bad data, rollback should kick-in
         File newDir = new File(dir, "version-1");
-        createStoreFiles(newDir, 73, 1024, 2);
+        createStoreFiles(newDir, 73, 1024, node, 2);
         engine.swapFiles(newDir.getAbsolutePath());
     }
 
     @Test
     public void testTruncate() throws IOException {
-        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, 2);
-        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test", strategy, dir, 2);
+        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
+                                                                 strategy,
+                                                                 routingStrategy,
+                                                                 0,
+                                                                 dir,
+                                                                 2);
         assertVersionsExist(dir, 0);
 
         engine.truncate();
@@ -427,21 +477,30 @@ public class ReadOnlyStorageEngineTest {
         assertFalse("Found version directory that should not exist.", versionDir.exists());
     }
 
-    private void createStoreFiles(File dir, int indexBytes, int dataBytes, int chunks)
-            throws IOException, FileNotFoundException {
-        for(int chunk = 0; chunk < chunks; chunk++) {
-            File index = createFile(dir, chunk + ".index");
-            File data = createFile(dir, chunk + ".data");
-            // write some random crap for index and data
-            FileOutputStream dataOs = new FileOutputStream(data);
-            for(int i = 0; i < dataBytes; i++)
-                dataOs.write(i);
-            dataOs.close();
-            FileOutputStream indexOs = new FileOutputStream(index);
-            for(int i = 0; i < indexBytes; i++)
-                indexOs.write(i);
-            indexOs.close();
+    private void createStoreFiles(File dir,
+                                  int indexBytes,
+                                  int dataBytes,
+                                  Node node,
+                                  int numChunksPerPartitions) throws IOException,
+            FileNotFoundException {
+        for(Integer partitionId: node.getPartitionIds()) {
+            for(int chunkId = 0; chunkId < numChunksPerPartitions; chunkId++) {
+                File index = createFile(dir, Integer.toString(partitionId) + "_"
+                                             + Integer.toString(chunkId) + ".index");
+                File data = createFile(dir, Integer.toString(partitionId) + "_"
+                                            + Integer.toString(chunkId) + ".data");
+                // write some random crap for index and data
+                FileOutputStream dataOs = new FileOutputStream(data);
+                for(int i = 0; i < dataBytes; i++)
+                    dataOs.write(i);
+                dataOs.close();
+                FileOutputStream indexOs = new FileOutputStream(index);
+                for(int i = 0; i < indexBytes; i++)
+                    indexOs.write(i);
+                indexOs.close();
+            }
         }
+
     }
 
     private File createFile(File dir, String name) throws IOException {

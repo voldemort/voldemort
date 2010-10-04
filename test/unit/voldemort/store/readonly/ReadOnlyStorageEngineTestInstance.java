@@ -68,7 +68,7 @@ public class ReadOnlyStorageEngineTestInstance {
         return data;
     }
 
-    private static JsonReader makeTestDataReader(Map<String, String> data, File dir)
+    public static JsonReader makeTestDataReader(Map<String, String> data, File dir)
             throws Exception {
         File dataFile = File.createTempFile("test-data", ".txt", dir);
         dataFile.deleteOnExit();
@@ -152,6 +152,8 @@ public class ReadOnlyStorageEngineTestInstance {
             CompressionStrategy valueCompressionStrat = comppressionStrategyFactory.get(valueSerDef.getCompression());
             Store<ByteArray, byte[], byte[]> innerStore = new CompressingStore(new ReadOnlyStorageEngine("test",
                                                                                                          strategy,
+                                                                                                         router,
+                                                                                                         i,
                                                                                                          currNode,
                                                                                                          1),
                                                                                keyCompressionStrat,

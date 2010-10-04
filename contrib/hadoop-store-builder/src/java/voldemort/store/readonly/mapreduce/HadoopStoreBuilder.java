@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.readonly.mr;
+package voldemort.store.readonly.mapreduce;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -29,12 +29,11 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.InputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -51,7 +50,6 @@ import voldemort.xml.StoreDefinitionsMapper;
  * Builds a read-only voldemort store as a hadoop job from the given input data.
  * 
  */
-@SuppressWarnings("deprecation")
 public class HadoopStoreBuilder {
 
     public static final long MIN_CHUNK_SIZE = 1L;
@@ -71,84 +69,6 @@ public class HadoopStoreBuilder {
     private final Path outputDir;
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
-
-    /**
-     * Kept for backwards compatibility. We do not use replicationFactor any
-     * more since it is derived from the store definition
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param replicationFactor NOT USED
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     */
-    @SuppressWarnings("unchecked")
-    @Deprecated
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              int replicationFactor,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             chunkSizeBytes,
-             tempDir,
-             outputDir,
-             inputPath);
-    }
-
-    /**
-     * Create the store builder
-     * 
-     * @param conf A base configuration to start with
-     * @param mapperClass The class to use as the mapper
-     * @param inputFormatClass The input format to use for reading values
-     * @param cluster The voldemort cluster for which the stores are being built
-     * @param storeDef The store definition of the store
-     * @param chunkSizeBytes The size of the chunks used by the read-only store
-     * @param tempDir The temporary directory to use in hadoop for intermediate
-     *        reducer output
-     * @param outputDir The directory in which to place the built stores
-     * @param inputPath The path from which to read input data
-     */
-    @SuppressWarnings("unchecked")
-    public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
-                              Class<? extends InputFormat> inputFormatClass,
-                              Cluster cluster,
-                              StoreDefinition storeDef,
-                              long chunkSizeBytes,
-                              Path tempDir,
-                              Path outputDir,
-                              Path inputPath) {
-        super();
-        this.config = conf;
-        this.mapperClass = Utils.notNull(mapperClass);
-        this.inputFormatClass = Utils.notNull(inputFormatClass);
-        this.inputPath = inputPath;
-        this.cluster = Utils.notNull(cluster);
-        this.storeDef = Utils.notNull(storeDef);
-        this.chunkSizeBytes = chunkSizeBytes;
-        this.tempDir = tempDir;
-        this.outputDir = Utils.notNull(outputDir);
-        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
-            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
-                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
-    }
 
     /**
      * Create the store builder
@@ -176,71 +96,73 @@ public class HadoopStoreBuilder {
                               Path outputDir,
                               Path inputPath,
                               CheckSumType checkSumType) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             chunkSizeBytes,
-             tempDir,
-             outputDir,
-             inputPath);
+        this.config = conf;
+        this.mapperClass = Utils.notNull(mapperClass);
+        this.inputFormatClass = Utils.notNull(inputFormatClass);
+        this.inputPath = inputPath;
+        this.cluster = Utils.notNull(cluster);
+        this.storeDef = Utils.notNull(storeDef);
+        this.chunkSizeBytes = chunkSizeBytes;
+        this.tempDir = tempDir;
+        this.outputDir = Utils.notNull(outputDir);
+        if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
+            throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
+                                         + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
         this.checkSumType = checkSumType;
-
     }
 
     /**
      * Run the job
      */
     public void build() {
-        JobConf conf = new JobConf(config);
-        conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
-        conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
-        conf.set("stores.xml",
-                 new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-        conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-        conf.setMapperClass(mapperClass);
-        conf.setMapOutputKeyClass(BytesWritable.class);
-        conf.setMapOutputValueClass(BytesWritable.class);
-        conf.setReducerClass(HadoopStoreBuilderReducer.class);
-        conf.setInputFormat(inputFormatClass);
-        conf.setOutputFormat(SequenceFileOutputFormat.class);
-        conf.setOutputKeyClass(BytesWritable.class);
-        conf.setOutputValueClass(BytesWritable.class);
-        conf.setJarByClass(getClass());
-        FileInputFormat.setInputPaths(conf, inputPath);
-        conf.set("final.output.dir", outputDir.toString());
-        conf.set("checksum.type", CheckSum.toString(checkSumType));
-        FileOutputFormat.setOutputPath(conf, tempDir);
-
         try {
+            Job job = new Job(config);
+            job.getConfiguration().setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+            job.getConfiguration().set("cluster.xml", new ClusterMapper().writeCluster(cluster));
+            job.getConfiguration()
+               .set("stores.xml",
+                    new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+            job.getConfiguration().set("final.output.dir", outputDir.toString());
+            job.getConfiguration().set("checksum.type", CheckSum.toString(checkSumType));
+            job.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+            job.setMapperClass(mapperClass);
+            job.setMapOutputKeyClass(BytesWritable.class);
+            job.setMapOutputValueClass(BytesWritable.class);
+            job.setReducerClass(HadoopStoreBuilderReducer.class);
+            job.setInputFormatClass(inputFormatClass);
+            job.setOutputFormatClass(SequenceFileOutputFormat.class);
+            job.setOutputKeyClass(BytesWritable.class);
+            job.setOutputValueClass(BytesWritable.class);
+            job.setJarByClass(getClass());
 
-            FileSystem outputFs = outputDir.getFileSystem(conf);
+            FileInputFormat.setInputPaths(job, inputPath);
+            FileOutputFormat.setOutputPath(job, tempDir);
+
+            FileSystem outputFs = outputDir.getFileSystem(job.getConfiguration());
             if(outputFs.exists(outputDir)) {
                 throw new IOException("Final output directory already exists.");
             }
 
             // delete output dir if it already exists
-            FileSystem tempFs = tempDir.getFileSystem(conf);
+            FileSystem tempFs = tempDir.getFileSystem(job.getConfiguration());
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-            int numChunksPerPartition = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                        / cluster.getNumberOfPartitions() / chunkSizeBytes),
-                                                 1);
+            int numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfNodes() / chunkSizeBytes), 1);
             logger.info("Data size = " + size + ", replication factor = "
                         + storeDef.getReplicationFactor() + ", numNodes = "
                         + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
-                        + ",  num.chunks per partition = " + numChunksPerPartition);
-            conf.setInt("num.chunks", numChunksPerPartition);
-            int numReduces = cluster.getNumberOfPartitions() * numChunksPerPartition;
-            conf.setNumReduceTasks(numReduces);
+                        + ",  num.chunks = " + numChunks);
+            job.getConfiguration().setInt("num.chunks", numChunks);
+            int numReduces = cluster.getNumberOfNodes() * numChunks;
+            job.setNumReduceTasks(numReduces);
             logger.info("Number of reduces: " + numReduces);
 
             logger.info("Building store...");
-            JobClient.runJob(conf);
+            job.waitForCompletion(true);
 
-            // Issue 258 : Check if all folder exists with empty folders
+            // Check if all folder exists with empty folders
             for(Node node: cluster.getNodes()) {
                 Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
                 if(!outputFs.exists(nodePath)) {

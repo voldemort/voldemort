@@ -2,6 +2,7 @@ package voldemort.store.readonly;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
@@ -10,6 +11,7 @@ import java.util.Comparator;
 import org.apache.log4j.Logger;
 
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Utils;
 
 public class ReadOnlyUtils {
 
@@ -28,6 +30,30 @@ public class ReadOnlyUtils {
         index.position(indexByteOffset);
         index.get(foundKey);
         return foundKey;
+    }
+
+    /**
+     * Retrieve the directory pointed by latest symbolic link
+     * 
+     * @param parentDir The root directory
+     * @return The directory pointed to by the latest symbolic link, else null
+     */
+    public static File getLatestDir(File parentDir) {
+        File latestSymLink = new File(parentDir, "latest");
+
+        if(latestSymLink.exists() && Utils.isSymLink(latestSymLink)) {
+            File canonicalLatestVersion = null;
+            try {
+                canonicalLatestVersion = latestSymLink.getCanonicalFile();
+            } catch(IOException e) {
+                return null;
+            }
+
+            if(canonicalLatestVersion != null
+               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
+                return canonicalLatestVersion;
+        }
+        return null;
     }
 
     /**
@@ -95,7 +121,7 @@ public class ReadOnlyUtils {
      * Returns the directories sorted and indexed between [start, end] where
      * start >= 0 and end < len(files)
      * <p>
-     * Can be made better using 'selection algorithm'
+     * TODO: Can be made better using 'selection algorithm'
      * <p>
      * 
      * @param versionDirs The list of files to search in

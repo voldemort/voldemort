@@ -14,38 +14,38 @@
  * the License.
  */
 
-package voldemort.store.readonly.mr;
+package voldemort.store.readonly.mapreduce;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Iterator;
+import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Take key md5s and value bytes and build a read-only store from these values
  * 
  * 
  */
-@SuppressWarnings("deprecation")
-public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable implements
-        Reducer<BytesWritable, BytesWritable, Text, Text> {
+public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWritable, Text, Text> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilderReducer.class);
 
@@ -60,7 +60,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private Path taskIndexFileName;
     private Path taskValueFileName;
     private String outputDir;
-    private JobConf conf;
+    private Configuration conf;
     private CheckSumType checkSumType;
     private CheckSum checkSumDigestIndex;
     private CheckSum checkSumDigestValue;
@@ -69,30 +69,30 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
      * Reduce should get sorted MD5 keys here with a single value (appended in
      * beginning with 4 bits of nodeId)
      */
-    public void reduce(BytesWritable key,
-                       Iterator<BytesWritable> values,
-                       OutputCollector<Text, Text> output,
-                       Reporter reporter) throws IOException {
-        BytesWritable writable = values.next();
-        byte[] valueBytes = writable.get();
+    @Override
+    public void reduce(BytesWritable key, Iterable<BytesWritable> values, Context context)
+            throws IOException, InterruptedException {
+        Iterator<BytesWritable> iterator = values.iterator();
+        BytesWritable writable = iterator.next();
+        byte[] valueBytes = writable.getBytes();
 
         if(this.nodeId == -1)
             this.nodeId = ByteUtils.readInt(valueBytes, 0);
         if(this.partitionId == -1)
             this.partitionId = ByteUtils.readInt(valueBytes, 4);
         if(this.chunkId == -1)
-            this.chunkId = ReadOnlyUtils.chunk(key.get(), this.numChunks);
+            this.chunkId = ReadOnlyUtils.chunk(key.getBytes(), this.numChunks);
 
         // Write key and position
-        this.indexFileStream.write(key.get(), 0, key.getSize());
+        this.indexFileStream.write(key.getBytes(), 0, key.getLength());
         this.indexFileStream.writeInt(this.position);
         if(this.checkSumDigestIndex != null) {
-            this.checkSumDigestIndex.update(key.get(), 0, key.getSize());
+            this.checkSumDigestIndex.update(key.getBytes(), 0, key.getLength());
             this.checkSumDigestIndex.update(this.position);
         }
 
         // Write length and value
-        int valueLength = writable.getSize() - 8;
+        int valueLength = writable.getLength() - 8;
         this.valueFileStream.writeInt(valueLength);
         this.valueFileStream.write(valueBytes, 8, valueLength);
         if(this.checkSumDigestValue != null) {
@@ -107,38 +107,38 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         // if we have multiple values for this md5 that is a collision, throw an
         // exception--either the data itself has duplicates, there are trillions
         // of keys, or someone is attempting something malicious
-        if(values.hasNext())
+        if(iterator.hasNext())
             throw new VoldemortException("Duplicate keys detected for md5 sum "
-                                         + ByteUtils.toHexString(ByteUtils.copy(key.get(),
+                                         + ByteUtils.toHexString(ByteUtils.copy(key.getBytes(),
                                                                                 0,
-                                                                                key.getSize())));
+                                                                                key.getLength())));
     }
 
     @Override
-    public void configure(JobConf job) {
-        super.configure(job);
+    public void setup(Context context) {
         try {
-            this.conf = job;
+            this.conf = context.getConfiguration();
             this.position = 0;
-            this.numChunks = job.getInt("num.chunks", -1);
-            this.outputDir = job.get("final.output.dir");
-            this.taskId = job.get("mapred.task.id");
-            this.checkSumType = CheckSum.fromString(job.get("checksum.type"));
+            this.numChunks = conf.getInt("num.chunks", -1);
+            this.outputDir = conf.get("final.output.dir");
+            this.taskId = conf.get("mapred.task.id");
+            this.checkSumType = CheckSum.fromString(conf.get("checksum.type"));
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
 
-            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
-                                                                                   + "."
-                                                                                   + this.taskId
-                                                                                   + ".index");
-            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
-                                                                                   + "."
-                                                                                   + this.taskId
-                                                                                   + ".data");
+            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
+            if(storeDefs.size() != 1)
+                throw new IllegalStateException("Expected to find only a single store, but found multiple!");
+            String storeName = storeDefs.get(0).getName();
+
+            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(context),
+                                              storeName + "." + this.taskId + ".index");
+            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(context),
+                                              storeName + "." + this.taskId + ".data");
 
             logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
                         + " for writing.");
-            FileSystem fs = this.taskIndexFileName.getFileSystem(job);
+            FileSystem fs = this.taskIndexFileName.getFileSystem(conf);
             this.indexFileStream = fs.create(this.taskIndexFileName);
             this.valueFileStream = fs.create(this.taskValueFileName);
         } catch(IOException e) {
@@ -147,7 +147,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     }
 
     @Override
-    public void close() throws IOException {
+    public void cleanup(Context context) throws IOException {
         this.indexFileStream.close();
         this.valueFileStream.close();
 
