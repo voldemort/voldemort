@@ -139,16 +139,29 @@ public class HdfsFetcher implements FileFetcher {
                 for(FileStatus status: statuses) {
 
                     if(status.getPath().getName().contains("checkSum.txt")) {
+
+                        // Read checksum
                         checkSumType = CheckSum.fromString(status.getPath().getName());
+
+                        // Get checksum generators
                         checkSumGenerator = CheckSum.getInstance(checkSumType);
                         fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
+
+                        // Store original checksum to compare
                         FSDataInputStream input = fs.open(status.getPath());
                         origCheckSum = new byte[CheckSum.checkSumLength(checkSumType)];
                         input.read(origCheckSum);
                         input.close();
-                        continue;
-                    }
-                    if(!status.getPath().getName().startsWith(".")) {
+
+                    } else if(status.getPath().getName().contains(".metadata")) {
+
+                        // Read metadata
+                        File copyLocation = new File(dest, status.getPath().getName());
+                        copyFileWithCheckSum(fs, status.getPath(), copyLocation, stats, null);
+
+                    } else if(!status.getPath().getName().startsWith(".")) {
+
+                        // Read other (.data , .index files)
                         File copyLocation = new File(dest, status.getPath().getName());
                         copyFileWithCheckSum(fs,
                                              status.getPath(),
@@ -308,16 +321,28 @@ public class HdfsFetcher implements FileFetcher {
             // directories before files
             if(fs1.isDir())
                 return fs2.isDir() ? 0 : -1;
-            else if(fs1.getPath().getName().endsWith("checkSum.txt"))
+            if(fs2.isDir())
+                return fs1.isDir() ? 0 : 1;
+
+            String f1 = fs1.getPath().getName(), f2 = fs2.getPath().getName();
+
+            // All checksum files given priority
+            if(f1.endsWith("checkSum.txt"))
                 return -1;
-            else if(fs2.getPath().getName().endsWith("checkSum.txt"))
+            if(f2.endsWith("checkSum.txt"))
                 return 1;
-            // index files after all other files
-            else if(fs1.getPath().getName().endsWith(".index"))
-                return fs2.getPath().getName().endsWith(".index") ? 0 : 1;
-            // everything else is equivalent
-            else
-                return 0;
+
+            // if both same, lexicographically
+            if((f1.endsWith(".index") && f2.endsWith(".index"))
+               || (f1.endsWith(".data") && f2.endsWith(".data"))) {
+                return f1.compareToIgnoreCase(f2);
+            }
+
+            if(f1.endsWith(".index")) {
+                return 1;
+            } else {
+                return -1;
+            }
         }
     }
 

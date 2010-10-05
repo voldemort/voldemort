@@ -162,6 +162,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             ServletException {
         String dir = getRequired(req, "dir");
         String storeName = getRequired(req, "store");
+        String formatString = getOptional(req, "format");
 
         ReadOnlyStorageEngine store = this.getStore(storeName);
         if(store == null)

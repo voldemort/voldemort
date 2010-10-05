@@ -86,7 +86,8 @@ public class ReadOnlyStorageEngineTestInstance {
                                                            int numNodes,
                                                            int repFactor,
                                                            SerializerDefinition keySerDef,
-                                                           SerializerDefinition valueSerDef)
+                                                           SerializerDefinition valueSerDef,
+                                                           ReadOnlyStorageFormat type)
             throws Exception {
         // create some test data
         Map<String, String> data = createTestData(testSize);
@@ -131,14 +132,14 @@ public class ReadOnlyStorageEngineTestInstance {
                                                              2,
                                                              10000,
                                                              false);
-        storeBuilder.build();
+        storeBuilder.build(type);
 
         File nodeDir = TestUtils.createTempDir(baseDir);
         @SuppressWarnings("unchecked")
         Serializer<String> keySerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(keySerDef);
         @SuppressWarnings("unchecked")
         Serializer<String> valueSerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(valueSerDef);
-        Serializer<String> transSerializer = (Serializer<String>) new StringSerializer();
+        Serializer<String> transSerializer = new StringSerializer();
         Map<Integer, Store<String, String, String>> nodeStores = Maps.newHashMap();
         for(int i = 0; i < numNodes; i++) {
             File currNode = new File(nodeDir, Integer.toString(i));

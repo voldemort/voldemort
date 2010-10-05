@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -13,27 +13,19 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
-package voldemort.client.protocol;
+package voldemort.store.readonly;
 
 /**
- * An enumeration of request serialization types
- * 
- * 
+ * An enumeration of read-only stores formats
  */
-public enum RequestFormatType {
-    VOLDEMORT_V0("vp0", "voldemort-native-v0"),
-    VOLDEMORT_V1("vp1", "voldemort-native-v1"),
-    VOLDEMORT_V2("vp2", "voldemort-native-v2"),
-    VOLDEMORT_V3("vp3", "voldemort-native-v3"), // has the transforms
-    // information
-    PROTOCOL_BUFFERS("pb0", "protocol-buffers-v0"),
-    ADMIN_PROTOCOL_BUFFERS("ad1", "admin-v1");
+public enum ReadOnlyStorageFormat {
+    READONLY_V0("ro0", "node-chunks-v0"),
+    READONLY_V1("ro1", "partition-chunks-v1");
 
     private final String code;
     private final String displayName;
 
-    private RequestFormatType(String code, String display) {
+    private ReadOnlyStorageFormat(String code, String display) {
         this.code = code;
         this.displayName = display;
     }
@@ -46,11 +38,16 @@ public enum RequestFormatType {
         return this.displayName;
     }
 
-    public static RequestFormatType fromCode(String code) {
-        for(RequestFormatType type: RequestFormatType.values())
+    public static ReadOnlyStorageFormat fromCode(String code) {
+        for(ReadOnlyStorageFormat type: ReadOnlyStorageFormat.values())
             if(type.getCode().equals(code))
                 return type;
         throw new IllegalArgumentException("No request format '" + code + "' was found");
+    }
+
+    @Override
+    public String toString() {
+        return code;
     }
 
 }

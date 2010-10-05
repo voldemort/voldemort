@@ -47,6 +47,8 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
@@ -196,6 +198,15 @@ public class HadoopStoreBuilderTest extends TestCase {
 
         // Check if checkSum is generated in outputDir
         File nodeFile = new File(outputDir, "node-0");
+
+        // Check if metadata file exists
+        File metadataFile = new File(nodeFile, ".metadata");
+        assertTrue(metadataFile.exists());
+
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(metadataFile);
+        assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+                     ReadOnlyStorageFormat.READONLY_V1.getCode());
+
         File checkSumFile = new File(nodeFile, "md5checkSum.txt");
         assertTrue(checkSumFile.exists());
 

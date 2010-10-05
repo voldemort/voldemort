@@ -46,6 +46,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -320,7 +321,7 @@ public class TestUtils {
                                                              2,
                                                              10000,
                                                              false);
-        storeBuilder.build();
+        storeBuilder.build(ReadOnlyStorageFormat.READONLY_V1);
 
         return dataDir.getAbsolutePath();
     }

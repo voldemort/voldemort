@@ -60,6 +60,7 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.SearchStrategy;
 import voldemort.utils.ByteArray;
 import voldemort.utils.CmdUtils;
@@ -198,7 +199,7 @@ public class ReadOnlyStorePerformanceTest {
                                                             numChunks,
                                                             64 * 1024,
                                                             gzipIntermediate);
-            builder.build();
+            builder.build(ReadOnlyStorageFormat.READONLY_V1);
 
             // copy to store dir
             File dir = new File(storeDir);

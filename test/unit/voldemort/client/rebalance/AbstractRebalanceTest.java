@@ -59,6 +59,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageEngineTestInstance;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -783,7 +784,7 @@ public abstract class AbstractRebalanceTest {
                                                              2,
                                                              10000,
                                                              false);
-        storeBuilder.build();
+        storeBuilder.build(ReadOnlyStorageFormat.READONLY_V1);
 
         AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
                                                           Executors.newFixedThreadPool(nodeList.size()),

@@ -40,6 +40,8 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.Utils;
@@ -162,12 +164,22 @@ public class HadoopStoreBuilder {
             logger.info("Building store...");
             job.waitForCompletion(true);
 
-            // Check if all folder exists with empty folders
+            ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+            metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+
+            // Check if all folder exists and with format file
             for(Node node: cluster.getNodes()) {
                 Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
                 if(!outputFs.exists(nodePath)) {
                     outputFs.mkdirs(nodePath); // Create empty folder
                 }
+
+                // Write metadata
+                FSDataOutputStream metadataStream = outputFs.create(new Path(nodePath, ".metadata"));
+                metadataStream.write(metadata.toJsonString().getBytes());
+                metadataStream.flush();
+                metadataStream.close();
             }
 
             if(checkSumType != CheckSumType.NONE) {

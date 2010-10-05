@@ -47,8 +47,11 @@ public class ReadOnlyStorageEngineTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { new BinarySearchStrategy() },
-                { new InterpolationSearchStrategy() } });
+        return Arrays.asList(new Object[][] {
+                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
+                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 } });
     }
 
     private File dir;
@@ -58,8 +61,9 @@ public class ReadOnlyStorageEngineTest {
     private StoreDefinition storeDef;
     private Node node;
     private RoutingStrategy routingStrategy;
+    private ReadOnlyStorageFormat storageType;
 
-    public ReadOnlyStorageEngineTest(SearchStrategy strategy) {
+    public ReadOnlyStorageEngineTest(SearchStrategy strategy, ReadOnlyStorageFormat storageType) {
         this.strategy = strategy;
         this.dir = TestUtils.createTempDir();
         this.serDef = new SerializerDefinition("json", "'string'");
@@ -76,6 +80,7 @@ public class ReadOnlyStorageEngineTest {
                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
         Cluster cluster = ServerTestUtils.getLocalCluster(1);
         this.node = cluster.getNodeById(0);
+        this.storageType = storageType;
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
@@ -96,7 +101,8 @@ public class ReadOnlyStorageEngineTest {
                                                                                               2,
                                                                                               2,
                                                                                               serDef,
-                                                                                              serDef);
+                                                                                              serDef,
+                                                                                              storageType);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
@@ -123,7 +129,8 @@ public class ReadOnlyStorageEngineTest {
                                                                                               2,
                                                                                               2,
                                                                                               serDef,
-                                                                                              lzfSerDef);
+                                                                                              lzfSerDef,
+                                                                                              storageType);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
@@ -150,7 +157,8 @@ public class ReadOnlyStorageEngineTest {
                                                                                               2,
                                                                                               2,
                                                                                               lzfSerDef,
-                                                                                              serDef);
+                                                                                              serDef,
+                                                                                              storageType);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
@@ -180,7 +188,8 @@ public class ReadOnlyStorageEngineTest {
                                                                                               2,
                                                                                               2,
                                                                                               serDef,
-                                                                                              serDef);
+                                                                                              serDef,
+                                                                                              storageType);
         // run test multiple times to check caching
         for(int i = 0; i < 3; i++) {
             for(int j = 0; j < TEST_SIZE; j++) {
@@ -204,7 +213,8 @@ public class ReadOnlyStorageEngineTest {
                                                                                               2,
                                                                                               2,
                                                                                               serDef,
-                                                                                              serDef);
+                                                                                              serDef,
+                                                                                              storageType);
         Set<String> keys = testData.getData().keySet();
         Set<String> gotten = new HashSet<String>();
         for(Map.Entry<Integer, Store<String, String, String>> entry: testData.getNodeStores()
