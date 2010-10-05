@@ -18,10 +18,15 @@ package voldemort.scheduled;
 
 import static voldemort.TestUtils.bytesEqual;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 import junit.framework.TestCase;
 import voldemort.TestUtils;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.store.FailingStore;
@@ -30,6 +35,8 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 public class SlopPusherTest extends TestCase {
 
@@ -51,7 +58,17 @@ public class SlopPusherTest extends TestCase {
         repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         this.failingNodeId = 2;
         repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[], byte[]>(STORE_NAME));
-        pusher = new SlopPusherJob(repo);
+        pusher = new SlopPusherJob(repo,
+                                   makeCluster(3),
+                                   new NoopFailureDetector(),
+                                   10 * 1000 * 1000);
+    }
+
+    private Cluster makeCluster(int numNodes) {
+        List<Node> nodes = Lists.newArrayList();
+        for(int i = 0; i < numNodes; i++)
+            nodes.add(new Node(i, Integer.toString(i), 1234, 1235, 1236, Arrays.asList(i)));
+        return new Cluster("cluster", nodes);
     }
 
     private Versioned<Slop> randomSlop(String name, int nodeId) {
@@ -83,7 +100,7 @@ public class SlopPusherTest extends TestCase {
             Slop slop = vs.getValue();
             assertEquals("Slop remains.", 0, repo.getSlopStore().get(slop.makeKey(), null).size());
             assertTrue(bytesEqual(slop.getValue(), repo.getNodeStore(STORE_NAME, slop.getNodeId())
-                                                       .get(slop.makeKey(), null)
+                                                       .get(slop.getKey(), null)
                                                        .get(0)
                                                        .getValue()));
         }

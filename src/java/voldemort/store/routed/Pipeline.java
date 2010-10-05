@@ -56,7 +56,9 @@ public class Pipeline {
         INSUFFICIENT_ZONES,
         RESPONSES_RECEIVED,
         ERROR,
-        MASTER_DETERMINED;
+        MASTER_DETERMINED,
+        ABORTED,
+        HANDOFF_FINISHED;
 
     }
 
@@ -85,6 +87,10 @@ public class Pipeline {
     private final Map<Event, Action> eventActions;
 
     private final Logger logger = Logger.getLogger(getClass());
+
+    private volatile boolean enableHintedHandoff = false;
+
+    private volatile boolean finished = false;
 
     /**
      * 
@@ -118,6 +124,19 @@ public class Pipeline {
     }
 
     /**
+     * Pipeline can't proceed further. If hinted handoff is enabled go to
+     * go to a state where it can be performed, otherwise go straight to
+     * error state.
+     */
+
+    public void abort() {
+        if(isHintedHandoffEnabled())
+            addEvent(Event.ABORTED);
+        else
+            addEvent(Event.ERROR);
+    }
+
+    /**
      * Add an event to the queue. It will be processed in the order received.
      * 
      * @param event Event
@@ -133,6 +152,18 @@ public class Pipeline {
         eventQueue.add(event);
     }
 
+    public boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff;
+    }
+
+    public void setEnableHintedHandoff(boolean enableHintedHandoff) {
+        this.enableHintedHandoff = enableHintedHandoff;
+    }
+
+    public boolean isFinished() {
+        return finished;
+    }
+
     /**
      * Process events in the order as they were received.
      * 
@@ -144,42 +175,46 @@ public class Pipeline {
      */
 
     public void execute() {
-        while(true) {
-            Event event = null;
+        try {
+            while(true) {
+                Event event = null;
 
-            try {
-                event = eventQueue.poll(timeout, unit);
-            } catch(InterruptedException e) {
-                throw new InsufficientOperationalNodesException(operation.getSimpleName()
-                                                                + " operation interrupted!", e);
-            }
+                try {
+                    event = eventQueue.poll(timeout, unit);
+                } catch(InterruptedException e) {
+                    throw new InsufficientOperationalNodesException(operation.getSimpleName()
+                                                                    + " operation interrupted!", e);
+                }
 
-            if(event == null)
-                throw new VoldemortException(operation.getSimpleName() + " returned a null event");
+                if(event == null)
+                    throw new VoldemortException(operation.getSimpleName() + " returned a null event");
 
-            if(event.equals(Event.ERROR)) {
+                if(event.equals(Event.ERROR)) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(operation.getSimpleName()
+                                     + " request, events complete due to error");
+
+                    break;
+                } else if(event.equals(Event.COMPLETED)) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(operation.getSimpleName() + " request, events complete");
+
+                    break;
+                }
+
+                Action action = eventActions.get(event);
+
+                if(action == null)
+                    throw new IllegalStateException("action was null for event " + event);
+
                 if(logger.isTraceEnabled())
-                    logger.trace(operation.getSimpleName()
-                                 + " request, events complete due to error");
+                    logger.trace(operation.getSimpleName() + " request, action "
+                                 + action.getClass().getSimpleName() + " to handle " + event + " event");
 
-                break;
-            } else if(event.equals(Event.COMPLETED)) {
-                if(logger.isTraceEnabled())
-                    logger.trace(operation.getSimpleName() + " request, events complete");
-
-                break;
+                action.execute(this);
             }
-
-            Action action = eventActions.get(event);
-
-            if(action == null)
-                throw new IllegalStateException("action was null for event " + event);
-
-            if(logger.isTraceEnabled())
-                logger.trace(operation.getSimpleName() + " request, action "
-                             + action.getClass().getSimpleName() + " to handle " + event + " event");
-
-            action.execute(this);
+        } finally {
+            finished = true;
         }
     }
 

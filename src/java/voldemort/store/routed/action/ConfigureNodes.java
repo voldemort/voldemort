@@ -59,7 +59,7 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
             nodes = getNodes(key);
         } catch(VoldemortException e) {
             pipelineData.setFatalError(e);
-            pipeline.addEvent(Event.ERROR);
+            pipeline.abort();
             return;
         }
 

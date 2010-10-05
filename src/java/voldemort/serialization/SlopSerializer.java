@@ -23,8 +23,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Date;
 
+import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.store.slop.Slop;
-import voldemort.utils.ByteUtils;
+import voldemort.utils.ByteArray;
 
 /**
  * A Serializer for writing Slops
@@ -37,18 +38,18 @@ public class SlopSerializer implements Serializer<Slop> {
         ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
         DataOutputStream data = new DataOutputStream(byteOutput);
         try {
-            data.writeUTF(slop.getStoreName());
-            data.writeUTF(slop.getOperation().toString());
-            data.writeInt(slop.getKey().get().length);
-            data.write(slop.getKey().get());
-            if(slop.getValue() == null) {
-                data.writeInt(-1);
-            } else {
-                data.writeInt(slop.getValue().length);
-                data.write(slop.getValue());
-            }
-            data.writeInt(slop.getNodeId());
-            data.writeLong(slop.getArrived().getTime());
+            VSlopProto.Slop.Builder builder = VSlopProto.Slop.newBuilder()
+                                                             .setStore(slop.getStoreName())
+                                                             .setOperation(slop.getOperation().toString())
+                                                             .setKey(ProtoUtils.encodeBytes(slop.getKey()))
+                                                             .setNodeId(slop.getNodeId())
+                                                             .setArrived(slop.getArrived().getTime());
+
+            if (slop.getValue() != null)
+                builder.setValue(ProtoUtils.encodeBytes(new ByteArray(slop.getValue())));
+
+            ProtoUtils.writeMessage(data, builder.build());
+
             return byteOutput.toByteArray();
         } catch(IOException e) {
             throw new SerializationException(e);
@@ -58,19 +59,20 @@ public class SlopSerializer implements Serializer<Slop> {
     public Slop toObject(byte[] bytes) {
         DataInputStream input = new DataInputStream(new ByteArrayInputStream(bytes));
         try {
-            String storeName = input.readUTF();
-            Slop.Operation op = Slop.Operation.valueOf(input.readUTF());
-            int keySize = input.readInt();
-            byte[] key = new byte[keySize];
-            ByteUtils.read(input, key);
-            int size = input.readInt();
+            VSlopProto.Slop proto = ProtoUtils.readToBuilder(input, VSlopProto.Slop.newBuilder())
+                                               .build();
+
+            String storeName = proto.getStore();
+            Slop.Operation op = Slop.Operation.valueOf(proto.getOperation());
+            byte[] key = ProtoUtils.decodeBytes(proto.getKey()).get();
             byte[] value = null;
-            if(size >= 0) {
-                value = new byte[size];
-                ByteUtils.read(input, value);
-            }
-            int nodeId = input.readInt();
-            Date arrived = new Date(input.readLong());
+
+            if (proto.hasValue())
+                value = ProtoUtils.decodeBytes(proto.getValue()).get();
+            
+            int nodeId = proto.getNodeId();
+            Date arrived = new Date(proto.getArrived());
+            
             return new Slop(storeName, op, key, value, nodeId, arrived);
         } catch(IOException e) {
             throw new SerializationException(e);

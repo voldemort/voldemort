@@ -54,6 +54,9 @@ public class StoreDefinition implements Serializable {
     private final Integer zoneCountWrites;
     private final String valueTransformation;
     private final String serializerFactory;
+    private final Boolean enableHintedHandoff;
+    private final String hintedHandoffStrategyType;
+    private final Integer hintPrefListSize;
 
     public StoreDefinition(String name,
                            String type,
@@ -74,7 +77,10 @@ public class StoreDefinition implements Serializable {
                            Integer zoneCountWrites,
                            Integer retentionDays,
                            Integer retentionThrottleRate,
-                           String factory) {
+                           String factory,
+                           Boolean enableHintedHandoff,
+                           String hintedHandoffStrategyType,
+                           Integer hintPrefListSize) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.replicationFactor = replicationFactor;
@@ -95,6 +101,9 @@ public class StoreDefinition implements Serializable {
         this.zoneCountReads = zoneCountReads;
         this.zoneCountWrites = zoneCountWrites;
         this.serializerFactory = factory;
+        this.enableHintedHandoff = enableHintedHandoff;
+        this.hintedHandoffStrategyType = hintedHandoffStrategyType;
+        this.hintPrefListSize = hintPrefListSize;
         checkParameterLegality();
     }
 
@@ -258,6 +267,26 @@ public class StoreDefinition implements Serializable {
         return zoneCountWrites != null;
     }
 
+    public boolean isHintedHandoffEnabled() {
+        return enableHintedHandoff != null && enableHintedHandoff;
+    }
+
+    public String getHintedHandoffStrategyType() {
+        return hintedHandoffStrategyType;
+    }
+
+    public boolean hasHintedHandoffStrategyType() {
+        return hintedHandoffStrategyType != null;
+    }
+
+    public Integer getHintPrefListSize() {
+        return hintPrefListSize;
+    }
+
+    public boolean hasHintPreflistSize() {
+        return hintPrefListSize != null;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -292,13 +321,16 @@ public class StoreDefinition implements Serializable {
                                 def.getZoneReplicationFactor() != null ? def.getZoneReplicationFactor()
                                                                             .getClass()
                                                                       : null)
-               && getZoneCountReads() == def.getZoneCountReads()
-               && getZoneCountWrites() == def.getZoneCountWrites()
+               && Objects.equal(getZoneCountReads(), def.getZoneCountReads())
+               && Objects.equal(getZoneCountWrites(), def.getZoneCountWrites())
                && Objects.equal(getRetentionDays(), def.getRetentionDays())
                && Objects.equal(getRetentionScanThrottleRate(), def.getRetentionScanThrottleRate())
                && Objects.equal(getSerializerFactory() != null ? getSerializerFactory() : null,
                                 def.getSerializerFactory() != null ? def.getSerializerFactory()
-                                                                  : null);
+                                                                  : null)
+               && Objects.equal(isHintedHandoffEnabled(), def.isHintedHandoffEnabled())
+               && Objects.equal(getHintedHandoffStrategyType(), def.getHintedHandoffStrategyType())
+               && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize());
     }
 
     @Override
@@ -324,7 +356,11 @@ public class StoreDefinition implements Serializable {
                                 getZoneCountWrites(),
                                 getRetentionDays(),
                                 getRetentionScanThrottleRate(),
-                                getSerializerFactory());
+                                getSerializerFactory(),
+                                isHintedHandoffEnabled(),
+                                hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType()
+                                                              : null,
+                                hasHintPreflistSize() ? getHintPrefListSize() : null);
     }
 
     @Override
@@ -340,6 +376,9 @@ public class StoreDefinition implements Serializable {
                + getValueTransformation() + ", retention-days = " + getRetentionDays()
                + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
                + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites()
-               + ", serializer factory = " + getSerializerFactory() + ")";
+               + ", serializer factory = " + getSerializerFactory() + ")"
+               + ", enable-hinted-handoff = " + isHintedHandoffEnabled()
+               + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
+               + ", hint-preflist-size = " + getHintPrefListSize() + ")";
     }
 }

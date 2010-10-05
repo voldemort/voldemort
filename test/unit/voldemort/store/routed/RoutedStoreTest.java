@@ -66,6 +66,7 @@ import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
@@ -710,14 +711,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                             true,
                                                             failureDetector);
 
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         try {
             routedStore.put(new ByteArray("test".getBytes()),
                             new Versioned<byte[]>(new byte[] { 1 }),
                             null);
             fail("Should have thrown");
         } catch(InsufficientOperationalNodesException e) {
-            long elapsed = System.currentTimeMillis() - start;
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
             assertTrue(elapsed + " < " + totalDelay, elapsed < totalDelay);
         }
     }

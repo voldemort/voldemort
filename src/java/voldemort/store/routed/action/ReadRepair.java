@@ -33,9 +33,10 @@ public class ReadRepair<PD extends BasicPipelineData<List<Versioned<byte[]>>>> e
     public ReadRepair(PD pipelineData,
                       Event completeEvent,
                       int preferred,
+                      long timeoutMs,
                       Map<Integer, NonblockingStore> nonblockingStores,
                       ReadRepairer<ByteArray, byte[]> readRepairer) {
-        super(pipelineData, completeEvent, preferred, nonblockingStores, readRepairer);
+        super(pipelineData, completeEvent, preferred, timeoutMs, nonblockingStores, readRepairer);
     }
 
     @Override

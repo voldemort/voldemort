@@ -38,6 +38,8 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
 
     private final int preferred;
 
+    private final long timeoutMs;
+
     private final Map<Integer, NonblockingStore> nonblockingStores;
 
     private final ReadRepairer<ByteArray, byte[]> readRepairer;
@@ -47,10 +49,12 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
     public AbstractReadRepair(PD pipelineData,
                               Event completeEvent,
                               int preferred,
+                              long timeoutMs,
                               Map<Integer, NonblockingStore> nonblockingStores,
                               ReadRepairer<ByteArray, byte[]> readRepairer) {
         super(pipelineData, completeEvent);
         this.preferred = preferred;
+        this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
         this.readRepairer = readRepairer;
         this.nodeValues = Lists.newArrayListWithExpectedSize(pipelineData.getResponses().size());
@@ -95,7 +99,7 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                                      + v.getKey() + "' with version " + v.getVersion() + ".");
 
                     NonblockingStore store = nonblockingStores.get(v.getNodeId());
-                    store.submitPutRequest(v.getKey(), v.getVersioned(), null, null);
+                    store.submitPutRequest(v.getKey(), v.getVersioned(), null, null, timeoutMs);
                 } catch(VoldemortApplicationException e) {
                     if(logger.isDebugEnabled())
                         logger.debug("Read repair cancelled due to application level exception on node "

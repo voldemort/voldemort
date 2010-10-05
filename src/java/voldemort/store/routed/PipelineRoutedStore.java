@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategyType;
@@ -33,22 +32,26 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreRequest;
 import voldemort.store.StoreUtils;
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.nonblockingstore.NonblockingStoreCallback;
-import voldemort.store.nonblockingstore.NonblockingStoreRequest;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.routed.action.ConfigureNodes;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
+import voldemort.store.routed.action.PerformDeleteHintedHandoff;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
 import voldemort.store.routed.action.PerformParallelRequests;
+import voldemort.store.routed.action.PerformPutHintedHandoff;
 import voldemort.store.routed.action.PerformSerialGetAllRequests;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
 import voldemort.store.routed.action.PerformZoneSerialRequests;
 import voldemort.store.routed.action.ReadRepair;
+import voldemort.store.slop.HintedHandoff;
+import voldemort.store.slop.HintedHandoffStrategy;
+import voldemort.store.slop.HintedHandoffStrategyFactory;
+import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.Version;
@@ -62,6 +65,8 @@ import voldemort.versioning.Versioned;
 public class PipelineRoutedStore extends RoutedStore {
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
+    private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
+    private final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
 
@@ -70,16 +75,19 @@ public class PipelineRoutedStore extends RoutedStore {
      * 
      * @param name The name of the store
      * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
-     * @param threadPool The threadpool to use
+     * @param nonblockingStores
+     * @param slopStores The stores for hints
+     * @param cluster Cluster definition
+     * @param storeDef Store definition
+     * @param repairReads Is read repair enabled?
+     * @param clientZoneId Zone the client is in
+     * @param timeoutMs Routing timeout
+     * @param failureDetector Failure detector object
      */
     public PipelineRoutedStore(String name,
                                Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
+                               Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
                                Cluster cluster,
                                StoreDefinition storeDef,
                                boolean repairReads,
@@ -103,6 +111,14 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
+        this.slopStores = slopStores;
+        if(storeDef.isHintedHandoffEnabled()) {
+            HintedHandoffStrategyFactory factory = new HintedHandoffStrategyFactory(zoneRoutingEnabled,
+                                                                                    clientZone.getId());
+            this.handoffStrategy = factory.updateHintedHandoffStrategy(storeDef, cluster);
+        } else {
+            this.handoffStrategy = null;
+        }
     }
 
     public List<Versioned<byte[]>> get(final ByteArray key, final byte[] transforms) {
@@ -116,14 +132,6 @@ public class PipelineRoutedStore extends RoutedStore {
 
         final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
         boolean allowReadRepair = repairReads && transforms == null;
-
-        NonblockingStoreRequest nonblockingStoreRequest = new NonblockingStoreRequest() {
-
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitGetRequest(key, transforms, callback);
-            }
-
-        };
 
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
 
@@ -146,12 +154,14 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  allowReadRepair ? Event.RESPONSES_RECEIVED
                                                                                                                                                 : Event.COMPLETED,
                                                                                                                                  key,
+                                                                                                                                 transforms,
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
                                                                                                                                  storeDef.getRequiredReads(),
                                                                                                                                  timeoutMs,
                                                                                                                                  nonblockingStores,
-                                                                                                                                 nonblockingStoreRequest,
+                                                                                                                                 null,
+                                                                                                                                 null,
                                                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                                                  Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
@@ -171,6 +181,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new ReadRepair<BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                Event.COMPLETED,
                                                                                                storeDef.getPreferredReads(),
+                                                                                               timeoutMs,
                                                                                                nonblockingStores,
                                                                                                readRepairer));
 
@@ -247,6 +258,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new GetAllReadRepair(pipelineData,
                                                          Event.COMPLETED,
                                                          storeDef.getPreferredReads(),
+                                                         timeoutMs,
                                                          nonblockingStores,
                                                          readRepairer));
 
@@ -267,17 +279,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
             pipelineData.setZonesRequired(null);
-        final Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS,
-                                               timeoutMs,
-                                               TimeUnit.MILLISECONDS);
-
-        NonblockingStoreRequest storeRequest = new NonblockingStoreRequest() {
-
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitGetVersionsRequest(key, callback);
-            }
-
-        };
+        Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS, timeoutMs, TimeUnit.MILLISECONDS);
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
@@ -291,12 +293,14 @@ public class PipelineRoutedStore extends RoutedStore {
                                 new PerformParallelRequests<List<Version>, BasicPipelineData<List<Version>>>(pipelineData,
                                                                                                              Event.COMPLETED,
                                                                                                              key,
+                                                                                                             null,
                                                                                                              failureDetector,
                                                                                                              storeDef.getPreferredReads(),
                                                                                                              storeDef.getRequiredReads(),
                                                                                                              timeoutMs,
                                                                                                              nonblockingStores,
-                                                                                                             storeRequest,
+                                                                                                             null,
+                                                                                                             null,
                                                                                                              null,
                                                                                                              null));
 
@@ -322,15 +326,17 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
         else
             pipelineData.setZonesRequired(null);
-        final Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
+        pipelineData.setStoreName(name);
+        Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
+        pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
-        NonblockingStoreRequest nonblockingDelete = new NonblockingStoreRequest() {
+        HintedHandoff hintedHandoff = null;
 
-            public void submit(Node node, NonblockingStore store, NonblockingStoreCallback callback) {
-                store.submitDeleteRequest(key, version, callback);
-            }
-
-        };
+        if(isHintedHandoffEnabled())
+            hintedHandoff = new HintedHandoff(failureDetector,
+                                              slopStores,
+                                              handoffStrategy,
+                                              pipelineData.getFailedNodes());
 
         StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
@@ -350,19 +356,23 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                 Event.COMPLETED,
+                                                                                                 isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
+                                                                                                                         : Event.COMPLETED,
                                                                                                  key,
+                                                                                                 null,
                                                                                                  failureDetector,
                                                                                                  storeDef.getPreferredWrites(),
                                                                                                  storeDef.getRequiredWrites(),
                                                                                                  timeoutMs,
                                                                                                  nonblockingStores,
-                                                                                                 nonblockingDelete,
+                                                                                                 hintedHandoff,
+                                                                                                 version,
                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                  Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                               Event.COMPLETED,
+                                                                                               isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
+                                                                                                                       : Event.COMPLETED,
                                                                                                key,
                                                                                                failureDetector,
                                                                                                innerStores,
@@ -374,11 +384,26 @@ public class PipelineRoutedStore extends RoutedStore {
         if(zoneRoutingEnabled)
             pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
                                     new PerformZoneSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                       Event.COMPLETED,
+                                                                                                       isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
+                                                                                                                               : Event.COMPLETED,
                                                                                                        key,
                                                                                                        failureDetector,
                                                                                                        innerStores,
                                                                                                        blockingDelete));
+
+        if(isHintedHandoffEnabled()) {
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED,
+                                    new PerformDeleteHintedHandoff(pipelineData,
+                                                                   Event.COMPLETED,
+                                                                   key,
+                                                                   version,
+                                                                   hintedHandoff));
+            pipeline.addEventAction(Event.ABORTED, new PerformDeleteHintedHandoff(pipelineData,
+                                                                                  Event.ERROR,
+                                                                                  key,
+                                                                                  version,
+                                                                                  hintedHandoff));
+        }
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();
@@ -394,18 +419,31 @@ public class PipelineRoutedStore extends RoutedStore {
         return false;
     }
 
+    public boolean isHintedHandoffEnabled() {
+        return slopStores != null;
+    }
+
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
-
         PutPipelineData pipelineData = new PutPipelineData();
         if(zoneRoutingEnabled)
             pipelineData.setZonesRequired(storeDef.getZoneCountWrites());
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStartTimeNs(System.nanoTime());
+        pipelineData.setStoreName(name);
 
         Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
+        pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
+
+        HintedHandoff hintedHandoff = null;
+
+        if(isHintedHandoffEnabled())
+            hintedHandoff = new HintedHandoff(failureDetector,
+                                              slopStores,
+                                              handoffStrategy,
+                                              pipelineData.getFailedNodes());
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Void, PutPipelineData>(pipelineData,
@@ -417,7 +455,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                           clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformSerialPutRequests(pipelineData,
-                                                             Event.COMPLETED,
+                                                             isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
+                                                                                     : Event.COMPLETED,
                                                              key,
                                                              transforms,
                                                              failureDetector,
@@ -435,11 +474,33 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                storeDef.getPreferredWrites(),
                                                                storeDef.getRequiredWrites(),
                                                                timeoutMs,
-                                                               nonblockingStores));
-        pipeline.addEventAction(Event.RESPONSES_RECEIVED, new IncrementClock(pipelineData,
-                                                                             Event.COMPLETED,
-                                                                             versioned,
-                                                                             time));
+                                                               nonblockingStores,
+                                                               hintedHandoff));
+        if(isHintedHandoffEnabled()) {
+            pipeline.addEventAction(Event.ABORTED, new PerformPutHintedHandoff(pipelineData,
+                                                                               Event.ERROR,
+                                                                               key,
+                                                                               versioned,
+                                                                               transforms,
+                                                                               hintedHandoff,
+                                                                               time));
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED,
+                                    new PerformPutHintedHandoff(pipelineData,
+                                                                Event.HANDOFF_FINISHED,
+                                                                key,
+                                                                versioned,
+                                                                transforms,
+                                                                hintedHandoff,
+                                                                time));
+            pipeline.addEventAction(Event.HANDOFF_FINISHED, new IncrementClock(pipelineData,
+                                                                               Event.COMPLETED,
+                                                                               versioned,
+                                                                               time));
+        } else
+            pipeline.addEventAction(Event.RESPONSES_RECEIVED, new IncrementClock(pipelineData,
+                                                                                 Event.COMPLETED,
+                                                                                 versioned,
+                                                                                 time));
 
         pipeline.addEvent(Event.STARTED);
         pipeline.execute();

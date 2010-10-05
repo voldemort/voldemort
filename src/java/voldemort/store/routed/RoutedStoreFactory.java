@@ -15,6 +15,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
+import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
 
@@ -52,6 +53,7 @@ public class RoutedStoreFactory {
                               StoreDefinition storeDefinition,
                               Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
                               Map<Integer, NonblockingStore> nonblockingStores,
+                              Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
                               boolean repairReads,
                               int clientZoneId,
                               FailureDetector failureDetector) {
@@ -59,6 +61,7 @@ public class RoutedStoreFactory {
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
                                            nonblockingStores,
+                                           slopStores,
                                            cluster,
                                            storeDefinition,
                                            repairReads,
@@ -71,6 +74,11 @@ public class RoutedStoreFactory {
                 throw new VoldemortException("Zone Routing for store '" + storeDefinition.getName()
                                              + "' not supported using thread pool routed store.");
             }
+
+            if(slopStores != null)
+                throw new VoldemortException("Hinted Handoff for store '"
+                                             + storeDefinition.getName()
+                                             + "' not supported using thread pool routed store.");
 
             return new ThreadPoolRoutedStore(storeDefinition.getName(),
                                              nodeStores,
@@ -98,6 +106,7 @@ public class RoutedStoreFactory {
                       storeDefinition,
                       nodeStores,
                       nonblockingStores,
+                      null,
                       repairReads,
                       Zone.DEFAULT_ZONE_ID,
                       failureDetector);

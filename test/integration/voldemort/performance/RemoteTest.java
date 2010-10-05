@@ -216,6 +216,7 @@ public class RemoteTest {
         parser.accepts("v", "verbose");
         parser.accepts("ignore-nulls", "ignore null values");
         parser.accepts("pipeline-routed-store", "Use the Pipeline RoutedStore");
+        parser.accepts("hinted-handoff", "Enable Hinted Handoff");
         parser.accepts("save-nulls", "save keys which had null to a file")
               .withRequiredArg()
               .ofType(String.class);
@@ -326,7 +327,8 @@ public class RemoteTest {
                                                       .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
                                                       .setSocketBufferSize(4 * 1024)
                                                       .setEnablePipelineRoutedStore(options.has("pipeline-routed-store"))
-                                                      .setSelectors(selectors);
+                                                      .setSelectors(selectors)
+                                                      .setEnableHintedHandoff(options.has("hinted-handoff"));
         SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
         final StoreClient<Object, Object> store = factory.getStoreClient(storeName);
         StoreDefinition storeDef = getStoreDefinition(factory, storeName);

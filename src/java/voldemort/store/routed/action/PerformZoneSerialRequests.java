@@ -95,7 +95,7 @@ public class PerformZoneSerialRequests<V, PD extends BasicPipelineData<V>> exten
                                                                               + zonesSatisfied
                                                                               + " succeeded"));
 
-            pipeline.addEvent(Event.ERROR);
+            pipeline.abort();
         }
     }
 }

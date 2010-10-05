@@ -60,6 +60,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
+import voldemort.server.scheduler.SlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -200,6 +201,13 @@ public class StorageService extends AbstractService {
                                                                        new ByteArraySerializer(),
                                                                        new SlopSerializer(),
                                                                        new IdentitySerializer()));
+
+            scheduler.schedule(new SlopPusherJob(storeRepository,
+                                                 metadata.getCluster(),
+                                                 failureDetector,
+                                                 voldemortConfig.getSlopMaxWriteBytesPerSec()),
+                               new Date(),
+                               voldemortConfig.getSlopFrequencyMs());
         }
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
@@ -318,16 +326,17 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
+        if(!"slop".equals(store.getName())) {
+            if(voldemortConfig.isRedirectRoutingEnabled())
+                store = new RedirectingStore(store,
+                                             metadata,
+                                             storeRepository,
+                                             failureDetector,
+                                             storeFactory);
 
-        if(voldemortConfig.isRedirectRoutingEnabled())
-            store = new RedirectingStore(store,
-                                         metadata,
-                                         storeRepository,
-                                         failureDetector,
-                                         storeFactory);
-
-        if(voldemortConfig.isMetadataCheckingEnabled())
-            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+            if(voldemortConfig.isMetadataCheckingEnabled())
+                store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+        }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
             StatTrackingStore<ByteArray, byte[], byte[]> statStore = new StatTrackingStore<ByteArray, byte[], byte[]>(store,
@@ -383,6 +392,7 @@ public class StorageService extends AbstractService {
                                                                                def,
                                                                                nodeStores,
                                                                                nonblockingStores,
+                                                                               null,
                                                                                true,
                                                                                cluster.getNodeById(localNode)
                                                                                       .getZoneId(),

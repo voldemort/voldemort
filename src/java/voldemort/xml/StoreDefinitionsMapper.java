@@ -48,6 +48,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
+import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.store.views.ViewStorageConfiguration;
 
 /**
@@ -82,6 +83,9 @@ public class StoreDefinitionsMapper {
     public final static String STORE_ZONE_REPLICATION_FACTOR_ELMT = "zone-replication-factor";
     public final static String STORE_ZONE_COUNT_READS = "zone-count-reads";
     public final static String STORE_ZONE_COUNT_WRITES = "zone-count-writes";
+    public final static String HINTED_HANDOFF_ENABLE = "enable-hinted-handoff";
+    public final static String HINTED_HANDOFF_STRATEGY = "hinted-handoff-strategy";
+    public final static String HINT_PREFLIST_SIZE = "hint-preflist-size";
     public final static String VIEW_ELMT = "view";
     public final static String VIEW_TARGET_ELMT = "view-of";
     public final static String VIEW_TRANS_ELMT = "view-class";
@@ -223,6 +227,17 @@ public class StoreDefinitionsMapper {
             }
         }
 
+        String enableHintedHandoffStr = store.getChildText(HINTED_HANDOFF_ENABLE);
+        boolean enableHintedHandoff = (null != enableHintedHandoffStr)
+                                      && Boolean.parseBoolean(enableHintedHandoffStr);
+        String hintedHandoffStrategy = null;
+        if(enableHintedHandoff)
+            hintedHandoffStrategy = (null != store.getChildText(HINTED_HANDOFF_STRATEGY)) ? store.getChildText(HINTED_HANDOFF_STRATEGY)
+                                                                                         : HintedHandoffStrategyType.TO_ALL_STRATEGY;
+        String hintPrefListSizeStr = store.getChildText(HINT_PREFLIST_SIZE);
+        Integer hintPrefListSize = (null != hintPrefListSizeStr) ? Integer.parseInt(hintPrefListSizeStr)
+                                                                : null;
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setKeySerializer(keySerializer)
@@ -239,6 +254,9 @@ public class StoreDefinitionsMapper {
                                            .setZoneReplicationFactor(zoneReplicationFactor)
                                            .setZoneCountReads(zoneCountReads)
                                            .setZoneCountWrites(zoneCountWrites)
+                                           .setEnableHintedHandoff(enableHintedHandoff)
+                                           .setHintedHandoffStrategy(hintedHandoffStrategy)
+                                           .setHintPrefListSize(hintPrefListSize)
                                            .build();
     }
 
@@ -382,6 +400,15 @@ public class StoreDefinitionsMapper {
             store.addContent(new Element(STORE_ZONE_COUNT_READS).setText(Integer.toString(storeDefinition.getZoneCountReads())));
         if(storeDefinition.hasZoneCountWrites())
             store.addContent(new Element(STORE_ZONE_COUNT_WRITES).setText(Integer.toString(storeDefinition.getZoneCountWrites())));
+
+        if(storeDefinition.isHintedHandoffEnabled()) {
+            store.addContent(new Element(HINTED_HANDOFF_ENABLE).setText(Boolean.toString(storeDefinition.isHintedHandoffEnabled())));
+
+            if(storeDefinition.hasHintedHandoffStrategyType())
+                store.addContent(new Element(HINTED_HANDOFF_STRATEGY).setText(storeDefinition.getHintedHandoffStrategyType()));
+            if(storeDefinition.hasHintPreflistSize())
+                store.addContent(new Element(HINT_PREFLIST_SIZE).setText(Integer.toString(storeDefinition.getHintPrefListSize())));
+        }
 
         Element keySerializer = new Element(STORE_KEY_SERIALIZER_ELMT);
         addSerializer(keySerializer, storeDefinition.getKeySerializer());

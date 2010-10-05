@@ -68,6 +68,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
         this.factory = new ClientRequestExecutorFactory(selectors,
+                                                        connectionTimeoutMs,
                                                         soTimeoutMs,
                                                         socketBufferSize,
                                                         socketKeepAlive);
@@ -97,7 +98,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         SocketDestination dest = new SocketDestination(Utils.notNull(hostName),
                                                        port,
                                                        requestFormatType);
-        return new SocketStore(Utils.notNull(storeName), dest, this, requestRoutingType);
+        return new SocketStore(Utils.notNull(storeName),
+                               factory.getTimeout(),
+                               dest,
+                               this,
+                               requestRoutingType);
     }
 
     /**
@@ -151,7 +156,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     }
 
     public void close(SocketDestination destination) {
-        destination.setLastClosedTimestamp();
+        factory.setLastClosedTimestamp(destination);
         pool.close(destination);
     }
 
