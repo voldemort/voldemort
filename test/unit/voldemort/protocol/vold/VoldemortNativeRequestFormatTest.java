@@ -6,7 +6,7 @@ import voldemort.protocol.AbstractRequestFormatTest;
 public class VoldemortNativeRequestFormatTest extends AbstractRequestFormatTest {
 
     public VoldemortNativeRequestFormatTest() {
-        super(RequestFormatType.VOLDEMORT_V1);
+        super(RequestFormatType.VOLDEMORT_V3);
     }
 
 }
