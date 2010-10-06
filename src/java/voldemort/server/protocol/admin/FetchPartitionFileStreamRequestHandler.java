@@ -49,8 +49,9 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
 
-        this.storageEngine = (ReadOnlyStorageEngine) AdminServiceRequestHandler.getStorageEngine(storeRepository,
-                                                                                                 request.getStore());
+        this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
+                                                                                 storeRepository,
+                                                                                 request.getStore());
 
         this.blockSize = voldemortConfig.getAllProps()
                                         .getLong("partition.buffer.size.bytes",

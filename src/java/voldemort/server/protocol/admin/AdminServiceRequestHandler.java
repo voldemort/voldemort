@@ -237,8 +237,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             for(String storeName: storeNames) {
 
-                ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                       storeName);
+                ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                       storeRepository,
+                                                                       storeName);
                 VAdminProto.ROStoreVersionDirMap storeResponse = VAdminProto.ROStoreVersionDirMap.newBuilder()
                                                                                                  .setStoreName(storeName)
                                                                                                  .setStoreDir(store.getCurrentDirPath())
@@ -260,8 +261,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             for(String storeName: storeNames) {
 
-                ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                       storeName);
+                ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                       storeRepository,
+                                                                       storeName);
                 File storeDirPath = new File(store.getStoreDirPath());
 
                 if(!storeDirPath.exists())
@@ -406,8 +408,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.RollbackStoreResponse.Builder response = VAdminProto.RollbackStoreResponse.newBuilder();
 
         try {
-            ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                   storeName);
+            ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                   storeRepository,
+                                                                   storeName);
 
             File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
 
@@ -446,8 +449,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     private void swapStore(String storeName, String directory) throws VoldemortException {
-        ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                               storeName);
+
+        ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                               storeRepository,
+                                                               storeName);
 
         if(!Utils.isReadableDir(directory))
             throw new VoldemortException("Store directory '" + directory
@@ -488,8 +493,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setDescription("Fetch store")
                                                                                                             .setStatus("started");
         try {
-            final ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStorageEngine(storeRepository,
-                                                                                         storeName);
+            final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                         storeRepository,
+                                                                         storeName);
             final long pushVersion;
             if(request.hasPushVersion()) {
                 pushVersion = request.getPushVersion();
@@ -977,6 +983,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     static int valueSize(Versioned<byte[]> value) {
         return value.getValue().length + ((VectorClock) value.getVersion()).sizeInBytes() + 1;
+    }
+
+    static ReadOnlyStorageEngine getReadOnlyStorageEngine(MetadataStore metadata,
+                                                          StoreRepository repo,
+                                                          String name) {
+        if(metadata.getStoreDef(name).getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) != 0)
+            throw new VoldemortException("Store " + name
+                                         + " is not a read-only store, cannot complete operation");
+        return (ReadOnlyStorageEngine) getStorageEngine(repo, name);
     }
 
     static StorageEngine<ByteArray, byte[], byte[]> getStorageEngine(StoreRepository storeRepository,

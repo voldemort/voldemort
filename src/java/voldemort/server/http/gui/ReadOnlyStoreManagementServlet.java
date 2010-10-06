@@ -132,6 +132,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
+        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         Map<String, Object> params = Maps.newHashMap();
         params.put("stores", stores);
         velocityEngine.render("read-only-mgmt.vm", params, resp.getOutputStream());
@@ -162,7 +163,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             ServletException {
         String dir = getRequired(req, "dir");
         String storeName = getRequired(req, "store");
-        String formatString = getOptional(req, "format");
 
         ReadOnlyStorageEngine store = this.getStore(storeName);
         if(store == null)
@@ -200,15 +200,21 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         File fetchDir = null;
         if(fileFetcher == null) {
 
-            logger.warn("File fetcher class has not instantiated correctly");
-            fetchDir = new File(fetchUrl);
+            logger.warn("File fetcher class has not instantiated correctly. Assuming local file");
+
+            if(!Utils.isReadableDir(fetchUrl)) {
+                throw new VoldemortException("Fetch url " + fetchUrl + " is not readable");
+            }
+
+            fetchDir = new File(store.getStoreDirPath(), "version-" + Long.toString(pushVersion));
+            Utils.move(new File(fetchUrl), fetchDir);
 
         } else {
             logger.info("Executing fetch of " + fetchUrl);
 
             try {
                 fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath() + File.separator
-                                                       + "version-" + pushVersion);
+                                                       + "version-" + Long.toString(pushVersion));
 
                 if(fetchDir == null) {
                     throw new ServletException("File fetcher failed for " + fetchUrl
@@ -255,6 +261,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     private ReadOnlyStorageEngine getStore(String storeName) throws ServletException {
+        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         for(ReadOnlyStorageEngine store: this.stores)
             if(store.getName().equals(storeName))
                 return store;

@@ -15,29 +15,41 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+# One time grandfathering script to convert all read-only store dirs to 
+# new format
 if [ $# -ne 1 ];
 then
         echo 'USAGE: bin/grandfather-readonly.sh [readonly-folder]'
         exit 1
 fi
-#  Read args
+# Read args
 READ_ONLY_DIR=$1
+
+# Create temporary metadata file
+METADATA_FILE="/tmp/$(basename $0).$$.tmp"
+echo "{\"format\":\"ro0\"}" > $METADATA_FILE
 
 for stores in $READ_ONLY_DIR/*
 do
         if [ -d $stores ]; then
 
+		echo ---Working on store ${stores} ---
 		# Convert all to .temp
                 numVersions=`find $stores -name version-* | grep -v .bak | grep -v .temp | wc -l`
+                maxVersion=`find $stores -name version-* | grep -v .bak | grep -v .temp | awk -F'-' '{print $2}' | sort -n | tail -1`
+		if [ $numVersions -eq 1 ]; then
+                                cp $METADATA_FILE ${stores}/version-${maxVersion}/.metadata
+				echo Added metadata to ${stores}/version-${maxVersion}
+		fi
 		if [ $numVersions -gt 1 ]; then
-                        maxVersion=`find $stores -name version-* | grep -v .bak | grep -v .temp | awk -F'-' '{print $2}' | sort -n | tail -1`
                         for versionDirNo in `find $stores -name version-* | grep -v .bak | grep -v .temp | awk -F'-' '{print $2}' | sort -n`
                         do
-                                echo $stores/version-$versionDirNo $stores/version-$maxVersion.temp
-                                mv $stores/version-$versionDirNo $stores/version-$maxVersion.temp
+                                mv ${stores}/version-${versionDirNo} ${stores}/version-${maxVersion}.temp
+				echo Moved ${stores}/version-${versionDirNo} to ${stores}/version-${maxVersion}.temp
+                                cp $METADATA_FILE ${stores}/version-${maxVersion}.temp/.metadata
+				echo Added metadata to ${stores}/version-${maxVersion}.temp
 				let maxVersion=maxVersion-1
                         done
-			echo '-------'
                 fi
 	
 		# Convert all .temp to normal
@@ -45,9 +57,9 @@ do
         	if [ $numVersionsTmp -gt 1 ]; then
                         for versionDir in `find $stores -name version-*.temp | grep -v .bak | awk -F'.' '{print $1}'`
                         do
-                                mv $versionDir.temp $versionDir
+                                mv ${versionDir}.temp ${versionDir}
+				echo Moved ${versionDir}.temp to ${versionDir}
                         done
-                        echo '======='
                 fi
 	fi
 done
