@@ -245,7 +245,7 @@ public class ChunkedFileSet {
     public int getChunkForKey(byte[] key) {
         switch(storageFormat) {
             case READONLY_V0: {
-                return ReadOnlyUtils.chunk(key, numChunks);
+                return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
             }
             case READONLY_V1: {
                 List<Integer> partitionList = routingStrategy.getPartitionList(key);

@@ -246,12 +246,22 @@ public class HadoopStoreBuilder {
             // directories before files
             if(fs1.isDir())
                 return fs2.isDir() ? 0 : -1;
-            // index files after all other files
-            else if(fs1.getPath().getName().endsWith(".index"))
-                return fs2.getPath().getName().endsWith(".index") ? 0 : 1;
-            // everything else is equivalent
-            else
-                return 0;
+            if(fs2.isDir())
+                return fs1.isDir() ? 0 : 1;
+
+            String f1 = fs1.getPath().getName(), f2 = fs2.getPath().getName();
+
+            // if both same, lexicographically
+            if((f1.contains(".index") && f2.contains(".index"))
+               || (f1.contains(".data") && f2.contains(".data"))) {
+                return f1.compareToIgnoreCase(f2);
+            }
+
+            if(f1.contains(".index")) {
+                return 1;
+            } else {
+                return -1;
+            }
         }
     }
 

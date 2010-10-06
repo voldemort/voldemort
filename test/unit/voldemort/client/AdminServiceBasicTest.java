@@ -16,8 +16,10 @@
 
 package voldemort.client;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,6 +56,8 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -401,6 +405,15 @@ public class AdminServiceBasicTest extends TestCase {
                                long dataSize,
                                List<Integer> partitions,
                                File versionDir) throws IOException {
+
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V1.getCode());
+
+        File metadataFile = new File(versionDir, ".metadata");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(metadataFile));
+        writer.write(metadata.toJsonString());
+        writer.close();
+
         for(Integer partitionId: partitions) {
             for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                 File index = new File(versionDir, Integer.toString(partitionId) + "_"

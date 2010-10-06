@@ -5,9 +5,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -487,28 +489,55 @@ public class ReadOnlyStorageEngineTest {
         assertFalse("Found version directory that should not exist.", versionDir.exists());
     }
 
-    private void createStoreFiles(File dir,
-                                  int indexBytes,
-                                  int dataBytes,
-                                  Node node,
-                                  int numChunksPerPartitions) throws IOException,
-            FileNotFoundException {
-        for(Integer partitionId: node.getPartitionIds()) {
-            for(int chunkId = 0; chunkId < numChunksPerPartitions; chunkId++) {
-                File index = createFile(dir, Integer.toString(partitionId) + "_"
-                                             + Integer.toString(chunkId) + ".index");
-                File data = createFile(dir, Integer.toString(partitionId) + "_"
-                                            + Integer.toString(chunkId) + ".data");
-                // write some random crap for index and data
-                FileOutputStream dataOs = new FileOutputStream(data);
-                for(int i = 0; i < dataBytes; i++)
-                    dataOs.write(i);
-                dataOs.close();
-                FileOutputStream indexOs = new FileOutputStream(index);
-                for(int i = 0; i < indexBytes; i++)
-                    indexOs.write(i);
-                indexOs.close();
+    private void createStoreFiles(File dir, int indexBytes, int dataBytes, Node node, int numChunks)
+            throws IOException, FileNotFoundException {
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, storageType.getCode());
+
+        File metadataFile = createFile(dir, ".metadata");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(metadataFile));
+        writer.write(metadata.toJsonString());
+        writer.close();
+
+        switch(storageType) {
+            case READONLY_V0: {
+                for(int chunk = 0; chunk < numChunks; chunk++) {
+                    File index = createFile(dir, chunk + ".index");
+                    File data = createFile(dir, chunk + ".data");
+                    // write some random crap for index and data
+                    FileOutputStream dataOs = new FileOutputStream(data);
+                    for(int i = 0; i < dataBytes; i++)
+                        dataOs.write(i);
+                    dataOs.close();
+                    FileOutputStream indexOs = new FileOutputStream(index);
+                    for(int i = 0; i < indexBytes; i++)
+                        indexOs.write(i);
+                    indexOs.close();
+                }
             }
+                break;
+            case READONLY_V1: {
+                for(Integer partitionId: node.getPartitionIds()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File index = createFile(dir, Integer.toString(partitionId) + "_"
+                                                     + Integer.toString(chunkId) + ".index");
+                        File data = createFile(dir, Integer.toString(partitionId) + "_"
+                                                    + Integer.toString(chunkId) + ".data");
+                        // write some random crap for index and data
+                        FileOutputStream dataOs = new FileOutputStream(data);
+                        for(int i = 0; i < dataBytes; i++)
+                            dataOs.write(i);
+                        dataOs.close();
+                        FileOutputStream indexOs = new FileOutputStream(index);
+                        for(int i = 0; i < indexBytes; i++)
+                            indexOs.write(i);
+                        indexOs.close();
+                    }
+                }
+            }
+                break;
+            default:
+                return;
         }
 
     }
