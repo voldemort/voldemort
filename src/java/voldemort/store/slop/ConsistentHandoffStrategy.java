@@ -1,12 +1,12 @@
 /*
  * Copyright 2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,16 +16,15 @@
 
 package voldemort.store.slop;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import voldemort.client.ClientConfig;
-import voldemort.cluster.Cluster;
-import voldemort.cluster.Node;
-import voldemort.store.StoreDefinition;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * A strategy which hands a hint off to any one of N nodes adjacent to the
@@ -37,10 +36,10 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
 
     /**
      * Creates a consistent handoff strategy instance
-     *
+     * 
      * @param cluster The cluster
-     * @param prefListSize The number of nodes adjacent to the failed node in the
-     *        that could be selected to receive given hint
+     * @param prefListSize The number of nodes adjacent to the failed node in
+     *        the that could be selected to receive given hint
      * @param enableZoneRouting is zone routing enabled?
      * @param clientZoneId client zone id if zone routing is enabled
      */
@@ -50,9 +49,9 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
                                      int clientZoneId) {
         int nodesInCluster = cluster.getNumberOfNodes();
         if(prefListSize > nodesInCluster - 1)
-            throw new IllegalArgumentException("Preference list size must be less than " +
-                                               "number of nodes in the cluster - 1");
-        
+            throw new IllegalArgumentException("Preference list size must be less than "
+                                               + "number of nodes in the cluster - 1");
+
         this.routeToMap = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
         for(Node node: cluster.getNodes()) {
             List<Node> prefList = Lists.newArrayListWithCapacity(prefListSize);

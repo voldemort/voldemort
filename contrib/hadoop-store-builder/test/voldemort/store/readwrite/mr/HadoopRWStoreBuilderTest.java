@@ -39,6 +39,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 
+@SuppressWarnings("deprecation")
 public class HadoopRWStoreBuilderTest extends TestCase {
 
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,

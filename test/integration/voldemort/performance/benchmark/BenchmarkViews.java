@@ -41,23 +41,14 @@ public class BenchmarkViews {
 
     public static void main(String[] args) throws IOException {
         OptionParser parser = new OptionParser();
-        parser.accepts(Benchmark.STORE_NAME, "store name on the remote URL")
-              .withRequiredArg()
-              .ofType(String.class);
         parser.accepts(Benchmark.RECORD_COUNT, "number of records inserted during warmup phase")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(Benchmark.OPS_COUNT, "number of operations to do")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(Benchmark.URL, "url on which to run remote tests")
-              .withOptionalArg()
-              .ofType(String.class);
         parser.accepts(Benchmark.HELP);
 
-        for(String arg: args) {
-            System.out.println("Arguments = " + arg);
-        }
         OptionSet options = parser.parse(args);
 
         if(options.has(Benchmark.HELP)) {
@@ -65,8 +56,7 @@ public class BenchmarkViews {
             System.exit(0);
         }
 
-        if(!options.has(Benchmark.STORE_NAME) || !options.has(Benchmark.RECORD_COUNT)
-           || !options.has(Benchmark.OPS_COUNT)) {
+        if(!options.has(Benchmark.RECORD_COUNT) || !options.has(Benchmark.OPS_COUNT)) {
             parser.printHelpOn(System.out);
             Utils.croak("Missing params");
             System.exit(0);
@@ -74,10 +64,10 @@ public class BenchmarkViews {
 
         Props props = new Props();
 
-        props.put(Benchmark.STORE_NAME, (String) options.valueOf(Benchmark.STORE_NAME));
         props.put(Benchmark.RECORD_COUNT, (Integer) options.valueOf(Benchmark.RECORD_COUNT));
         props.put(Benchmark.OPS_COUNT, (Integer) options.valueOf(Benchmark.OPS_COUNT));
-        props.put(Benchmark.STORAGE_CONFIGURATION_CLASS, BdbStorageConfiguration.TYPE_NAME);
+        props.put(Benchmark.STORAGE_CONFIGURATION_CLASS,
+                  BdbStorageConfiguration.class.getCanonicalName());
         props.put(Benchmark.STORE_TYPE, "view");
         props.put(Benchmark.VIEW_CLASS, "voldemort.store.views.UpperCaseView");
         props.put(Benchmark.HAS_TRANSFORMS, "true");

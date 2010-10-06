@@ -147,7 +147,6 @@ public class HintedHandoffTest {
                                P_WRITES,
                                R_WRITES,
                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        Random rand = new Random();
         for(Node node: cluster.getNodes()) {
             VoldemortException e = new UnreachableStoreException("Node down");
 
@@ -287,7 +286,7 @@ public class HintedHandoffTest {
 
     private void reviveNodes(Set<Integer> failedNodes) {
         for(int node: failedNodes) {
-            ForceFailStore forceFailStore = getForceFailStore(node);
+            ForceFailStore<ByteArray, byte[], byte[]> forceFailStore = getForceFailStore(node);
             forceFailStore.setFail(false);
 
             if(logger.isTraceEnabled())
@@ -363,7 +362,7 @@ public class HintedHandoffTest {
             failedNodes.add((offset + i) % NUM_NODES_TOTAL);
 
         for(int node: failedNodes) {
-            ForceFailStore forceFailStore = getForceFailStore(node);
+            ForceFailStore<ByteArray, byte[], byte[]> forceFailStore = getForceFailStore(node);
             forceFailStore.setFail(true);
 
             if(logger.isTraceEnabled())
