@@ -66,7 +66,6 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         if(logger.isDebugEnabled())
             logger.debug("Adding " + nodes.size() + " node(s) to preference list");
 
-
         // Reorder nodes according to operation
         if(pipelineData.getZonesRequired() != null) {
 
@@ -93,26 +92,30 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
             }
 
             nodes = new ArrayList<Node>();
-            LinkedList<Integer> proximityList = this.clientZone.getProximityList();
+            LinkedList<Integer> zoneProximityList = this.clientZone.getProximityList();
             if(pipeline.getOperation() != Operation.PUT) {
                 // GET, GET_VERSIONS, DELETE
 
                 // Add a node from every zone
                 for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
-                    List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
-                    if(zoneNodes != null) {
+                    List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
+                    if(zoneNodes != null && zoneNodes.size() > 0) {
                         nodes.add(zoneNodes.remove(0));
                     }
                 }
 
             }
 
-            // Add the rest
-            nodes.addAll(zoneIdToNode.get(this.clientZone.getId()));
-            for(int index = 0; index < proximityList.size(); index++) {
-                List<Node> zoneNodes = zoneIdToNode.get(proximityList.get(index));
-                if(zoneNodes != null)
+            // Add the rest, starting with client zone...
+            List<Node> clientZoneNodes = zoneIdToNode.get(clientZone.getId());
+            if(clientZoneNodes != null && clientZoneNodes.size() > 0)
+                nodes.addAll(clientZoneNodes);
+            // ...followed by other zones sorted by proximity list
+            for(int index = 0; index < zoneProximityList.size(); index++) {
+                List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
+                if(zoneNodes != null && zoneNodes.size() > 0) {
                     nodes.addAll(zoneNodes);
+                }
             }
 
         }
