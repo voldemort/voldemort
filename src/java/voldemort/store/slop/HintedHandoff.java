@@ -28,6 +28,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -111,6 +112,8 @@ public class HintedHandoff {
                     failureDetector.recordException(node, (System.nanoTime() - startNs)
                                                           / Time.NS_PER_MS, e);
                     logger.warn("Error during hinted handoff", e);
+                } catch(ObsoleteVersionException e) {
+                    logger.debug(e, e);
                 }
             }
         }
