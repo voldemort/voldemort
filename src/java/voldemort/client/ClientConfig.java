@@ -60,10 +60,10 @@ public class ClientConfig {
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
 
-    private volatile boolean enablePipelineRoutedStore = false;
+    private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
-    private volatile boolean enableHintedHandoff = false;
+    private volatile boolean enableHintedHandoff = true;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;

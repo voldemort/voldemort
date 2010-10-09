@@ -228,8 +228,10 @@ public class StoreDefinitionsMapper {
         }
 
         String enableHintedHandoffStr = store.getChildText(HINTED_HANDOFF_ENABLE);
-        boolean enableHintedHandoff = (null != enableHintedHandoffStr)
-                                      && Boolean.parseBoolean(enableHintedHandoffStr);
+        boolean enableHintedHandoff = true;
+        if(null != enableHintedHandoffStr)
+           enableHintedHandoff = Boolean.parseBoolean(enableHintedHandoffStr);
+        
         String hintedHandoffStrategy = null;
         if(enableHintedHandoff)
             hintedHandoffStrategy = (null != store.getChildText(HINTED_HANDOFF_STRATEGY)) ? store.getChildText(HINTED_HANDOFF_STRATEGY)
