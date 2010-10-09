@@ -190,18 +190,18 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
+            logger.info("Starting the slop store:");
             StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
             if(config == null)
-                throw new ConfigurationException("Attempt to slop store failed");
+                throw new ConfigurationException("Attempt to get slop store failed");
 
             StorageEngine<ByteArray, byte[], byte[]> slopEngine = config.getStore("slop");
-
             registerEngine(slopEngine);
             storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
                                                                        new ByteArraySerializer(),
                                                                        new SlopSerializer(),
                                                                        new IdentitySerializer()));
-
+            logger.info("Slop store registered");
             scheduler.schedule(new SlopPusherJob(storeRepository,
                                                  metadata.getCluster(),
                                                  failureDetector,
