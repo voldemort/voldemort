@@ -104,6 +104,10 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                                    .getType()
                                                                    .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
+                            if(isReadOnlyStore) {
+                                readOnlyStoresCompleted.add(storeName);
+                            }
+
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
                             // If read-only store then don't remove from
@@ -112,8 +116,6 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                 List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                                 tempUnbalancedStoreList.remove(storeName);
                                 stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
-                            } else {
-                                readOnlyStoresCompleted.add(storeName);
                             }
                             rebalancer.setRebalancingState(stealInfo);
 
@@ -145,6 +147,10 @@ class RebalanceAsyncOperation extends AsyncOperation {
                     logger.info("Rebalancer: rebalance "
                                 + stealInfo
                                 + " on all read-write stores completed successfully. Read-only stores left.");
+
+                    // acquire rebalancing permit for own node so as to prevent
+                    // Rebalancer from kicking in
+                    rebalancer.acquireRebalancingPermit(metadataStore.getNodeId());
                 }
             }
 
