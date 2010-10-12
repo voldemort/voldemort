@@ -26,6 +26,7 @@ public final class VSlopProto {
       return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.serialization.VSlopProto.internal_static_voldemort_Slop_fieldAccessorTable;
@@ -73,10 +74,12 @@ public final class VSlopProto {
     public boolean hasArrived() { return hasArrived; }
     public long getArrived() { return arrived_; }
     
+    @Override
     public final boolean isInitialized() {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStore()) {
@@ -101,6 +104,7 @@ public final class VSlopProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -142,7 +146,7 @@ public final class VSlopProto {
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -153,7 +157,7 @@ public final class VSlopProto {
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -164,7 +168,7 @@ public final class VSlopProto {
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -175,7 +179,7 @@ public final class VSlopProto {
     }
     public static voldemort.serialization.VSlopProto.Slop parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -187,49 +191,43 @@ public final class VSlopProto {
     }
     public static voldemort.serialization.VSlopProto.Slop parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.serialization.VSlopProto.Slop prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.serialization.VSlopProto.Slop result;
-      
       // Construct using voldemort.serialization.VSlopProto.Slop.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.serialization.VSlopProto.Slop();
-        return builder;
-      }
+      voldemort.serialization.VSlopProto.Slop result = new voldemort.serialization.VSlopProto.Slop();
       
+      @Override
       protected voldemort.serialization.VSlopProto.Slop internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.serialization.VSlopProto.Slop();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.serialization.VSlopProto.Slop.getDescriptor();
@@ -239,12 +237,10 @@ public final class VSlopProto {
         return voldemort.serialization.VSlopProto.Slop.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.serialization.VSlopProto.Slop build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -252,7 +248,7 @@ public final class VSlopProto {
       private voldemort.serialization.VSlopProto.Slop buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -261,13 +257,13 @@ public final class VSlopProto {
       public voldemort.serialization.VSlopProto.Slop buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.serialization.VSlopProto.Slop returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.serialization.VSlopProto.Slop) {
           return mergeFrom((voldemort.serialization.VSlopProto.Slop)other);
@@ -301,9 +297,18 @@ public final class VSlopProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -368,7 +373,7 @@ public final class VSlopProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
       
@@ -389,7 +394,7 @@ public final class VSlopProto {
       }
       public Builder clearOperation() {
         result.hasOperation = false;
-        result.operation_ = getDefaultInstance().getOperation();
+        result.operation_ = "";
         return this;
       }
       
@@ -410,7 +415,7 @@ public final class VSlopProto {
       }
       public Builder clearKey() {
         result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        result.key_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
       
@@ -431,7 +436,7 @@ public final class VSlopProto {
       }
       public Builder clearValue() {
         result.hasValue = false;
-        result.value_ = getDefaultInstance().getValue();
+        result.value_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
       
@@ -475,10 +480,6 @@ public final class VSlopProto {
     static {
       voldemort.serialization.VSlopProto.getDescriptor();
     }
-    
-    static {
-      voldemort.serialization.VSlopProto.internalForceInit();
-    }
   }
   
   private static com.google.protobuf.Descriptors.Descriptor
@@ -494,13 +495,12 @@ public final class VSlopProto {
   private static com.google.protobuf.Descriptors.FileDescriptor
       descriptor;
   static {
-    java.lang.String[] descriptorData = {
+    java.lang.String descriptorData =
       "\n\nslop.proto\022\tvoldemort\"f\n\004Slop\022\r\n\005store" +
       "\030\001 \001(\t\022\021\n\toperation\030\002 \001(\t\022\013\n\003key\030\003 \001(\014\022\r" +
       "\n\005value\030\004 \001(\014\022\017\n\007node_id\030\005 \001(\005\022\017\n\007arrive" +
       "d\030\006 \001(\003B\'\n\027voldemort.serializationB\nVSlo" +
-      "pProtoH\001"
-    };
+      "pProtoH\001";
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
         public com.google.protobuf.ExtensionRegistry assignDescriptors(
@@ -522,6 +522,4 @@ public final class VSlopProto {
         new com.google.protobuf.Descriptors.FileDescriptor[] {
         }, assigner);
   }
-  
-  public static void internalForceInit() {}
 }

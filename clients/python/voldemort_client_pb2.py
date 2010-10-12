@@ -202,6 +202,13 @@ _GETREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='transforms', full_name='voldemort.GetRequest.transforms', index=1,
+      number=2, type=12, cpp_type=9, label=1,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -269,6 +276,34 @@ _GETVERSIONRESPONSE = descriptor.Descriptor(
   options=None)
 
 
+_GETALLREQUEST_GETALLTRANSFORM = descriptor.Descriptor(
+  name='GetAllTransform',
+  full_name='voldemort.GetAllRequest.GetAllTransform',
+  filename='voldemort-client.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='key', full_name='voldemort.GetAllRequest.GetAllTransform.key', index=0,
+      number=1, type=12, cpp_type=9, label=2,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='transform', full_name='voldemort.GetAllRequest.GetAllTransform.transform', index=1,
+      number=2, type=12, cpp_type=9, label=2,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
 _GETALLREQUEST = descriptor.Descriptor(
   name='GetAllRequest',
   full_name='voldemort.GetAllRequest',
@@ -278,6 +313,13 @@ _GETALLREQUEST = descriptor.Descriptor(
     descriptor.FieldDescriptor(
       name='keys', full_name='voldemort.GetAllRequest.keys', index=0,
       number=1, type=12, cpp_type=9, label=3,
+      default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='transforms', full_name='voldemort.GetAllRequest.transforms', index=1,
+      number=2, type=11, cpp_type=10, label=3,
       default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -337,6 +379,13 @@ _PUTREQUEST = descriptor.Descriptor(
       name='versioned', full_name='voldemort.PutRequest.versioned', index=1,
       number=2, type=11, cpp_type=10, label=2,
       default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='transforms', full_name='voldemort.PutRequest.transforms', index=2,
+      number=3, type=12, cpp_type=9, label=1,
+      default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -507,6 +556,7 @@ _GETRESPONSE.fields_by_name['versioned'].message_type = _VERSIONED
 _GETRESPONSE.fields_by_name['error'].message_type = _ERROR
 _GETVERSIONRESPONSE.fields_by_name['versions'].message_type = _VECTORCLOCK
 _GETVERSIONRESPONSE.fields_by_name['error'].message_type = _ERROR
+_GETALLREQUEST.fields_by_name['transforms'].message_type = _GETALLREQUEST_GETALLTRANSFORM
 _GETALLRESPONSE.fields_by_name['values'].message_type = _KEYEDVERSIONS
 _GETALLRESPONSE.fields_by_name['error'].message_type = _ERROR
 _PUTREQUEST.fields_by_name['versioned'].message_type = _VERSIONED
@@ -553,6 +603,10 @@ class GetVersionResponse(message.Message):
 
 class GetAllRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
+  
+  class GetAllTransform(message.Message):
+    __metaclass__ = reflection.GeneratedProtocolMessageType
+    DESCRIPTOR = _GETALLREQUEST_GETALLTRANSFORM
   DESCRIPTOR = _GETALLREQUEST
 
 class GetAllResponse(message.Message):
