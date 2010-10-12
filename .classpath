@@ -42,8 +42,6 @@
 	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
 	<classpathentry kind="lib" path="lib/libthrift-0.2.0.jar"/>
-	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/je-4.0.103.jar"/>
 	<classpathentry kind="lib" path="lib/paranamer-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-core-asl-1.4.0.jar"/>
@@ -52,5 +50,7 @@
 	<classpathentry kind="lib" path="contrib/krati/lib/krati-0.3.4.jar"/>
 	<classpathentry kind="lib" path="lib/jna.jar"/>
     <classpathentry kind="lib" path="lib/mockito-all-1.8.5.jar" />
-    <classpathentry kind="output" path="classes"/>
+	<classpathentry kind="lib" path="lib/google-collect-1.0-rc2.jar"/>
+	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
+	<classpathentry kind="output" path="classes"/>
 </classpath>
