@@ -160,10 +160,13 @@ public class ClusterMapper {
     public String writeCluster(Cluster cluster) {
         Document doc = new Document(new Element(CLUSTER_ELMT));
         doc.getRootElement().addContent(new Element(CLUSTER_NAME_ELMT).setText(cluster.getName()));
-        for(Zone n: cluster.getZones())
-            doc.getRootElement().addContent(mapZone(n));
+        boolean displayZones = cluster.getZones().size() > 1;
+        if(displayZones) {
+            for(Zone n: cluster.getZones())
+                doc.getRootElement().addContent(mapZone(n));
+        }
         for(Node n: cluster.getNodes())
-            doc.getRootElement().addContent(mapServer(n));
+            doc.getRootElement().addContent(mapServer(n, displayZones));
         XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
         return serializer.outputString(doc.getRootElement());
     }
@@ -176,7 +179,7 @@ public class ClusterMapper {
         return zoneElement;
     }
 
-    private Element mapServer(Node node) {
+    private Element mapServer(Node node, boolean displayZones) {
         Element server = new Element(SERVER_ELMT);
         server.addContent(new Element(SERVER_ID_ELMT).setText(Integer.toString(node.getId())));
         server.addContent(new Element(HOST_ELMT).setText(node.getHost()));
@@ -185,7 +188,8 @@ public class ClusterMapper {
         server.addContent(new Element(ADMIN_PORT_ELMT).setText(Integer.toString(node.getAdminPort())));
         String serverPartitionsText = StringUtils.join(node.getPartitionIds().toArray(), ", ");
         server.addContent(new Element(SERVER_PARTITIONS_ELMT).setText(serverPartitionsText));
-        server.addContent(new Element(ZONE_ID_ELMT).setText(Integer.toString(node.getZoneId())));
+        if(displayZones)
+            server.addContent(new Element(ZONE_ID_ELMT).setText(Integer.toString(node.getZoneId())));
         return server;
     }
 }
