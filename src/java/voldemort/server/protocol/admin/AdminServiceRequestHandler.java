@@ -436,13 +436,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 swapStore(storeName, storeToVersionDir.get(storeName));
             }
 
-            logger.debug("stealInfoList empty, cleaning all rebalancing state");
-            metadataStore.cleanAllRebalancingState();
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleSwapStoresAndCleanState failed for request(" + request.toString()
                          + ")", e);
 
+        } finally {
+            logger.debug("Cleaning rebalancer state");
+            metadataStore.cleanAllRebalancingState();
+            if(rebalancer.hasRebalancingPermit(metadataStore.getNodeId()))
+                rebalancer.releaseRebalancingPermit(metadataStore.getNodeId());
         }
         return response.build();
 

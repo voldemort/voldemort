@@ -58,12 +58,34 @@ public class Rebalancer implements Runnable {
 
     public void stop() {}
 
-    private boolean acquireRebalancingPermit(int donorNodeId) {
-        return rebalancePermits.add(donorNodeId);
+    /**
+     * Has rebalancing permit
+     * 
+     * @param nodeId The node id for which we want to check if we have a permit
+     * @return Returns true if permit has been taken
+     */
+    public boolean hasRebalancingPermit(int nodeId) {
+        return rebalancePermits.contains(nodeId);
     }
 
-    protected void releaseRebalancingPermit(int donorNodeId) {
-        if(!rebalancePermits.remove(donorNodeId))
+    /**
+     * Acquire a permit for a particular node id so as to allow rebalancing
+     * 
+     * @param nodeId The id of the node for which we are acquiring a permit
+     * @return Returns true if permit acquired, false if the permit is already
+     *         held by someone
+     */
+    public boolean acquireRebalancingPermit(int nodeId) {
+        return rebalancePermits.add(nodeId);
+    }
+
+    /**
+     * Release the rebalancing permit for a particular node id
+     * 
+     * @param nodeId The node id whose permit we want to release
+     */
+    public void releaseRebalancingPermit(int nodeId) {
+        if(!rebalancePermits.remove(nodeId))
             throw new VoldemortException(new IllegalStateException("Invalid state, must hold a "
                                                                    + "permit to release"));
     }
@@ -87,7 +109,10 @@ public class Rebalancer implements Runnable {
         final ConcurrentHashMap<Integer, Map<String, String>> nodeIdsToStoreDirs = new ConcurrentHashMap<Integer, Map<String, String>>();
         final List<Exception> failures = new ArrayList<Exception>();
 
-        if(VoldemortState.REBALANCING_MASTER_SERVER.equals(voldemortState)) {
+        if(VoldemortState.REBALANCING_MASTER_SERVER.equals(voldemortState)
+           && acquireRebalancingPermit(metadataStore.getNodeId())) {
+            // free permit for RebalanceAsyncOperation to acquire
+            releaseRebalancingPermit(metadataStore.getNodeId());
             for(RebalancePartitionsInfo stealInfo: rebalancerState.getAll()) {
                 // free permit here for rebalanceLocalNode to acquire.
                 if(acquireRebalancingPermit(stealInfo.getDonorId())) {
