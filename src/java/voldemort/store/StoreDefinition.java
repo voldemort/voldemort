@@ -267,8 +267,12 @@ public class StoreDefinition implements Serializable {
         return zoneCountWrites != null;
     }
 
+    public boolean hasHintedHandoffEnabled() {
+        return enableHintedHandoff != null;
+    }
+
     public boolean isHintedHandoffEnabled() {
-        return enableHintedHandoff != null && enableHintedHandoff;
+        return !hasHintedHandoffEnabled() || enableHintedHandoff;
     }
 
     public String getHintedHandoffStrategyType() {

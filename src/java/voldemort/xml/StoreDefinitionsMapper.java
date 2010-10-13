@@ -403,7 +403,7 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasZoneCountWrites())
             store.addContent(new Element(STORE_ZONE_COUNT_WRITES).setText(Integer.toString(storeDefinition.getZoneCountWrites())));
 
-        if(storeDefinition.isHintedHandoffEnabled()) {
+        if(storeDefinition.hasHintedHandoffEnabled()) {
             store.addContent(new Element(HINTED_HANDOFF_ENABLE).setText(Boolean.toString(storeDefinition.isHintedHandoffEnabled())));
 
             if(storeDefinition.hasHintedHandoffStrategyType())
