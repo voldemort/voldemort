@@ -91,7 +91,6 @@ public class VoldemortClientShell {
                                                       .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
 
         if(options.has("client-zone-id")) {
-            clientConfig.setEnablePipelineRoutedStore(true);
             clientConfig.setClientZoneId((Integer) options.valueOf("client-zone-id"));
         }
 

@@ -1,20 +1,28 @@
 package voldemort.store.slop;
 
 /**
- * An enumeration of HintedHandoffStrategy type
+ * Enumerates different hinted handoff strategies.
+ * 
+ * 
  */
-public class HintedHandoffStrategyType {
+public enum HintedHandoffStrategyType {
+    CONSISTENT_STRATEGY("consistent-handoff"),
+    TO_ALL_STRATEGY("all-handoff");
 
-    public static String CONSISTENT_STRATEGY = "consistent-handoff";
-    public static String TO_ALL_STRATEGY = "all-handoff";
+    private final String text;
 
-    private final String name;
-
-    private HintedHandoffStrategyType(String name) {
-        this.name = name;
+    private HintedHandoffStrategyType(String text) {
+        this.text = text;
     }
 
-    public String getName() {
-        return name;
+    public static HintedHandoffStrategyType fromDisplay(String type) {
+        for(HintedHandoffStrategyType t: HintedHandoffStrategyType.values())
+            if(t.toDisplay().compareTo(type) == 0)
+                return t;
+        return null;
+    }
+
+    public String toDisplay() {
+        return text;
     }
 }

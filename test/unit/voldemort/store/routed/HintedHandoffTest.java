@@ -88,7 +88,7 @@ public class HintedHandoffTest {
     private final static int VALUE_LENGTH = 1024;
 
     private final Class<? extends FailureDetector> failureDetectorCls = BannagePeriodFailureDetector.class;
-    private final String hintRoutingStrategy;
+    private final HintedHandoffStrategyType hintRoutingStrategy;
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores = new ConcurrentHashMap<Integer, Store<ByteArray, Slop, byte[]>>();
@@ -104,7 +104,7 @@ public class HintedHandoffTest {
     private RoutingStrategy strategy;
     private RoutedStore store;
 
-    public HintedHandoffTest(String hintRoutingStrategy) {
+    public HintedHandoffTest(HintedHandoffStrategyType hintRoutingStrategy) {
         this.hintRoutingStrategy = hintRoutingStrategy;
     }
 
@@ -134,7 +134,6 @@ public class HintedHandoffTest {
                                            .setPreferredWrites(pwrites)
                                            .setRequiredWrites(rwrites)
                                            .setHintedHandoffStrategy(hintRoutingStrategy)
-                                           .setEnableHintedHandoff(true)
                                            .build();
     }
 
