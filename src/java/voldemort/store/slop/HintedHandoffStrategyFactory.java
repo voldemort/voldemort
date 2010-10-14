@@ -9,6 +9,7 @@ import voldemort.store.StoreDefinition;
  * {@link HintedHandoffStrategyType}.
  */
 public class HintedHandoffStrategyFactory {
+
     private final boolean enableZoneRouting;
     private final int clientZoneId;
 
@@ -19,7 +20,9 @@ public class HintedHandoffStrategyFactory {
 
     public HintedHandoffStrategy updateHintedHandoffStrategy(StoreDefinition storeDef,
                                                              Cluster cluster) {
-        if(HintedHandoffStrategyType.CONSISTENT_STRATEGY.equals(storeDef.getHintedHandoffStrategyType())) {
+        if(HintedHandoffStrategyType.CONSISTENT_STRATEGY.toDisplay()
+                                                        .compareTo(storeDef.getHintedHandoffStrategyType()
+                                                                           .toDisplay()) == 0) {
             Integer hintPrefListSize = storeDef.getHintPrefListSize();
             if(null == hintPrefListSize) {
                 if(cluster.getNumberOfNodes() > 6)
@@ -31,10 +34,13 @@ public class HintedHandoffStrategyFactory {
                                                  hintPrefListSize,
                                                  enableZoneRouting,
                                                  clientZoneId);
-        } else if(HintedHandoffStrategyType.TO_ALL_STRATEGY.equals(storeDef.getHintedHandoffStrategyType())) {
+        } else if(HintedHandoffStrategyType.TO_ALL_STRATEGY.toDisplay()
+                                                           .compareTo(storeDef.getHintedHandoffStrategyType()
+                                                                              .toDisplay()) == 0) {
             return new HandoffToAllStrategy(cluster, enableZoneRouting, clientZoneId);
         } else {
-            throw new VoldemortException("HintedHandoffStrategyType:" + storeDef.getHintedHandoffStrategyType()
+            throw new VoldemortException("HintedHandoffStrategyType:"
+                                         + storeDef.getHintedHandoffStrategyType()
                                          + " not handled by " + this.getClass());
         }
     }

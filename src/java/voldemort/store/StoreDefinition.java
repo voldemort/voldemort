@@ -21,6 +21,7 @@ import java.util.HashMap;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -54,8 +55,7 @@ public class StoreDefinition implements Serializable {
     private final Integer zoneCountWrites;
     private final String valueTransformation;
     private final String serializerFactory;
-    private final Boolean enableHintedHandoff;
-    private final String hintedHandoffStrategyType;
+    private final HintedHandoffStrategyType hintedHandoffStrategyType;
     private final Integer hintPrefListSize;
 
     public StoreDefinition(String name,
@@ -78,8 +78,7 @@ public class StoreDefinition implements Serializable {
                            Integer retentionDays,
                            Integer retentionThrottleRate,
                            String factory,
-                           Boolean enableHintedHandoff,
-                           String hintedHandoffStrategyType,
+                           HintedHandoffStrategyType hintedHandoffStrategyType,
                            Integer hintPrefListSize) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
@@ -101,7 +100,6 @@ public class StoreDefinition implements Serializable {
         this.zoneCountReads = zoneCountReads;
         this.zoneCountWrites = zoneCountWrites;
         this.serializerFactory = factory;
-        this.enableHintedHandoff = enableHintedHandoff;
         this.hintedHandoffStrategyType = hintedHandoffStrategyType;
         this.hintPrefListSize = hintPrefListSize;
         checkParameterLegality();
@@ -267,15 +265,7 @@ public class StoreDefinition implements Serializable {
         return zoneCountWrites != null;
     }
 
-    public boolean hasHintedHandoffEnabled() {
-        return enableHintedHandoff != null;
-    }
-
-    public boolean isHintedHandoffEnabled() {
-        return !hasHintedHandoffEnabled() || enableHintedHandoff;
-    }
-
-    public String getHintedHandoffStrategyType() {
+    public HintedHandoffStrategyType getHintedHandoffStrategyType() {
         return hintedHandoffStrategyType;
     }
 
@@ -332,7 +322,6 @@ public class StoreDefinition implements Serializable {
                && Objects.equal(getSerializerFactory() != null ? getSerializerFactory() : null,
                                 def.getSerializerFactory() != null ? def.getSerializerFactory()
                                                                   : null)
-               && Objects.equal(isHintedHandoffEnabled(), def.isHintedHandoffEnabled())
                && Objects.equal(getHintedHandoffStrategyType(), def.getHintedHandoffStrategyType())
                && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize());
     }
@@ -361,7 +350,6 @@ public class StoreDefinition implements Serializable {
                                 getRetentionDays(),
                                 getRetentionScanThrottleRate(),
                                 getSerializerFactory(),
-                                isHintedHandoffEnabled(),
                                 hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType()
                                                               : null,
                                 hasHintPreflistSize() ? getHintPrefListSize() : null);
@@ -381,7 +369,6 @@ public class StoreDefinition implements Serializable {
                + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
                + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites()
                + ", serializer factory = " + getSerializerFactory() + ")"
-               + ", enable-hinted-handoff = " + isHintedHandoffEnabled()
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
                + ", hint-preflist-size = " + getHintPrefListSize() + ")";
     }

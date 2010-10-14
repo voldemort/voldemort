@@ -102,7 +102,6 @@ public class Benchmark {
     public static final String VERBOSE = "v";
     public static final String VERIFY = "verify";
     public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
-    public static final String HINTED_HANDOFF = "enable-hinted-handoff";
     public static final String CLIENT_ZONE_ID = "client-zoneid";
     public static final String SELECTORS = "selectors";
     public static final String SOCKET_BUFFER_SIZE = "socket-buffer-size";
@@ -330,7 +329,6 @@ public class Benchmark {
         this.verifyRead = benchmarkProps.getBoolean(VERIFY, false);
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
         boolean enablePipelineRouted = benchmarkProps.getBoolean(PIPELINE_ROUTED_STORE, false);
-        boolean enableHintedHandoff = benchmarkProps.getBoolean(HINTED_HANDOFF, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
         int numSelectors = benchmarkProps.getInt(SELECTORS, 4);
         int socketBufferSize = benchmarkProps.getInt(SOCKET_BUFFER_SIZE, 4 * 1024);
@@ -354,7 +352,6 @@ public class Benchmark {
                                                           .setSocketTimeout(60, TimeUnit.SECONDS)
                                                           .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
                                                           .setSocketBufferSize(socketBufferSize)
-                                                          .setEnableHintedHandoff(enableHintedHandoff)
                                                           .setSelectors(numSelectors)
                                                           .setEnablePipelineRoutedStore(enablePipelineRouted);
 
@@ -611,7 +608,6 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("class-name");
         parser.accepts(PIPELINE_ROUTED_STORE, "enable pipeline routed store");
-        parser.accepts(HINTED_HANDOFF, "enable hinted handoff");
         parser.accepts(CLIENT_ZONE_ID, "zone id for client; enables zone routing")
               .withRequiredArg()
               .describedAs("zone-id")
@@ -689,10 +685,11 @@ public class Benchmark {
             mainProps.put(VERIFY, getCmdBoolean(options, VERIFY));
             mainProps.put(IGNORE_NULLS, getCmdBoolean(options, IGNORE_NULLS));
             mainProps.put(PIPELINE_ROUTED_STORE, getCmdBoolean(options, PIPELINE_ROUTED_STORE));
-            mainProps.put(HINTED_HANDOFF, getCmdBoolean(options, HINTED_HANDOFF));
             mainProps.put(CLIENT_ZONE_ID, CmdUtils.valueOf(options, CLIENT_ZONE_ID, -1));
             mainProps.put(SELECTORS, CmdUtils.valueOf(options, SELECTORS, 4));
-            mainProps.put(SOCKET_BUFFER_SIZE, CmdUtils.valueOf(options, SOCKET_BUFFER_SIZE, 4 * 1024));
+            mainProps.put(SOCKET_BUFFER_SIZE, CmdUtils.valueOf(options,
+                                                               SOCKET_BUFFER_SIZE,
+                                                               4 * 1024));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));
