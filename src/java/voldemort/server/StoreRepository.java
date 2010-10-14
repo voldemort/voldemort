@@ -11,6 +11,7 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 
@@ -45,7 +46,7 @@ public class StoreRepository {
      * The store used for storing slop for future handoff. Transforms are
      * meaningless for slop stores. Hence the transforms byte array will be null
      */
-    private volatile StorageEngine<ByteArray, Slop, byte[]> slopStore;
+    private volatile SlopStorageEngine slopStore;
 
     /*
      * Unrouted stores, local to this node
@@ -207,13 +208,13 @@ public class StoreRepository {
                                          + " has already been initialized.");
     }
 
-    public StorageEngine<ByteArray, Slop, byte[]> getSlopStore() {
+    public SlopStorageEngine getSlopStore() {
         if(this.slopStore == null)
             throw new IllegalStateException("Slop store has not been set!");
         return this.slopStore;
     }
 
-    public void setSlopStore(StorageEngine<ByteArray, Slop, byte[]> slopStore) {
+    public void setSlopStore(SlopStorageEngine slopStore) {
         this.slopStore = slopStore;
     }
 
