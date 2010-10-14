@@ -53,6 +53,7 @@ import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.Version;
@@ -167,8 +168,9 @@ public class HintedHandoffTest {
             for(int i = 0; i < NUM_NODES_TOTAL; i++)
                 storeRepo.addNodeStore(i, subStores.get(i));
 
-            StorageEngine<ByteArray, Slop, byte[]> storageEngine = new InMemoryStorageEngine<ByteArray, Slop, byte[]>(SLOP_STORE_NAME);
-            storeRepo.setSlopStore(storageEngine);
+            SlopStorageEngine slopStorageEngine = new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(SLOP_STORE_NAME));
+            StorageEngine<ByteArray, Slop, byte[]> storageEngine = slopStorageEngine.asSlopStore();
+            storeRepo.setSlopStore(slopStorageEngine);
             slopStores.put(nodeId, storageEngine);
 
             SlopPusherJob pusher = new SlopPusherJob(storeRepo,

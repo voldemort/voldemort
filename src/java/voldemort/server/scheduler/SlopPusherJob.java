@@ -28,6 +28,7 @@ import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -71,8 +72,9 @@ public class SlopPusherJob implements Runnable {
         int slopsPushed = 0;
         int attemptedPushes = 0;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
+        SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
         try {
-            StorageEngine<ByteArray, Slop, byte[]> slopStore = storeRepo.getSlopStore();
+            StorageEngine<ByteArray, Slop, byte[]> slopStore = slopStorageEngine.asSlopStore();
             EventThrottler throttler = new EventThrottler(maxWriteBytesPerSec);
             iterator = slopStore.entries();
             while(iterator.hasNext()) {
@@ -139,6 +141,7 @@ public class SlopPusherJob implements Runnable {
         logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
+        slopStorageEngine.resetStats(attemptedPushes - slopsPushed);
     }
 
     private long deltaMs(Long startNs) {
