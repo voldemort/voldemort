@@ -7,7 +7,7 @@ public final class VAdminProto {
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }
-  public enum AdminRequestType
+  public static enum AdminRequestType
       implements com.google.protobuf.ProtocolMessageEnum {
     GET_METADATA(0, 0),
     UPDATE_METADATA(1, 1),
@@ -59,18 +59,6 @@ public final class VAdminProto {
         default: return null;
       }
     }
-    
-    public static com.google.protobuf.Internal.EnumLiteMap<AdminRequestType>
-        internalGetValueMap() {
-      return internalValueMap;
-    }
-    private static com.google.protobuf.Internal.EnumLiteMap<AdminRequestType>
-        internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<AdminRequestType>() {
-            public AdminRequestType findValueByNumber(int number) {
-              return AdminRequestType.valueOf(number)
-    ;        }
-          };
     
     public final com.google.protobuf.Descriptors.EnumValueDescriptor
         getValueDescriptor() {
@@ -127,6 +115,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetMetadataRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetMetadataRequest_fieldAccessorTable;
@@ -139,11 +128,13 @@ public final class VAdminProto {
     public boolean hasKey() { return hasKey; }
     public com.google.protobuf.ByteString getKey() { return key_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasKey) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasKey()) {
@@ -153,6 +144,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -174,7 +166,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -185,7 +177,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -196,7 +188,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -207,7 +199,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -219,49 +211,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest.getDescriptor();
@@ -271,12 +257,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -284,7 +268,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -293,13 +277,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetMetadataRequest)other);
@@ -318,9 +302,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -365,17 +358,13 @@ public final class VAdminProto {
       }
       public Builder clearKey() {
         result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        result.key_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -398,6 +387,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetMetadataResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetMetadataResponse_fieldAccessorTable;
@@ -417,6 +407,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasVersion()) {
         if (!getVersion().isInitialized()) return false;
@@ -427,6 +418,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasVersion()) {
@@ -439,6 +431,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -464,7 +457,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -475,7 +468,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -486,7 +479,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -497,7 +490,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -509,49 +502,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse.getDescriptor();
@@ -561,12 +548,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -574,7 +559,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -583,13 +568,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetMetadataResponse)other);
@@ -611,9 +596,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -733,10 +727,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class UpdateMetadataRequest extends
@@ -758,6 +748,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdateMetadataRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdateMetadataRequest_fieldAccessorTable;
@@ -777,6 +768,7 @@ public final class VAdminProto {
     public boolean hasVersioned() { return hasVersioned; }
     public voldemort.client.protocol.pb.VProto.Versioned getVersioned() { return versioned_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasKey) return false;
       if (!hasVersioned) return false;
@@ -784,6 +776,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasKey()) {
@@ -796,6 +789,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -821,7 +815,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -832,7 +826,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -843,7 +837,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -854,7 +848,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -866,49 +860,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest.getDescriptor();
@@ -918,12 +906,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -931,7 +917,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -940,13 +926,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.UpdateMetadataRequest)other);
@@ -968,9 +954,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -1024,7 +1019,7 @@ public final class VAdminProto {
       }
       public Builder clearKey() {
         result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        result.key_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
       
@@ -1069,10 +1064,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class UpdateMetadataResponse extends
@@ -1094,6 +1085,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdateMetadataResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdateMetadataResponse_fieldAccessorTable;
@@ -1106,6 +1098,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -1113,6 +1106,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -1122,6 +1116,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -1143,7 +1138,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1154,7 +1149,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1165,7 +1160,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -1176,7 +1171,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -1188,49 +1183,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse.getDescriptor();
@@ -1240,12 +1229,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -1253,7 +1240,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -1262,13 +1249,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.UpdateMetadataResponse)other);
@@ -1287,9 +1274,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -1363,10 +1359,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class FileEntry extends
@@ -1388,6 +1380,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FileEntry_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FileEntry_fieldAccessorTable;
@@ -1407,12 +1400,14 @@ public final class VAdminProto {
     public boolean hasFileSizeBytes() { return hasFileSizeBytes; }
     public long getFileSizeBytes() { return fileSizeBytes_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasFileName) return false;
       if (!hasFileSizeBytes) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasFileName()) {
@@ -1425,6 +1420,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -1450,7 +1446,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FileEntry parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1461,7 +1457,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FileEntry parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1472,7 +1468,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FileEntry parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -1483,7 +1479,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FileEntry parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -1495,49 +1491,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FileEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FileEntry prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FileEntry result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.FileEntry.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FileEntry();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.FileEntry result = new voldemort.client.protocol.pb.VAdminProto.FileEntry();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.FileEntry internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.FileEntry();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.FileEntry.getDescriptor();
@@ -1547,12 +1537,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.FileEntry.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.FileEntry build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -1560,7 +1548,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.FileEntry buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -1569,13 +1557,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.FileEntry buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.FileEntry returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.FileEntry) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FileEntry)other);
@@ -1597,9 +1585,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -1648,7 +1645,7 @@ public final class VAdminProto {
       }
       public Builder clearFileName() {
         result.hasFileName = false;
-        result.fileName_ = getDefaultInstance().getFileName();
+        result.fileName_ = "";
         return this;
       }
       
@@ -1674,10 +1671,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class PartitionEntry extends
@@ -1699,6 +1692,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_PartitionEntry_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_PartitionEntry_fieldAccessorTable;
@@ -1718,6 +1712,7 @@ public final class VAdminProto {
     public boolean hasVersioned() { return hasVersioned; }
     public voldemort.client.protocol.pb.VProto.Versioned getVersioned() { return versioned_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasKey) return false;
       if (!hasVersioned) return false;
@@ -1725,6 +1720,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasKey()) {
@@ -1737,6 +1733,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -1762,7 +1759,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.PartitionEntry parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1773,7 +1770,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.PartitionEntry parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -1784,7 +1781,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.PartitionEntry parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -1795,7 +1792,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.PartitionEntry parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -1807,49 +1804,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.PartitionEntry parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.PartitionEntry prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.PartitionEntry result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.PartitionEntry.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.PartitionEntry();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.PartitionEntry result = new voldemort.client.protocol.pb.VAdminProto.PartitionEntry();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.PartitionEntry internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.PartitionEntry();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.PartitionEntry.getDescriptor();
@@ -1859,12 +1850,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.PartitionEntry.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.PartitionEntry build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -1872,7 +1861,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.PartitionEntry buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -1881,13 +1870,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.PartitionEntry buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.PartitionEntry returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.PartitionEntry) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.PartitionEntry)other);
@@ -1909,9 +1898,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -1965,7 +1963,7 @@ public final class VAdminProto {
       }
       public Builder clearKey() {
         result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        result.key_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
       
@@ -2010,10 +2008,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class UpdatePartitionEntriesRequest extends
@@ -2035,6 +2029,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdatePartitionEntriesRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdatePartitionEntriesRequest_fieldAccessorTable;
@@ -2061,6 +2056,7 @@ public final class VAdminProto {
     public boolean hasFilter() { return hasFilter; }
     public voldemort.client.protocol.pb.VAdminProto.VoldemortFilter getFilter() { return filter_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStore) return false;
       if (!hasPartitionEntry) return false;
@@ -2071,6 +2067,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStore()) {
@@ -2086,6 +2083,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -2115,7 +2113,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2126,7 +2124,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2137,7 +2135,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -2148,7 +2146,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -2160,49 +2158,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest.getDescriptor();
@@ -2212,12 +2204,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -2225,7 +2215,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -2234,13 +2224,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesRequest)other);
@@ -2265,9 +2255,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -2330,7 +2329,7 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
       
@@ -2412,10 +2411,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class UpdatePartitionEntriesResponse extends
@@ -2437,6 +2432,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdatePartitionEntriesResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdatePartitionEntriesResponse_fieldAccessorTable;
@@ -2449,6 +2445,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -2456,6 +2453,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -2465,6 +2463,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -2486,7 +2485,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2497,7 +2496,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2508,7 +2507,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -2519,7 +2518,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -2531,49 +2530,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse.getDescriptor();
@@ -2583,12 +2576,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -2596,7 +2587,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -2605,13 +2596,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.UpdatePartitionEntriesResponse)other);
@@ -2630,9 +2621,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -2706,10 +2706,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class VoldemortFilter extends
@@ -2731,6 +2727,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_VoldemortFilter_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_VoldemortFilter_fieldAccessorTable;
@@ -2750,12 +2747,14 @@ public final class VAdminProto {
     public boolean hasData() { return hasData; }
     public com.google.protobuf.ByteString getData() { return data_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasName) return false;
       if (!hasData) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasName()) {
@@ -2768,6 +2767,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -2793,7 +2793,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortFilter parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2804,7 +2804,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortFilter parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -2815,7 +2815,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortFilter parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -2826,7 +2826,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortFilter parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -2838,49 +2838,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortFilter parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.VoldemortFilter prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.VoldemortFilter result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.VoldemortFilter.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.VoldemortFilter();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.VoldemortFilter result = new voldemort.client.protocol.pb.VAdminProto.VoldemortFilter();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.VoldemortFilter internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.VoldemortFilter();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.VoldemortFilter.getDescriptor();
@@ -2890,12 +2884,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.VoldemortFilter.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.VoldemortFilter build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -2903,7 +2895,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.VoldemortFilter buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -2912,13 +2904,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.VoldemortFilter buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.VoldemortFilter returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.VoldemortFilter) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.VoldemortFilter)other);
@@ -2940,9 +2932,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -2991,7 +2992,7 @@ public final class VAdminProto {
       }
       public Builder clearName() {
         result.hasName = false;
-        result.name_ = getDefaultInstance().getName();
+        result.name_ = "";
         return this;
       }
       
@@ -3012,17 +3013,13 @@ public final class VAdminProto {
       }
       public Builder clearData() {
         result.hasData = false;
-        result.data_ = getDefaultInstance().getData();
+        result.data_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -3045,6 +3042,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionFilesRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionFilesRequest_fieldAccessorTable;
@@ -3069,11 +3067,13 @@ public final class VAdminProto {
     public boolean hasStore() { return hasStore; }
     public java.lang.String getStore() { return store_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStore) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (int element : getPartitionsList()) {
@@ -3086,6 +3086,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -3116,7 +3117,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3127,7 +3128,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3138,7 +3139,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -3149,7 +3150,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -3161,49 +3162,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest.getDescriptor();
@@ -3213,12 +3208,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -3226,7 +3219,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -3235,8 +3228,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
@@ -3246,6 +3238,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchPartitionFilesRequest)other);
@@ -3270,9 +3263,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -3355,17 +3357,13 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -3388,6 +3386,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionEntriesRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionEntriesRequest_fieldAccessorTable;
@@ -3433,6 +3432,7 @@ public final class VAdminProto {
     public boolean hasFetchMasterEntries() { return hasFetchMasterEntries; }
     public boolean getFetchMasterEntries() { return fetchMasterEntries_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStore) return false;
       if (hasFilter()) {
@@ -3441,6 +3441,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (int element : getPartitionsList()) {
@@ -3462,6 +3463,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -3504,7 +3506,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3515,7 +3517,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3526,7 +3528,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -3537,7 +3539,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -3549,49 +3551,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest.getDescriptor();
@@ -3601,12 +3597,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -3614,7 +3608,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -3623,8 +3617,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
@@ -3634,6 +3627,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest)other);
@@ -3667,9 +3661,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -3769,7 +3772,7 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
       
@@ -3850,10 +3853,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class FetchPartitionEntriesResponse extends
@@ -3875,6 +3874,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionEntriesResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchPartitionEntriesResponse_fieldAccessorTable;
@@ -3901,6 +3901,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasPartitionEntry()) {
         if (!getPartitionEntry().isInitialized()) return false;
@@ -3911,6 +3912,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasPartitionEntry()) {
@@ -3926,6 +3928,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -3955,7 +3958,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3966,7 +3969,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -3977,7 +3980,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -3988,7 +3991,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -4000,49 +4003,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse.getDescriptor();
@@ -4052,12 +4049,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -4065,7 +4060,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -4074,13 +4069,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesResponse)other);
@@ -4105,9 +4100,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -4207,7 +4211,7 @@ public final class VAdminProto {
       }
       public Builder clearKey() {
         result.hasKey = false;
-        result.key_ = getDefaultInstance().getKey();
+        result.key_ = com.google.protobuf.ByteString.EMPTY;
         return this;
       }
       
@@ -4252,10 +4256,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class DeletePartitionEntriesRequest extends
@@ -4277,6 +4277,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesRequest_fieldAccessorTable;
@@ -4308,6 +4309,7 @@ public final class VAdminProto {
     public boolean hasFilter() { return hasFilter; }
     public voldemort.client.protocol.pb.VAdminProto.VoldemortFilter getFilter() { return filter_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStore) return false;
       if (hasFilter()) {
@@ -4316,6 +4318,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStore()) {
@@ -4331,6 +4334,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -4365,7 +4369,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -4376,7 +4380,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -4387,7 +4391,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -4398,7 +4402,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -4410,49 +4414,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest.getDescriptor();
@@ -4462,12 +4460,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -4475,7 +4471,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -4484,8 +4480,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
@@ -4495,6 +4490,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesRequest)other);
@@ -4522,9 +4518,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -4582,7 +4587,7 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
       
@@ -4661,10 +4666,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class DeletePartitionEntriesResponse extends
@@ -4686,6 +4687,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesResponse_fieldAccessorTable;
@@ -4705,6 +4707,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -4712,6 +4715,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasCount()) {
@@ -4724,6 +4728,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -4749,7 +4754,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -4760,7 +4765,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -4771,7 +4776,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -4782,7 +4787,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -4794,49 +4799,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse.getDescriptor();
@@ -4846,12 +4845,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -4859,7 +4856,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -4868,13 +4865,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.DeletePartitionEntriesResponse)other);
@@ -4896,9 +4893,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -4994,10 +5000,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class InitiateFetchAndUpdateRequest extends
@@ -5019,6 +5021,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_InitiateFetchAndUpdateRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_InitiateFetchAndUpdateRequest_fieldAccessorTable;
@@ -5064,6 +5067,7 @@ public final class VAdminProto {
     public boolean hasIsReadonly() { return hasIsReadonly; }
     public boolean getIsReadonly() { return isReadonly_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasNodeId) return false;
       if (!hasStore) return false;
@@ -5073,6 +5077,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasNodeId()) {
@@ -5094,6 +5099,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -5136,7 +5142,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5147,7 +5153,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5158,7 +5164,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -5169,7 +5175,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -5181,49 +5187,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest result = new voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.getDescriptor();
@@ -5233,12 +5233,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -5246,7 +5244,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -5255,8 +5253,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
@@ -5266,6 +5263,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.InitiateFetchAndUpdateRequest)other);
@@ -5299,9 +5297,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -5419,7 +5426,7 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
       
@@ -5482,10 +5489,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AsyncOperationStatusRequest extends
@@ -5507,6 +5510,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStatusRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStatusRequest_fieldAccessorTable;
@@ -5519,11 +5523,13 @@ public final class VAdminProto {
     public boolean hasRequestId() { return hasRequestId; }
     public int getRequestId() { return requestId_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasRequestId) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasRequestId()) {
@@ -5533,6 +5539,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -5554,7 +5561,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5565,7 +5572,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5576,7 +5583,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -5587,7 +5594,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -5599,49 +5606,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest.getDescriptor();
@@ -5651,12 +5652,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -5664,7 +5663,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -5673,13 +5672,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusRequest)other);
@@ -5698,9 +5697,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -5749,10 +5757,6 @@ public final class VAdminProto {
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -5775,6 +5779,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStopRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStopRequest_fieldAccessorTable;
@@ -5787,11 +5792,13 @@ public final class VAdminProto {
     public boolean hasRequestId() { return hasRequestId; }
     public int getRequestId() { return requestId_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasRequestId) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasRequestId()) {
@@ -5801,6 +5808,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -5822,7 +5830,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5833,7 +5841,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -5844,7 +5852,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -5855,7 +5863,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -5867,49 +5875,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest.getDescriptor();
@@ -5919,12 +5921,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -5932,7 +5932,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -5941,13 +5941,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopRequest)other);
@@ -5966,9 +5966,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -6018,10 +6027,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AsyncOperationStopResponse extends
@@ -6043,6 +6048,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStopResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStopResponse_fieldAccessorTable;
@@ -6055,6 +6061,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -6062,6 +6069,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -6071,6 +6079,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -6092,7 +6101,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6103,7 +6112,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6114,7 +6123,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -6125,7 +6134,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -6137,49 +6146,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse.getDescriptor();
@@ -6189,12 +6192,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -6202,7 +6203,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -6211,13 +6212,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationStopResponse)other);
@@ -6236,9 +6237,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -6312,10 +6322,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AsyncOperationListRequest extends
@@ -6337,6 +6343,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationListRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationListRequest_fieldAccessorTable;
@@ -6356,12 +6363,14 @@ public final class VAdminProto {
     public boolean hasShowComplete() { return hasShowComplete; }
     public boolean getShowComplete() { return showComplete_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasRequestId) return false;
       if (!hasShowComplete) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasRequestId()) {
@@ -6374,6 +6383,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -6399,7 +6409,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6410,7 +6420,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6421,7 +6431,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -6432,7 +6442,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -6444,49 +6454,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.getDescriptor();
@@ -6496,12 +6500,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -6509,7 +6511,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -6518,13 +6520,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest)other);
@@ -6546,9 +6548,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -6620,10 +6631,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AsyncOperationListResponse extends
@@ -6645,6 +6652,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationListResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationListResponse_fieldAccessorTable;
@@ -6669,6 +6677,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -6676,6 +6685,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (int element : getRequestIdsList()) {
@@ -6688,6 +6698,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -6718,7 +6729,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6729,7 +6740,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -6740,7 +6751,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -6751,7 +6762,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -6763,49 +6774,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse.getDescriptor();
@@ -6815,12 +6820,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -6828,7 +6831,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -6837,8 +6840,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.requestIds_ != java.util.Collections.EMPTY_LIST) {
           result.requestIds_ =
             java.util.Collections.unmodifiableList(result.requestIds_);
@@ -6848,6 +6850,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationListResponse)other);
@@ -6872,9 +6875,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -6986,10 +6998,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class InitiateRebalanceNodeRequest extends
@@ -7011,6 +7019,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable;
@@ -7109,6 +7118,7 @@ public final class VAdminProto {
       return donorRoStoreToDir_.get(index);
     }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStealerId) return false;
       if (!hasDonorId) return false;
@@ -7122,6 +7132,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStealerId()) {
@@ -7155,6 +7166,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -7228,7 +7240,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -7239,7 +7251,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -7250,7 +7262,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -7261,7 +7273,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -7273,49 +7285,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest result = new voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.getDescriptor();
@@ -7325,12 +7331,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -7338,7 +7342,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -7347,8 +7351,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
           result.partitions_ =
             java.util.Collections.unmodifiableList(result.partitions_);
@@ -7378,6 +7381,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest)other);
@@ -7438,9 +7442,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -7806,10 +7819,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AsyncOperationStatusResponse extends
@@ -7831,6 +7840,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStatusResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationStatusResponse_fieldAccessorTable;
@@ -7871,6 +7881,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -7878,6 +7889,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasRequestId()) {
@@ -7899,6 +7911,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -7936,7 +7949,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -7947,7 +7960,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -7958,7 +7971,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -7969,7 +7982,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -7981,49 +7994,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse.getDescriptor();
@@ -8033,12 +8040,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -8046,7 +8051,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -8055,13 +8060,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AsyncOperationStatusResponse)other);
@@ -8092,9 +8097,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -8178,7 +8192,7 @@ public final class VAdminProto {
       }
       public Builder clearDescription() {
         result.hasDescription = false;
-        result.description_ = getDefaultInstance().getDescription();
+        result.description_ = "";
         return this;
       }
       
@@ -8199,7 +8213,7 @@ public final class VAdminProto {
       }
       public Builder clearStatus() {
         result.hasStatus = false;
-        result.status_ = getDefaultInstance().getStatus();
+        result.status_ = "";
         return this;
       }
       
@@ -8262,10 +8276,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class TruncateEntriesRequest extends
@@ -8287,6 +8297,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_TruncateEntriesRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_TruncateEntriesRequest_fieldAccessorTable;
@@ -8299,11 +8310,13 @@ public final class VAdminProto {
     public boolean hasStore() { return hasStore; }
     public java.lang.String getStore() { return store_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStore) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStore()) {
@@ -8313,6 +8326,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -8334,7 +8348,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8345,7 +8359,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8356,7 +8370,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -8367,7 +8381,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -8379,49 +8393,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest.getDescriptor();
@@ -8431,12 +8439,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -8444,7 +8450,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -8453,13 +8459,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.TruncateEntriesRequest)other);
@@ -8478,9 +8484,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -8525,17 +8540,13 @@ public final class VAdminProto {
       }
       public Builder clearStore() {
         result.hasStore = false;
-        result.store_ = getDefaultInstance().getStore();
+        result.store_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -8558,6 +8569,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_TruncateEntriesResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_TruncateEntriesResponse_fieldAccessorTable;
@@ -8570,6 +8582,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -8577,6 +8590,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -8586,6 +8600,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -8607,7 +8622,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8618,7 +8633,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8629,7 +8644,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -8640,7 +8655,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -8652,49 +8667,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse.getDescriptor();
@@ -8704,12 +8713,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -8717,7 +8724,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -8726,13 +8733,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.TruncateEntriesResponse)other);
@@ -8751,9 +8758,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -8827,10 +8843,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class AddStoreRequest extends
@@ -8852,6 +8864,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AddStoreRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AddStoreRequest_fieldAccessorTable;
@@ -8864,11 +8877,13 @@ public final class VAdminProto {
     public boolean hasStoreDefinition() { return hasStoreDefinition; }
     public java.lang.String getStoreDefinition() { return storeDefinition_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreDefinition) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreDefinition()) {
@@ -8878,6 +8893,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -8899,7 +8915,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8910,7 +8926,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -8921,7 +8937,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -8932,7 +8948,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -8944,49 +8960,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AddStoreRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AddStoreRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AddStoreRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AddStoreRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AddStoreRequest result = new voldemort.client.protocol.pb.VAdminProto.AddStoreRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AddStoreRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AddStoreRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AddStoreRequest.getDescriptor();
@@ -8996,12 +9006,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AddStoreRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AddStoreRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -9009,7 +9017,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AddStoreRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -9018,13 +9026,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AddStoreRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AddStoreRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AddStoreRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AddStoreRequest)other);
@@ -9043,9 +9051,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -9090,17 +9107,13 @@ public final class VAdminProto {
       }
       public Builder clearStoreDefinition() {
         result.hasStoreDefinition = false;
-        result.storeDefinition_ = getDefaultInstance().getStoreDefinition();
+        result.storeDefinition_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -9123,6 +9136,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AddStoreResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AddStoreResponse_fieldAccessorTable;
@@ -9135,6 +9149,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -9142,6 +9157,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -9151,6 +9167,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -9172,7 +9189,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9183,7 +9200,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9194,7 +9211,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -9205,7 +9222,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -9217,49 +9234,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.AddStoreResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.AddStoreResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.AddStoreResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.AddStoreResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.AddStoreResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.AddStoreResponse result = new voldemort.client.protocol.pb.VAdminProto.AddStoreResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.AddStoreResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.AddStoreResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.AddStoreResponse.getDescriptor();
@@ -9269,12 +9280,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.AddStoreResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.AddStoreResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -9282,7 +9291,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.AddStoreResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -9291,13 +9300,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.AddStoreResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.AddStoreResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.AddStoreResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.AddStoreResponse)other);
@@ -9316,9 +9325,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -9392,10 +9410,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class DeleteStoreRequest extends
@@ -9417,6 +9431,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeleteStoreRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeleteStoreRequest_fieldAccessorTable;
@@ -9429,11 +9444,13 @@ public final class VAdminProto {
     public boolean hasStoreName() { return hasStoreName; }
     public java.lang.String getStoreName() { return storeName_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreName()) {
@@ -9443,6 +9460,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -9464,7 +9482,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9475,7 +9493,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9486,7 +9504,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -9497,7 +9515,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -9509,49 +9527,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest.getDescriptor();
@@ -9561,12 +9573,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -9574,7 +9584,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -9583,13 +9593,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.DeleteStoreRequest)other);
@@ -9608,9 +9618,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -9655,17 +9674,13 @@ public final class VAdminProto {
       }
       public Builder clearStoreName() {
         result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
+        result.storeName_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -9688,6 +9703,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeleteStoreResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeleteStoreResponse_fieldAccessorTable;
@@ -9700,6 +9716,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -9707,6 +9724,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -9716,6 +9734,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -9737,7 +9756,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9748,7 +9767,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -9759,7 +9778,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -9770,7 +9789,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -9782,49 +9801,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse.getDescriptor();
@@ -9834,12 +9847,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -9847,7 +9858,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -9856,13 +9867,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.DeleteStoreResponse)other);
@@ -9881,9 +9892,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -9957,10 +9977,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class FetchStoreRequest extends
@@ -9982,6 +9998,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchStoreRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_FetchStoreRequest_fieldAccessorTable;
@@ -10008,12 +10025,14 @@ public final class VAdminProto {
     public boolean hasPushVersion() { return hasPushVersion; }
     public long getPushVersion() { return pushVersion_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       if (!hasStoreDir) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreName()) {
@@ -10029,6 +10048,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -10058,7 +10078,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10069,7 +10089,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10080,7 +10100,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -10091,7 +10111,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -10103,49 +10123,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest result = new voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.getDescriptor();
@@ -10155,12 +10169,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -10168,7 +10180,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -10177,13 +10189,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.FetchStoreRequest)other);
@@ -10208,9 +10220,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -10263,7 +10284,7 @@ public final class VAdminProto {
       }
       public Builder clearStoreName() {
         result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
+        result.storeName_ = "";
         return this;
       }
       
@@ -10284,7 +10305,7 @@ public final class VAdminProto {
       }
       public Builder clearStoreDir() {
         result.hasStoreDir = false;
-        result.storeDir_ = getDefaultInstance().getStoreDir();
+        result.storeDir_ = "";
         return this;
       }
       
@@ -10310,10 +10331,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class SwapStoreRequest extends
@@ -10335,6 +10352,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoreRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoreRequest_fieldAccessorTable;
@@ -10354,12 +10372,14 @@ public final class VAdminProto {
     public boolean hasStoreDir() { return hasStoreDir; }
     public java.lang.String getStoreDir() { return storeDir_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       if (!hasStoreDir) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreName()) {
@@ -10372,6 +10392,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -10397,7 +10418,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10408,7 +10429,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10419,7 +10440,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -10430,7 +10451,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -10442,49 +10463,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.getDescriptor();
@@ -10494,12 +10509,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -10507,7 +10520,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -10516,13 +10529,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.SwapStoreRequest)other);
@@ -10544,9 +10557,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -10595,7 +10617,7 @@ public final class VAdminProto {
       }
       public Builder clearStoreName() {
         result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
+        result.storeName_ = "";
         return this;
       }
       
@@ -10616,17 +10638,13 @@ public final class VAdminProto {
       }
       public Builder clearStoreDir() {
         result.hasStoreDir = false;
-        result.storeDir_ = getDefaultInstance().getStoreDir();
+        result.storeDir_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -10649,6 +10667,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoreResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoreResponse_fieldAccessorTable;
@@ -10661,6 +10680,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -10668,6 +10688,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -10677,6 +10698,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -10698,7 +10720,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10709,7 +10731,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -10720,7 +10742,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -10731,7 +10753,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -10743,49 +10765,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.getDescriptor();
@@ -10795,12 +10811,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -10808,7 +10822,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -10817,13 +10831,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.SwapStoreResponse)other);
@@ -10842,9 +10856,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -10918,10 +10941,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class RollbackStoreRequest extends
@@ -10943,6 +10962,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreRequest_fieldAccessorTable;
@@ -10962,12 +10982,14 @@ public final class VAdminProto {
     public boolean hasPushVersion() { return hasPushVersion; }
     public long getPushVersion() { return pushVersion_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       if (!hasPushVersion) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreName()) {
@@ -10980,6 +11002,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -11005,7 +11028,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11016,7 +11039,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11027,7 +11050,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -11038,7 +11061,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -11050,49 +11073,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDescriptor();
@@ -11102,12 +11119,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -11115,7 +11130,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -11124,13 +11139,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.RollbackStoreRequest)other);
@@ -11152,9 +11167,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -11203,7 +11227,7 @@ public final class VAdminProto {
       }
       public Builder clearStoreName() {
         result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
+        result.storeName_ = "";
         return this;
       }
       
@@ -11229,10 +11253,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class RollbackStoreResponse extends
@@ -11254,6 +11274,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_RollbackStoreResponse_fieldAccessorTable;
@@ -11266,6 +11287,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -11273,6 +11295,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -11282,6 +11305,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -11303,7 +11327,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11314,7 +11338,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11325,7 +11349,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -11336,7 +11360,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -11348,49 +11372,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.getDescriptor();
@@ -11400,12 +11418,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -11413,7 +11429,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -11422,13 +11438,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.RollbackStoreResponse)other);
@@ -11447,9 +11463,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -11523,10 +11548,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class ROStoreVersionDirMap extends
@@ -11548,6 +11569,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionDirMap_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_ROStoreVersionDirMap_fieldAccessorTable;
@@ -11567,12 +11589,14 @@ public final class VAdminProto {
     public boolean hasStoreDir() { return hasStoreDir; }
     public java.lang.String getStoreDir() { return storeDir_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasStoreName) return false;
       if (!hasStoreDir) return false;
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasStoreName()) {
@@ -11585,6 +11609,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -11610,7 +11635,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11621,7 +11646,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11632,7 +11657,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -11643,7 +11668,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -11655,49 +11680,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.getDescriptor();
@@ -11707,12 +11726,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -11720,7 +11737,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -11729,13 +11746,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap)other);
@@ -11757,9 +11774,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -11808,7 +11834,7 @@ public final class VAdminProto {
       }
       public Builder clearStoreName() {
         result.hasStoreName = false;
-        result.storeName_ = getDefaultInstance().getStoreName();
+        result.storeName_ = "";
         return this;
       }
       
@@ -11829,17 +11855,13 @@ public final class VAdminProto {
       }
       public Builder clearStoreDir() {
         result.hasStoreDir = false;
-        result.storeDir_ = getDefaultInstance().getStoreDir();
+        result.storeDir_ = "";
         return this;
       }
     }
     
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
-    }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
     }
   }
   
@@ -11862,6 +11884,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirRequest_fieldAccessorTable;
@@ -11879,10 +11902,12 @@ public final class VAdminProto {
       return storeName_.get(index);
     }
     
+    @Override
     public final boolean isInitialized() {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (java.lang.String element : getStoreNameList()) {
@@ -11892,6 +11917,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -11918,7 +11944,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11929,7 +11955,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -11940,7 +11966,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -11951,7 +11977,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -11963,49 +11989,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDescriptor();
@@ -12015,12 +12035,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -12028,7 +12046,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -12037,8 +12055,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.storeName_ != java.util.Collections.EMPTY_LIST) {
           result.storeName_ =
             java.util.Collections.unmodifiableList(result.storeName_);
@@ -12048,6 +12065,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirRequest)other);
@@ -12069,9 +12087,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -12143,10 +12170,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class GetROMaxVersionDirResponse extends
@@ -12168,6 +12191,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROMaxVersionDirResponse_fieldAccessorTable;
@@ -12192,6 +12216,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         if (!element.isInitialized()) return false;
@@ -12202,6 +12227,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
@@ -12214,6 +12240,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -12239,7 +12266,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12250,7 +12277,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12261,7 +12288,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -12272,7 +12299,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -12284,49 +12311,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.getDescriptor();
@@ -12336,12 +12357,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -12349,7 +12368,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -12358,8 +12377,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.roStoreVersions_ != java.util.Collections.EMPTY_LIST) {
           result.roStoreVersions_ =
             java.util.Collections.unmodifiableList(result.roStoreVersions_);
@@ -12369,6 +12387,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROMaxVersionDirResponse)other);
@@ -12393,9 +12412,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -12526,10 +12554,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class GetROCurrentVersionDirRequest extends
@@ -12551,6 +12575,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirRequest_fieldAccessorTable;
@@ -12568,10 +12593,12 @@ public final class VAdminProto {
       return storeName_.get(index);
     }
     
+    @Override
     public final boolean isInitialized() {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (java.lang.String element : getStoreNameList()) {
@@ -12581,6 +12608,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -12607,7 +12635,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12618,7 +12646,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12629,7 +12657,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -12640,7 +12668,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -12652,49 +12680,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDescriptor();
@@ -12704,12 +12726,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -12717,7 +12737,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -12726,8 +12746,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.storeName_ != java.util.Collections.EMPTY_LIST) {
           result.storeName_ =
             java.util.Collections.unmodifiableList(result.storeName_);
@@ -12737,6 +12756,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirRequest)other);
@@ -12758,9 +12778,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -12832,10 +12861,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class GetROCurrentVersionDirResponse extends
@@ -12857,6 +12882,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_GetROCurrentVersionDirResponse_fieldAccessorTable;
@@ -12881,6 +12907,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         if (!element.isInitialized()) return false;
@@ -12891,6 +12918,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
@@ -12903,6 +12931,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -12928,7 +12957,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12939,7 +12968,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -12950,7 +12979,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -12961,7 +12990,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -12973,49 +13002,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.getDescriptor();
@@ -13025,12 +13048,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -13038,7 +13059,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -13047,8 +13068,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.roStoreVersions_ != java.util.Collections.EMPTY_LIST) {
           result.roStoreVersions_ =
             java.util.Collections.unmodifiableList(result.roStoreVersions_);
@@ -13058,6 +13078,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.GetROCurrentVersionDirResponse)other);
@@ -13082,9 +13103,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -13215,10 +13245,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class SwapStoresAndCleanStateRequest extends
@@ -13240,6 +13266,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoresAndCleanStateRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoresAndCleanStateRequest_fieldAccessorTable;
@@ -13257,6 +13284,7 @@ public final class VAdminProto {
       return roStoreVersions_.get(index);
     }
     
+    @Override
     public final boolean isInitialized() {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
         if (!element.isInitialized()) return false;
@@ -13264,6 +13292,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getRoStoreVersionsList()) {
@@ -13273,6 +13302,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -13294,7 +13324,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -13305,7 +13335,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -13316,7 +13346,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -13327,7 +13357,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -13339,49 +13369,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest.getDescriptor();
@@ -13391,12 +13415,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -13404,7 +13426,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -13413,8 +13435,7 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         if (result.roStoreVersions_ != java.util.Collections.EMPTY_LIST) {
           result.roStoreVersions_ =
             java.util.Collections.unmodifiableList(result.roStoreVersions_);
@@ -13424,6 +13445,7 @@ public final class VAdminProto {
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest)other);
@@ -13445,9 +13467,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -13532,10 +13563,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class SwapStoresAndCleanStateResponse extends
@@ -13557,6 +13584,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoresAndCleanStateResponse_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_SwapStoresAndCleanStateResponse_fieldAccessorTable;
@@ -13569,6 +13597,7 @@ public final class VAdminProto {
     public boolean hasError() { return hasError; }
     public voldemort.client.protocol.pb.VProto.Error getError() { return error_; }
     
+    @Override
     public final boolean isInitialized() {
       if (hasError()) {
         if (!getError().isInitialized()) return false;
@@ -13576,6 +13605,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasError()) {
@@ -13585,6 +13615,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -13606,7 +13637,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -13617,7 +13648,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -13628,7 +13659,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -13639,7 +13670,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -13651,49 +13682,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse.getDescriptor();
@@ -13703,12 +13728,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -13716,7 +13739,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -13725,13 +13748,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateResponse)other);
@@ -13750,9 +13773,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -13826,10 +13858,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   public static final class VoldemortAdminRequest extends
@@ -13851,6 +13879,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_VoldemortAdminRequest_descriptor;
     }
     
+    @Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_VoldemortAdminRequest_fieldAccessorTable;
@@ -14003,6 +14032,7 @@ public final class VAdminProto {
     public boolean hasSwapStoresAndCleanState() { return hasSwapStoresAndCleanState; }
     public voldemort.client.protocol.pb.VAdminProto.SwapStoresAndCleanStateRequest getSwapStoresAndCleanState() { return swapStoresAndCleanState_; }
     
+    @Override
     public final boolean isInitialized() {
       if (!hasType) return false;
       if (hasGetMetadata()) {
@@ -14062,6 +14092,7 @@ public final class VAdminProto {
       return true;
     }
     
+    @Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (hasType()) {
@@ -14131,6 +14162,7 @@ public final class VAdminProto {
     }
     
     private int memoizedSerializedSize = -1;
+    @Override
     public int getSerializedSize() {
       int size = memoizedSerializedSize;
       if (size != -1) return size;
@@ -14232,7 +14264,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest parseFrom(
         com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -14243,7 +14275,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest parseFrom(
         byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return newBuilder().mergeFrom(data, extensionRegistry)
                .buildParsed();
@@ -14254,7 +14286,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest parseFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
@@ -14265,7 +14297,7 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest parseDelimitedFrom(
         java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeDelimitedFrom(input, extensionRegistry)
                .buildParsed();
@@ -14277,49 +14309,43 @@ public final class VAdminProto {
     }
     public static voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest parseFrom(
         com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        com.google.protobuf.ExtensionRegistry extensionRegistry)
         throws java.io.IOException {
       return newBuilder().mergeFrom(input, extensionRegistry)
                .buildParsed();
     }
     
-    public static Builder newBuilder() { return Builder.create(); }
-    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() { return new Builder(); }
+    public Builder newBuilderForType() { return new Builder(); }
     public static Builder newBuilder(voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest prototype) {
-      return newBuilder().mergeFrom(prototype);
+      return new Builder().mergeFrom(prototype);
     }
     public Builder toBuilder() { return newBuilder(this); }
     
     public static final class Builder extends
         com.google.protobuf.GeneratedMessage.Builder<Builder> {
-      private voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest result;
-      
       // Construct using voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.newBuilder()
       private Builder() {}
       
-      private static Builder create() {
-        Builder builder = new Builder();
-        builder.result = new voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest();
-        return builder;
-      }
+      voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest result = new voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest();
       
+      @Override
       protected voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest internalGetResult() {
         return result;
       }
       
+      @Override
       public Builder clear() {
-        if (result == null) {
-          throw new IllegalStateException(
-            "Cannot call clear() after build().");
-        }
         result = new voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest();
         return this;
       }
       
+      @Override
       public Builder clone() {
-        return create().mergeFrom(result);
+        return new Builder().mergeFrom(result);
       }
       
+      @Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
         return voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.getDescriptor();
@@ -14329,12 +14355,10 @@ public final class VAdminProto {
         return voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest.getDefaultInstance();
       }
       
-      public boolean isInitialized() {
-        return result.isInitialized();
-      }
       public voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest build() {
         if (result != null && !isInitialized()) {
-          throw newUninitializedMessageException(result);
+          throw new com.google.protobuf.UninitializedMessageException(
+            result);
         }
         return buildPartial();
       }
@@ -14342,7 +14366,7 @@ public final class VAdminProto {
       private voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest buildParsed()
           throws com.google.protobuf.InvalidProtocolBufferException {
         if (!isInitialized()) {
-          throw newUninitializedMessageException(
+          throw new com.google.protobuf.UninitializedMessageException(
             result).asInvalidProtocolBufferException();
         }
         return buildPartial();
@@ -14351,13 +14375,13 @@ public final class VAdminProto {
       public voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest buildPartial() {
         if (result == null) {
           throw new IllegalStateException(
-            "build() has already been called on this Builder.");
-        }
+            "build() has already been called on this Builder.");  }
         voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest returnMe = result;
         result = null;
         return returnMe;
       }
       
+      @Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest) {
           return mergeFrom((voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest)other);
@@ -14436,9 +14460,18 @@ public final class VAdminProto {
         return this;
       }
       
+      @Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return mergeFrom(input,
+          com.google.protobuf.ExtensionRegistry.getEmptyRegistry());
+      }
+      
+      @Override
       public Builder mergeFrom(
           com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          com.google.protobuf.ExtensionRegistry extensionRegistry)
           throws java.io.IOException {
         com.google.protobuf.UnknownFieldSet.Builder unknownFields =
           com.google.protobuf.UnknownFieldSet.newBuilder(
@@ -15417,10 +15450,6 @@ public final class VAdminProto {
     static {
       voldemort.client.protocol.pb.VAdminProto.getDescriptor();
     }
-    
-    static {
-      voldemort.client.protocol.pb.VAdminProto.internalForceInit();
-    }
   }
   
   private static com.google.protobuf.Descriptors.Descriptor
@@ -15636,7 +15665,7 @@ public final class VAdminProto {
   private static com.google.protobuf.Descriptors.FileDescriptor
       descriptor;
   static {
-    java.lang.String[] descriptorData = {
+    java.lang.String descriptorData =
       "\n\025voldemort-admin.proto\022\tvoldemort\032\026vold" +
       "emort-client.proto\"!\n\022GetMetadataRequest" +
       "\022\013\n\003key\030\001 \002(\014\"]\n\023GetMetadataResponse\022%\n\007" +
@@ -15646,7 +15675,7 @@ public final class VAdminProto {
       "\002 \002(\0132\024.voldemort.Versioned\"9\n\026UpdateMet" +
       "adataResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort" +
       ".Error\"7\n\tFileEntry\022\021\n\tfile_name\030\001 \002(\t\022\027" +
-      "\n\017file_size_bytes\030\002 \002(\003\"F\n\016PartitionEntr",
+      "\n\017file_size_bytes\030\002 \002(\003\"F\n\016PartitionEntr" +
       "y\022\013\n\003key\030\001 \002(\014\022\'\n\tversioned\030\002 \002(\0132\024.vold" +
       "emort.Versioned\"\216\001\n\035UpdatePartitionEntri" +
       "esRequest\022\r\n\005store\030\001 \002(\t\0222\n\017partition_en" +
@@ -15656,7 +15685,7 @@ public final class VAdminProto {
       "ror\030\001 \001(\0132\020.voldemort.Error\"-\n\017Voldemort" +
       "Filter\022\014\n\004name\030\001 \002(\t\022\014\n\004data\030\002 \002(\014\"?\n\032Fe" +
       "tchPartitionFilesRequest\022\022\n\npartitions\030\001" +
-      " \003(\005\022\r\n\005store\030\002 \002(\t\"\241\001\n\034FetchPartitionEn",
+      " \003(\005\022\r\n\005store\030\002 \002(\t\"\241\001\n\034FetchPartitionEn" +
       "triesRequest\022\022\n\npartitions\030\001 \003(\005\022\r\n\005stor" +
       "e\030\002 \002(\t\022*\n\006filter\030\003 \001(\0132\032.voldemort.Vold" +
       "emortFilter\022\024\n\014fetch_values\030\004 \001(\010\022\034\n\024fet" +
@@ -15666,7 +15695,7 @@ public final class VAdminProto {
       "(\014\022\037\n\005error\030\003 \001(\0132\020.voldemort.Error\"n\n\035D" +
       "eletePartitionEntriesRequest\022\r\n\005store\030\001 " +
       "\002(\t\022\022\n\npartitions\030\002 \003(\005\022*\n\006filter\030\003 \001(\0132" +
-      "\032.voldemort.VoldemortFilter\"P\n\036DeletePar",
+      "\032.voldemort.VoldemortFilter\"P\n\036DeletePar" +
       "titionEntriesResponse\022\r\n\005count\030\001 \001(\005\022\037\n\005" +
       "error\030\002 \001(\0132\020.voldemort.Error\"\224\001\n\035Initia" +
       "teFetchAndUpdateRequest\022\017\n\007node_id\030\001 \002(\005" +
@@ -15676,7 +15705,7 @@ public final class VAdminProto {
       "atusRequest\022\022\n\nrequest_id\030\001 \002(\005\"/\n\031Async" +
       "OperationStopRequest\022\022\n\nrequest_id\030\001 \002(\005" +
       "\"=\n\032AsyncOperationStopResponse\022\037\n\005error\030" +
-      "\001 \001(\0132\020.voldemort.Error\"M\n\031AsyncOperatio",
+      "\001 \001(\0132\020.voldemort.Error\"M\n\031AsyncOperatio" +
       "nListRequest\022\022\n\nrequest_id\030\001 \002(\005\022\034\n\rshow" +
       "_complete\030\002 \002(\010:\005false\"R\n\032AsyncOperation" +
       "ListResponse\022\023\n\013request_ids\030\001 \003(\005\022\037\n\005err" +
@@ -15686,7 +15715,7 @@ public final class VAdminProto {
       "\007attempt\030\005 \002(\005\022\030\n\020deletePartitions\030\006 \003(\005" +
       "\022\030\n\020unbalanced_store\030\007 \003(\t\022\035\n\025stealMaste" +
       "rPartitions\030\010 \003(\005\022@\n\027stealer_ro_store_to" +
-      "_dir\030\t \003(\0132\037.voldemort.ROStoreVersionDir",
+      "_dir\030\t \003(\0132\037.voldemort.ROStoreVersionDir" +
       "Map\022>\n\025donor_ro_store_to_dir\030\n \003(\0132\037.vol" +
       "demort.ROStoreVersionDirMap\"\212\001\n\034AsyncOpe" +
       "rationStatusResponse\022\022\n\nrequest_id\030\001 \001(\005" +
@@ -15696,7 +15725,7 @@ public final class VAdminProto {
       "ore\030\001 \002(\t\":\n\027TruncateEntriesResponse\022\037\n\005" +
       "error\030\001 \001(\0132\020.voldemort.Error\"*\n\017AddStor" +
       "eRequest\022\027\n\017storeDefinition\030\001 \002(\t\"3\n\020Add" +
-      "StoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort",
+      "StoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort" +
       ".Error\"\'\n\022DeleteStoreRequest\022\021\n\tstoreNam" +
       "e\030\001 \002(\t\"6\n\023DeleteStoreResponse\022\037\n\005error\030" +
       "\001 \001(\0132\020.voldemort.Error\"P\n\021FetchStoreReq" +
@@ -15706,7 +15735,7 @@ public final class VAdminProto {
       " \002(\t\"4\n\021SwapStoreResponse\022\037\n\005error\030\001 \001(\013" +
       "2\020.voldemort.Error\"@\n\024RollbackStoreReque" +
       "st\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push_version\030\002" +
-      " \002(\003\"8\n\025RollbackStoreResponse\022\037\n\005error\030\001",
+      " \002(\003\"8\n\025RollbackStoreResponse\022\037\n\005error\030\001" +
       " \001(\0132\020.voldemort.Error\"=\n\024ROStoreVersion" +
       "DirMap\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030" +
       "\002 \002(\t\"/\n\031GetROMaxVersionDirRequest\022\022\n\nst" +
@@ -15716,7 +15745,7 @@ public final class VAdminProto {
       "\020.voldemort.Error\"3\n\035GetROCurrentVersion" +
       "DirRequest\022\022\n\nstore_name\030\001 \003(\t\"}\n\036GetROC" +
       "urrentVersionDirResponse\022:\n\021ro_store_ver" +
-      "sions\030\001 \003(\0132\037.voldemort.ROStoreVersionDi",
+      "sions\030\001 \003(\0132\037.voldemort.ROStoreVersionDi" +
       "rMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"\\\n" +
       "\036SwapStoresAndCleanStateRequest\022:\n\021ro_st" +
       "ore_versions\030\001 \003(\0132\037.voldemort.ROStoreVe" +
@@ -15726,7 +15755,7 @@ public final class VAdminProto {
       "\033.voldemort.AdminRequestType\0223\n\014get_meta" +
       "data\030\002 \001(\0132\035.voldemort.GetMetadataReques" +
       "t\0229\n\017update_metadata\030\003 \001(\0132 .voldemort.U" +
-      "pdateMetadataRequest\022J\n\030update_partition",
+      "pdateMetadataRequest\022J\n\030update_partition" +
       "_entries\030\004 \001(\0132(.voldemort.UpdatePartiti" +
       "onEntriesRequest\022H\n\027fetch_partition_entr" +
       "ies\030\005 \001(\0132\'.voldemort.FetchPartitionEntr" +
@@ -15736,7 +15765,7 @@ public final class VAdminProto {
       "\0132(.voldemort.InitiateFetchAndUpdateRequ" +
       "est\022F\n\026async_operation_status\030\010 \001(\0132&.vo" +
       "ldemort.AsyncOperationStatusRequest\022H\n\027i" +
-      "nitiate_rebalance_node\030\t \001(\0132\'.voldemort",
+      "nitiate_rebalance_node\030\t \001(\0132\'.voldemort" +
       ".InitiateRebalanceNodeRequest\022B\n\024async_o" +
       "peration_stop\030\n \001(\0132$.voldemort.AsyncOpe" +
       "rationStopRequest\022B\n\024async_operation_lis" +
@@ -15746,7 +15775,7 @@ public final class VAdminProto {
       "\r \001(\0132\032.voldemort.AddStoreRequest\0223\n\014del" +
       "ete_store\030\016 \001(\0132\035.voldemort.DeleteStoreR" +
       "equest\0221\n\013fetch_store\030\017 \001(\0132\034.voldemort." +
-      "FetchStoreRequest\022/\n\nswap_store\030\020 \001(\0132\033.",
+      "FetchStoreRequest\022/\n\nswap_store\030\020 \001(\0132\033." +
       "voldemort.SwapStoreRequest\0227\n\016rollback_s" +
       "tore\030\021 \001(\0132\037.voldemort.RollbackStoreRequ" +
       "est\022D\n\026get_ro_max_version_dir\030\022 \001(\0132$.vo" +
@@ -15756,7 +15785,7 @@ public final class VAdminProto {
       "_partition_files\030\024 \001(\0132%.voldemort.Fetch" +
       "PartitionFilesRequest\022N\n\033swap_stores_and" +
       "_clean_state\030\025 \001(\0132).voldemort.SwapStore" +
-      "sAndCleanStateRequest*\202\004\n\020AdminRequestTy",
+      "sAndCleanStateRequest*\202\004\n\020AdminRequestTy" +
       "pe\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020" +
       "\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH" +
       "_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION" +
@@ -15766,12 +15795,11 @@ public final class VAdminProto {
       "OP\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCA" +
       "TE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_ST" +
       "ORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022" +
-      "\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION",
+      "\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION" +
       "_DIR\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021\022\031" +
       "\n\025FETCH_PARTITION_FILES\020\022\022\037\n\033SWAP_STORES" +
       "_AND_CLEAN_STATE\020\023B-\n\034voldemort.client.p" +
-      "rotocol.pbB\013VAdminProtoH\001"
-    };
+      "rotocol.pbB\013VAdminProtoH\001";
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
         public com.google.protobuf.ExtensionRegistry assignDescriptors(
@@ -16114,6 +16142,4 @@ public final class VAdminProto {
           voldemort.client.protocol.pb.VProto.getDescriptor(),
         }, assigner);
   }
-  
-  public static void internalForceInit() {}
 }

@@ -1,3 +1,21 @@
+Release 0.90
+
+Changes made since 0.90
+
+* Read-only stores: (a) Changes to Hadoop store builder output to generate
+chunks per partition (instead of per node). Helps in rebalancing (b) Changes
+to the format of storing the versioned directories. Gets rid of the tempor-
+-ary folder (c) New data pushing support in Admin services (in addition to
+that based on HTTP Servlet)
+* Zone aware routing: Smarter routing based on zones (virtual clusters).
+* Hinted Handoff: Ability to queue requests up if a server is down during 
+put and later replaying it
+* Server side transforms: Ability to pass transforms to the server on a
+per request basis
+* Pipeline Routed Store: Routing layer in the form of a state machine
+* Read-only stores rebalancing: Added support for rebalancing of read-only
+stores
+
 Release 0.81 on 6/15/2010
 
 Changes made since 0.80.2:
