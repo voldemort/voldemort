@@ -85,7 +85,7 @@
     <routing>client</routing>
     <replication-factor>2</replication-factor>
     <required-reads>2</required-reads>
-    <required-writes>1</required-writes>
+    <required-writes>2</required-writes>
     <key-serializer>
       <type>string</type>
       <schema-info>UTF-8</schema-info>
