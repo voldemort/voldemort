@@ -167,7 +167,8 @@ public class HintedHandoffTest {
             for(int i = 0; i < NUM_NODES_TOTAL; i++)
                 storeRepo.addNodeStore(i, subStores.get(i));
 
-            SlopStorageEngine slopStorageEngine = new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(SLOP_STORE_NAME));
+            SlopStorageEngine slopStorageEngine = new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(SLOP_STORE_NAME),
+                                                                        cluster.getNumberOfNodes());
             StorageEngine<ByteArray, Slop, byte[]> storageEngine = slopStorageEngine.asSlopStore();
             storeRepo.setSlopStore(slopStorageEngine);
             slopStores.put(nodeId, storageEngine);
