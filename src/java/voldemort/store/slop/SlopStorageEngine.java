@@ -130,7 +130,7 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         Slop slop = slopSerializer.toObject(value.getValue());
         slopEngine.put(key, value, transforms);
         totalAddedSinceReset.incrementAndGet();
-        addedSinceResetByNode.get(slop.getValue()).incrementAndGet();
+        addedSinceResetByNode.get(slop.getNodeId()).incrementAndGet();
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
