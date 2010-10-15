@@ -16,6 +16,7 @@
 
 package voldemort.server.scheduler;
 
+import com.google.common.collect.Maps;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -37,6 +38,8 @@ import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+
+import java.util.Map;
 
 /**
  * A task which goes through the slop table and attempts to push out all the
@@ -69,6 +72,15 @@ public class SlopPusherJob implements Runnable {
      */
     public void run() {
         logger.debug("Pushing slop...");
+
+        int numNodes = storeRepo.getAllLocalStores().size();
+        Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(numNodes);
+        for(int i = 0; i < numNodes; i++)
+            attemptedByNode.put(i, 0L);
+        Map<Integer, Long> succeededByNode = Maps.newHashMapWithExpectedSize(numNodes);
+        for(int i = 0; i < numNodes; i++)
+            succeededByNode.put(i, 0L);
+
         int slopsPushed = 0;
         int attemptedPushes = 0;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
@@ -89,7 +101,9 @@ public class SlopPusherJob implements Runnable {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
-                    Node node = cluster.getNodeById(slop.getNodeId());
+                    int nodeId = slop.getNodeId();
+                    Node node = cluster.getNodeById(nodeId);
+                    attemptedByNode.put(nodeId, attemptedByNode.get(nodeId) + 1);
                     if(failureDetector.isAvailable(node)) {
                         Store<ByteArray, byte[], byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
                                                                                         node.getId());
@@ -112,7 +126,7 @@ public class SlopPusherJob implements Runnable {
                             failureDetector.recordSuccess(node, deltaMs(startNs));
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
                             slopsPushed++;
-
+                            succeededByNode.put(nodeId, succeededByNode.get(nodeId) + 1);
                             throttler.maybeThrottle(nBytes);
                         } catch(ObsoleteVersionException e) {
                             // okay it is old, just delete it
@@ -141,7 +155,10 @@ public class SlopPusherJob implements Runnable {
         logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
-        slopStorageEngine.resetStats(attemptedPushes - slopsPushed);
+        Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(numNodes);
+        for(int i = 0; i < numNodes; i++)
+            outstanding.put(i, attemptedByNode.get(i) - succeededByNode.get(i));
+        slopStorageEngine.resetStats(attemptedPushes - slopsPushed, outstanding);
     }
 
     private long deltaMs(Long startNs) {

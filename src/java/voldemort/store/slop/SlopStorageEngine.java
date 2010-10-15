@@ -16,6 +16,7 @@
 
 package voldemort.store.slop;
 
+import com.google.common.collect.Maps;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.serialization.ByteArraySerializer;
@@ -41,35 +42,67 @@ import java.util.concurrent.atomic.AtomicLong;
  * that have been added after the last run
  */
 public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+    
     private final StorageEngine<ByteArray, byte[], byte[]> slopEngine;
-    private final AtomicLong addedSinceReset;
-    private volatile long outstanding;
+    private final AtomicLong totalAddedSinceReset;
+    private volatile long totalOutstanding;
+    private final Map<Integer, AtomicLong> outstandingByNode;
+    private final Map<Integer, AtomicLong> addedSinceResetByNode;
+    private final int numNodes;
+    private final SlopSerializer slopSerializer;
 
-    public SlopStorageEngine(StorageEngine<ByteArray, byte[], byte[]> slopEngine) {
+    public SlopStorageEngine(StorageEngine<ByteArray, byte[], byte[]> slopEngine,
+                             int numNodes) {
         this.slopEngine = slopEngine;
-        this.addedSinceReset = new AtomicLong(0);
-        this.outstanding = 0;
+        this.totalAddedSinceReset = new AtomicLong(0);
+        this.totalOutstanding = 0;
+        this.numNodes = numNodes;
+        outstandingByNode = Maps.newHashMapWithExpectedSize(numNodes);
+        addedSinceResetByNode = Maps.newHashMapWithExpectedSize(numNodes);
+
+        for(int i=0; i < numNodes; i++) {
+            outstandingByNode.put(i, new AtomicLong(0));
+            addedSinceResetByNode.put(i, new AtomicLong(0));
+        }
+        slopSerializer = new SlopSerializer();
     }
 
-    @JmxGetter(name="addedSinceReset", description="slops added since reset")
-    public Long getAddedSinceReset() {
-        return addedSinceReset.get();
+    @JmxGetter(name="totalAddedSinceReset", description="slops added since reset")
+    public Long getTotalAddedSinceReset() {
+        return totalAddedSinceReset.get();
     }
 
-    public void resetStats(long outstanding) {
-        addedSinceReset.set(0);
-        this.outstanding = outstanding;
+    @JmxGetter(name="addedSinceResetByNode", description="slops added since reset by node")
+    public Map<Integer, AtomicLong> getAddedSinceResetByNode() {
+        return addedSinceResetByNode;
     }
 
-    @JmxGetter(name="outstanding", description="slops outstanding since last push")
-    public long getOutstanding() {
-        return outstanding;
+    public void resetStats(long outstanding, Map<Integer, Long> outstandingByNode) {
+        totalAddedSinceReset.set(0);
+        this.totalOutstanding = outstanding;
+
+        for(int i = 0; i < numNodes; i++)
+            addedSinceResetByNode.get(i).set(0);
+
+        for(Map.Entry<Integer, Long> entry: outstandingByNode.entrySet())
+            this.outstandingByNode.get(entry.getKey()).set(entry.getValue());
+
+    }
+
+    @JmxGetter(name="totalOutstanding", description="slops outstanding since last push")
+    public long getTotalOutstanding() {
+        return totalOutstanding;
+    }
+
+    @JmxGetter(name="outstandingByNode", description="slops outstanding by node since last push")
+    public Map<Integer, AtomicLong> getOutstandingByNode() {
+        return outstandingByNode;
     }
 
     public StorageEngine<ByteArray, Slop, byte[]> asSlopStore() {
         return SerializingStorageEngine.wrap(this,
                                              new ByteArraySerializer(),
-                                             new SlopSerializer(),
+                                             slopSerializer,
                                              new IdentitySerializer());
     }
 
@@ -94,8 +127,10 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     }
 
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms) throws VoldemortException {
+        Slop slop = slopSerializer.toObject(value.getValue());
         slopEngine.put(key, value, transforms);
-        addedSinceReset.incrementAndGet();
+        totalAddedSinceReset.incrementAndGet();
+        addedSinceResetByNode.get(slop.getValue()).incrementAndGet();
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
