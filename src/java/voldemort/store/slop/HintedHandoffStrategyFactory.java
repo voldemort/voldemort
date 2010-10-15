@@ -24,12 +24,15 @@ public class HintedHandoffStrategyFactory {
                                                         .compareTo(storeDef.getHintedHandoffStrategyType()
                                                                            .toDisplay()) == 0) {
             Integer hintPrefListSize = storeDef.getHintPrefListSize();
+
+            // Default value for hint pref list size = replication factor
             if(null == hintPrefListSize) {
-                if(cluster.getNumberOfNodes() > 6)
-                    hintPrefListSize = cluster.getNumberOfNodes() / 2;
+                if(cluster.getNumberOfNodes() == storeDef.getReplicationFactor())
+                    hintPrefListSize = storeDef.getReplicationFactor() - 1;
                 else
-                    hintPrefListSize = cluster.getNumberOfNodes();
+                    hintPrefListSize = storeDef.getReplicationFactor();
             }
+
             return new ConsistentHandoffStrategy(cluster,
                                                  hintPrefListSize,
                                                  enableZoneRouting,
