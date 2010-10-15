@@ -60,10 +60,8 @@ public class ClientConfig {
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
     private volatile boolean enableJmx = true;
 
-    private volatile boolean enablePipelineRoutedStore = false;
+    private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
-
-    private volatile boolean enableHintedHandoff = false;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
@@ -191,9 +189,6 @@ public class ClientConfig {
 
         if(props.containsKey(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY))
             this.setEnablePipelineRoutedStore(props.getBoolean(ENABLE_PIPELINE_ROUTED_STORE_PROPERTY));
-
-        if(props.containsKey(ENABLE_HINTED_HANDOFF_PROPERTY))
-            this.setEnableHintedHandoff(props.getBoolean(ENABLE_HINTED_HANDOFF_PROPERTY));
 
         if(props.containsKey(CLIENT_ZONE_ID))
             this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
@@ -522,15 +517,6 @@ public class ClientConfig {
 
     public ClientConfig setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
         this.enablePipelineRoutedStore = enablePipelineRoutedStore;
-        return this;
-    }
-
-    public boolean isHintedHandoffEnabled() {
-        return enableHintedHandoff;
-    }
-
-    public ClientConfig setEnableHintedHandoff(boolean enableHintedHandoff) {
-        this.enableHintedHandoff = enableHintedHandoff;
         return this;
     }
 

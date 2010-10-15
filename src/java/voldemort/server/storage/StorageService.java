@@ -77,6 +77,7 @@ import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.serialized.SerializingStorageEngine;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.stats.DataSetStats;
@@ -190,18 +191,16 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
+            logger.info("Starting the slop store:");
             StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
             if(config == null)
-                throw new ConfigurationException("Attempt to slop store failed");
+                throw new ConfigurationException("Attempt to get slop store failed");
 
-            StorageEngine<ByteArray, byte[], byte[]> slopEngine = config.getStore("slop");
-
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore("slop"),
+                                                                 metadata.getCluster().getNumberOfNodes());
             registerEngine(slopEngine);
-            storeRepository.setSlopStore(SerializingStorageEngine.wrap(slopEngine,
-                                                                       new ByteArraySerializer(),
-                                                                       new SlopSerializer(),
-                                                                       new IdentitySerializer()));
-
+            storeRepository.setSlopStore(slopEngine);
+            logger.info("Slop store registered");
             scheduler.schedule(new SlopPusherJob(storeRepository,
                                                  metadata.getCluster(),
                                                  failureDetector,

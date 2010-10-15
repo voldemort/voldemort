@@ -4,6 +4,7 @@ import java.util.HashMap;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.utils.Utils;
 
 /**
@@ -34,8 +35,7 @@ public class StoreDefinitionBuilder {
     private Integer zoneCountWrites;
     private String view = null;
     private String serializerFactory = null;
-    private Boolean enableHintedHandoff = false;
-    private String hintedHandoffStrategy = null;
+    private HintedHandoffStrategyType hintedHandoffStrategy = null;
     private Integer hintPrefListSize = null;
 
     public String getName() {
@@ -234,20 +234,11 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
-    public Boolean isHintedHandoffEnabled() {
-        return enableHintedHandoff;
-    }
-
-    public StoreDefinitionBuilder setEnableHintedHandoff(Boolean enableHintedHandoff) {
-        this.enableHintedHandoff = enableHintedHandoff;
-        return this;
-    }
-
-    public String getHintedHandoffStrategy() {
+    public HintedHandoffStrategyType getHintedHandoffStrategy() {
         return hintedHandoffStrategy;
     }
 
-    public StoreDefinitionBuilder setHintedHandoffStrategy(String hintedHandoffStrategy) {
+    public StoreDefinitionBuilder setHintedHandoffStrategy(HintedHandoffStrategyType hintedHandoffStrategy) {
         this.hintedHandoffStrategy = hintedHandoffStrategy;
         return this;
     }
@@ -282,7 +273,6 @@ public class StoreDefinitionBuilder {
                                    this.getRetentionPeriodDays(),
                                    this.getRetentionScanThrottleRate(),
                                    this.getSerializerFactory(),
-                                   this.isHintedHandoffEnabled(),
                                    this.getHintedHandoffStrategy(),
                                    this.getHintPrefListSize());
     }

@@ -85,7 +85,7 @@
     <routing>client</routing>
     <replication-factor>2</replication-factor>
     <required-reads>2</required-reads>
-    <required-writes>1</required-writes>
+    <required-writes>2</required-writes>
     <key-serializer>
       <type>string</type>
       <schema-info>UTF-8</schema-info>
@@ -126,5 +126,63 @@
       <type>string</type>
       <schema-info>UTF-8</schema-info>
     </value-serializer>
+  </store>
+  <store>
+    <name>test-consistent</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>consistent-handoff</hinted-handoff-strategy>
+  </store>
+  <store>
+    <name>test-to-all</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>all-handoff</hinted-handoff-strategy>
+  </store>
+  <store>
+    <name>test-consistent-with-pref-list</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </value-serializer>
+    <hinted-handoff-strategy>all-handoff</hinted-handoff-strategy> 
+    <hint-preflist-size>10</hint-preflist-size>
   </store>
 </stores>

@@ -33,6 +33,7 @@ import voldemort.store.FailingStore;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
@@ -53,7 +54,7 @@ public class SlopPusherTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         repo = new StoreRepository();
-        repo.setSlopStore(new InMemoryStorageEngine<ByteArray, Slop, byte[]>("slop"));
+        repo.setSlopStore(new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("slop"), 3));
         repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         this.failingNodeId = 2;
@@ -83,7 +84,7 @@ public class SlopPusherTest extends TestCase {
     private void pushSlop(Versioned<Slop>... slops) {
         // put all the slop in the slop store
         for(Versioned<Slop> s: slops)
-            repo.getSlopStore().put(s.getValue().makeKey(), s, null);
+            repo.getSlopStore().asSlopStore().put(s.getValue().makeKey(), s, null);
 
         // run the pusher
         pusher.run();
