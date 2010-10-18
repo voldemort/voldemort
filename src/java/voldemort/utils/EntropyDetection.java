@@ -165,5 +165,5 @@ public class EntropyDetection {
             if(secondStore != null)
                 secondStore.close();
         }
-    }
+   }
 }

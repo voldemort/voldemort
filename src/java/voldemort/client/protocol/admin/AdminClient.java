@@ -288,12 +288,14 @@ public class AdminClient {
                                       List<Integer> partitionList,
                                       VoldemortFilter filter,
                                       boolean fetchValues,
-                                      boolean fetchMasterEntries) throws IOException {
+                                      boolean fetchMasterEntries,
+                                      long skipRecords) throws IOException {
         VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
                                                                                                                 .addAllPartitions(partitionList)
                                                                                                                 .setFetchValues(fetchValues)
                                                                                                                 .setFetchMasterEntries(fetchMasterEntries)
-                                                                                                                .setStore(storeName);
+                                                                                                                .setStore(storeName)
+                                                                                                                .setSkipRecords(skipRecords);
 
         if(filter != null) {
             fetchRequest.setFilter(encodeFilter(filter));
@@ -337,7 +339,8 @@ public class AdminClient {
      * @param partitionList List of the partitions
      * @param filter Custom filter implementation to filter out entries which
      *        should not be fetched.
-     * @param fetch only entries which belong to Master
+     * @param fetchMasterEntries Fetch an entry only if master replica
+     * @param skipRecords Number of records to skip
      * @return An iterator which allows entries to be streamed as they're being
      *         iterated over.
      * @throws VoldemortException
@@ -346,7 +349,9 @@ public class AdminClient {
                                                                      String storeName,
                                                                      List<Integer> partitionList,
                                                                      VoldemortFilter filter,
-                                                                     boolean fetchMasterEntries) {
+                                                                     boolean fetchMasterEntries,
+                                                                     long skipRecords) {
+
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -361,7 +366,8 @@ public class AdminClient {
                                  partitionList,
                                  filter,
                                  true,
-                                 fetchMasterEntries);
+                                 fetchMasterEntries,
+                                 skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
             pool.checkin(destination, sands);
@@ -402,6 +408,19 @@ public class AdminClient {
     }
 
     /**
+     * See documentation for
+     * {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
+     * . Kept for backwards compatibility
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitionList,
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries) {
+        return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
+    }
+
+    /**
      * Fetch All keys belonging to partitionList from requested node. Identical
      * to {@link AdminClient#fetchEntries} but will <em>only fetch the keys</em>
      * 
@@ -410,13 +429,16 @@ public class AdminClient {
      * @param partitionList See documentation for
      *        {@link AdminClient#fetchEntries}
      * @param filter See documentation for {@link AdminClient#fetchEntries}
+     * @param skipRecords See documentation for
+     *        {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
      * @return See documentation for {@link AdminClient#fetchEntries}
      */
     public Iterator<ByteArray> fetchKeys(int nodeId,
                                          String storeName,
                                          List<Integer> partitionList,
                                          VoldemortFilter filter,
-                                         boolean fetchMasterEntries) {
+                                         boolean fetchMasterEntries,
+                                         long skipRecords) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                     node.getAdminPort(),
@@ -431,7 +453,8 @@ public class AdminClient {
                                  partitionList,
                                  filter,
                                  false,
-                                 fetchMasterEntries);
+                                 fetchMasterEntries,
+                                 skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
             pool.checkin(destination, sands);
@@ -466,6 +489,19 @@ public class AdminClient {
 
             }
         };
+    }
+
+    /**
+     * See documentation for
+     * {@link AdminClient#fetchKeys(int, String, List, VoldemortFilter, boolean, long)}
+     * . Kept for backwards compatibility
+     */
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         List<Integer> partitionList,
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries) {
+        return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
     }
 
     /**

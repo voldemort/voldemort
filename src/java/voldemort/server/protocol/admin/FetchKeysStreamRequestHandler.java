@@ -32,7 +32,8 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
               networkClassLoader);
     }
 
-    public StreamRequestHandlerState handleRequest(DataInputStream inputStream, DataOutputStream outputStream)
+    public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
+                                                   DataOutputStream outputStream)
             throws IOException {
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
@@ -40,7 +41,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         ByteArray key = keyIterator.next();
 
         throttler.maybeThrottle(key.length());
-        if(validPartition(key.get()) && filter.accept(key, null)) {
+        if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
 
