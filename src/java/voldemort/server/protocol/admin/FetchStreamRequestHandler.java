@@ -42,7 +42,9 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final ClosableIterator<ByteArray> keyIterator;
 
-    protected int counter;
+    protected long counter;
+
+    protected long skipRecords;
 
     protected int fetched;
 
@@ -76,6 +78,12 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         }
         keyIterator = storageEngine.keys();
         startTime = System.currentTimeMillis();
+        counter = 0;
+
+        skipRecords = 1;
+        if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
+            skipRecords = request.getSkipRecords() + 1;
+        }
     }
 
     public final StreamRequestDirection getDirection() {

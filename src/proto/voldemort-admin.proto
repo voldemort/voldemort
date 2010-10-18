@@ -60,6 +60,7 @@ message FetchPartitionEntriesRequest {
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
   optional bool fetch_master_entries = 5;
+  optional int64 skip_records = 6;
 }
 
 message FetchPartitionEntriesResponse {

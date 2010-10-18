@@ -49,7 +49,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         ByteArray key = keyIterator.next();
 
-        if(validPartition(key.get())) {
+        if(validPartition(key.get()) && counter % skipRecords == 0) {
             for(Versioned<byte[]> value: storageEngine.get(key, null)) {
                 throttler.maybeThrottle(key.length());
                 if(filter.accept(key, value)) {
