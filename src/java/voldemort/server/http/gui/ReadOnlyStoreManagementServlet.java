@@ -132,7 +132,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException,
             IOException {
-        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         Map<String, Object> params = Maps.newHashMap();
         params.put("stores", stores);
         velocityEngine.render("read-only-mgmt.vm", params, resp.getOutputStream());
@@ -261,7 +260,6 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     }
 
     private ReadOnlyStorageEngine getStore(String storeName) throws ServletException {
-        initStores((VoldemortServer) getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
         for(ReadOnlyStorageEngine store: this.stores)
             if(store.getName().equals(storeName))
                 return store;
