@@ -73,7 +73,7 @@ public class SlopPusherJob implements Runnable {
     public void run() {
         logger.debug("Pushing slop...");
 
-        int numNodes = storeRepo.getAllNodeStores().size();
+        int numNodes = cluster.getNumberOfNodes();
         Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(numNodes);
         for(int i = 0; i < numNodes; i++)
             attemptedByNode.put(i, 0L);
@@ -136,11 +136,11 @@ public class SlopPusherJob implements Runnable {
                         }
                     }
                 } catch(Exception e) {
-                    logger.error(e);
+                    logger.error(e, e);
                 }
             }
         } catch(Exception e) {
-            logger.error(e);
+            logger.error(e, e);
         } finally {
             try {
                 if(iterator != null)
