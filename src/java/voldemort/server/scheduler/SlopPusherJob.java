@@ -136,11 +136,11 @@ public class SlopPusherJob implements Runnable {
                         }
                     }
                 } catch(Exception e) {
-                    logger.error(e);
+                    logger.error(e, e);
                 }
             }
         } catch(Exception e) {
-            logger.error(e);
+            logger.error(e, e);
         } finally {
             try {
                 if(iterator != null)
