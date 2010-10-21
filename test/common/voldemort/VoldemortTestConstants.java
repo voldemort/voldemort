@@ -78,6 +78,10 @@ public class VoldemortTestConstants {
         return readString("config/four-node-cluster-with-zones.xml");
     }
 
+    public static String getEightNodeClusterWithZonesXml() {
+        return readString("config/eight-node-cluster-with-zones.xml");
+    }
+
     public static String getSingleStoreWithZonesXml() {
         return readString("config/single-store-with-zones.xml");
     }
@@ -92,6 +96,10 @@ public class VoldemortTestConstants {
 
     public static Cluster getFourNodeClusterWithZones() {
         return new ClusterMapper().readCluster(new StringReader(getFourNodeClusterWithZonesXml()));
+    }
+
+    public static Cluster getEightNodeClusterWithZones() {
+        return new ClusterMapper().readCluster(new StringReader(getEightNodeClusterWithZonesXml()));
     }
 
     private static String readString(String filename) {

@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<cluster>
+  <name>mycluster</name>
+  <zone>
+  	<zone-id>0</zone-id>
+  	<proximity-list>1</proximity-list>
+  </zone>
+  <zone>
+  	<zone-id>1</zone-id>
+  	<proximity-list>0</proximity-list>
+  </zone>
+  <server>
+    <id>0</id>
+    <host>localhost</host>
+    <http-port>8080</http-port>
+    <socket-port>6666</socket-port>
+    <admin-port>7666</admin-port>
+    <partitions>16, 3, 21</partitions>
+    <zone-id>0</zone-id>
+  </server>
+  <server>
+    <id>1</id>
+    <host>localhost</host>
+    <http-port>8081</http-port>
+    <socket-port>6667</socket-port>
+    <admin-port>7667</admin-port>
+    <partitions>23, 18, 13</partitions>
+    <zone-id>0</zone-id>
+  </server>
+  <server>
+    <id>2</id>
+    <host>localhost</host>
+    <http-port>8082</http-port>
+    <socket-port>6668</socket-port>
+    <admin-port>7668</admin-port>
+    <partitions>22, 12</partitions>
+    <zone-id>0</zone-id>
+  </server>
+  <server>
+    <id>3</id>
+    <host>localhost</host>
+    <http-port>8083</http-port>
+    <socket-port>6669</socket-port>
+    <admin-port>7669</admin-port>
+    <partitions>2, 17, 24</partitions>
+    <zone-id>0</zone-id>
+  </server>
+  <server>
+    <id>4</id>
+    <host>localhost</host>
+    <http-port>8084</http-port>
+    <socket-port>6670</socket-port>
+    <admin-port>7670</admin-port>
+    <partitions>11, 25, 10</partitions>
+    <zone-id>1</zone-id>
+  </server>
+  <server>
+    <id>5</id>
+    <host>localhost</host>
+    <http-port>8085</http-port>
+    <socket-port>6671</socket-port>
+    <admin-port>7671</admin-port>
+    <partitions>
+      4, 19, 5, 8, 15
+    </partitions>
+    <zone-id>1</zone-id>
+  </server>
+  <server>
+    <id>6</id>
+    <host>localhost</host>
+    <http-port>8086</http-port>
+    <socket-port>6672</socket-port>
+    <admin-port>7672</admin-port>
+    <partitions>20, 0, 14</partitions>
+    <zone-id>1</zone-id>
+  </server>
+  <server>
+    <id>7</id>
+    <host>localhost</host>
+    <http-port>8087</http-port>
+    <socket-port>6673</socket-port>
+    <admin-port>7673</admin-port>
+    <partitions>1, 7, 9, 6</partitions>
+    <zone-id>1</zone-id>
+  </server>
+ </cluster>
