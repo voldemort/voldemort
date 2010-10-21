@@ -36,16 +36,15 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Storage engine specifically designed for storing hints, which will
- * keep a statistic of hints that were attempted, but not succesfully push
- * last time a {@link voldemort.server.scheduler.SlopPusherJob} ran and hints
+ * Storage engine which tracks statistics of hints that were attempted, but not
+ * successfully pushed last time a {@link SlopPusherJob} ran and hints
  * that have been added after the last run
  */
 public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
     
     private final StorageEngine<ByteArray, byte[], byte[]> slopEngine;
-    private final AtomicLong totalAddedSinceReset;
-    private volatile long totalOutstanding;
+    private final AtomicLong addedSinceResetTotal;
+    private volatile long outstandingTotal;
     private final Map<Integer, AtomicLong> outstandingByNode;
     private final Map<Integer, AtomicLong> addedSinceResetByNode;
     private final int numNodes;
@@ -54,8 +53,8 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     public SlopStorageEngine(StorageEngine<ByteArray, byte[], byte[]> slopEngine,
                              int numNodes) {
         this.slopEngine = slopEngine;
-        this.totalAddedSinceReset = new AtomicLong(0);
-        this.totalOutstanding = 0;
+        this.addedSinceResetTotal = new AtomicLong(0);
+        this.outstandingTotal = 0;
         this.numNodes = numNodes;
         outstandingByNode = Maps.newHashMapWithExpectedSize(numNodes);
         addedSinceResetByNode = Maps.newHashMapWithExpectedSize(numNodes);
@@ -67,9 +66,9 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         slopSerializer = new SlopSerializer();
     }
 
-    @JmxGetter(name="totalAddedSinceReset", description="slops added since reset")
-    public Long getTotalAddedSinceReset() {
-        return totalAddedSinceReset.get();
+    @JmxGetter(name="addedSinceResetTotal", description="slops added since reset")
+    public Long getAddedSinceResetTotal() {
+        return addedSinceResetTotal.get();
     }
 
     @JmxGetter(name="addedSinceResetByNode", description="slops added since reset by node")
@@ -78,8 +77,8 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     }
 
     public void resetStats(long outstanding, Map<Integer, Long> outstandingByNode) {
-        totalAddedSinceReset.set(0);
-        this.totalOutstanding = outstanding;
+        addedSinceResetTotal.set(0);
+        this.outstandingTotal = outstanding;
 
         for(int i = 0; i < numNodes; i++)
             addedSinceResetByNode.get(i).set(0);
@@ -89,9 +88,9 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
 
     }
 
-    @JmxGetter(name="totalOutstanding", description="slops outstanding since last push")
-    public long getTotalOutstanding() {
-        return totalOutstanding;
+    @JmxGetter(name="outstandingTotal", description="slops outstanding since last push")
+    public long getOutstandingTotal() {
+        return outstandingTotal;
     }
 
     @JmxGetter(name="outstandingByNode", description="slops outstanding by node since last push")
@@ -129,7 +128,7 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms) throws VoldemortException {
         Slop slop = slopSerializer.toObject(value.getValue());
         slopEngine.put(key, value, transforms);
-        totalAddedSinceReset.incrementAndGet();
+        addedSinceResetTotal.incrementAndGet();
         addedSinceResetByNode.get(slop.getNodeId()).incrementAndGet();
     }
 
