@@ -103,7 +103,10 @@ public class SlopPusherJob implements Runnable {
                     Slop slop = versioned.getValue();
                     int nodeId = slop.getNodeId();
                     Node node = cluster.getNodeById(nodeId);
-                    attemptedByNode.put(nodeId, attemptedByNode.get(nodeId) + 1);
+                    Long attempted = attemptedByNode.get(nodeId);
+                    if(attempted == null)
+                        attempted = 0L;
+                    attemptedByNode.put(nodeId, attempted);
                     if(failureDetector.isAvailable(node)) {
                         Store<ByteArray, byte[], byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
                                                                                         node.getId());
@@ -126,7 +129,11 @@ public class SlopPusherJob implements Runnable {
                             failureDetector.recordSuccess(node, deltaMs(startNs));
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
                             slopsPushed++;
-                            succeededByNode.put(nodeId, succeededByNode.get(nodeId) + 1);
+                            Long succeeded = succeededByNode.get(nodeId);
+                            if(succeeded == null) {
+                                succeeded = 0L;
+                            }
+                            succeededByNode.put(nodeId,  succeeded + 1L);
                             throttler.maybeThrottle(nBytes);
                         } catch(ObsoleteVersionException e) {
                             // okay it is old, just delete it
@@ -156,7 +163,7 @@ public class SlopPusherJob implements Runnable {
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
         Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(numNodes);
-        for(int i = 0; i < numNodes; i++)
+        for(int i: succeededByNode.keySet())
             outstanding.put(i, attemptedByNode.get(i) - succeededByNode.get(i));
         slopStorageEngine.resetStats(attemptedPushes - slopsPushed, outstanding);
     }

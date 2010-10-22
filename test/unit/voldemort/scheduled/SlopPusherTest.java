@@ -53,14 +53,15 @@ public class SlopPusherTest extends TestCase {
 
     @Override
     protected void setUp() throws Exception {
+        Cluster cluster = makeCluster(3);
         repo = new StoreRepository();
-        repo.setSlopStore(new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("slop"), 3));
+        repo.setSlopStore(new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("slop"), cluster));
         repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         this.failingNodeId = 2;
         repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[], byte[]>(STORE_NAME));
         pusher = new SlopPusherJob(repo,
-                                   makeCluster(3),
+                                   cluster,
                                    new NoopFailureDetector(),
                                    10 * 1000 * 1000);
     }

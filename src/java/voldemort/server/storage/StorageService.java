@@ -193,7 +193,7 @@ public class StorageService extends AbstractService {
                 throw new ConfigurationException("Attempt to get slop store failed");
 
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore("slop"),
-                                                                 metadata.getCluster().getNumberOfNodes());
+                                                                 metadata.getCluster());
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
             logger.info("Slop store registered");
