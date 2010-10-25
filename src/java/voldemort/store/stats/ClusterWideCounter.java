@@ -8,7 +8,9 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -39,6 +41,11 @@ public class ClusterWideCounter {
             values.putIfAbsent(nodeId, counter);
         }
         counter.incrementAndGet();
+    }
+
+    public void clearCount() {
+        for(AtomicLong counter: values.values())
+            counter.set(0L);
     }
 
     public void clearCount(int nodeId) {

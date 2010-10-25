@@ -26,6 +26,7 @@ import voldemort.serialization.SlopSerializer;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.serialized.SerializingStorageEngine;
+import voldemort.store.stats.SlopStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -34,9 +35,6 @@ import voldemort.versioning.Versioned;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Tracks statistics of hints that were attempted, but not successfully
@@ -47,60 +45,51 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private final static Logger logger = Logger.getLogger(SlopStorageEngine.class);
-    
+
     private final StorageEngine<ByteArray, byte[], byte[]> slopEngine;
-    private final AtomicLong addedSinceResetTotal;
-
-    // TODO: add a stats/counter object to simplify the logic
-    private volatile long outstandingTotal;
-    private final ConcurrentMap<Integer, Long> outstandingByNode;
-    private final ConcurrentMap<Integer, AtomicLong> addedSinceResetByNode;
-
-    private final Cluster cluster;
     private final SlopSerializer slopSerializer;
+    private final SlopStats slopStats;
 
     public SlopStorageEngine(StorageEngine<ByteArray, byte[], byte[]> slopEngine,
                              Cluster cluster) {
         this.slopEngine = slopEngine;
-        this.addedSinceResetTotal = new AtomicLong(0);
-        this.outstandingTotal = 0;
-        this.cluster = cluster;
-        int numNodes = cluster.getNumberOfNodes();
-        outstandingByNode = new ConcurrentHashMap<Integer, Long>(numNodes);
-        addedSinceResetByNode = new ConcurrentHashMap<Integer, AtomicLong>(numNodes);
-        for(int i=0; i < numNodes; i++) {
-            outstandingByNode.put(i, 0L);
-            addedSinceResetByNode.put(i, new AtomicLong(0));
-        }
-        slopSerializer = new SlopSerializer();
+        this.slopSerializer = new SlopSerializer();
+        this.slopStats = new SlopStats(cluster);
     }
 
     @JmxGetter(name="addedSinceResetTotal", description="slops added since reset")
     public Long getAddedSinceResetTotal() {
-        return addedSinceResetTotal.get();
+        return slopStats.getTotalCount(SlopStats.Tracked.ADDED);
     }
 
     @JmxGetter(name="addedSinceResetByNode", description="slops added since reset by node")
-    public Map<Integer, AtomicLong> getAddedSinceResetByNode() {
-        return addedSinceResetByNode;
+    public Map<Integer, Long> getAddedSinceResetByNode() {
+        return slopStats.asMap(SlopStats.Tracked.ADDED);
     }
 
-    public void resetStats(long newTotal, Map<Integer, Long> newByNode) {
-        addedSinceResetTotal.set(0);
-        outstandingTotal = newTotal;
-        for(int i = 0; i < cluster.getNumberOfNodes(); i++)
-            addedSinceResetByNode.get(i).set(0);
-        outstandingByNode.putAll(newByNode);
+    @JmxGetter(name="addedSinceResetByZone", description="slops added since reset by zone")
+    public Map<Integer, Long> getAddedSinceResetByZone() {
+        return slopStats.byZone(SlopStats.Tracked.ADDED);
     }
 
     @JmxGetter(name="outstandingTotal", description="slops outstanding since last push")
     public long getOutstandingTotal() {
-        return outstandingTotal;
+        return slopStats.getTotalCount(SlopStats.Tracked.OUTSTANDING);
     }
 
     @JmxGetter(name="outstandingByNode", description="slops outstanding by node since last push")
     public Map<Integer, Long> getOutstandingByNode() {
-        return outstandingByNode;
+        return slopStats.asMap(SlopStats.Tracked.OUTSTANDING);
+    }
+
+    @JmxGetter(name="outstandingByZone", description="slops outstanding by zone since last push")
+    public Map<Integer, Long> getOutstandingByZone() {
+        return slopStats.byZone(SlopStats.Tracked.OUTSTANDING);
+    }
+
+    public void resetStats(Map<Integer, Long> newValues) {
+        slopStats.clearCount(SlopStats.Tracked.ADDED);
+        slopStats.setAll(SlopStats.Tracked.OUTSTANDING, newValues);
     }
 
     public StorageEngine<ByteArray, Slop, byte[]> asSlopStore() {
@@ -133,13 +122,7 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms) throws VoldemortException {
         Slop slop = slopSerializer.toObject(value.getValue());
         slopEngine.put(key, value, transforms);
-        addedSinceResetTotal.incrementAndGet();
-        AtomicLong addedSinceReset = addedSinceResetByNode.get(slop.getNodeId());
-        if(addedSinceReset == null) {
-            addedSinceReset = new AtomicLong(0);
-            addedSinceResetByNode.putIfAbsent(slop.getNodeId(), addedSinceReset);
-        }
-        addedSinceReset.incrementAndGet();
+        slopStats.incrementCount(SlopStats.Tracked.OUTSTANDING, slop.getNodeId());
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
