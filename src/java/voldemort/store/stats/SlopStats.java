@@ -34,6 +34,10 @@ public class SlopStats {
         return counters.get(metric).getTotalCount();
     }
 
+    public void clearCount(Tracked metric) {
+        counters.get(metric).clearCount();
+    }
+    
     public void clearCount(Tracked metric, int nodeId) {
         counters.get(metric).clearCount(nodeId);
     }

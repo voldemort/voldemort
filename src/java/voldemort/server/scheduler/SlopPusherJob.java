@@ -165,7 +165,7 @@ public class SlopPusherJob implements Runnable {
         Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(numNodes);
         for(int i: succeededByNode.keySet())
             outstanding.put(i, attemptedByNode.get(i) - succeededByNode.get(i));
-        slopStorageEngine.resetStats(attemptedPushes - slopsPushed, outstanding);
+        slopStorageEngine.resetStats(outstanding);
     }
 
     private long deltaMs(Long startNs) {
