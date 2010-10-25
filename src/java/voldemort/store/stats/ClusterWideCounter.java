@@ -1,6 +1,5 @@
 package voldemort.store.stats;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
@@ -72,11 +71,11 @@ public class ClusterWideCounter {
     }
 
     public Map<Integer, Long> asMap() {
-        ImmutableMap.Builder<Integer, Long> builder = ImmutableMap.builder();
+        Map<Integer, Long> map = Maps.newHashMap();
         for(Map.Entry<Integer, AtomicLong> entry: values.entrySet()) {
-            builder.put(entry.getKey(), entry.getValue().get());
+            map.put(entry.getKey(), entry.getValue().get());
         }
-        return builder.build();
+        return Collections.unmodifiableMap(map);
     }
 
     public Map<Integer, Long> byZone() {
