@@ -81,8 +81,8 @@ public class SlopPusherJob implements Runnable {
         for(int i = 0; i < numNodes; i++)
             succeededByNode.put(i, 0L);
 
-        int slopsPushed = 0;
-        int attemptedPushes = 0;
+        long slopsPushed = 0L;
+        long attemptedPushes = 0L;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
         SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
         try {
