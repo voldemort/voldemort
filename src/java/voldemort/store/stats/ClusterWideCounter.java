@@ -65,9 +65,9 @@ public class ClusterWideCounter {
         AtomicLong counter = values.get(nodeId);
         if(counter == null) {
             counter = new AtomicLong(0L);
-            values.putIfAbsent(nodeId, counter);
-        }
-        counter.set(0L);
+            values.put(nodeId, counter);
+        } else
+            counter.set(0L);
     }
 
     public void setCount(int nodeId, Long newValue) {
@@ -85,10 +85,9 @@ public class ClusterWideCounter {
     }
 
     public Map<Integer, Long> asMap() {
-        Map<Integer, Long> map = Maps.newHashMap();
-        for(Map.Entry<Integer, AtomicLong> entry: values.entrySet()) {
+        Map<Integer, Long> map = Maps.newHashMapWithExpectedSize(values.size());
+        for(Map.Entry<Integer, AtomicLong> entry: values.entrySet())
             map.put(entry.getKey(), entry.getValue().get());
-        }
         return Collections.unmodifiableMap(map);
     }
 
