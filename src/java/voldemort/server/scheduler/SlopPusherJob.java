@@ -122,10 +122,14 @@ public class SlopPusherJob implements Runnable {
                                           + ((VectorClock) versioned.getVersion()).sizeInBytes()
                                           + 1;
 
-                            } else if(slop.getOperation() == Operation.DELETE)
+                            } else if(slop.getOperation() == Operation.DELETE) {
+                                nBytes += ((VectorClock) versioned.getVersion()).sizeInBytes() + 1;
                                 store.delete(slop.getKey(), versioned.getVersion());
-                            else
+                            }
+                            else {
                                 logger.error("Unknown slop operation: " + slop.getOperation());
+                                continue;
+                            }
                             failureDetector.recordSuccess(node, deltaMs(startNs));
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
                             slopsPushed++;
