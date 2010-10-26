@@ -41,6 +41,7 @@ import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 public class PerformParallelPutRequests extends
@@ -150,8 +151,10 @@ public class PerformParallelPutRequests extends
                     // Note errors that come in after the pipeline has finished.
                     // These will *not* get a chance to be called in the loop of
                     // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception
+                       && !(response.getValue() instanceof ObsoleteVersionException)) {
                         handleResponseError(response, pipeline, failureDetector);
+                    }
                 }
 
             };
@@ -177,7 +180,13 @@ public class PerformParallelPutRequests extends
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
             Response<ByteArray, Object> response = responseEntry.getValue();
             if(response.getValue() instanceof Exception) {
-                if(handleResponseError(response, pipeline, failureDetector))
+                if(response.getValue() instanceof ObsoleteVersionException) {
+                    // ignore this completely here
+                    // this means that a higher version was able
+                    // to write on this node and should be termed as
+                    // clean success.
+                    responses.remove(responseEntry.getKey());
+                } else if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
@@ -202,7 +211,13 @@ public class PerformParallelPutRequests extends
                 for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
                     Response<ByteArray, Object> response = responseEntry.getValue();
                     if(response.getValue() instanceof Exception) {
-                        if(handleResponseError(response, pipeline, failureDetector))
+                        if(response.getValue() instanceof ObsoleteVersionException) {
+                            // ignore this completely here
+                            // this means that a higher version was able
+                            // to write on this node and should be termed as
+                            // clean success.
+                            responses.remove(responseEntry.getKey());
+                        } else if(handleResponseError(response, pipeline, failureDetector))
                             return;
                     } else {
                         pipelineData.incrementSuccesses();
