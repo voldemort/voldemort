@@ -98,7 +98,13 @@ public class SlopPusherJob implements Runnable {
                     logger.info("Attempted pushing " + attemptedPushes + " slops");
 
                 try {
-                    Pair<ByteArray, Versioned<Slop>> keyAndVal = iterator.next();
+                    Pair<ByteArray, Versioned<Slop>> keyAndVal;
+                    try {
+                        keyAndVal = iterator.next();
+                    } catch (Exception e) {
+                        logger.error("Exception in iterator, escaping the loop ", e);
+                        break;
+                    }
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
                     int nodeId = slop.getNodeId();
