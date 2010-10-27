@@ -264,7 +264,8 @@ public class Workload {
         String keyType = props.getString(Benchmark.KEY_TYPE, Benchmark.STRING_KEY_TYPE);
         String recordSelection = props.getString(Benchmark.RECORD_SELECTION,
                                                  Benchmark.UNIFORM_RECORD_SELECTION);
-        boolean hasTransforms = props.getString(Benchmark.HAS_TRANSFORMS).compareTo("true") == 0;
+        boolean hasTransforms = props.getString(Benchmark.HAS_TRANSFORMS, "false")
+                                     .compareTo("true") == 0;
 
         double readProportion = (double) readPercent / (double) 100;
         double writeProportion = (double) writePercent / (double) 100;
