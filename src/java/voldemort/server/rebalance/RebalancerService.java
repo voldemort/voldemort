@@ -32,7 +32,7 @@ public class RebalancerService extends AbstractService {
     @Override
     protected void startInner() {
         rebalancer.start();
-        schedulerService.schedule(rebalancer, new Date(), periodMs);
+        schedulerService.schedule("rebalancer", rebalancer, new Date(), periodMs);
     }
 
     @Override
