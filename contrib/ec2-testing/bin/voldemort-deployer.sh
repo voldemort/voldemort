@@ -15,4 +15,4 @@
 #  limitations under the License.
 #
 
-$(dirname $0)/run-class.sh $CLASSPATH voldemort.utils.app.VoldemortDeployerApp $@
+$(dirname $0)/run-class.sh voldemort.utils.app.VoldemortDeployerApp $@

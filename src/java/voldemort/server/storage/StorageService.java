@@ -197,7 +197,8 @@ public class StorageService extends AbstractService {
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
             logger.info("Slop store registered");
-            scheduler.schedule(new SlopPusherJob(storeRepository,
+            scheduler.schedule("slop",
+                               new SlopPusherJob(storeRepository,
                                                  metadata.getCluster(),
                                                  failureDetector,
                                                  voldemortConfig.getSlopMaxWriteBytesPerSec()),
@@ -463,7 +464,8 @@ public class StorageService extends AbstractService {
                                                                             SystemTime.INSTANCE,
                                                                             throttler);
 
-        this.scheduler.schedule(cleanupJob,
+        this.scheduler.schedule("cleanup-" + storeDef.getName(),
+                                cleanupJob,
                                 startTime,
                                 voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
                                         * Time.MS_PER_HOUR);
