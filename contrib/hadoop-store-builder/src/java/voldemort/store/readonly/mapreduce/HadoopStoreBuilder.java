@@ -230,6 +230,7 @@ public class HadoopStoreBuilder {
                 }
             }
         } catch(Exception e) {
+            logger.error("Error = " + e);
             throw new VoldemortException(e);
         }
 
