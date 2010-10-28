@@ -16,7 +16,8 @@
 
 package voldemort.server.scheduler;
 
-import com.google.common.collect.Maps;
+import java.util.Map;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -28,8 +29,8 @@ import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.Slop.Operation;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -39,7 +40,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import java.util.Map;
+import com.google.common.collect.Maps;
 
 /**
  * A task which goes through the slop table and attempts to push out all the
@@ -73,25 +74,30 @@ public class SlopPusherJob implements Runnable {
     public void run() {
         logger.debug("Pushing slop...");
 
-        int numNodes = cluster.getNumberOfNodes();
-        Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(numNodes);
-        for(int i = 0; i < numNodes; i++)
-            attemptedByNode.put(i, 0L);
-        Map<Integer, Long> succeededByNode = Maps.newHashMapWithExpectedSize(numNodes);
-        for(int i = 0; i < numNodes; i++)
-            succeededByNode.put(i, 0L);
+        Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+        Map<Integer, Long> succeededByNode = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
 
         long slopsPushed = 0L;
         long attemptedPushes = 0L;
         ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
+
+        for(Node node: cluster.getNodes()) {
+            attemptedByNode.put(node.getId(), 0L);
+            succeededByNode.put(node.getId(), 0L);
+        }
+
         SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
         try {
             StorageEngine<ByteArray, Slop, byte[]> slopStore = slopStorageEngine.asSlopStore();
             EventThrottler throttler = new EventThrottler(maxWriteBytesPerSec);
+
             iterator = slopStore.entries();
+
             while(iterator.hasNext()) {
+
                 if(Thread.interrupted())
-                    throw new InterruptedException("Task cancelled!");
+                    throw new InterruptedException("Slop pusher job cancelled");
+
                 attemptedPushes++;
 
                 if(attemptedPushes % 10000 == 0)
@@ -101,24 +107,29 @@ public class SlopPusherJob implements Runnable {
                     Pair<ByteArray, Versioned<Slop>> keyAndVal;
                     try {
                         keyAndVal = iterator.next();
-                    } catch (Exception e) {
+                    } catch(Exception e) {
                         logger.error("Exception in iterator, escaping the loop ", e);
                         break;
                     }
+
                     Versioned<Slop> versioned = keyAndVal.getSecond();
                     Slop slop = versioned.getValue();
                     int nodeId = slop.getNodeId();
                     Node node = cluster.getNodeById(nodeId);
+
+                    // Incremented attempted
                     Long attempted = attemptedByNode.get(nodeId);
                     if(attempted == null)
                         attempted = 0L;
                     attemptedByNode.put(nodeId, attempted + 1L);
+
                     if(failureDetector.isAvailable(node)) {
                         Store<ByteArray, byte[], byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
                                                                                         node.getId());
                         Long startNs = System.nanoTime();
+                        int nBytes = 0;
                         try {
-                            int nBytes = slop.getKey().length();
+                            nBytes = slop.getKey().length();
                             if(slop.getOperation() == Operation.PUT) {
                                 store.put(slop.getKey(),
                                           new Versioned<byte[]>(slop.getValue(),
@@ -131,23 +142,41 @@ public class SlopPusherJob implements Runnable {
                             } else if(slop.getOperation() == Operation.DELETE) {
                                 nBytes += ((VectorClock) versioned.getVersion()).sizeInBytes() + 1;
                                 store.delete(slop.getKey(), versioned.getVersion());
-                            }
-                            else {
+                            } else {
                                 logger.error("Unknown slop operation: " + slop.getOperation());
                                 continue;
                             }
+
                             failureDetector.recordSuccess(node, deltaMs(startNs));
+
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
                             slopsPushed++;
+
+                            // Increment succeeded
                             Long succeeded = succeededByNode.get(nodeId);
                             if(succeeded == null) {
                                 succeeded = 0L;
                             }
-                            succeededByNode.put(nodeId,  succeeded + 1L);
+                            succeededByNode.put(nodeId, succeeded + 1L);
+
+                            // Throttle the bytes...
                             throttler.maybeThrottle(nBytes);
                         } catch(ObsoleteVersionException e) {
+
                             // okay it is old, just delete it
                             slopStore.delete(slop.makeKey(), versioned.getVersion());
+                            slopsPushed++;
+
+                            // Increment succeeded
+                            Long succeeded = succeededByNode.get(nodeId);
+                            if(succeeded == null) {
+                                succeeded = 0L;
+                            }
+                            succeededByNode.put(nodeId, succeeded + 1L);
+
+                            // Throttle the bytes...
+                            throttler.maybeThrottle(nBytes);
+
                         } catch(UnreachableStoreException e) {
                             failureDetector.recordException(node, deltaMs(startNs), e);
                         }
@@ -172,9 +201,11 @@ public class SlopPusherJob implements Runnable {
         logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
                    "Attempted " + attemptedPushes + " hinted handoff pushes of which "
                            + slopsPushed + " succeeded.");
-        Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(numNodes);
-        for(int i: succeededByNode.keySet())
-            outstanding.put(i, attemptedByNode.get(i) - succeededByNode.get(i));
+
+        Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+        for(int nodeId: succeededByNode.keySet())
+            outstanding.put(nodeId, attemptedByNode.get(nodeId) - succeededByNode.get(nodeId));
+
         slopStorageEngine.resetStats(outstanding);
     }
 
