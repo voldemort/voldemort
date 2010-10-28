@@ -75,8 +75,8 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
 
     @Override
     public void close() throws VoldemortException {
-        if(logger.isDebugEnabled())
-            logger.debug("Closing " + getName() + ".");
+        if(logger.isInfoEnabled())
+            logger.info("Closing " + getName() + ".");
         super.close();
     }
 
@@ -84,7 +84,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     public boolean delete(K key, Version version) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if(logger.isDebugEnabled())
+        if(logger.isInfoEnabled())
             startTimeNs = time.getNanoseconds();
         try {
             boolean deletedSomething = getInnerStore().delete(key, version);
@@ -99,7 +99,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if(logger.isDebugEnabled())
+        if(logger.isInfoEnabled())
             startTimeNs = time.getNanoseconds();
         try {
             List<Versioned<V>> l = getInnerStore().get(key, transform);
@@ -114,7 +114,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-        if(logger.isDebugEnabled()) {
+        if(logger.isInfoEnabled()) {
             startTimeNs = time.getNanoseconds();
         }
         try {
@@ -126,11 +126,11 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     private void printTimedMessage(String operation, boolean success, long startNs) {
-        if(logger.isDebugEnabled()) {
+        if(logger.isInfoEnabled()) {
             double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
-            logger.debug(instanceName + operation + " operation on store '" + getName()
-                         + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
-                         + elapsedMs + " ms.");
+            logger.info(instanceName + operation + " operation on store '" + getName()
+                        + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
+                        + elapsedMs + " ms.");
         }
     }
 
