@@ -97,10 +97,10 @@ public class SchedulerService extends AbstractService {
     }
 
     @JmxOperation(description = "Disable a particular scheduled job", impact = MBeanOperationInfo.ACTION)
-    public void disable(String id) {
+    public void disable(String id, boolean forceDisable) {
         if(allJobs.containsKey(id) && scheduledJobResults.containsKey(id)) {
             ScheduledFuture<?> future = scheduledJobResults.get(id);
-            boolean cancelled = future.cancel(false);
+            boolean cancelled = future.cancel(forceDisable);
             if(cancelled == true) {
                 logger.info("Removed '" + id + "' to list of scheduled jobs");
                 scheduledJobResults.remove(id);
