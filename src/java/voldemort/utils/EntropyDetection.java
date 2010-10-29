@@ -130,30 +130,40 @@ public class EntropyDetection {
                                                                                     skipRecords);
 
         // Get Socket store for other node
-        SocketStoreFactory storeFactory = new ClientRequestExecutorPool(10, 1000, 1000, 32 * 1024);
-        final Store<ByteArray, byte[], byte[]> secondStore = storeFactory.create(storeName,
-                                                                                 secondNode.getHost(),
-                                                                                 secondNode.getSocketPort(),
-                                                                                 RequestFormatType.VOLDEMORT_V3,
-                                                                                 RequestRoutingType.NORMAL);
+        SocketStoreFactory storeFactory = new ClientRequestExecutorPool(10, 10000, 10000, 64 * 1024);
+        Store<ByteArray, byte[], byte[]> secondStore = null;
+        try {
+            secondStore = storeFactory.create(storeName,
+                                              secondNode.getHost(),
+                                              secondNode.getSocketPort(),
+                                              RequestFormatType.VOLDEMORT_V3,
+                                              RequestRoutingType.NORMAL);
 
-        long totalKeyValues = 0, totalCorrect = 0;
-        while(iterator.hasNext()) {
-            Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
-            List<Versioned<byte[]>> otherValues = secondStore.get(entry.getFirst(), null);
+            long totalKeyValues = 0, totalCorrect = 0;
+            while(iterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
+                List<Versioned<byte[]>> otherValues = secondStore.get(entry.getFirst(), null);
 
-            totalKeyValues++;
-            for(Versioned<byte[]> value: otherValues) {
-                if(ByteUtils.compare(value.getValue(), entry.getSecond().getValue()) == 0) {
-                    totalCorrect++;
-                    break;
+                totalKeyValues++;
+                for(Versioned<byte[]> value: otherValues) {
+                    if(ByteUtils.compare(value.getValue(), entry.getSecond().getValue()) == 0) {
+                        totalCorrect++;
+                        break;
+                    }
                 }
+
+                if(totalKeyValues % 1000 == 0)
+                    System.out.println("Final => Percent correct = "
+                                       + (double) (totalCorrect / totalKeyValues) * 100);
             }
+            if(totalKeyValues > 0)
+                System.out.println("Final => Percent correct = "
+                                   + (double) (totalCorrect / totalKeyValues) * 100);
+            else
+                System.out.println("Final => Percent correct = 0");
+        } finally {
+            if(secondStore != null)
+                secondStore.close();
         }
-        if(totalKeyValues > 0)
-            System.out.println("Percent correct = " + (double) (totalCorrect / totalKeyValues)
-                               * 100);
-        else
-            System.out.println("Percent correct = 0");
     }
 }
