@@ -49,6 +49,7 @@ import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
@@ -127,6 +128,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
+        parser.accepts("ro-version", "retrieve version information [current | max]")
+              .withRequiredArg()
+              .describedAs("version-type")
+              .ofType(String.class);
 
         OptionSet options = parser.parse(args);
 
@@ -138,7 +143,8 @@ public class VoldemortAdminTool {
         Set<String> missing = CmdUtils.missing(options, "url", "node");
         if(missing.size() > 0) {
             // Not the most elegant way to do this
-            if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores") || options.has("delete-store")))) {
+            if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
+                                                             || options.has("delete-store") || options.has("ro-version")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -146,7 +152,7 @@ public class VoldemortAdminTool {
         }
 
         String url = (String) options.valueOf("url");
-        Integer nodeId = (Integer) options.valueOf("node");
+        Integer nodeId = CmdUtils.valueOf(options, "node", -1);
         Integer parallelism = CmdUtils.valueOf(options, "parallelism", 5);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
@@ -176,8 +182,11 @@ public class VoldemortAdminTool {
         if(options.has("get-metadata")) {
             ops += "g";
         }
+        if(options.has("ro-version")) {
+            ops += "e";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version) must be specified");
         }
 
         List<String> storeNames = null;
@@ -251,9 +260,52 @@ public class VoldemortAdminTool {
                 String metadataKey = (String) options.valueOf("get-metadata");
                 executeGetMetadata(nodeId, adminClient, metadataKey);
             }
+            if(ops.contains("e")) {
+                String versionType = (String) options.valueOf("ro-version");
+                executeROVersion(nodeId, adminClient, storeNames, versionType);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    public static void executeROVersion(Integer nodeId,
+                                        AdminClient adminClient,
+                                        List<String> storeNames,
+                                        String versionType) {
+        Map<String, Long> storeToVersion = Maps.newHashMap();
+
+        if(storeNames == null) {
+            // Retrieve list of read-only stores
+            storeNames = Lists.newArrayList();
+            for(StoreDefinition storeDef: adminClient.getRemoteStoreDefList(nodeId > 0 ? nodeId : 0)
+                                                     .getValue()) {
+                if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+                    storeNames.add(storeDef.getName());
+                }
+            }
+        }
+
+        if(nodeId < 0) {
+            if(versionType.compareTo("max") != 0) {
+                System.err.println("Unsupported operation, only max allowed for all nodes");
+                return;
+            }
+            storeToVersion = adminClient.getROMaxVersion(storeNames);
+        } else {
+            if(versionType.compareTo("max") == 0) {
+                storeToVersion = adminClient.getROMaxVersion(nodeId, storeNames);
+            } else if(versionType.compareTo("current") == 0) {
+                storeToVersion = adminClient.getROCurrentVersion(nodeId, storeNames);
+            } else {
+                System.err.println("Unsupported operation, only max allowed for all nodes");
+                return;
+            }
+        }
+
+        for(String storeName: storeToVersion.keySet()) {
+            System.out.println(storeName + ":" + storeToVersion.get(storeName));
         }
     }
 
@@ -383,7 +435,7 @@ public class VoldemortAdminTool {
                 if(storeDefinition == null) {
                     throw new IllegalArgumentException("No definition found for " + storeName);
                 }
-                iterator = readEntriesAscii(inputDir, storeName, storeDefinition);
+                iterator = readEntriesAscii(inputDir, storeName);
             } else {
                 iterator = readEntriesBinary(inputDir, storeName);
             }
@@ -394,8 +446,7 @@ public class VoldemortAdminTool {
 
     // TODO: implement this
     private static Iterator<Pair<ByteArray, Versioned<byte[]>>> readEntriesAscii(File inputDir,
-                                                                                 String storeName,
-                                                                                 StoreDefinition storeDefinition)
+                                                                                 String storeName)
             throws IOException {
         File inputFile = new File(inputDir, storeName + ".entries");
         if(!inputFile.exists()) {
