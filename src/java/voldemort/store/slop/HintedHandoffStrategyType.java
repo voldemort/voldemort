@@ -7,7 +7,7 @@ package voldemort.store.slop;
  */
 public enum HintedHandoffStrategyType {
     CONSISTENT_STRATEGY("consistent-handoff"),
-    TO_ALL_STRATEGY("all-handoff");
+    ANY_STRATEGY("any-handoff");
 
     private final String text;
 

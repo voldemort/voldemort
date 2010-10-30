@@ -37,10 +37,10 @@ public class HintedHandoffStrategyFactory {
                                                  hintPrefListSize,
                                                  enableZoneRouting,
                                                  clientZoneId);
-        } else if(HintedHandoffStrategyType.TO_ALL_STRATEGY.toDisplay()
-                                                           .compareTo(storeDef.getHintedHandoffStrategyType()
-                                                                              .toDisplay()) == 0) {
-            return new HandoffToAllStrategy(cluster, enableZoneRouting, clientZoneId);
+        } else if(HintedHandoffStrategyType.ANY_STRATEGY.toDisplay()
+                                                        .compareTo(storeDef.getHintedHandoffStrategyType()
+                                                                           .toDisplay()) == 0) {
+            return new HandoffToAnyStrategy(cluster, enableZoneRouting, clientZoneId);
         } else {
             throw new VoldemortException("HintedHandoffStrategyType:"
                                          + storeDef.getHintedHandoffStrategyType()

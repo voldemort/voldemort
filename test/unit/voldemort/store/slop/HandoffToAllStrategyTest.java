@@ -16,7 +16,7 @@ public class HandoffToAllStrategyTest {
     @Test
     public void testRouteHint() {
         Cluster cluster = VoldemortTestConstants.getNineNodeCluster();
-        HintedHandoffStrategy handoffStrategy = new HandoffToAllStrategy(cluster, false, 0);
+        HintedHandoffStrategy handoffStrategy = new HandoffToAnyStrategy(cluster, false, 0);
         for(Node origin: cluster.getNodes()) {
             List<Node> nodes = handoffStrategy.routeHint(origin);
             assertTrue("hint preflist is correctly sized", nodes.size() == cluster.getNumberOfNodes() - 1);
@@ -27,8 +27,8 @@ public class HandoffToAllStrategyTest {
     @Test
     public void testRouteHintWithZones() {
         Cluster cluster = VoldemortTestConstants.getEightNodeClusterWithZones();
-        HintedHandoffStrategy handoffStrategy0 = new HandoffToAllStrategy(cluster, true, 0);
-        HintedHandoffStrategy handoffStrategy1 = new HandoffToAllStrategy(cluster, true, 1);
+        HintedHandoffStrategy handoffStrategy0 = new HandoffToAnyStrategy(cluster, true, 0);
+        HintedHandoffStrategy handoffStrategy1 = new HandoffToAnyStrategy(cluster, true, 1);
 
         List<Node> zone0Nodes = Lists.newArrayList();
         List<Node> zone1Nodes = Lists.newArrayList();

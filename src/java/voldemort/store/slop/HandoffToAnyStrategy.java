@@ -28,7 +28,7 @@ import java.util.List;
 /**
  * A strategy that hands a hint off to any random live node in the ring
  */
-public class HandoffToAllStrategy implements HintedHandoffStrategy {
+public class HandoffToAnyStrategy implements HintedHandoffStrategy {
 
     private final List<Node> nodes;
     private final Collection<Zone> zones;
@@ -41,7 +41,7 @@ public class HandoffToAllStrategy implements HintedHandoffStrategy {
      * @param enableZoneRouting Is zone routing enabled
      * @param clientZoneId Client zone id
      */
-    public HandoffToAllStrategy(Cluster cluster, boolean enableZoneRouting, int clientZoneId) {
+    public HandoffToAnyStrategy(Cluster cluster, boolean enableZoneRouting, int clientZoneId) {
         this.nodes = Lists.newArrayList(cluster.getNodes());
         this.zones = cluster.getZones();
         this.enableZoneRouting = enableZoneRouting;
