@@ -111,7 +111,7 @@ public class HintedHandoffTest {
     @Parameterized.Parameters
     public static Collection<Object[]> configs() {
         return Arrays.asList(new Object[][] { { HintedHandoffStrategyType.CONSISTENT_STRATEGY },
-                { HintedHandoffStrategyType.TO_ALL_STRATEGY } });
+                { HintedHandoffStrategyType.ANY_STRATEGY } });
     }
 
     private StoreDefinition getStoreDef(String storeName,
