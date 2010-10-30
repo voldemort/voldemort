@@ -1148,6 +1148,7 @@ public class AdminClient {
                                                                            VAdminProto.AddStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
+            logger.info("Added on node " + node.getHost());
         }
     }
 
@@ -1170,6 +1171,7 @@ public class AdminClient {
                                                                               VAdminProto.DeleteStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
+            logger.info("Deleted on node " + node.getHost());
         }
     }
 

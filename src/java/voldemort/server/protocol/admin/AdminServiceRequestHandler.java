@@ -812,33 +812,40 @@ public class AdminServiceRequestHandler implements RequestHandler {
             synchronized(lock) {
 
                 if(storeRepository.hasLocalStore(storeName)) {
+                    if(storeName.compareTo("slop") == 0) {
+                        storageService.unregisterEngine(storeName,
+                                                        "slop",
+                                                        storeRepository.getStorageEngine(storeName));
+                    } else {
+                        // update stores list in metadata store
+                        List<StoreDefinition> oldStoreDefList = metadataStore.getStoreDefList();
+                        List<StoreDefinition> newStoreDefList = new ArrayList<StoreDefinition>();
 
-                    // update stores list in metadata store
-                    List<StoreDefinition> oldStoreDefList = metadataStore.getStoreDefList();
-                    List<StoreDefinition> newStoreDefList = new ArrayList<StoreDefinition>();
-
-                    for(StoreDefinition storeDef: oldStoreDefList) {
-                        if(storeDef.isView()) {
-                            if(storeDef.getViewTargetStoreName().compareTo(storeName) != 0) {
-                                newStoreDefList.add(storeDef);
+                        for(StoreDefinition storeDef: oldStoreDefList) {
+                            if(storeDef.isView()) {
+                                if(storeDef.getViewTargetStoreName().compareTo(storeName) != 0) {
+                                    newStoreDefList.add(storeDef);
+                                } else {
+                                    storageService.unregisterEngine(storeDef.getName(),
+                                                                    storeDef.getType(),
+                                                                    storeRepository.getStorageEngine(storeDef.getName()));
+                                }
                             } else {
-                                storageService.unregisterEngine(storeDef,
-                                                                storeRepository.getStorageEngine(storeDef.getName()));
-                            }
-                        } else {
-                            if(storeDef.getName().compareTo(storeName) != 0) {
-                                newStoreDefList.add(storeDef);
-                            } else {
-                                storageService.unregisterEngine(storeDef,
-                                                                storeRepository.getStorageEngine(storeDef.getName()));
+                                if(storeDef.getName().compareTo(storeName) != 0) {
+                                    newStoreDefList.add(storeDef);
+                                } else {
+                                    storageService.unregisterEngine(storeDef.getName(),
+                                                                    storeDef.getType(),
+                                                                    storeRepository.getStorageEngine(storeDef.getName()));
+                                }
                             }
                         }
-                    }
 
-                    try {
-                        metadataStore.put(MetadataStore.STORES_KEY, newStoreDefList);
-                    } catch(Exception e) {
-                        throw new VoldemortException(e);
+                        try {
+                            metadataStore.put(MetadataStore.STORES_KEY, newStoreDefList);
+                        } catch(Exception e) {
+                            throw new VoldemortException(e);
+                        }
                     }
 
                 } else {

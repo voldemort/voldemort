@@ -58,7 +58,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private final Map<String, Environment> environments = Maps.newHashMap();
     private final EnvironmentConfig environmentConfig;
     private final DatabaseConfig databaseConfig;
-    private final Map<String, BdbStorageEngine> stores = Maps.newHashMap();
     private final String bdbMasterDir;
     private final boolean useOneEnvPerStore;
     private final VoldemortConfig voldemortConfig;
@@ -101,9 +100,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
-            BdbStorageEngine store = stores.get(storeName);
-            if(store != null)
-                return stores.get(storeName);
             try {
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
@@ -116,7 +112,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                                                environment,
                                                                db,
                                                                voldemortConfig.getBdbCursorPreload());
-                stores.put(storeName, engine);
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);

@@ -270,7 +270,7 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod())
                 scheduleCleanupJob(storeDef, engine);
         } catch(Exception e) {
-            unregisterEngine(storeDef, engine);
+            unregisterEngine(storeDef.getName(), storeDef.getType(), engine);
             throw new VoldemortException(e);
         }
     }
@@ -278,12 +278,18 @@ public class StorageService extends AbstractService {
     /**
      * Unregister and remove the engine from the storage repository
      * 
-     * @param engine Unregister the storage engine
+     * @param storeName The name of the store to remote
+     * @param storeType The storage type of the store
+     * @param engine The actual engine to remove
      */
-    public void unregisterEngine(StoreDefinition storeDef,
+    public void unregisterEngine(String storeName,
+                                 String storeType,
                                  StorageEngine<ByteArray, byte[], byte[]> engine) {
         String engineName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(engineName);
+
+        boolean isSlop = storeType.compareTo("slop") == 0;
+        boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
 
         if(store != null) {
             if(voldemortConfig.isStatTrackingEnabled() && voldemortConfig.isJmxEnabled()) {
@@ -298,15 +304,15 @@ public class StorageService extends AbstractService {
                 }
 
             }
-            if(voldemortConfig.isServerRoutingEnabled()) {
+            if(voldemortConfig.isServerRoutingEnabled() && !isSlop) {
                 this.storeRepository.removeRoutedStore(engineName);
                 for(Node node: metadata.getCluster().getNodes())
-                    this.storeRepository.removeNodeStore(storeDef.getName(), node.getId());
+                    this.storeRepository.removeNodeStore(storeName, node.getId());
             }
         }
 
         storeRepository.removeStorageEngine(engineName);
-        if(!storeDef.isView())
+        if(!isView)
             engine.truncate();
         engine.close();
     }
@@ -322,11 +328,12 @@ public class StorageService extends AbstractService {
 
         /* Now add any store wrappers that are enabled */
         Store<ByteArray, byte[], byte[]> store = engine;
+        boolean isSlop = store.getName().compareTo("slop") == 0;
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
-        if(!"slop".equals(store.getName())) {
+        if(!isSlop) {
             if(voldemortConfig.isRedirectRoutingEnabled())
                 store = new RedirectingStore(store,
                                              metadata,
