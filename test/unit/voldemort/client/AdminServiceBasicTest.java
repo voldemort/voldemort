@@ -23,6 +23,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -58,6 +59,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -622,6 +624,43 @@ public class AdminServiceBasicTest extends TestCase {
         };
 
         getAdminClient().updateEntries(0, testStoreName, iterator, null);
+
+        // check updated values
+        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
+        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            assertNotSame("entry should be present at store", 0, store.get(entry.getKey(), null)
+                                                                      .size());
+            assertEquals("entry value should match",
+                         new String(entry.getValue()),
+                         new String(store.get(entry.getKey(), null).get(0).getValue()));
+        }
+    }
+
+    @Test
+    public void testUpdateSlops() {
+        final HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+
+        Iterator<Versioned<Slop>> slopIterator = new AbstractIterator<Versioned<Slop>>() {
+
+            final Iterator<Entry<ByteArray, byte[]>> entrySetItr = entrySet.entrySet().iterator();
+
+            @Override
+            protected Versioned<Slop> computeNext() {
+                while(entrySetItr.hasNext()) {
+                    Entry<ByteArray, byte[]> entry = entrySetItr.next();
+                    return Versioned.value(new Slop(testStoreName,
+                                                    Slop.Operation.PUT,
+                                                    entry.getKey(),
+                                                    entry.getValue(),
+                                                    null,
+                                                    0,
+                                                    new Date()));
+                }
+                return endOfData();
+            }
+        };
+
+        getAdminClient().updateSlopEntries(0, slopIterator);
 
         // check updated values
         Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);

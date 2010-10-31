@@ -24,6 +24,7 @@ import java.util.Properties;
 
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -128,7 +129,7 @@ public class VoldemortConfig implements Serializable {
     private Props allProps;
 
     private final long pusherPollMs;
-
+    private String pusherType;
     private final long slopFrequencyMs;
     private long slopMaxWriteBytesPerSec;
 
@@ -140,14 +141,6 @@ public class VoldemortConfig implements Serializable {
 
     private long streamMaxReadBytesPerSec;
     private long streamMaxWriteBytesPerSec;
-
-    public int getGossipInterval() {
-        return gossipInterval;
-    }
-
-    public void setGossipInterval(int gossipInterval) {
-        this.gossipInterval = gossipInterval;
-    }
 
     private int gossipInterval;
     private String failureDetectorImplementation;
@@ -207,9 +200,6 @@ public class VoldemortConfig implements Serializable {
                                                                              + File.separator
                                                                              + "read-only");
 
-        this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
-        this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
-
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
         this.mysqlHost = props.getString("mysql.host", "localhost");
@@ -267,7 +257,11 @@ public class VoldemortConfig implements Serializable {
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
+
         this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
+        this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
+        this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
+        this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
 
@@ -398,6 +392,17 @@ public class VoldemortConfig implements Serializable {
         }
 
         return new VoldemortConfig(properties);
+    }
+
+    /**
+     * The interval at which gossip is run to exchange metadata
+     */
+    public int getGossipInterval() {
+        return gossipInterval;
+    }
+
+    public void setGossipInterval(int gossipInterval) {
+        this.gossipInterval = gossipInterval;
     }
 
     /**
@@ -721,12 +726,28 @@ public class VoldemortConfig implements Serializable {
         this.mysqlPort = mysqlPort;
     }
 
+    /**
+     * The underlying store type which will be used to store slops. Defaults to
+     * Bdb
+     */
     public String getSlopStoreType() {
         return slopStoreType;
     }
 
     public void setSlopStoreType(String slopStoreType) {
         this.slopStoreType = slopStoreType;
+    }
+
+    /**
+     * The type of streaming job we would want to use to send hints. Defaults to
+     * streaming
+     */
+    public String getPusherType() {
+        return this.pusherType;
+    }
+
+    public void setPusherType(String pusherType) {
+        this.pusherType = pusherType;
     }
 
     public int getSocketTimeoutMs() {

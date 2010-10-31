@@ -93,6 +93,10 @@ public class ProtoUtils {
         return ByteString.copyFrom(array.get());
     }
 
+    public static ByteString encodeTransform(byte[] transform) {
+        return ByteString.copyFrom(transform);
+    }
+
     public static void writeMessage(DataOutputStream output, Message message) throws IOException {
         /*
          * We don't use varints here because the c++ version of the protocol

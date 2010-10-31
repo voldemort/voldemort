@@ -35,9 +35,8 @@ public class Slop {
     private static final byte[] spacer = new byte[] { (byte) 0 };
 
     public enum Operation {
-        GET((byte) 0),
-        PUT((byte) 1),
-        DELETE((byte) 2);
+        PUT((byte) 0),
+        DELETE((byte) 1);
 
         private final byte opCode;
 

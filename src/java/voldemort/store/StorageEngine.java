@@ -39,6 +39,7 @@ import voldemort.versioning.Versioned;
  * 
  * @param <K> The type of the key being stored
  * @param <V> The type of the value being stored
+ * @param <T> The type of the transforms
  * 
  */
 public interface StorageEngine<K, V, T> extends Store<K, V, T> {

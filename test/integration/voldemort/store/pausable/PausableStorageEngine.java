@@ -23,6 +23,7 @@ import voldemort.versioning.Versioned;
  * 
  * @param <K> The type of the key
  * @param <V> The type of the value
+ * @param <T> The type of the transforms
  */
 public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 

@@ -37,8 +37,8 @@ import voldemort.versioning.Versioned;
 
 /**
  * Tracks statistics of hints that were attempted, but not successfully pushed
- * last time a {@link voldemort.server.scheduler.SlopPusherJob} ran; also tracks
- * hints that have been added after the last run
+ * last time a pusher job ran; also tracks hints that have been added after the
+ * last run
  * 
  */
 public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {

@@ -97,9 +97,8 @@ public class HintedHandoff {
                         logger.trace("Attempt to write " + slop.getKey() + " for " + failedNode
                                      + " to node " + node);
 
-                    slopStore.put(slop.makeKey(),
-                                  new Versioned<Slop>(slop, version),
-                                  slop.getTransforms());
+                    // No transform needs to applied to the slop
+                    slopStore.put(slop.makeKey(), new Versioned<Slop>(slop, version), null);
 
                     persisted = true;
                     failureDetector.recordSuccess(node, (System.nanoTime() - startNs)

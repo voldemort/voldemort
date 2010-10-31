@@ -60,7 +60,8 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
-import voldemort.server.scheduler.SlopPusherJob;
+import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
+import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -191,7 +192,8 @@ public class StorageService extends AbstractService {
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
-            logger.info("Starting the slop store:");
+
+            logger.info("Initializing the slop store using " + voldemortConfig.getSlopStoreType());
             StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
             if(config == null)
                 throw new ConfigurationException("Attempt to get slop store failed");
@@ -200,14 +202,36 @@ public class StorageService extends AbstractService {
                                                                  metadata.getCluster());
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
-            logger.info("Slop store registered");
-            scheduler.schedule("slop",
-                               new SlopPusherJob(storeRepository,
-                                                 metadata.getCluster(),
-                                                 failureDetector,
-                                                 voldemortConfig.getSlopMaxWriteBytesPerSec()),
-                               new Date(),
-                               voldemortConfig.getSlopFrequencyMs());
+
+            // Now initialize the pusher job after some time
+            GregorianCalendar cal = new GregorianCalendar();
+            cal.add(Calendar.SECOND,
+                    (int) (voldemortConfig.getSlopFrequencyMs() / Time.MS_PER_SECOND));
+            Date nextRun = cal.getTime();
+            logger.info("Initializing slop pusher job type " + voldemortConfig.getPusherType()
+                        + " at " + nextRun);
+
+            if(voldemortConfig.getPusherType().compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) {
+                scheduler.schedule("slop",
+                                   new BlockingSlopPusherJob(storeRepository,
+                                                             metadata,
+                                                             failureDetector,
+                                                             voldemortConfig.getSlopMaxWriteBytesPerSec()),
+                                   nextRun,
+                                   voldemortConfig.getSlopFrequencyMs());
+            } else if(voldemortConfig.getPusherType().compareTo(StreamingSlopPusherJob.TYPE_NAME) == 0) {
+                scheduler.schedule("slop",
+                                   new StreamingSlopPusherJob(storeRepository,
+                                                              metadata,
+                                                              failureDetector,
+                                                              voldemortConfig.getStreamMaxReadBytesPerSec(),
+                                                              voldemortConfig.getStreamMaxWriteBytesPerSec()),
+                                   nextRun,
+                                   voldemortConfig.getSlopFrequencyMs());
+            } else {
+                logger.error("Unsupported slop pusher job type " + voldemortConfig.getPusherType());
+            }
+
         }
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");

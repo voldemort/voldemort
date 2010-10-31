@@ -41,8 +41,6 @@ public class SlopSerializerTest extends TestCase {
                                   new byte[] { 1 },
                                   1,
                                   new Date()));
-        assertSerializes(new Slop("test", Slop.Operation.GET, "hello there".getBytes(), new byte[] {
-                1, 3, 23, 4, 5, 6, 6 }, 1, new Date(0)));
         assertSerializes(new Slop("test",
                                   Slop.Operation.PUT,
                                   "".getBytes(),
