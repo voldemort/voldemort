@@ -25,6 +25,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import voldemort.MutableStoreVerifier;
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
@@ -40,7 +41,7 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.StoreRepository;
-import voldemort.server.scheduler.SlopPusherJob;
+import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.store.ForceFailStore;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -50,6 +51,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.slop.HintedHandoffStrategyType;
 import voldemort.store.slop.Slop;
@@ -92,7 +94,7 @@ public class HintedHandoffTest {
 
     private final Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>();
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores = new ConcurrentHashMap<Integer, Store<ByteArray, Slop, byte[]>>();
-    private final List<SlopPusherJob> slopPusherJobs = Lists.newLinkedList();
+    private final List<BlockingSlopPusherJob> slopPusherJobs = Lists.newLinkedList();
     private final Multimap<ByteArray, Integer> keysToNodes = HashMultimap.create();
     private final Map<ByteArray, ByteArray> keyValues = Maps.newHashMap();
 
@@ -173,10 +175,12 @@ public class HintedHandoffTest {
             storeRepo.setSlopStore(slopStorageEngine);
             slopStores.put(nodeId, storageEngine);
 
-            SlopPusherJob pusher = new SlopPusherJob(storeRepo,
-                                                     cluster,
-                                                     failureDetector,
-                                                     10 * 10 * 1000);
+            MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
+                                                                              Lists.newArrayList(storeDef));
+            BlockingSlopPusherJob pusher = new BlockingSlopPusherJob(storeRepo,
+                                                                     metadataStore,
+                                                                     failureDetector,
+                                                                     10 * 10 * 1000);
             slopPusherJobs.add(pusher);
         }
 
@@ -264,7 +268,7 @@ public class HintedHandoffTest {
         reviveNodes(failedNodes);
 
         for(int i = 0; i < 5; i++) {
-            for(SlopPusherJob job: slopPusherJobs) {
+            for(BlockingSlopPusherJob job: slopPusherJobs) {
                 if(logger.isTraceEnabled())
                     logger.trace("Started slop pusher job " + job);
 

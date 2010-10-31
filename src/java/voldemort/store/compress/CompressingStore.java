@@ -71,8 +71,7 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         Map<ByteArray, byte[]> newTransforms = Maps.newHashMap();
         if(transforms != null) {
             for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
-                newTransforms.put(deflateKey(transform.getKey()),
-                                  transform == null ? null : transform.getValue());
+                newTransforms.put(deflateKey(transform.getKey()), transform.getValue());
             }
         } else {
             for(ByteArray deflatedKey: processedKeys) {

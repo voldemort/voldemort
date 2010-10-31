@@ -31,6 +31,7 @@ import voldemort.versioning.Versioned;
  * 
  * @param <K> The key type
  * @param <V> The value type
+ * @param <T> The transforms type
  */
 public class VersionIncrementingStore<K, V, T> extends DelegatingStore<K, V, T> implements
         Store<K, V, T> {

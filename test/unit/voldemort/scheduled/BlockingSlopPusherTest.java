@@ -23,47 +23,47 @@ import java.util.Date;
 import java.util.List;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.server.StoreRepository;
-import voldemort.server.scheduler.SlopPusherJob;
+import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.store.FailingStore;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.Slop.Operation;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-public class SlopPusherTest extends TestCase {
+public class BlockingSlopPusherTest extends TestCase {
 
     private final static String STORE_NAME = "test";
 
-    private SlopPusherJob pusher;
+    private BlockingSlopPusherJob pusher;
     private StoreRepository repo;
-    private int failingNodeId;
-
-    public SlopPusherTest(String name) {
-        super(name);
-    }
 
     @Override
     protected void setUp() throws Exception {
         Cluster cluster = makeCluster(3);
         repo = new StoreRepository();
-        repo.setSlopStore(new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("slop"), cluster));
+        repo.setSlopStore(new SlopStorageEngine(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("slop"),
+                                                cluster));
         repo.addNodeStore(0, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
         repo.addNodeStore(1, new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME));
-        this.failingNodeId = 2;
-        repo.addNodeStore(failingNodeId, new FailingStore<ByteArray, byte[], byte[]>(STORE_NAME));
-        pusher = new SlopPusherJob(repo,
-                                   cluster,
-                                   new NoopFailureDetector(),
-                                   10 * 1000 * 1000);
+        repo.addNodeStore(2, new FailingStore<ByteArray, byte[], byte[]>(STORE_NAME));
+
+        MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
+                                                                          ServerTestUtils.getStoreDefs(1));
+        pusher = new BlockingSlopPusherJob(repo,
+                                           metadataStore,
+                                           new NoopFailureDetector(),
+                                           10 * 1000 * 1000);
     }
 
     private Cluster makeCluster(int numNodes) {
@@ -129,7 +129,7 @@ public class SlopPusherTest extends TestCase {
     public void testSlopWithFailingStore() {
         Versioned<Slop> good1 = randomSlop(STORE_NAME, 0);
         Versioned<Slop> good2 = randomSlop(STORE_NAME, 1);
-        Versioned<Slop> bad = randomSlop(STORE_NAME, this.failingNodeId);
+        Versioned<Slop> bad = randomSlop(STORE_NAME, 2);
         pushSlop(good1, bad, good2);
         checkPush(new Versioned[] { good1, good2 }, new Versioned[] { bad });
     }

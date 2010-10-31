@@ -91,6 +91,10 @@ _ADMINREQUESTTYPE = descriptor.EnumDescriptor(
       name='SWAP_STORES_AND_CLEAN_STATE', index=19, number=19,
       options=None,
       type=None),
+    descriptor.EnumValueDescriptor(
+      name='UPDATE_SLOP_ENTRIES', index=20, number=20,
+      options=None,
+      type=None),
   ],
   options=None,
 )
@@ -116,6 +120,7 @@ GET_RO_MAX_VERSION_DIR = 16
 GET_RO_CURRENT_VERSION_DIR = 17
 FETCH_PARTITION_FILES = 18
 SWAP_STORES_AND_CLEAN_STATE = 19
+UPDATE_SLOP_ENTRIES = 20
 
 
 
@@ -354,6 +359,85 @@ _VOLDEMORTFILTER = descriptor.Descriptor(
       name='data', full_name='voldemort.VoldemortFilter.data', index=1,
       number=2, type=12, cpp_type=9, label=2,
       default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_UPDATESLOPENTRIESREQUEST = descriptor.Descriptor(
+  name='UpdateSlopEntriesRequest',
+  full_name='voldemort.UpdateSlopEntriesRequest',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='store', full_name='voldemort.UpdateSlopEntriesRequest.store', index=0,
+      number=1, type=9, cpp_type=9, label=2,
+      default_value=unicode("", "utf-8"),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='key', full_name='voldemort.UpdateSlopEntriesRequest.key', index=1,
+      number=2, type=12, cpp_type=9, label=2,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='version', full_name='voldemort.UpdateSlopEntriesRequest.version', index=2,
+      number=3, type=11, cpp_type=10, label=2,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='request_type', full_name='voldemort.UpdateSlopEntriesRequest.request_type', index=3,
+      number=4, type=14, cpp_type=8, label=2,
+      default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='value', full_name='voldemort.UpdateSlopEntriesRequest.value', index=4,
+      number=5, type=12, cpp_type=9, label=1,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    descriptor.FieldDescriptor(
+      name='transform', full_name='voldemort.UpdateSlopEntriesRequest.transform', index=5,
+      number=6, type=12, cpp_type=9, label=1,
+      default_value="",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],  # TODO(robinson): Implement.
+  enum_types=[
+  ],
+  options=None)
+
+
+_UPDATESLOPENTRIESRESPONSE = descriptor.Descriptor(
+  name='UpdateSlopEntriesResponse',
+  full_name='voldemort.UpdateSlopEntriesResponse',
+  filename='voldemort-admin.proto',
+  containing_type=None,
+  fields=[
+    descriptor.FieldDescriptor(
+      name='error', full_name='voldemort.UpdateSlopEntriesResponse.error', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -1453,6 +1537,13 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    descriptor.FieldDescriptor(
+      name='update_slop_entries', full_name='voldemort.VoldemortAdminRequest.update_slop_entries', index=21,
+      number=22, type=11, cpp_type=10, label=1,
+      default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -1471,6 +1562,9 @@ _PARTITIONENTRY.fields_by_name['versioned'].message_type = voldemort_client_pb2.
 _UPDATEPARTITIONENTRIESREQUEST.fields_by_name['partition_entry'].message_type = _PARTITIONENTRY
 _UPDATEPARTITIONENTRIESREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _UPDATEPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
+_UPDATESLOPENTRIESREQUEST.fields_by_name['version'].message_type = voldemort_client_pb2._VECTORCLOCK
+_UPDATESLOPENTRIESREQUEST.fields_by_name['request_type'].enum_type = voldemort_client_pb2._REQUESTTYPE
+_UPDATESLOPENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _FETCHPARTITIONENTRIESREQUEST.fields_by_name['filter'].message_type = _VOLDEMORTFILTER
 _FETCHPARTITIONENTRIESRESPONSE.fields_by_name['partition_entry'].message_type = _PARTITIONENTRY
 _FETCHPARTITIONENTRIESRESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
@@ -1514,6 +1608,7 @@ _VOLDEMORTADMINREQUEST.fields_by_name['get_ro_max_version_dir'].message_type = _
 _VOLDEMORTADMINREQUEST.fields_by_name['get_ro_current_version_dir'].message_type = _GETROCURRENTVERSIONDIRREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['fetch_partition_files'].message_type = _FETCHPARTITIONFILESREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['swap_stores_and_clean_state'].message_type = _SWAPSTORESANDCLEANSTATEREQUEST
+_VOLDEMORTADMINREQUEST.fields_by_name['update_slop_entries'].message_type = _UPDATESLOPENTRIESREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -1550,6 +1645,14 @@ class UpdatePartitionEntriesResponse(message.Message):
 class VoldemortFilter(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _VOLDEMORTFILTER
+
+class UpdateSlopEntriesRequest(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _UPDATESLOPENTRIESREQUEST
+
+class UpdateSlopEntriesResponse(message.Message):
+  __metaclass__ = reflection.GeneratedProtocolMessageType
+  DESCRIPTOR = _UPDATESLOPENTRIESRESPONSE
 
 class FetchPartitionFilesRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

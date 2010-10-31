@@ -49,6 +49,18 @@ message VoldemortFilter {
   required bytes data = 2;
 }
 
+message UpdateSlopEntriesRequest {
+  required string store = 1;
+  required bytes key = 2; 
+  required VectorClock version = 3;
+  required RequestType request_type = 4;
+  optional bytes value = 5;
+  optional bytes transform = 6;
+}
+
+message UpdateSlopEntriesResponse {
+  optional Error error = 1;
+}
 message FetchPartitionFilesRequest {
   repeated int32 partitions = 1;
   required string store = 2;
@@ -230,6 +242,7 @@ enum AdminRequestType {
   GET_RO_CURRENT_VERSION_DIR = 17;
   FETCH_PARTITION_FILES = 18;
   SWAP_STORES_AND_CLEAN_STATE = 19;
+  UPDATE_SLOP_ENTRIES = 20;
 }
 
 message VoldemortAdminRequest {
@@ -254,4 +267,5 @@ message VoldemortAdminRequest {
   optional GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
   optional FetchPartitionFilesRequest fetch_partition_files = 20;
   optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
+  optional UpdateSlopEntriesRequest update_slop_entries = 22;
 }

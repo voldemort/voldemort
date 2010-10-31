@@ -223,6 +223,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleSwapStoresAndCleanState(request.getSwapStoresAndCleanState()));
                 break;
+            case UPDATE_SLOP_ENTRIES:
+                return handleUpdateSlopEntries(request.getUpdateSlopEntries());
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -294,6 +296,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           metadataStore,
                                                           voldemortConfig,
                                                           storeRepository);
+    }
+
+    private StreamRequestHandler handleUpdateSlopEntries(VAdminProto.UpdateSlopEntriesRequest request) {
+        return new UpdateSlopEntriesRequestHandler(request,
+                                                   errorCodeMapper,
+                                                   voldemortConfig,
+                                                   storeRepository);
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {

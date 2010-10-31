@@ -48,6 +48,7 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
+import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -59,6 +60,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.slop.Slop;
+import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -1493,6 +1496,87 @@ public class AdminClient {
         return storeToMaxVersion;
     }
 
+    /**
+     * Update slops which may be meant for multiple stores
+     * 
+     * @param nodeId The id of the node
+     * @param entryIterator An iterator over all the slops for this particular
+     *        node
+     */
+    public void updateSlopEntries(int nodeId, Iterator<Versioned<Slop>> entryIterator) {
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getAdminPort(),
+                                                              RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        DataInputStream inputStream = sands.getInputStream();
+        boolean firstMessage = true;
+
+        try {
+            if(entryIterator.hasNext()) {
+                while(entryIterator.hasNext()) {
+                    Versioned<Slop> versionedSlop = entryIterator.next();
+                    Slop slop = versionedSlop.getValue();
+
+                    // Build the message
+                    RequestType requestType = null;
+                    if(slop.getOperation().equals(Operation.PUT)) {
+                        requestType = RequestType.PUT;
+                    } else if(slop.getOperation().equals(Operation.DELETE)) {
+                        requestType = RequestType.DELETE;
+                    } else {
+                        logger.error("Unsupported operation. Skipping");
+                        continue;
+                    }
+                    VAdminProto.UpdateSlopEntriesRequest.Builder updateRequest = VAdminProto.UpdateSlopEntriesRequest.newBuilder()
+                                                                                                                     .setStore(slop.getStoreName())
+                                                                                                                     .setKey(ProtoUtils.encodeBytes(slop.getKey()))
+                                                                                                                     .setVersion(ProtoUtils.encodeClock(versionedSlop.getVersion()))
+                                                                                                                     .setRequestType(requestType);
+                    // Add transforms and value only if required
+                    if(slop.getTransforms() != null)
+                        updateRequest.setTransform(ProtoUtils.encodeTransform(slop.getTransforms()));
+                    if(slop.getValue() != null)
+                        updateRequest.setValue(ByteString.copyFrom(slop.getValue()));
+
+                    if(firstMessage) {
+                        ProtoUtils.writeMessage(outputStream,
+                                                VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                 .setType(VAdminProto.AdminRequestType.UPDATE_SLOP_ENTRIES)
+                                                                                 .setUpdateSlopEntries(updateRequest)
+                                                                                 .build());
+                        outputStream.flush();
+                        firstMessage = false;
+                    } else {
+                        ProtoUtils.writeMessage(outputStream, updateRequest.build());
+                    }
+                }
+                ProtoUtils.writeEndOfStream(outputStream);
+                outputStream.flush();
+                VAdminProto.UpdateSlopEntriesResponse.Builder updateResponse = ProtoUtils.readToBuilder(inputStream,
+                                                                                                        VAdminProto.UpdateSlopEntriesResponse.newBuilder());
+                if(updateResponse.hasError()) {
+                    throwException(updateResponse.getError());
+                }
+            }
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
+        }
+
+    }
+
+    /**
+     * Fetch read-only store files to a specified directory
+     * 
+     * @param nodeId The node id from where to copy
+     * @param storeName The name of the read-only store
+     * @param partitionIds The partition ids from whom to copy data
+     * @param destinationDirPath The destination path
+     */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
                                     List<Integer> partitionIds,
