@@ -28,7 +28,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     private VAdminProto.UpdateSlopEntriesRequest request;
 
-    private final VAdminProto.UpdatePartitionEntriesResponse.Builder responseBuilder = VAdminProto.UpdatePartitionEntriesResponse.newBuilder();
+    private final VAdminProto.UpdateSlopEntriesResponse.Builder responseBuilder = VAdminProto.UpdateSlopEntriesResponse.newBuilder();
 
     private final ErrorCodeMapper errorCodeMapper;
 

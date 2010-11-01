@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -59,6 +60,7 @@ import voldemort.store.http.HttpStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.slop.Slop;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -342,6 +344,45 @@ public class ServerTestUtils {
         }
 
         return map;
+    }
+
+    public static List<Slop> createRandomSlops(int nodeId, int numKeys, String... storeNames) {
+        List<Slop> slops = new ArrayList<Slop>();
+
+        for(int cnt = 0; cnt < numKeys; cnt++) {
+            int storeId = (int) Math.round(Math.random() * (storeNames.length - 1));
+            int operation = (int) Math.round(Math.random() + 1);
+
+            Slop.Operation operationType;
+            if(operation == 1)
+                operationType = Slop.Operation.PUT;
+            else
+                operationType = Slop.Operation.DELETE;
+
+            long keyInt = (long) (Math.random() * 1000000000L);
+            ByteArray key = new ByteArray(ByteUtils.getBytes("" + keyInt, "UTF-8"));
+            byte[] value = ByteUtils.getBytes("value-" + keyInt, "UTF-8");
+
+            slops.add(new Slop(storeNames[storeId],
+                               operationType,
+                               key,
+                               value,
+                               null,
+                               nodeId,
+                               new Date()));
+
+            // Adding twice so as check if ObsoleteVersionExceptions are
+            // swallowed correctly
+            slops.add(new Slop(storeNames[storeId],
+                               operationType,
+                               key,
+                               value,
+                               null,
+                               nodeId,
+                               new Date()));
+        }
+
+        return slops;
     }
 
     public static HashMap<String, String> createRandomKeyValueString(int numKeys) {
