@@ -213,25 +213,27 @@ public class StreamingSlopPusherJob implements Runnable {
 
         private final SynchronousQueue<Versioned<Slop>> slopQueue;
         private final List<Pair<ByteArray, Version>> deleteBatch;
-        private SlopStorageEngine storageEngine;
 
         private final static int BATCH_SIZE = 25;
 
         private int writtenLast = 0;
         private long slopsDone = 0L;
+        private boolean shutDown = false, isComplete = false;
 
         public SlopIterator(SynchronousQueue<Versioned<Slop>> slopQueue,
-                            SlopStorageEngine storageEngine) {
+                            List<Pair<ByteArray, Version>> deleteBatch) {
             this.slopQueue = slopQueue;
-            this.deleteBatch = Lists.newArrayList();
-            this.storageEngine = storageEngine;
+            this.deleteBatch = deleteBatch;
+        }
+
+        public boolean isComplete() {
+            return isComplete;
         }
 
         @Override
         protected Versioned<Slop> computeNext() {
             try {
                 Versioned<Slop> head = null;
-                boolean shutDown = false;
                 while(!shutDown) {
                     head = slopQueue.poll();
                     if(head == null)
@@ -239,10 +241,12 @@ public class StreamingSlopPusherJob implements Runnable {
 
                     if(head.equals(END)) {
                         shutDown = true;
+                        isComplete = true;
                     } else {
                         slopsDone++;
-                        if(slopsDone % BATCH_SIZE == 0)
+                        if(slopsDone % BATCH_SIZE == 0) {
                             shutDown = true;
+                        }
 
                         writeThrottler.maybeThrottle(writtenLast);
                         writtenLast = slopSize(head);
@@ -250,12 +254,6 @@ public class StreamingSlopPusherJob implements Runnable {
                         return head;
                     }
                 }
-
-                // If we reached here we successfully transmitted everything
-                // without a problem, delete the batch
-                for(Pair<ByteArray, Version> entry: deleteBatch)
-                    storageEngine.delete(entry.getFirst(), entry.getSecond());
-
                 return endOfData();
             } catch(Exception e) {
                 logger.error("Got an exception " + e);
@@ -272,19 +270,46 @@ public class StreamingSlopPusherJob implements Runnable {
         private long startTime;
         private SlopStorageEngine slopStorageEngine;
 
+        // Keep two lists to track deleted items
+        private List<Pair<ByteArray, Version>> previous, current;
+
         public SlopConsumer(int nodeId,
                             SynchronousQueue<Versioned<Slop>> slopQueue,
                             SlopStorageEngine slopStorageEngine) {
             this.nodeId = nodeId;
             this.slopQueue = slopQueue;
-            this.startTime = System.currentTimeMillis();
             this.slopStorageEngine = slopStorageEngine;
+            this.previous = Lists.newArrayList();
+            this.current = Lists.newArrayList();
         }
 
         public void run() {
             try {
-                SlopIterator iterator = new SlopIterator(slopQueue, slopStorageEngine);
-                adminClient.updateSlopEntries(nodeId, iterator);
+                SlopIterator iterator = null;
+                do {
+                    if(!current.isEmpty()) {
+                        if(!previous.isEmpty()) {
+                            for(Pair<ByteArray, Version> entry: previous)
+                                slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
+                            previous.clear();
+                        }
+                        previous = null;
+                        previous = current;
+                        current = Lists.newArrayList();
+                    }
+                    this.startTime = System.currentTimeMillis();
+                    iterator = new SlopIterator(slopQueue, current);
+                    adminClient.updateSlopEntries(nodeId, iterator);
+                } while(!iterator.isComplete());
+
+                // Clear up both previous and current
+                if(!previous.isEmpty())
+                    for(Pair<ByteArray, Version> entry: previous)
+                        slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
+                if(!current.isEmpty())
+                    for(Pair<ByteArray, Version> entry: current)
+                        slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
+
             } catch(UnreachableStoreException e) {
                 failureDetector.recordException(metadataStore.getCluster().getNodeById(nodeId),
                                                 System.currentTimeMillis() - this.startTime,

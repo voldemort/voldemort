@@ -1514,49 +1514,51 @@ public class AdminClient {
         boolean firstMessage = true;
 
         try {
-            while(entryIterator.hasNext()) {
-                Versioned<Slop> versionedSlop = entryIterator.next();
-                Slop slop = versionedSlop.getValue();
+            if(entryIterator.hasNext()) {
+                while(entryIterator.hasNext()) {
+                    Versioned<Slop> versionedSlop = entryIterator.next();
+                    Slop slop = versionedSlop.getValue();
 
-                // Build the message
-                RequestType requestType = null;
-                if(slop.getOperation().equals(Operation.PUT)) {
-                    requestType = RequestType.PUT;
-                } else if(slop.getOperation().equals(Operation.DELETE)) {
-                    requestType = RequestType.DELETE;
-                } else {
-                    logger.error("Unsupported operation. Skipping");
-                    continue;
-                }
-                VAdminProto.UpdateSlopEntriesRequest.Builder updateRequest = VAdminProto.UpdateSlopEntriesRequest.newBuilder()
-                                                                                                                 .setStore(slop.getStoreName())
-                                                                                                                 .setKey(ProtoUtils.encodeBytes(slop.getKey()))
-                                                                                                                 .setVersion(ProtoUtils.encodeClock(versionedSlop.getVersion()))
-                                                                                                                 .setRequestType(requestType);
-                // Add transforms and value only if required
-                if(slop.getTransforms() != null)
-                    updateRequest.setTransform(ProtoUtils.encodeTransform(slop.getTransforms()));
-                if(slop.getValue() != null)
-                    updateRequest.setValue(ByteString.copyFrom(slop.getValue()));
+                    // Build the message
+                    RequestType requestType = null;
+                    if(slop.getOperation().equals(Operation.PUT)) {
+                        requestType = RequestType.PUT;
+                    } else if(slop.getOperation().equals(Operation.DELETE)) {
+                        requestType = RequestType.DELETE;
+                    } else {
+                        logger.error("Unsupported operation. Skipping");
+                        continue;
+                    }
+                    VAdminProto.UpdateSlopEntriesRequest.Builder updateRequest = VAdminProto.UpdateSlopEntriesRequest.newBuilder()
+                                                                                                                     .setStore(slop.getStoreName())
+                                                                                                                     .setKey(ProtoUtils.encodeBytes(slop.getKey()))
+                                                                                                                     .setVersion(ProtoUtils.encodeClock(versionedSlop.getVersion()))
+                                                                                                                     .setRequestType(requestType);
+                    // Add transforms and value only if required
+                    if(slop.getTransforms() != null)
+                        updateRequest.setTransform(ProtoUtils.encodeTransform(slop.getTransforms()));
+                    if(slop.getValue() != null)
+                        updateRequest.setValue(ByteString.copyFrom(slop.getValue()));
 
-                if(firstMessage) {
-                    ProtoUtils.writeMessage(outputStream,
-                                            VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                             .setType(VAdminProto.AdminRequestType.UPDATE_SLOP_ENTRIES)
-                                                                             .setUpdateSlopEntries(updateRequest)
-                                                                             .build());
-                    outputStream.flush();
-                    firstMessage = false;
-                } else {
-                    ProtoUtils.writeMessage(outputStream, updateRequest.build());
+                    if(firstMessage) {
+                        ProtoUtils.writeMessage(outputStream,
+                                                VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                 .setType(VAdminProto.AdminRequestType.UPDATE_SLOP_ENTRIES)
+                                                                                 .setUpdateSlopEntries(updateRequest)
+                                                                                 .build());
+                        outputStream.flush();
+                        firstMessage = false;
+                    } else {
+                        ProtoUtils.writeMessage(outputStream, updateRequest.build());
+                    }
                 }
-            }
-            ProtoUtils.writeEndOfStream(outputStream);
-            outputStream.flush();
-            VAdminProto.UpdateSlopEntriesResponse.Builder updateResponse = ProtoUtils.readToBuilder(inputStream,
-                                                                                                    VAdminProto.UpdateSlopEntriesResponse.newBuilder());
-            if(updateResponse.hasError()) {
-                throwException(updateResponse.getError());
+                ProtoUtils.writeEndOfStream(outputStream);
+                outputStream.flush();
+                VAdminProto.UpdateSlopEntriesResponse.Builder updateResponse = ProtoUtils.readToBuilder(inputStream,
+                                                                                                        VAdminProto.UpdateSlopEntriesResponse.newBuilder());
+                if(updateResponse.hasError()) {
+                    throwException(updateResponse.getError());
+                }
             }
         } catch(IOException e) {
             close(sands.getSocket());
