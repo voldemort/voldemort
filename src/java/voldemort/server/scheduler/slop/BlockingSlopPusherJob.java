@@ -84,7 +84,8 @@ public class BlockingSlopPusherJob implements Runnable {
         // someone disables and enables (through JMX) immediately during a run
         synchronized(lock) {
 
-            logger.info("Started slop pusher job at " + new Date());
+            logger.info("Started blocking slop pusher job at " + new Date());
+
             Cluster cluster = metadataStore.getCluster();
             ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
 
