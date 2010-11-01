@@ -298,7 +298,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           storeRepository);
     }
 
-    private StreamRequestHandler handleUpdateSlopEntries(VAdminProto.UpdateSlopEntriesRequest request) {
+    public StreamRequestHandler handleUpdateSlopEntries(VAdminProto.UpdateSlopEntriesRequest request) {
         return new UpdateSlopEntriesRequestHandler(request,
                                                    errorCodeMapper,
                                                    voldemortConfig,

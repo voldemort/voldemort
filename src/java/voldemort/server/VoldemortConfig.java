@@ -57,8 +57,6 @@ public class VoldemortConfig implements Serializable {
     private String dataDirectory;
     private String metadataDirectory;
 
-    private String slopStoreType;
-
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
     private boolean bdbFlushTransactions;
@@ -128,7 +126,7 @@ public class VoldemortConfig implements Serializable {
 
     private Props allProps;
 
-    private final long pusherPollMs;
+    private String slopStoreType;
     private String pusherType;
     private final long slopFrequencyMs;
     private long slopMaxWriteBytesPerSec;
@@ -246,8 +244,6 @@ public class VoldemortConfig implements Serializable {
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
         this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
-        this.enableSlop = props.getBoolean("slop.enable", true);
-        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
@@ -258,7 +254,8 @@ public class VoldemortConfig implements Serializable {
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
-        this.pusherPollMs = props.getInt("pusher.poll.ms", 2 * 60 * 1000);
+        this.enableSlop = props.getBoolean("slop.enable", true);
+        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
@@ -333,8 +330,8 @@ public class VoldemortConfig implements Serializable {
             throw new IllegalArgumentException("core.threads cannot be greater than max.threads.");
         if(maxThreads < 1)
             throw new ConfigurationException("max.threads cannot be less than 1.");
-        if(pusherPollMs < 1)
-            throw new ConfigurationException("pusher.poll.ms cannot be less than 1.");
+        if(slopFrequencyMs < 1)
+            throw new ConfigurationException("slop.frequency.ms cannot be less than 1.");
         if(socketTimeoutMs < 0)
             throw new ConfigurationException("socket.timeout.ms must be 0 or more ms.");
         if(clientSelectors < 1)
@@ -672,10 +669,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnablePipelineRoutedStore(boolean enablePipelineRoutedStore) {
         this.enablePipelineRoutedStore = enablePipelineRoutedStore;
-    }
-
-    public long getPusherPollMs() {
-        return pusherPollMs;
     }
 
     public boolean isGuiEnabled() {

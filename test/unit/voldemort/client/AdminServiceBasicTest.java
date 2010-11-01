@@ -23,7 +23,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -638,23 +637,23 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testUpdateSlops() {
-        final HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+        final List<Slop> entrySet = ServerTestUtils.createRandomSlops(0,
+                                                                      10000,
+                                                                      testStoreName,
+                                                                      "users",
+                                                                      "test-replication-persistent",
+                                                                      "test-readrepair-memory",
+                                                                      "test-consistent",
+                                                                      "test-consistent-with-pref-list");
 
         Iterator<Versioned<Slop>> slopIterator = new AbstractIterator<Versioned<Slop>>() {
 
-            final Iterator<Entry<ByteArray, byte[]>> entrySetItr = entrySet.entrySet().iterator();
+            final Iterator<Slop> entrySetItr = entrySet.iterator();
 
             @Override
             protected Versioned<Slop> computeNext() {
                 while(entrySetItr.hasNext()) {
-                    Entry<ByteArray, byte[]> entry = entrySetItr.next();
-                    return Versioned.value(new Slop(testStoreName,
-                                                    Slop.Operation.PUT,
-                                                    entry.getKey(),
-                                                    entry.getValue(),
-                                                    null,
-                                                    0,
-                                                    new Date()));
+                    return Versioned.value(entrySetItr.next());
                 }
                 return endOfData();
             }
@@ -663,13 +662,21 @@ public class AdminServiceBasicTest extends TestCase {
         getAdminClient().updateSlopEntries(0, slopIterator);
 
         // check updated values
-        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
-        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            assertNotSame("entry should be present at store", 0, store.get(entry.getKey(), null)
-                                                                      .size());
-            assertEquals("entry value should match",
-                         new String(entry.getValue()),
-                         new String(store.get(entry.getKey(), null).get(0).getValue()));
+        Iterator<Slop> entrysetItr = entrySet.iterator();
+        while(entrysetItr.hasNext()) {
+            Slop nextSlop = entrysetItr.next();
+            Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
+
+            if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
+                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
+                                                                               null).size());
+                assertEquals("entry value should match",
+                             new String(nextSlop.getValue()),
+                             new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
+            } else if(nextSlop.getOperation().equals(Slop.Operation.DELETE)) {
+                assertEquals("entry value should match", 0, store.get(nextSlop.getKey(), null)
+                                                                 .size());
+            }
         }
     }
 
