@@ -53,21 +53,6 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         this.slopStats = new SlopStats(cluster);
     }
 
-    @JmxGetter(name = "addedSinceResetTotal", description = "slops added since reset")
-    public Long getAddedSinceResetTotal() {
-        return slopStats.getTotalCount(SlopStats.Tracked.ADDED);
-    }
-
-    @JmxGetter(name = "addedSinceResetByNode", description = "slops added since reset by node")
-    public Map<Integer, Long> getAddedSinceResetByNode() {
-        return slopStats.asMap(SlopStats.Tracked.ADDED);
-    }
-
-    @JmxGetter(name = "addedSinceResetByZone", description = "slops added since reset by zone")
-    public Map<Integer, Long> getAddedSinceResetByZone() {
-        return slopStats.byZone(SlopStats.Tracked.ADDED);
-    }
-
     @JmxGetter(name = "outstandingTotal", description = "slops outstanding since last push")
     public long getOutstandingTotal() {
         return slopStats.getTotalCount(SlopStats.Tracked.OUTSTANDING);
@@ -84,7 +69,6 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     }
 
     public void resetStats(Map<Integer, Long> newValues) {
-        slopStats.clearCount(SlopStats.Tracked.ADDED);
         slopStats.setAll(SlopStats.Tracked.OUTSTANDING, newValues);
     }
 
@@ -119,9 +103,7 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
 
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
-        Slop slop = slopSerializer.toObject(value.getValue());
         slopEngine.put(key, value, transforms);
-        slopStats.incrementCount(SlopStats.Tracked.ADDED, slop.getNodeId());
     }
 
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
