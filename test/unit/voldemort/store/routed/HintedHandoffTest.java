@@ -61,6 +61,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -217,7 +218,7 @@ public class HintedHandoffTest {
     @Test
     public void testHintedHandoff() throws Exception {
         Set<Integer> failedNodes = getFailedNodes();
-        Set<ByteArray> failedKeys = populateStore(failedNodes);
+        Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
 
         Map<ByteArray, byte[]> dataInSlops = Maps.newHashMap();
         Set<ByteArray> slopKeys = makeSlopKeys(failedKeys, Slop.Operation.PUT);
@@ -233,9 +234,9 @@ public class HintedHandoffTest {
             }
         }
 
-        for(ByteArray failedKey: failedKeys) {
-            byte[] expected = keyValues.get(failedKey).get();
-            byte[] actual = dataInSlops.get(failedKey);
+        for(Map.Entry<Integer, ByteArray> failedKey: failedKeys.entries()) {
+            byte[] expected = keyValues.get(failedKey.getValue()).get();
+            byte[] actual = dataInSlops.get(failedKey.getValue());
 
             assertNotNull("data should be stored in the slop", actual);
             assertEquals("correct should be stored in slop", 0, ByteUtils.compare(actual, expected));
@@ -243,18 +244,23 @@ public class HintedHandoffTest {
 
     }
 
-    private Set<ByteArray> makeSlopKeys(Set<ByteArray> failedKeys, Slop.Operation operation) {
+    private Set<ByteArray> makeSlopKeys(Multimap<Integer, ByteArray> failedKeys,
+                                        Slop.Operation operation) {
         Set<ByteArray> slopKeys = Sets.newHashSet();
 
-        for(ByteArray key: failedKeys) {
+        for(Map.Entry<Integer, ByteArray> entry: failedKeys.entries()) {
             byte[] opCode = new byte[] { operation.getOpCode() };
             byte[] spacer = new byte[] { (byte) 0 };
             byte[] storeName = ByteUtils.getBytes(STORE_NAME, "UTF-8");
+            byte[] nodeIdBytes = new byte[ByteUtils.SIZE_OF_INT];
+            ByteUtils.writeInt(nodeIdBytes, entry.getKey(), 0);
             ByteArray slopKey = new ByteArray(ByteUtils.cat(opCode,
                                                             spacer,
                                                             storeName,
                                                             spacer,
-                                                            key.get()));
+                                                            nodeIdBytes,
+                                                            spacer,
+                                                            entry.getValue().get()));
             slopKeys.add(slopKey);
         }
         return slopKeys;
@@ -264,7 +270,7 @@ public class HintedHandoffTest {
     @Ignore
     public void testSlopPushers() throws Exception {
         Set<Integer> failedNodes = getFailedNodes();
-        Set<ByteArray> failedKeys = populateStore(failedNodes);
+        Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
         reviveNodes(failedNodes);
 
         for(int i = 0; i < 5; i++) {
@@ -279,13 +285,13 @@ public class HintedHandoffTest {
             }
         }
 
-        for(ByteArray key: failedKeys) {
-            List<Versioned<byte[]>> values = store.get(key, null);
+        for(Map.Entry<Integer, ByteArray> entry: failedKeys.entries()) {
+            List<Versioned<byte[]>> values = store.get(entry.getValue(), null);
 
-            assertTrue("slop entry should be pushed for " + key + ", preflist "
-                       + keysToNodes.get(key), values.size() > 0);
-            assertEquals("slop entry should be correct for " + key,
-                         keyValues.get(key),
+            assertTrue("slop entry should be pushed for " + entry.getValue() + ", preflist "
+                       + keysToNodes.get(entry.getValue()), values.size() > 0);
+            assertEquals("slop entry should be correct for " + entry.getValue(),
+                         keyValues.get(entry.getValue()),
                          new ByteArray(values.get(0).getValue()));
         }
     }
@@ -316,7 +322,7 @@ public class HintedHandoffTest {
             versions.put(key, store.get(key, null).get(0).getVersion());
 
         Set<Integer> failedNodes = getFailedNodes();
-        Set<ByteArray> failedKeys = Sets.newHashSet();
+        Multimap<Integer, ByteArray> failedKeys = ArrayListMultimap.create();
 
         for(ByteArray key: keysToNodes.keySet()) {
             Iterable<Integer> nodes = keysToNodes.get(key);
@@ -324,15 +330,15 @@ public class HintedHandoffTest {
             for(int i = 0; i < REPLICATION_FACTOR; i++) {
                 int node = Iterables.get(nodes, i);
                 if(failedNodes.contains(node)) {
-                    failedKeys.add(key);
+                    failedKeys.put(node, key);
                     break;
                 }
             }
         }
 
-        for(ByteArray failedKey: failedKeys) {
+        for(Map.Entry<Integer, ByteArray> failedKey: failedKeys.entries()) {
             try {
-                store.delete(failedKey, versions.get(failedKey));
+                store.delete(failedKey.getValue(), versions.get(failedKey.getValue()));
             } catch(Exception e) {
                 if(logger.isTraceEnabled())
                     logger.trace(e, e);
@@ -353,9 +359,9 @@ public class HintedHandoffTest {
             }
         }
 
-        for(ByteArray failedKey: failedKeys)
-            assertTrue("delete operation for " + failedKey + " should be handed off",
-                       keysInSlops.contains(failedKey));
+        for(Map.Entry<Integer, ByteArray> failedKey: failedKeys.entries())
+            assertTrue("delete operation for " + failedKey.getValue() + " should be handed off",
+                       keysInSlops.contains(failedKey.getValue()));
 
     }
 
@@ -377,15 +383,15 @@ public class HintedHandoffTest {
         return failedNodes;
     }
 
-    private Set<ByteArray> populateStore(Set<Integer> failedNodes) {
-        Set<ByteArray> failedKeys = Sets.newHashSet();
+    private Multimap<Integer, ByteArray> populateStore(Set<Integer> failedNodes) {
+        Multimap<Integer, ByteArray> failedKeys = ArrayListMultimap.create();
         for(ByteArray key: keysToNodes.keySet()) {
             Iterable<Integer> nodes = keysToNodes.get(key);
 
             for(int i = 0; i < REPLICATION_FACTOR; i++) {
                 int node = Iterables.get(nodes, i);
                 if(failedNodes.contains(node)) {
-                    failedKeys.add(key);
+                    failedKeys.put(node, key);
                     break;
                 }
             }

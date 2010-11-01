@@ -113,7 +113,15 @@ public class Slop {
     public ByteArray makeKey() {
         byte[] storeName = ByteUtils.getBytes(getStoreName(), "UTF-8");
         byte[] opCode = new byte[] { operation.getOpCode() };
-        return new ByteArray(ByteUtils.cat(opCode, spacer, storeName, spacer, key.get()));
+        byte[] nodeIdBytes = new byte[ByteUtils.SIZE_OF_INT];
+        ByteUtils.writeInt(nodeIdBytes, nodeId, 0);
+        return new ByteArray(ByteUtils.cat(opCode,
+                                           spacer,
+                                           storeName,
+                                           spacer,
+                                           nodeIdBytes,
+                                           spacer,
+                                           key.get()));
     }
 
     @Override

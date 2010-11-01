@@ -17,7 +17,9 @@
 package voldemort.server.scheduler.slop;
 
 import java.util.Date;
+import java.util.Map;
 
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.cluster.Cluster;
@@ -39,6 +41,8 @@ import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Maps;
 
 /**
  * A task which goes through the slop table and attempts to push out all the
@@ -89,8 +93,17 @@ public class BlockingSlopPusherJob implements Runnable {
             Cluster cluster = metadataStore.getCluster();
             ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
 
-            SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
+            Map<Integer, Long> attemptedByNode = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+            Map<Integer, Long> succeededByNode = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+            long slopsPushed = 0L;
+            long attemptedPushes = 0L;
+            for(Node node: cluster.getNodes()) {
+                attemptedByNode.put(node.getId(), 0L);
+                succeededByNode.put(node.getId(), 0L);
+            }
+
             try {
+                SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
                 StorageEngine<ByteArray, Slop, byte[]> slopStore = slopStorageEngine.asSlopStore();
                 EventThrottler throttler = new EventThrottler(maxWriteBytesPerSec);
 
@@ -99,6 +112,7 @@ public class BlockingSlopPusherJob implements Runnable {
                 while(iterator.hasNext()) {
                     if(Thread.interrupted())
                         throw new InterruptedException("Slop pusher job cancelled");
+
                     try {
                         Pair<ByteArray, Versioned<Slop>> keyAndVal;
                         try {
@@ -112,6 +126,12 @@ public class BlockingSlopPusherJob implements Runnable {
                         Slop slop = versioned.getValue();
                         int nodeId = slop.getNodeId();
                         Node node = cluster.getNodeById(nodeId);
+
+                        attemptedPushes++;
+                        if(attemptedPushes % 10000 == 0)
+                            logger.info("Attempted pushing " + attemptedPushes + " slops");
+                        Long attempted = attemptedByNode.get(nodeId);
+                        attemptedByNode.put(nodeId, attempted + 1L);
 
                         if(failureDetector.isAvailable(node)) {
                             Store<ByteArray, byte[], byte[]> store = storeRepo.getNodeStore(slop.getStoreName(),
@@ -138,9 +158,24 @@ public class BlockingSlopPusherJob implements Runnable {
                                 }
                                 failureDetector.recordSuccess(node, deltaMs(startNs));
                                 slopStore.delete(slop.makeKey(), versioned.getVersion());
+
+                                slopsPushed++;
+                                // Increment succeeded
+                                Long succeeded = succeededByNode.get(nodeId);
+                                succeededByNode.put(nodeId, succeeded + 1L);
+
                                 // Throttle the bytes...
                                 throttler.maybeThrottle(nBytes);
+
                             } catch(ObsoleteVersionException e) {
+
+                                // okay it is old, just delete it
+                                slopStore.delete(slop.makeKey(), versioned.getVersion());
+                                slopsPushed++;
+
+                                // Increment succeeded
+                                Long succeeded = succeededByNode.get(nodeId);
+                                succeededByNode.put(nodeId, succeeded + 1L);
 
                                 // Throttle the bytes...
                                 throttler.maybeThrottle(nBytes);
@@ -153,6 +188,20 @@ public class BlockingSlopPusherJob implements Runnable {
                         logger.error(e, e);
                     }
                 }
+
+                // Only if we reached here do we update stats
+                logger.log(attemptedPushes > 0 ? Level.INFO : Level.DEBUG,
+                           "Attempted " + attemptedPushes + " hinted handoff pushes of which "
+                                   + slopsPushed + " succeeded.");
+
+                Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+                for(int nodeId: succeededByNode.keySet()) {
+                    outstanding.put(nodeId, attemptedByNode.get(nodeId)
+                                            - succeededByNode.get(nodeId));
+                }
+
+                slopStorageEngine.resetStats(outstanding);
+
             } catch(Exception e) {
                 logger.error(e, e);
             } finally {
