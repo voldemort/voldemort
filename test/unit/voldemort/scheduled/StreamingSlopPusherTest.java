@@ -130,8 +130,7 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
-                                                                   10 * 1000 * 1000,
-                                                                   10 * 1000 * 1000);
+                                                                   configs[0]);
 
         pusher.run();
 
@@ -198,8 +197,7 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
-                                                                   10 * 1000 * 1000,
-                                                                   10 * 1000 * 1000);
+                                                                   configs[0]);
 
         pusher.run();
 
@@ -301,15 +299,13 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                                                                 .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                           metadataStore,
                                                                                                                                                                           configs[0]))),
-                                                                    10 * 1000 * 1000,
-                                                                    10 * 1000 * 1000), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
-                                                                                                                            getVoldemortServer(1).getMetadataStore(),
-                                                                                                                            new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                                                                                        .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
-                                                                                                                                                                                                                                  metadataStore,
-                                                                                                                                                                                                                                  configs[1]))),
-                                                                                                                            10 * 1000 * 1000,
-                                                                                                                            10 * 1000 * 1000);
+                                                                    configs[0]), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
+                                                                                                                      getVoldemortServer(1).getMetadataStore(),
+                                                                                                                      new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                                                                                  .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                                                                                                                                                                            metadataStore,
+                                                                                                                                                                                                                            configs[1]))),
+                                                                                                                      configs[1]);
 
         pusher0.run();
         pusher1.run();

@@ -224,8 +224,7 @@ public class StorageService extends AbstractService {
                                    new StreamingSlopPusherJob(storeRepository,
                                                               metadata,
                                                               failureDetector,
-                                                              voldemortConfig.getStreamMaxReadBytesPerSec(),
-                                                              voldemortConfig.getStreamMaxWriteBytesPerSec()),
+                                                              voldemortConfig),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
             } else {

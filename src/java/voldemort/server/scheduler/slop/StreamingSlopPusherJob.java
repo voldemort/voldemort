@@ -13,7 +13,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -23,6 +22,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -59,15 +59,16 @@ public class StreamingSlopPusherJob implements Runnable {
     private final AdminClient adminClient;
     private final Cluster cluster;
     private final List<Future> consumerResults;
+    private final VoldemortConfig voldemortConfig;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
                                   MetadataStore metadataStore,
                                   FailureDetector failureDetector,
-                                  long maxReadBytesPerSec,
-                                  long maxWriteBytesPerSec) {
+                                  VoldemortConfig voldemortConfig) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.failureDetector = failureDetector;
+        this.voldemortConfig = voldemortConfig;
 
         this.cluster = metadataStore.getCluster();
         this.slopQueues = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
@@ -80,8 +81,8 @@ public class StreamingSlopPusherJob implements Runnable {
                                                                      return thread;
                                                                  }
                                                              });
-        this.writeThrottler = new EventThrottler(maxWriteBytesPerSec);
-        this.readThrottler = new EventThrottler(maxReadBytesPerSec);
+        this.writeThrottler = new EventThrottler(voldemortConfig.getSlopMaxWriteBytesPerSec());
+        this.readThrottler = new EventThrottler(voldemortConfig.getSlopMaxReadBytesPerSec());
         this.adminClient = new AdminClient(cluster,
                                            new AdminClientConfig().setMaxThreads(cluster.getNumberOfNodes())
                                                                   .setMaxConnectionsPerNode(1));
@@ -108,7 +109,6 @@ public class StreamingSlopPusherJob implements Runnable {
 
             ConcurrentHashMap<Integer, Long> attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
             ConcurrentHashMap<Integer, Long> succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
-            AtomicLong slopsPushed = new AtomicLong(0);
             AtomicLong attemptedPushes = new AtomicLong(0);
             for(Node node: cluster.getNodes()) {
                 attemptedByNode.put(node.getId(), 0L);
@@ -135,8 +135,8 @@ public class StreamingSlopPusherJob implements Runnable {
                         if(attemptedPushes.get() % 10000 == 0)
                             logger.info("Attempted pushing " + attemptedPushes + " slops");
 
-                        logger.info("On slop = " + versioned.getValue().getNodeId() + " => "
-                                    + new String(versioned.getValue().getKey().get()));
+                        logger.trace("On slop = " + versioned.getValue().getNodeId() + " => "
+                                     + new String(versioned.getValue().getKey().get()));
 
                         if(failureDetector.isAvailable(node)) {
                             SynchronousQueue<Versioned<Slop>> slopQueue = slopQueues.get(nodeId);
@@ -147,23 +147,19 @@ public class StreamingSlopPusherJob implements Runnable {
                                 consumerResults.add(consumerExecutor.submit(new SlopConsumer(nodeId,
                                                                                              slopQueue,
                                                                                              slopStorageEngine,
-                                                                                             succeededByNode.get(nodeId),
-                                                                                             slopsPushed)));
+                                                                                             succeededByNode.get(nodeId))));
                             }
-                            slopQueue.offer(versioned, 1, TimeUnit.SECONDS);
+                            slopQueue.offer(versioned,
+                                            voldemortConfig.getClientRoutingTimeoutMs(),
+                                            TimeUnit.MILLISECONDS);
                             readThrottler.maybeThrottle(nBytesRead(keyAndVal));
                         } else {
-                            logger.info(node + " declared down, won't push slop");
+                            logger.trace(node + " declared down, won't push slop");
                         }
                     } catch(RejectedExecutionException e) {
                         throw new VoldemortException("Ran out of threads in executor", e);
                     }
                 }
-
-                // Only if we reached here do we update stats
-                logger.log(attemptedPushes.get() > 0 ? Level.INFO : Level.DEBUG,
-                           "Attempted " + attemptedPushes + " hinted handoff pushes of which "
-                                   + slopsPushed + " succeeded.");
 
                 Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
                 for(int nodeId: succeededByNode.keySet()) {
@@ -187,7 +183,9 @@ public class StreamingSlopPusherJob implements Runnable {
                 // Adding to poison pill
                 for(SynchronousQueue<Versioned<Slop>> slopQueue: slopQueues.values()) {
                     try {
-                        slopQueue.offer(END, 1, TimeUnit.SECONDS);
+                        slopQueue.offer(END,
+                                        voldemortConfig.getClientRoutingTimeoutMs(),
+                                        TimeUnit.MILLISECONDS);
                     } catch(InterruptedException e) {
                         logger.error("Error putting poison pill", e);
                     }
@@ -304,7 +302,6 @@ public class StreamingSlopPusherJob implements Runnable {
         private long startTime;
         private SlopStorageEngine slopStorageEngine;
         private Long succeededNode;
-        private AtomicLong succeededGlobal;
 
         // Keep two lists to track deleted items
         private List<Pair<ByteArray, Version>> previous, current;
@@ -312,14 +309,12 @@ public class StreamingSlopPusherJob implements Runnable {
         public SlopConsumer(int nodeId,
                             SynchronousQueue<Versioned<Slop>> slopQueue,
                             SlopStorageEngine slopStorageEngine,
-                            Long succeededNode,
-                            AtomicLong succeededGlobal) {
+                            Long succeededNode) {
             this.nodeId = nodeId;
             this.slopQueue = slopQueue;
             this.slopStorageEngine = slopStorageEngine;
             this.previous = Lists.newArrayList();
             this.current = Lists.newArrayList();
-            this.succeededGlobal = succeededGlobal;
             this.succeededNode = succeededNode;
         }
 
@@ -332,7 +327,6 @@ public class StreamingSlopPusherJob implements Runnable {
                             for(Pair<ByteArray, Version> entry: previous) {
                                 slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
                             }
-                            succeededGlobal.addAndGet(previous.size());
                             succeededNode += previous.size();
                             previous.clear();
                         }
@@ -349,14 +343,12 @@ public class StreamingSlopPusherJob implements Runnable {
                 if(!previous.isEmpty()) {
                     for(Pair<ByteArray, Version> entry: previous)
                         slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
-                    succeededGlobal.addAndGet(previous.size());
                     succeededNode += previous.size();
                     previous.clear();
                 }
                 if(!current.isEmpty()) {
                     for(Pair<ByteArray, Version> entry: current)
                         slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
-                    succeededGlobal.addAndGet(current.size());
                     succeededNode += current.size();
                     current.clear();
                 }
