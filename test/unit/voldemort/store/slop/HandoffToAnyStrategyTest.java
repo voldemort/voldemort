@@ -1,17 +1,20 @@
 package voldemort.store.slop;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
+
 import org.junit.Test;
+
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
-import static org.junit.Assert.*;
-
-public class HandoffToAllStrategyTest {
+public class HandoffToAnyStrategyTest {
 
     @Test
     public void testRouteHint() {
@@ -19,7 +22,8 @@ public class HandoffToAllStrategyTest {
         HintedHandoffStrategy handoffStrategy = new HandoffToAnyStrategy(cluster, false, 0);
         for(Node origin: cluster.getNodes()) {
             List<Node> nodes = handoffStrategy.routeHint(origin);
-            assertTrue("hint preflist is correctly sized", nodes.size() == cluster.getNumberOfNodes() - 1);
+            assertTrue("hint preflist is correctly sized",
+                       nodes.size() == cluster.getNumberOfNodes() - 1);
             assertFalse("hint preflist doesn't include self", nodes.contains(origin));
         }
     }
