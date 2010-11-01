@@ -102,7 +102,7 @@ public class SchedulerService extends AbstractService {
             ScheduledFuture<?> future = scheduledJobResults.get(id);
             boolean cancelled = future.cancel(forceDisable);
             if(cancelled == true) {
-                logger.info("Removed '" + id + "' to list of scheduled jobs");
+                logger.info("Removed '" + id + "' from list of scheduled jobs");
                 scheduledJobResults.remove(id);
             }
         }
@@ -140,10 +140,10 @@ public class SchedulerService extends AbstractService {
     }
 
     public void schedule(String id, Runnable runnable, Date nextRun, long periodMs) {
-        ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(runnable,
-                                                                  delayMs(nextRun),
-                                                                  periodMs,
-                                                                  TimeUnit.MILLISECONDS);
+        ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(runnable,
+                                                                     delayMs(nextRun),
+                                                                     periodMs,
+                                                                     TimeUnit.MILLISECONDS);
         if(!allJobs.containsKey(id)) {
             allJobs.put(id, new ScheduledRunnable(runnable, nextRun, periodMs));
         }

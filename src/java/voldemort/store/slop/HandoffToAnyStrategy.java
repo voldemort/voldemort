@@ -16,14 +16,15 @@
 
 package voldemort.store.slop;
 
-import com.google.common.collect.Lists;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import com.google.common.collect.Lists;
 
 /**
  * A strategy that hands a hint off to any random live node in the ring
@@ -36,7 +37,8 @@ public class HandoffToAnyStrategy implements HintedHandoffStrategy {
     private final int clientZoneId;
 
     /**
-     * Creates a to-all handoff strategy instance
+     * Creates a to-any handoff strategy instance
+     * 
      * @param cluster The cluster
      * @param enableZoneRouting Is zone routing enabled
      * @param clientZoneId Client zone id

@@ -1560,8 +1560,9 @@ public class AdminClient {
             }
         } catch(IOException e) {
             close(sands.getSocket());
-            pool.checkin(destination, sands);
             throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
         }
 
     }
