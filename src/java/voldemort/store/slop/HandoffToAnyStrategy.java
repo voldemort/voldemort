@@ -54,9 +54,6 @@ public class HandoffToAnyStrategy implements HintedHandoffStrategy {
         List<Node> prefList = Lists.newArrayListWithCapacity(nodes.size());
         int originZoneId = origin.getZoneId();
 
-        // Adding shuffle before rather than after since then it prefers nodes
-        // closeby
-        Collections.shuffle(prefList);
         for(Node node: nodes) {
             if(node.getId() != origin.getId()) {
                 if(enableZoneRouting && zones.size() > 1) {
@@ -71,6 +68,7 @@ public class HandoffToAnyStrategy implements HintedHandoffStrategy {
                 prefList.add(node);
             }
         }
+        Collections.shuffle(prefList);
         return prefList;
     }
 
