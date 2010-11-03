@@ -513,7 +513,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                  + ") should be greater than current version "
                                                  + store.getCurrentVersionId());
             } else {
-                pushVersion = store.getCurrentVersionId() + 1;
+                // Find the max version
+                long maxVersion;
+                File[] storeDirList = ReadOnlyUtils.getVersionDirs(new File(store.getStoreDirPath()));
+                if(storeDirList == null || storeDirList.length == 0) {
+                    throw new VoldemortException("Push version required since no version folders exist");
+                } else {
+                    maxVersion = ReadOnlyUtils.getVersionId(ReadOnlyUtils.findKthVersionedDir(storeDirList,
+                                                                                              storeDirList.length - 1,
+                                                                                              storeDirList.length - 1)[0]);
+                }
+                pushVersion = maxVersion + 1;
             }
 
             asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Fetch store") {
