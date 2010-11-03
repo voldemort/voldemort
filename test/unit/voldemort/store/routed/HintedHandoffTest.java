@@ -14,6 +14,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -64,7 +65,6 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -80,9 +80,9 @@ public class HintedHandoffTest {
 
     private final static int NUM_THREADS = 4;
     private final static int NUM_NODES_TOTAL = 9;
-    private final static int NUM_NODES_FAILED = 4;
+    private final static int NUM_NODES_FAILED = 3;
 
-    private final static int REPLICATION_FACTOR = 4;
+    private final static int REPLICATION_FACTOR = 3;
     private final static int P_READS = 1;
     private final static int R_READS = 1;
     private final static int P_WRITES = 2;
@@ -115,8 +115,8 @@ public class HintedHandoffTest {
     @Parameterized.Parameters
     public static Collection<Object[]> configs() {
         return Arrays.asList(new Object[][] { { HintedHandoffStrategyType.CONSISTENT_STRATEGY },
-                { HintedHandoffStrategyType.ANY_STRATEGY },
-                { HintedHandoffStrategyType.PROXIMITY_STRATEGY } });
+                                              { HintedHandoffStrategyType.ANY_STRATEGY },
+                                              { HintedHandoffStrategyType.PROXIMITY_STRATEGY } });
     }
 
     private StoreDefinition getStoreDef(String storeName,
@@ -164,6 +164,11 @@ public class HintedHandoffTest {
 
         setFailureDetector(subStores);
 
+        routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
+        routedStoreFactory = new RoutedStoreFactory(true, routedStoreThreadPool, 1000L);
+        strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
+        
+        Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
             StoreRepository storeRepo = new StoreRepository();
@@ -176,6 +181,7 @@ public class HintedHandoffTest {
                                                                         cluster);
             StorageEngine<ByteArray, Slop, byte[]> storageEngine = slopStorageEngine.asSlopStore();
             storeRepo.setSlopStore(slopStorageEngine);
+            nonblockingSlopStores.put(nodeId, routedStoreFactory.toNonblockingStore(slopStorageEngine));
             slopStores.put(nodeId, storageEngine);
 
             MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
@@ -193,20 +199,19 @@ public class HintedHandoffTest {
             slopPusherJobs.add(pusher);
         }
 
-        routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
-        routedStoreFactory = new RoutedStoreFactory(true, routedStoreThreadPool, 1000L);
-        strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
-        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
 
+        Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: subStores.entrySet())
             nonblockingStores.put(entry.getKey(),
                                   routedStoreFactory.toNonblockingStore(entry.getValue()));
+        
 
         store = routedStoreFactory.create(cluster,
                                           storeDef,
                                           subStores,
                                           nonblockingStores,
                                           slopStores,
+                                          nonblockingSlopStores,
                                           false,
                                           Zone.DEFAULT_ZONE_ID,
                                           failureDetector);
@@ -223,15 +228,15 @@ public class HintedHandoffTest {
             routedStoreThreadPool.shutdown();
     }
 
-    @Ignore
     @Test
     public void testHintedHandoff() throws Exception {
         Set<Integer> failedNodes = getFailedNodes();
-        Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
+        Thread.sleep(500);
 
+        Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
+        Thread.sleep(5000);
         Map<ByteArray, byte[]> dataInSlops = Maps.newHashMap();
         Set<ByteArray> slopKeys = makeSlopKeys(failedKeys, Slop.Operation.PUT);
-
         for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
             Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
             for(Map.Entry<ByteArray, List<Versioned<Slop>>> entry: res.entrySet()) {
@@ -276,23 +281,31 @@ public class HintedHandoffTest {
     }
 
     @Test
-    @Ignore
     public void testSlopPushers() throws Exception {
         Set<Integer> failedNodes = getFailedNodes();
         Multimap<Integer, ByteArray> failedKeys = populateStore(failedNodes);
-        reviveNodes(failedNodes);
 
-        for(int i = 0; i < 5; i++) {
-            for(StreamingSlopPusherJob job: slopPusherJobs) {
-                if(logger.isTraceEnabled())
-                    logger.trace("Started slop pusher job " + job);
+        Thread.sleep(5000);
 
-                job.run();
-
-                if(logger.isTraceEnabled())
-                    logger.trace("Finished slop pusher job " + job);
-            }
+        ExecutorService executor = Executors.newFixedThreadPool(slopPusherJobs.size());
+        final CountDownLatch latch = new CountDownLatch(slopPusherJobs.size());
+        for(final StreamingSlopPusherJob job: slopPusherJobs) {
+            executor.submit(new Runnable() {
+                public void run() {
+                    try {
+                        if(logger.isTraceEnabled())
+                            logger.trace("Started slop pusher job " + job);
+                        job.run();
+                        if(logger.isTraceEnabled())
+                            logger.trace("Finished slop pusher job " + job);
+                    } finally {
+                        latch.countDown();
+                    }
+                }
+            });
         }
+        latch.await();
+        Thread.sleep(5000);
 
         for(Map.Entry<Integer, ByteArray> entry: failedKeys.entries()) {
             List<Versioned<byte[]>> values = store.get(entry.getValue(), null);
@@ -334,12 +347,10 @@ public class HintedHandoffTest {
         Multimap<Integer, ByteArray> failedKeys = ArrayListMultimap.create();
 
         for(ByteArray key: keysToNodes.keySet()) {
-            Iterable<Integer> nodes = keysToNodes.get(key);
-
-            for(int i = 0; i < REPLICATION_FACTOR; i++) {
-                int node = Iterables.get(nodes, i);
-                if(failedNodes.contains(node)) {
-                    failedKeys.put(node, key);
+            List<Node> nodes = strategy.routeRequest(key.get());
+            for(Node node: nodes) {
+                if(failedNodes.contains(node.getId())) {
+                    failedKeys.put(node.getId(), key);
                     break;
                 }
             }
@@ -356,6 +367,8 @@ public class HintedHandoffTest {
 
         Set<ByteArray> slopKeys = makeSlopKeys(failedKeys, Slop.Operation.DELETE);
         Set<ByteArray> keysInSlops = Sets.newHashSet();
+
+        Thread.sleep(5000);
 
         for(Store<ByteArray, Slop, byte[]> slopStore: slopStores.values()) {
             Map<ByteArray, List<Versioned<Slop>>> res = slopStore.getAll(slopKeys, null);
@@ -377,10 +390,10 @@ public class HintedHandoffTest {
     private Set<Integer> getFailedNodes() {
         Set<Integer> failedNodes = new CopyOnWriteArraySet<Integer>();
         Random rand = new Random();
-        int offset = rand.nextInt(NUM_NODES_TOTAL);
-
-        for(int i = 0; i < NUM_NODES_FAILED; i++)
-            failedNodes.add((offset + i) % NUM_NODES_TOTAL);
+        for(int i = 0; i < NUM_NODES_FAILED; i++) {
+            int n = rand.nextInt(NUM_NODES_TOTAL);
+            failedNodes.add(n);
+        }
 
         for(int node: failedNodes) {
             ForceFailStore<ByteArray, byte[], byte[]> forceFailStore = getForceFailStore(node);
@@ -395,12 +408,10 @@ public class HintedHandoffTest {
     private Multimap<Integer, ByteArray> populateStore(Set<Integer> failedNodes) {
         Multimap<Integer, ByteArray> failedKeys = ArrayListMultimap.create();
         for(ByteArray key: keysToNodes.keySet()) {
-            Iterable<Integer> nodes = keysToNodes.get(key);
-
-            for(int i = 0; i < REPLICATION_FACTOR; i++) {
-                int node = Iterables.get(nodes, i);
-                if(failedNodes.contains(node)) {
-                    failedKeys.put(node, key);
+            List<Node> nodes = strategy.routeRequest(key.get());
+            for(Node node: nodes) {
+                if(failedNodes.contains(node.getId())) {
+                    failedKeys.put(node.getId(), key);
                     break;
                 }
             }
@@ -440,7 +451,7 @@ public class HintedHandoffTest {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig();
         failureDetectorConfig.setImplementationClassName(failureDetectorCls.getName());
-        failureDetectorConfig.setBannagePeriod(50);
+        failureDetectorConfig.setBannagePeriod(100);
         failureDetectorConfig.setNodes(cluster.getNodes());
         failureDetectorConfig.setStoreVerifier(MutableStoreVerifier.create(subStores));
 

@@ -66,6 +66,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
     private final Map<Integer, NonblockingStore> nonblockingStores;
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
+    private final Map<Integer, NonblockingStore> nonblockingSlopStores;
     private final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
@@ -88,6 +89,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
                                Map<Integer, NonblockingStore> nonblockingStores,
                                Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
+                               Map<Integer, NonblockingStore> nonblockingSlopStores,
                                Cluster cluster,
                                StoreDefinition storeDef,
                                boolean repairReads,
@@ -102,7 +104,7 @@ public class PipelineRoutedStore extends RoutedStore {
               timeoutMs,
               failureDetector,
               SystemTime.INSTANCE);
-
+        this.nonblockingSlopStores = nonblockingSlopStores;
         this.clientZone = cluster.getZoneById(clientZoneId);
         if(storeDef.getRoutingStrategyType().compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
             zoneRoutingEnabled = true;
@@ -363,8 +365,10 @@ public class PipelineRoutedStore extends RoutedStore {
         if(isHintedHandoffEnabled())
             hintedHandoff = new HintedHandoff(failureDetector,
                                               slopStores,
+                                              nonblockingSlopStores,
                                               handoffStrategy,
-                                              pipelineData.getFailedNodes());
+                                              pipelineData.getFailedNodes(),
+                                              timeoutMs);
 
         StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
 
@@ -470,8 +474,10 @@ public class PipelineRoutedStore extends RoutedStore {
         if(isHintedHandoffEnabled())
             hintedHandoff = new HintedHandoff(failureDetector,
                                               slopStores,
+                                              nonblockingSlopStores,
                                               handoffStrategy,
-                                              pipelineData.getFailedNodes());
+                                              pipelineData.getFailedNodes(),
+                                              timeoutMs);
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Void, PutPipelineData>(pipelineData,

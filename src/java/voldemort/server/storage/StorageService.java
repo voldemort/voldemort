@@ -419,6 +419,7 @@ public class StorageService extends AbstractService {
                                                                                nodeStores,
                                                                                nonblockingStores,
                                                                                null,
+                                                                               null,
                                                                                true,
                                                                                cluster.getNodeById(localNode)
                                                                                       .getZoneId(),

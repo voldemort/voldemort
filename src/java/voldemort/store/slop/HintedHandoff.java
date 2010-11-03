@@ -23,9 +23,14 @@ import org.apache.log4j.Logger;
 
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.serialization.Serializer;
+import voldemort.serialization.SlopSerializer;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.slop.strategy.HintedHandoffStrategy;
+import voldemort.store.nonblockingstore.NonblockingStore;
+import voldemort.store.nonblockingstore.NonblockingStoreCallback;
+import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -44,33 +49,109 @@ public class HintedHandoff {
 
     private static final Logger logger = Logger.getLogger(HintedHandoff.class);
 
+    private static final Serializer<Slop> slopSerializer = new SlopSerializer();
+
     private final FailureDetector failureDetector;
 
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
+
+    private final Map<Integer, NonblockingStore> nonblockingSlopStores;
 
     private final HintedHandoffStrategy handoffStrategy;
 
     private final List<Node> failedNodes;
 
+    private final long timeoutMs;
+
     /**
      * Create a Hinted Handoff object
      * 
      * @param failureDetector The failure detector
-     * @param slopStores A map of node ids to slop stores for these node ids
+     * @param nonblockingSlopStores A map of node ids to nonb-locking slop stores
+     * @param slopStores A map of node ids to blocking slop stores
      * @param handoffStrategy The {@link HintedHandoffStrategy} implementation
      * @param failedNodes A list of nodes in the original preflist for the
      *        request that have failed or are unavailable
+     * @param timeoutMs Timeout for slop stores
      */
     public HintedHandoff(FailureDetector failureDetector,
                          Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
+                         Map<Integer, NonblockingStore> nonblockingSlopStores,
                          HintedHandoffStrategy handoffStrategy,
-                         List<Node> failedNodes) {
+                         List<Node> failedNodes,
+                         long timeoutMs) {
         this.failureDetector = failureDetector;
         this.slopStores = slopStores;
+        this.nonblockingSlopStores = nonblockingSlopStores;
         this.handoffStrategy = handoffStrategy;
         this.failedNodes = failedNodes;
+        this.timeoutMs = timeoutMs;
     }
 
+    /**
+     * Like {@link #sendHintSync(voldemort.cluster.Node, voldemort.versioning.Version, Slop)},
+     * but doesn't block the pipeline. Intended for handling prolonged failures without
+     * incurring a performance cost.
+     *
+     * @see #sendHintSync(voldemort.cluster.Node, voldemort.versioning.Version, Slop)
+     */
+    public void sendHintAsync(final Node failedNode, final Version version, final Slop slop) {
+        final ByteArray slopKey = slop.makeKey();
+        Versioned<byte[]> slopVersioned = new Versioned<byte[]>(slopSerializer.toBytes(slop), version);
+
+        for(final Node node: handoffStrategy.routeHint(failedNode)) {
+            int nodeId = node.getId();
+            if(logger.isTraceEnabled())
+                logger.trace("Sending an async hint to " + nodeId);
+
+            if(!failedNodes.contains(node) && failureDetector.isAvailable(node)) {
+                NonblockingStore nonblockingStore = nonblockingSlopStores.get(nodeId);
+                Utils.notNull(nonblockingStore);
+                final long startNs = System.nanoTime();
+                if(logger.isTraceEnabled())
+                    logger.trace("Attempt to write " + slop.getKey() + " for " + failedNode
+                                 + " to node " + node);
+
+                NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+                    public void requestComplete(Object result, long requestTime) {
+                        Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                                               slopKey,
+                                                                                               result,
+                                                                                               requestTime);
+                        if(response.getValue() instanceof Exception) {
+                            if(response.getValue() instanceof ObsoleteVersionException) {
+                                // Ignore
+                            } else {
+                                // Use the blocking approach
+                                if(!failedNodes.contains(node))
+                                    failedNodes.add(node);
+                                if(response.getValue() instanceof UnreachableStoreException) {
+                                    UnreachableStoreException use = (UnreachableStoreException) response.getValue();
+                                    failureDetector.recordException(node,
+                                                                    (System.nanoTime() - startNs)
+                                                                    / Time.NS_PER_MS,
+                                                                    use);
+                                }
+                                sendHintSync(failedNode, version, slop);
+                            }
+                            return;
+                        }
+                        failureDetector.recordSuccess(node, (System.nanoTime() - startNs)
+                                                            / Time.NS_PER_MS);
+
+                    }
+                };
+
+                nonblockingStore.submitPutRequest(slopKey,
+                                                  slopVersioned,
+                                                  null,
+                                                  callback,
+                                                  timeoutMs);
+                break;
+            }
+        }
+    }
+    
     /**
      * Send a hint of a request originally meant for the failed node to another
      * node in the ring, as selected by the {@link HintedHandoffStrategy}
@@ -81,7 +162,7 @@ public class HintedHandoff {
      * @param slop The hint
      * @return True if persisted on another node, false otherwise
      */
-    public boolean sendHint(Node failedNode, Version version, Slop slop) {
+    public boolean sendHintSync(Node failedNode, Version version, Slop slop) {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();

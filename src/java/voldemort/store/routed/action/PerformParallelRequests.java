@@ -138,7 +138,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                  node.getId(),
                                                  new Date());
                             pipelineData.addFailedNode(node);
-                            hintedHandoff.sendHint(node, version, slop);
+                            hintedHandoff.sendHintSync(node, version, slop);
                         }
                     }
                     latch.countDown();
