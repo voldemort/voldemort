@@ -19,8 +19,6 @@ package voldemort.store.routed.action;
 import java.util.Date;
 
 import voldemort.cluster.Node;
-import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.slop.HintedHandoff;
@@ -76,24 +74,8 @@ public class PerformPutHintedHandoff extends AbstractHintedHandoffAction<Void, P
                                  transforms,
                                  failedNodeId,
                                  new Date());
-
-            boolean persisted = hintedHandoff.sendHint(failedNode, version, slop);
-
-            Exception e = pipelineData.getFatalError();
-            if(e != null) {
-                if(persisted)
-                    pipelineData.setFatalError(new UnreachableStoreException("Put operation failed on node "
-                                                                                     + failedNodeId
-                                                                                     + ", but has been persisted to slop storage for eventual replication.",
-                                                                             e));
-                else
-                    pipelineData.setFatalError(new InsufficientOperationalNodesException("All slop servers are unavailable from node "
-                                                                                                 + failedNodeId
-                                                                                                 + ".",
-                                                                                         e));
-            }
+            hintedHandoff.sendHintAsync(failedNode, version, slop);
         }
-
         pipeline.addEvent(completeEvent);
     }
 }

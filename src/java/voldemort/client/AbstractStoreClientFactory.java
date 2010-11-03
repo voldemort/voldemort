@@ -157,6 +157,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         // construct mapping
         Map<Integer, Store<ByteArray, byte[], byte[]>> clientMapping = Maps.newHashMap();
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
+        Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
 
         Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores = null;
         if(storeDef.hasHintedHandoffStrategyType())
@@ -174,14 +175,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             nonblockingStores.put(node.getId(), nonblockingStore);
 
             if(slopStores != null) {
-                Store<ByteArray, Slop, byte[]> slopStore = SerializingStore.wrap(getStore("slop",
-                                                                                          node.getHost(),
-                                                                                          getPort(node),
-                                                                                          this.requestFormatType),
+                Store<ByteArray, byte[], byte[]> rawSlopStore = getStore("slop",
+                                                                         node.getHost(),
+                                                                         getPort(node),
+                                                                         this.requestFormatType);
+                Store<ByteArray, Slop, byte[]> slopStore = SerializingStore.wrap(rawSlopStore,
                                                                                  slopKeySerializer,
                                                                                  slopValueSerializer,
                                                                                  new IdentitySerializer());
                 slopStores.put(node.getId(), slopStore);
+                nonblockingSlopStores.put(node.getId(), routedStoreFactory.toNonblockingStore(rawSlopStore));
             }
         }
 
@@ -190,6 +193,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            clientMapping,
                                                                            nonblockingStores,
                                                                            slopStores,
+                                                                           nonblockingSlopStores,
                                                                            repairReads,
                                                                            clientZoneId,
                                                                            getFailureDetector());

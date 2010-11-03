@@ -137,7 +137,7 @@ public class PerformParallelPutRequests extends
                                                  node.getId(),
                                                  new Date());
                             pipelineData.addFailedNode(node);
-                            hintedHandoff.sendHint(node, versionedCopy.getVersion(), slop);
+                            hintedHandoff.sendHintSync(node, versionedCopy.getVersion(), slop);
                         }
                     }
 
