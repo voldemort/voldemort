@@ -299,10 +299,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     }
 
     public StreamRequestHandler handleUpdateSlopEntries(VAdminProto.UpdateSlopEntriesRequest request) {
-        return new UpdateSlopEntriesRequestHandler(request,
-                                                   errorCodeMapper,
-                                                   voldemortConfig,
-                                                   storeRepository);
+        return new UpdateSlopEntriesRequestHandler(request, errorCodeMapper, storeRepository);
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {

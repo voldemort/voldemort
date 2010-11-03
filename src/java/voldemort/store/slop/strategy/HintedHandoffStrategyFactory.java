@@ -1,4 +1,4 @@
-package voldemort.store.slop;
+package voldemort.store.slop.strategy;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -41,6 +41,10 @@ public class HintedHandoffStrategyFactory {
                                                         .compareTo(storeDef.getHintedHandoffStrategyType()
                                                                            .toDisplay()) == 0) {
             return new HandoffToAnyStrategy(cluster, enableZoneRouting, clientZoneId);
+        } else if(HintedHandoffStrategyType.PROXIMITY_STRATEGY.toDisplay()
+                                                              .compareTo(storeDef.getHintedHandoffStrategyType()
+                                                                                 .toDisplay()) == 0) {
+            return new ProximityHandoffStrategy(cluster);
         } else {
             throw new VoldemortException("HintedHandoffStrategyType:"
                                          + storeDef.getHintedHandoffStrategyType()

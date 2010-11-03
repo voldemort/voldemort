@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.store.slop;
+package voldemort.store.slop.strategy;
 
 import java.util.List;
 
