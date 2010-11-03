@@ -37,6 +37,7 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.StorageEngine;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
@@ -186,7 +187,17 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
         long pushVersion;
         if(pushVersionString == null) {
-            pushVersion = store.getCurrentVersionId() + 1;
+            // Find the max version
+            long maxVersion;
+            File[] storeDirList = ReadOnlyUtils.getVersionDirs(new File(store.getStoreDirPath()));
+            if(storeDirList == null || storeDirList.length == 0) {
+                throw new ServletException("Push version required since no version folders exist");
+            } else {
+                maxVersion = ReadOnlyUtils.getVersionId(ReadOnlyUtils.findKthVersionedDir(storeDirList,
+                                                                                          storeDirList.length - 1,
+                                                                                          storeDirList.length - 1)[0]);
+            }
+            pushVersion = maxVersion + 1;
         } else {
             pushVersion = Long.parseLong(pushVersionString);
             if(pushVersion <= store.getCurrentVersionId())
