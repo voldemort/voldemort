@@ -246,8 +246,6 @@ public class StreamingSlopPusherJob implements Runnable {
         private final SynchronousQueue<Versioned<Slop>> slopQueue;
         private final List<Pair<ByteArray, Version>> deleteBatch;
 
-        private final static int BATCH_SIZE = 25;
-
         private int writtenLast = 0;
         private long slopsDone = 0L;
         private boolean shutDown = false, isComplete = false;
@@ -276,7 +274,7 @@ public class StreamingSlopPusherJob implements Runnable {
                         isComplete = true;
                     } else {
                         slopsDone++;
-                        if(slopsDone % BATCH_SIZE == 0) {
+                        if(slopsDone % voldemortConfig.getSlopBatchSize() == 0) {
                             shutDown = true;
                         }
 

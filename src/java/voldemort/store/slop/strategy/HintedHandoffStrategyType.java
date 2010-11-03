@@ -1,4 +1,4 @@
-package voldemort.store.slop;
+package voldemort.store.slop.strategy;
 
 /**
  * Enumerates different hinted handoff strategies.
@@ -7,7 +7,8 @@ package voldemort.store.slop;
  */
 public enum HintedHandoffStrategyType {
     CONSISTENT_STRATEGY("consistent-handoff"),
-    ANY_STRATEGY("any-handoff");
+    ANY_STRATEGY("any-handoff"),
+    PROXIMITY_STRATEGY("proximity-handoff");
 
     private final String text;
 

@@ -106,8 +106,8 @@ public class AdminServiceFailureTest extends TestCase {
                                                                                                                                0,
                                                                                                                                TestUtils.createTempDir()
                                                                                                                                         .getAbsolutePath(),
-                                                                                                                               null,
-                                                                                                                               null,
+                                                                                                                               new String(),
+                                                                                                                               new String(),
                                                                                                                                new Properties()),
                                                                                             null,
                                                                                             null);

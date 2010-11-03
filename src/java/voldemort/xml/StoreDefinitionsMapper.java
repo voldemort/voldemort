@@ -48,7 +48,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
-import voldemort.store.slop.HintedHandoffStrategyType;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.views.ViewStorageConfiguration;
 
 /**

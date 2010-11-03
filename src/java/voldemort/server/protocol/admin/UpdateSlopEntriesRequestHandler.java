@@ -13,13 +13,11 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.UpdateSlopEntriesRequest;
 import voldemort.server.StoreRepository;
-import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.EventThrottler;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -32,8 +30,6 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     private final ErrorCodeMapper errorCodeMapper;
 
-    private final EventThrottler throttler;
-
     private final StoreRepository storeRepository;
 
     private final long startTime;
@@ -44,13 +40,11 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     public UpdateSlopEntriesRequestHandler(UpdateSlopEntriesRequest request,
                                            ErrorCodeMapper errorCodeMapper,
-                                           VoldemortConfig voldemortConfig,
                                            StoreRepository storeRepository) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.storeRepository = storeRepository;
-        this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         startTime = System.currentTimeMillis();
     }
 
@@ -115,7 +109,6 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
         ByteArray key = ProtoUtils.decodeBytes(request.getKey());
         VectorClock vectorClock = ProtoUtils.decodeClock(request.getVersion());
 
-        int size = key.length() + vectorClock.sizeInBytes() + 1;
         switch(request.getRequestType()) {
             case PUT:
                 try {
@@ -124,12 +117,10 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                     byte[] transforms = null;
                     if(request.hasTransform()) {
                         transforms = ProtoUtils.decodeBytes(request.getTransform()).get();
-                        size += transforms.length;
                     }
 
                     // Retrieve the value
                     byte[] value = ProtoUtils.decodeBytes(request.getValue()).get();
-                    size += value.length;
 
                     storageEngine.put(key, Versioned.value(value, vectorClock), transforms);
 
@@ -156,8 +147,6 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
             default:
                 throw new VoldemortException("Unsupported operation ");
         }
-
-        throttler.maybeThrottle(size);
 
         // log progress
         counter++;

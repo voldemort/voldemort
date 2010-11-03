@@ -17,6 +17,7 @@
 package voldemort;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.ServerSocket;
@@ -393,6 +394,36 @@ public class ServerTestUtils {
         }
 
         return map;
+    }
+
+    public static VoldemortConfig createServerConfig(boolean useNio,
+                                                     int nodeId,
+                                                     String baseDir,
+                                                     Cluster cluster,
+                                                     ArrayList<StoreDefinition> stores,
+                                                     Properties properties) throws IOException {
+
+        File clusterXml = new File(TestUtils.createTempDir(), "cluster.xml");
+        File storesXml = new File(TestUtils.createTempDir(), "stores.xml");
+
+        ClusterMapper clusterMapper = new ClusterMapper();
+        StoreDefinitionsMapper storeDefMapper = new StoreDefinitionsMapper();
+
+        FileWriter writer = new FileWriter(clusterXml);
+        writer.write(clusterMapper.writeCluster(cluster));
+        writer.close();
+
+        writer = new FileWriter(storesXml);
+        writer.write(storeDefMapper.writeStoreList(stores));
+        writer.close();
+
+        return createServerConfig(useNio,
+                                  nodeId,
+                                  baseDir,
+                                  clusterXml.getAbsolutePath(),
+                                  storesXml.getAbsolutePath(),
+                                  properties);
+
     }
 
     public static VoldemortConfig createServerConfig(boolean useNio,
