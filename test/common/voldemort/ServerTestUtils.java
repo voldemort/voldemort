@@ -396,12 +396,13 @@ public class ServerTestUtils {
         return map;
     }
 
-    public static VoldemortConfig createServerConfig(boolean useNio,
-                                                     int nodeId,
-                                                     String baseDir,
-                                                     Cluster cluster,
-                                                     ArrayList<StoreDefinition> stores,
-                                                     Properties properties) throws IOException {
+    public static VoldemortConfig createServerConfigWithDefs(boolean useNio,
+                                                             int nodeId,
+                                                             String baseDir,
+                                                             Cluster cluster,
+                                                             ArrayList<StoreDefinition> stores,
+                                                             Properties properties)
+            throws IOException {
 
         File clusterXml = new File(TestUtils.createTempDir(), "cluster.xml");
         File storesXml = new File(TestUtils.createTempDir(), "stores.xml");

@@ -183,13 +183,13 @@ public class HintedHandoffTest {
             StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(storeRepo,
                                                                        metadataStore,
                                                                        failureDetector,
-                                                                       ServerTestUtils.createServerConfig(false,
-                                                                                                          nodeId,
-                                                                                                          TestUtils.createTempDir()
-                                                                                                                   .getAbsolutePath(),
-                                                                                                          cluster,
-                                                                                                          Lists.newArrayList(storeDef),
-                                                                                                          new Properties()));
+                                                                       ServerTestUtils.createServerConfigWithDefs(false,
+                                                                                                                  nodeId,
+                                                                                                                  TestUtils.createTempDir()
+                                                                                                                           .getAbsolutePath(),
+                                                                                                                  cluster,
+                                                                                                                  Lists.newArrayList(storeDef),
+                                                                                                                  new Properties()));
             slopPusherJobs.add(pusher);
         }
 
