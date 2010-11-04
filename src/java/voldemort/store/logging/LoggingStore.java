@@ -76,7 +76,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     @Override
     public void close() throws VoldemortException {
         // if(logger.isInfoEnabled())
-            logger.info("Closing " + getName() + ".");
+        logger.debug("Closing " + getName() + ".");
         super.close();
     }
 
@@ -85,7 +85,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
         long startTimeNs = 0;
         boolean succeeded = false;
         // if(logger.isInfoEnabled())
-            startTimeNs = time.getNanoseconds();
+        startTimeNs = time.getNanoseconds();
         try {
             boolean deletedSomething = getInnerStore().delete(key, version);
             succeeded = true;
@@ -100,7 +100,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
         long startTimeNs = 0;
         boolean succeeded = false;
         // if(logger.isInfoEnabled())
-            startTimeNs = time.getNanoseconds();
+        startTimeNs = time.getNanoseconds();
         try {
             List<Versioned<V>> l = getInnerStore().get(key, transform);
             succeeded = true;
@@ -114,9 +114,9 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     public void put(K key, Versioned<V> value, T transform) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
-       //  if(logger.isInfoEnabled()) {
-            startTimeNs = time.getNanoseconds();
-       // }
+        // if(logger.isInfoEnabled()) {
+        startTimeNs = time.getNanoseconds();
+        // }
         try {
             getInnerStore().put(key, value, transform);
             succeeded = true;
@@ -126,12 +126,12 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     private void printTimedMessage(String operation, boolean success, long startNs) {
-       // if(logger.isInfoEnabled()) {
-            double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
-            logger.info(instanceName + operation + " operation on store '" + getName()
-                        + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
-                        + elapsedMs + " ms.");
-      //  }
+        // if(logger.isInfoEnabled()) {
+        double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
+        logger.debug(instanceName + operation + " operation on store '" + getName()
+                     + "' completed " + (success ? "successfully" : "unsuccessfully") + " in "
+                     + elapsedMs + " ms.");
+        // }
     }
 
     @Override
