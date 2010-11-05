@@ -105,23 +105,23 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                      .asSlopStore();
 
         // Generate slops for 1
-        final List<Slop> entrySet1 = ServerTestUtils.createRandomSlops(1,
-                                                                       50,
-                                                                       "test-replication-memory",
-                                                                       "users",
-                                                                       "test-replication-persistent",
-                                                                       "test-readrepair-memory",
-                                                                       "test-consistent",
-                                                                       "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySet1 = ServerTestUtils.createRandomSlops(1,
+                                                                                  50,
+                                                                                  "test-replication-memory",
+                                                                                  "users",
+                                                                                  "test-replication-persistent",
+                                                                                  "test-readrepair-memory",
+                                                                                  "test-consistent",
+                                                                                  "test-consistent-with-pref-list");
         // Generate slops for 2
-        final List<Slop> entrySet2 = ServerTestUtils.createRandomSlops(2,
-                                                                       50,
-                                                                       "test-replication-memory",
-                                                                       "users",
-                                                                       "test-replication-persistent",
-                                                                       "test-readrepair-memory",
-                                                                       "test-consistent",
-                                                                       "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySet2 = ServerTestUtils.createRandomSlops(2,
+                                                                                  50,
+                                                                                  "test-replication-memory",
+                                                                                  "users",
+                                                                                  "test-replication-persistent",
+                                                                                  "test-readrepair-memory",
+                                                                                  "test-consistent",
+                                                                                  "test-consistent-with-pref-list");
 
         populateSlops(0, slopStoreNode0, entrySet1, entrySet2);
 
@@ -139,9 +139,10 @@ public class StreamingSlopPusherTest extends TestCase {
         Thread.sleep(2000);
 
         // Now check if the slops went through and also got deleted
-        Iterator<Slop> entryIterator = entrySet2.listIterator();
+        Iterator<Versioned<Slop>> entryIterator = entrySet2.listIterator();
         while(entryIterator.hasNext()) {
-            Slop nextSlop = entryIterator.next();
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
@@ -162,7 +163,8 @@ public class StreamingSlopPusherTest extends TestCase {
 
         entryIterator = entrySet1.listIterator();
         while(entryIterator.hasNext()) {
-            Slop nextSlop = entryIterator.next();
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
             // did it get deleted correctly
             assertNotSame("slop should be there", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
                                                                    .size());
@@ -187,14 +189,14 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                      .asSlopStore();
 
         // Generate slops for 1
-        final List<Slop> entrySet = ServerTestUtils.createRandomSlops(1,
-                                                                      100,
-                                                                      "test-replication-memory",
-                                                                      "users",
-                                                                      "test-replication-persistent",
-                                                                      "test-readrepair-memory",
-                                                                      "test-consistent",
-                                                                      "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(1,
+                                                                                 100,
+                                                                                 "test-replication-memory",
+                                                                                 "users",
+                                                                                 "test-replication-persistent",
+                                                                                 "test-readrepair-memory",
+                                                                                 "test-consistent",
+                                                                                 "test-consistent-with-pref-list");
 
         populateSlops(0, slopStoreNode0, entrySet);
 
@@ -212,9 +214,10 @@ public class StreamingSlopPusherTest extends TestCase {
         Thread.sleep(2000);
 
         // Now check if the slops went through and also got deleted
-        Iterator<Slop> entryIterator = entrySet.listIterator();
+        Iterator<Versioned<Slop>> entryIterator = entrySet.listIterator();
         while(entryIterator.hasNext()) {
-            Slop nextSlop = entryIterator.next();
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
@@ -253,7 +256,7 @@ public class StreamingSlopPusherTest extends TestCase {
      */
     private void populateSlops(int nodeId,
                                StorageEngine<ByteArray, Slop, byte[]> slopStore,
-                               List<Slop>... entrySet) {
+                               List<Versioned<Slop>>... entrySet) {
         int size = entrySet[0].size();
         Iterator entryIterators[] = new Iterator[entrySet.length];
         for(int i = 0; i < entrySet.length; i++) {
@@ -261,18 +264,23 @@ public class StreamingSlopPusherTest extends TestCase {
         }
         for(int i = 0; i < size; i++) {
             for(int j = 0; j < entrySet.length; j++) {
-                Slop slop = (Slop) entryIterators[j].next();
+                Versioned<Slop> versioned = (Versioned<Slop>) entryIterators[j].next();
                 // For all the 'DELETES' first put
-                if(slop.getOperation() == Slop.Operation.DELETE) {
+                if(versioned.getValue().getOperation() == Slop.Operation.DELETE) {
                     try {
                         StorageEngine<ByteArray, byte[], byte[]> storageEngine = getVoldemortServer(nodeId).getStoreRepository()
-                                                                                                           .getStorageEngine(slop.getStoreName());
-                        storageEngine.put(slop.getKey(), Versioned.value(slop.getValue()), null);
+                                                                                                           .getStorageEngine(versioned.getValue()
+                                                                                                                                      .getStoreName());
+                        storageEngine.put(versioned.getValue().getKey(),
+                                          Versioned.value(versioned.getValue().getValue(),
+                                                          versioned.getVersion()),
+                                          null);
+
                     } catch(ObsoleteVersionException e) {}
                 }
 
                 try {
-                    slopStore.put(slop.makeKey(), Versioned.value(slop), null);
+                    slopStore.put(versioned.getValue().makeKey(), versioned, null);
                 } catch(ObsoleteVersionException e) {}
             }
         }
@@ -291,16 +299,16 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                      .asSlopStore();
 
         // Generate slops for 0
-        final List<Slop> entrySetNode0 = ServerTestUtils.createRandomSlops(1,
-                                                                           100,
-                                                                           "test-readrepair-memory",
-                                                                           "test-consistent",
-                                                                           "test-consistent-with-pref-list");
-        final List<Slop> entrySetNode1 = ServerTestUtils.createRandomSlops(0,
-                                                                           100,
-                                                                           "test-replication-memory",
-                                                                           "users",
-                                                                           "test-replication-persistent");
+        final List<Versioned<Slop>> entrySetNode0 = ServerTestUtils.createRandomSlops(1,
+                                                                                      100,
+                                                                                      "test-readrepair-memory",
+                                                                                      "test-consistent",
+                                                                                      "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySetNode1 = ServerTestUtils.createRandomSlops(0,
+                                                                                      100,
+                                                                                      "test-replication-memory",
+                                                                                      "users",
+                                                                                      "test-replication-persistent");
 
         // Populated the slop stores
         populateSlops(0, slopStoreNode0, entrySetNode0);
@@ -327,9 +335,10 @@ public class StreamingSlopPusherTest extends TestCase {
         Thread.sleep(2000);
 
         // Now check if the slops worked
-        Iterator<Slop> entryIterator0 = entrySetNode0.listIterator();
+        Iterator<Versioned<Slop>> entryIterator0 = entrySetNode0.listIterator();
         while(entryIterator0.hasNext()) {
-            Slop nextSlop = entryIterator0.next();
+            Versioned<Slop> versionedSlop = entryIterator0.next();
+            Slop nextSlop = versionedSlop.getValue();
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
@@ -347,9 +356,10 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                    .size());
         }
 
-        Iterator<Slop> entryIterator1 = entrySetNode1.listIterator();
+        Iterator<Versioned<Slop>> entryIterator1 = entrySetNode1.listIterator();
         while(entryIterator1.hasNext()) {
-            Slop nextSlop = entryIterator1.next();
+            Versioned<Slop> versionedSlop = entryIterator1.next();
+            Slop nextSlop = versionedSlop.getValue();
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(0).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
