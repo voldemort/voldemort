@@ -381,8 +381,10 @@ public class ServerTestUtils {
         return map;
     }
 
-    public static List<Slop> createRandomSlops(int nodeId, int numKeys, String... storeNames) {
-        List<Slop> slops = new ArrayList<Slop>();
+    public static List<Versioned<Slop>> createRandomSlops(int nodeId,
+                                                          int numKeys,
+                                                          String... storeNames) {
+        List<Versioned<Slop>> slops = new ArrayList<Versioned<Slop>>();
 
         for(int cnt = 0; cnt < numKeys; cnt++) {
             int storeId = (int) Math.round(Math.random() * (storeNames.length - 1));
@@ -398,23 +400,17 @@ public class ServerTestUtils {
             ByteArray key = new ByteArray(ByteUtils.getBytes("" + keyInt, "UTF-8"));
             byte[] value = ByteUtils.getBytes("value-" + keyInt, "UTF-8");
 
-            slops.add(new Slop(storeNames[storeId],
-                               operationType,
-                               key,
-                               value,
-                               null,
-                               nodeId,
-                               new Date()));
-
+            Versioned<Slop> versioned = Versioned.value(new Slop(storeNames[storeId],
+                                                                 operationType,
+                                                                 key,
+                                                                 value,
+                                                                 null,
+                                                                 nodeId,
+                                                                 new Date()));
+            slops.add(versioned);
             // Adding twice so as check if ObsoleteVersionExceptions are
             // swallowed correctly
-            slops.add(new Slop(storeNames[storeId],
-                               operationType,
-                               key,
-                               value,
-                               null,
-                               nodeId,
-                               new Date()));
+            slops.add(versioned);
         }
 
         return slops;
