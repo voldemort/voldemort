@@ -637,34 +637,24 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testUpdateSlops() {
-        final List<Slop> entrySet = ServerTestUtils.createRandomSlops(0,
-                                                                      10000,
-                                                                      testStoreName,
-                                                                      "users",
-                                                                      "test-replication-persistent",
-                                                                      "test-readrepair-memory",
-                                                                      "test-consistent",
-                                                                      "test-consistent-with-pref-list");
+        final List<Versioned<Slop>> entrySet = ServerTestUtils.createRandomSlops(0,
+                                                                                 10000,
+                                                                                 testStoreName,
+                                                                                 "users",
+                                                                                 "test-replication-persistent",
+                                                                                 "test-readrepair-memory",
+                                                                                 "test-consistent",
+                                                                                 "test-consistent-with-pref-list");
 
-        Iterator<Versioned<Slop>> slopIterator = new AbstractIterator<Versioned<Slop>>() {
-
-            final Iterator<Slop> entrySetItr = entrySet.iterator();
-
-            @Override
-            protected Versioned<Slop> computeNext() {
-                while(entrySetItr.hasNext()) {
-                    return Versioned.value(entrySetItr.next());
-                }
-                return endOfData();
-            }
-        };
-
+        Iterator<Versioned<Slop>> slopIterator = entrySet.iterator();
         getAdminClient().updateSlopEntries(0, slopIterator);
 
         // check updated values
-        Iterator<Slop> entrysetItr = entrySet.iterator();
+        Iterator<Versioned<Slop>> entrysetItr = entrySet.iterator();
+
         while(entrysetItr.hasNext()) {
-            Slop nextSlop = entrysetItr.next();
+            Versioned<Slop> versioned = entrysetItr.next();
+            Slop nextSlop = versioned.getValue();
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
