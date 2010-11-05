@@ -62,6 +62,7 @@ import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -329,6 +330,39 @@ public class ServerTestUtils {
                                            .setReplicationFactor(replicationFactor)
                                            .setPreferredReads(preads)
                                            .setRequiredReads(rreads)
+                                           .setPreferredWrites(pwrites)
+                                           .setRequiredWrites(rwrites)
+                                           .build();
+    }
+
+    public static StoreDefinition getStoreDef(String storeName,
+                                              int preads,
+                                              int rreads,
+                                              int pwrites,
+                                              int rwrites,
+                                              int zonereads,
+                                              int zonewrites,
+                                              HashMap<Integer, Integer> zoneReplicationFactor,
+                                              HintedHandoffStrategyType hhType,
+                                              String strategyType) {
+        SerializerDefinition serDef = new SerializerDefinition("string");
+        int replicationFactor = 0;
+        for(Integer repFac: zoneReplicationFactor.values()) {
+            replicationFactor += repFac;
+        }
+        return new StoreDefinitionBuilder().setName(storeName)
+                                           .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                           .setKeySerializer(serDef)
+                                           .setValueSerializer(serDef)
+                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingStrategyType(strategyType)
+                                           .setPreferredReads(preads)
+                                           .setRequiredReads(rreads)
+                                           .setHintedHandoffStrategy(hhType)
+                                           .setZoneCountReads(zonereads)
+                                           .setZoneCountWrites(zonewrites)
+                                           .setReplicationFactor(replicationFactor)
+                                           .setZoneReplicationFactor(zoneReplicationFactor)
                                            .setPreferredWrites(pwrites)
                                            .setRequiredWrites(rwrites)
                                            .build();

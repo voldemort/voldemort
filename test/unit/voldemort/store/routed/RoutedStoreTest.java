@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,16 +57,19 @@ import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.FailingReadsStore;
 import voldemort.store.FailingStore;
 import voldemort.store.InsufficientOperationalNodesException;
+import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.SleepyStore;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.memory.InMemoryStorageEngine;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.Tracked;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occured;
@@ -75,7 +79,9 @@ import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Basic tests for RoutedStore
@@ -191,6 +197,56 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        1000L);
+
+        return routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
+    }
+
+    private RoutedStore getStore(Cluster cluster,
+                                 int reads,
+                                 int writes,
+                                 int zonereads,
+                                 int zonewrites,
+                                 int threads,
+                                 Set<Integer> failing,
+                                 Set<Integer> sleepy,
+                                 HashMap<Integer, Integer> zoneReplicationFactor,
+                                 String strategy,
+                                 long sleepMs,
+                                 long timeOutMs,
+                                 VoldemortException e) throws Exception {
+        Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
+        int count = 0;
+        for(Node n: cluster.getNodes()) {
+            Store<ByteArray, byte[], byte[]> subStore = null;
+
+            if(failing != null && failing.contains(n.getId()))
+                subStore = new FailingStore<ByteArray, byte[], byte[]>("test", e);
+            else if(sleepy != null && sleepy.contains(n.getId()))
+                subStore = new SleepyStore<ByteArray, byte[], byte[]>(sleepMs,
+                                                                      new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
+            else
+                subStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
+
+            subStores.put(n.getId(), subStore);
+
+            count += 1;
+        }
+
+        setFailureDetector(subStores);
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("test",
+                                                               reads,
+                                                               reads,
+                                                               writes,
+                                                               writes,
+                                                               zonereads,
+                                                               zonewrites,
+                                                               zoneReplicationFactor,
+                                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                               strategy);
+        routedStoreThreadPool = Executors.newFixedThreadPool(threads);
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
+                                                                       routedStoreThreadPool,
+                                                                       timeOutMs);
 
         return routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
     }
@@ -315,6 +371,245 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
     @Test
     public void testObsoleteMasterFails() {
     // write me
+    }
+
+    @Test
+    public void testZoneRouting() throws Exception {
+        cluster = VoldemortTestConstants.getEightNodeClusterWithZones();
+
+        HashMap<Integer, Integer> zoneReplicationFactor = Maps.newHashMap();
+        zoneReplicationFactor.put(0, 2);
+        zoneReplicationFactor.put(1, 2);
+
+        long start;
+        Versioned<byte[]> versioned = new Versioned<byte[]>(new byte[] { 1 });
+
+        // Basic put with zone read = 0, zone write = 0 and timeout < cross-zone
+        // latency
+        Store<ByteArray, byte[], byte[]> s1 = getStore(cluster,
+                                                       1,
+                                                       1,
+                                                       0,
+                                                       0,
+                                                       8,
+                                                       null,
+                                                       Sets.newHashSet(4, 5, 6, 7),
+                                                       zoneReplicationFactor,
+                                                       RoutingStrategyType.ZONE_STRATEGY,
+                                                       81,
+                                                       60,
+                                                       new VoldemortException());
+
+        start = System.nanoTime();
+        try {
+            s1.put(new ByteArray("test".getBytes()), versioned, null);
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+        // Putting extra key to test getAll
+        s1.put(new ByteArray("test2".getBytes()), versioned, null);
+
+        start = System.nanoTime();
+        try {
+            s1.get(new ByteArray("test".getBytes()), null);
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        start = System.nanoTime();
+        try {
+            List<Version> versions = s1.getVersions(new ByteArray("test".getBytes()));
+            for(Version version: versions) {
+                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+            }
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        start = System.nanoTime();
+        try {
+            s1.delete(new ByteArray("test".getBytes()), versioned.getVersion());
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        List<ByteArray> keys = Lists.newArrayList(new ByteArray("test".getBytes()),
+                                                  new ByteArray("test2".getBytes()));
+
+        Map<ByteArray, List<Versioned<byte[]>>> values = s1.getAll(keys, null);
+        for(ByteArray key: values.keySet()) {
+            ByteUtils.compare(values.get(key).get(0).getValue(), new byte[] { 1 });
+        }
+
+        // Basic put with zone read = 1, zone write = 1
+        Store<ByteArray, byte[], byte[]> s2 = getStore(cluster,
+                                                       1,
+                                                       1,
+                                                       1,
+                                                       1,
+                                                       8,
+                                                       null,
+                                                       Sets.newHashSet(4, 5, 6, 7),
+                                                       zoneReplicationFactor,
+                                                       RoutingStrategyType.ZONE_STRATEGY,
+                                                       81,
+                                                       1000,
+                                                       new VoldemortException());
+
+        start = System.nanoTime();
+
+        try {
+            s2.put(new ByteArray("test".getBytes()), versioned, null);
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " > " + 81, elapsed >= 81);
+        }
+        s2.put(new ByteArray("test2".getBytes()), versioned, null);
+
+        try {
+            s2.get(new ByteArray("test".getBytes()), null);
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * Why would you want responses from two zones and wait for only one
+             * response...
+             */
+        }
+
+        try {
+            s2.getVersions(new ByteArray("test".getBytes()));
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * Why would you want responses from two zones and wait for only one
+             * response...
+             */
+        }
+
+        try {
+            s2.delete(new ByteArray("test".getBytes()), null);
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * Why would you want responses from two zones and wait for only one
+             * response...
+             */
+        }
+
+        values = s2.getAll(keys, null);
+        for(ByteArray key: values.keySet()) {
+            ByteUtils.compare(values.get(key).get(0).getValue(), new byte[] { 1 });
+        }
+
+        // Basic put with zone read = 0, zone write = 0 and failures in other
+        // dc, but should still work
+        Store<ByteArray, byte[], byte[]> s3 = getStore(cluster,
+                                                       1,
+                                                       1,
+                                                       0,
+                                                       0,
+                                                       8,
+                                                       Sets.newHashSet(4, 5, 6, 7),
+                                                       null,
+                                                       zoneReplicationFactor,
+                                                       RoutingStrategyType.ZONE_STRATEGY,
+                                                       81,
+                                                       1000,
+                                                       new VoldemortException());
+
+        start = System.nanoTime();
+        try {
+            s3.put(new ByteArray("test".getBytes()), versioned, null);
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+        // Putting extra key to test getAll
+        s3.put(new ByteArray("test2".getBytes()), versioned, null);
+
+        start = System.nanoTime();
+        try {
+            List<Version> versions = s3.getVersions(new ByteArray("test".getBytes()));
+            for(Version version: versions) {
+                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+            }
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        start = System.nanoTime();
+        try {
+            s3.get(new ByteArray("test".getBytes()), null);
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        start = System.nanoTime();
+        try {
+            s3.delete(new ByteArray("test".getBytes()), versioned.getVersion());
+        } finally {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + 81, elapsed < 81);
+        }
+
+        // Basic put with zone read = 1, zone write = 1 and failures in other
+        // dc, should not work
+        Store<ByteArray, byte[], byte[]> s4 = getStore(cluster,
+                                                       2,
+                                                       2,
+                                                       1,
+                                                       1,
+                                                       8,
+                                                       Sets.newHashSet(4, 5, 6, 7),
+                                                       null,
+                                                       zoneReplicationFactor,
+                                                       RoutingStrategyType.ZONE_STRATEGY,
+                                                       81,
+                                                       1000,
+                                                       new VoldemortException());
+
+        try {
+            s4.put(new ByteArray("test".getBytes()), new Versioned<byte[]>(new byte[] { 1 }), null);
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * The other zone is down and you expect a result from both zones
+             */
+        }
+
+        try {
+            s4.getVersions(new ByteArray("test".getBytes()));
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * The other zone is down and you expect a result from both zones
+             */
+        }
+
+        try {
+            s4.get(new ByteArray("test".getBytes()), null);
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * The other zone is down and you expect a result from both zones
+             */
+        }
+
+        try {
+            s4.delete(new ByteArray("test".getBytes()), versioned.getVersion());
+            fail("Should have shown exception");
+        } catch(InsufficientZoneResponsesException e) {
+            /*
+             * The other zone is down and you expect a result from both zones
+             */
+        }
+
     }
 
     @Test
