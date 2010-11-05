@@ -60,6 +60,7 @@ public class StreamingSlopPusherJob implements Runnable {
     private final Cluster cluster;
     private final List<Future> consumerResults;
     private final VoldemortConfig voldemortConfig;
+    private ConcurrentHashMap<Integer, Long> attemptedByNode, succeededByNode;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
                                   MetadataStore metadataStore,
@@ -87,6 +88,8 @@ public class StreamingSlopPusherJob implements Runnable {
                                            new AdminClientConfig().setMaxThreads(cluster.getNumberOfNodes())
                                                                   .setMaxConnectionsPerNode(1));
         this.consumerResults = Lists.newArrayList();
+        this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
+        this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
 
     }
 
@@ -101,14 +104,14 @@ public class StreamingSlopPusherJob implements Runnable {
         // Allow only one job to run at one time - Two jobs may get started if
         // someone disables and enables (through JMX) immediately during a run
         synchronized(lock) {
+            boolean exceptionOccurred = false;
             Date startTime = new Date();
             logger.info("Started streaming slop pusher job at " + startTime);
 
             SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
             ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
 
-            ConcurrentHashMap<Integer, Long> attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
-            ConcurrentHashMap<Integer, Long> succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
+            // Clearing the statistics
             AtomicLong attemptedPushes = new AtomicLong(0);
             for(Node node: cluster.getNodes()) {
                 attemptedByNode.put(node.getId(), 0L);
@@ -146,8 +149,7 @@ public class StreamingSlopPusherJob implements Runnable {
                                 slopQueues.put(nodeId, slopQueue);
                                 consumerResults.add(consumerExecutor.submit(new SlopConsumer(nodeId,
                                                                                              slopQueue,
-                                                                                             slopStorageEngine,
-                                                                                             succeededByNode.get(nodeId))));
+                                                                                             slopStorageEngine)));
                             }
                             slopQueue.offer(versioned,
                                             voldemortConfig.getClientRoutingTimeoutMs(),
@@ -161,17 +163,12 @@ public class StreamingSlopPusherJob implements Runnable {
                     }
                 }
 
-                Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
-                for(int nodeId: succeededByNode.keySet()) {
-                    outstanding.put(nodeId, attemptedByNode.get(nodeId)
-                                            - succeededByNode.get(nodeId));
-                }
-
-                slopStorageEngine.resetStats(outstanding);
             } catch(InterruptedException e) {
-                // Swallow interrupted exceptions
+                logger.warn("Interrupted exception", e);
+                exceptionOccurred = true;
             } catch(Exception e) {
                 logger.error(e, e);
+                exceptionOccurred = true;
             } finally {
                 try {
                     if(iterator != null)
@@ -187,7 +184,7 @@ public class StreamingSlopPusherJob implements Runnable {
                                         voldemortConfig.getClientRoutingTimeoutMs(),
                                         TimeUnit.MILLISECONDS);
                     } catch(InterruptedException e) {
-                        logger.error("Error putting poison pill", e);
+                        logger.warn("Error putting poison pill", e);
                     }
                 }
 
@@ -195,8 +192,21 @@ public class StreamingSlopPusherJob implements Runnable {
                     try {
                         result.get();
                     } catch(Exception e) {
-                        logger.error("Exception in consumer", e);
+                        logger.warn("Exception in consumer", e);
                     }
+                }
+
+                // Only if exception didn't take place do we update the counts
+                if(!exceptionOccurred) {
+                    Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+                    for(int nodeId: succeededByNode.keySet()) {
+                        logger.debug("Slops pushed to node " + nodeId + " - "
+                                     + succeededByNode.get(nodeId));
+                        outstanding.put(nodeId, attemptedByNode.get(nodeId)
+                                                - succeededByNode.get(nodeId));
+                    }
+
+                    slopStorageEngine.resetStats(outstanding);
                 }
 
                 // Shut down admin client as not to waste connections
@@ -299,21 +309,18 @@ public class StreamingSlopPusherJob implements Runnable {
         private SynchronousQueue<Versioned<Slop>> slopQueue;
         private long startTime;
         private SlopStorageEngine slopStorageEngine;
-        private Long succeededNode;
 
         // Keep two lists to track deleted items
         private List<Pair<ByteArray, Version>> previous, current;
 
         public SlopConsumer(int nodeId,
                             SynchronousQueue<Versioned<Slop>> slopQueue,
-                            SlopStorageEngine slopStorageEngine,
-                            Long succeededNode) {
+                            SlopStorageEngine slopStorageEngine) {
             this.nodeId = nodeId;
             this.slopQueue = slopQueue;
             this.slopStorageEngine = slopStorageEngine;
             this.previous = Lists.newArrayList();
             this.current = Lists.newArrayList();
-            this.succeededNode = succeededNode;
         }
 
         public void run() {
@@ -325,7 +332,9 @@ public class StreamingSlopPusherJob implements Runnable {
                             for(Pair<ByteArray, Version> entry: previous) {
                                 slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
                             }
-                            succeededNode += previous.size();
+                            Long succeeded = succeededByNode.get(nodeId);
+                            succeeded += previous.size();
+                            succeededByNode.put(nodeId, succeeded);
                             previous.clear();
                         }
                         previous = null;
@@ -341,13 +350,17 @@ public class StreamingSlopPusherJob implements Runnable {
                 if(!previous.isEmpty()) {
                     for(Pair<ByteArray, Version> entry: previous)
                         slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
-                    succeededNode += previous.size();
+                    Long succeeded = succeededByNode.get(nodeId);
+                    succeeded += previous.size();
+                    succeededByNode.put(nodeId, succeeded);
                     previous.clear();
                 }
                 if(!current.isEmpty()) {
                     for(Pair<ByteArray, Version> entry: current)
                         slopStorageEngine.delete(entry.getFirst(), entry.getSecond());
-                    succeededNode += current.size();
+                    Long succeeded = succeededByNode.get(nodeId);
+                    succeeded += current.size();
+                    succeededByNode.put(nodeId, succeeded);
                     current.clear();
                 }
 

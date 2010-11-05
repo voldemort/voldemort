@@ -23,6 +23,7 @@ import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -167,6 +168,12 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                    .size());
         }
 
+        // Check counts
+        SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 50);
+        assertEquals(slopEngine.getOutstandingByNode().get(1), new Long(50));
+        assertEquals(slopEngine.getOutstandingByNode().get(2), new Long(0));
+
         stopServers(0, 2);
     }
 
@@ -225,6 +232,12 @@ public class StreamingSlopPusherTest extends TestCase {
             assertEquals("slop should have gone", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
                                                                    .size());
         }
+
+        // Check counts
+        SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 0);
+        assertEquals(slopEngine.getOutstandingByNode().get(1), new Long(0));
+        assertEquals(slopEngine.getOutstandingByNode().get(2), new Long(0));
 
         stopServers(0, 1);
     }
@@ -353,6 +366,15 @@ public class StreamingSlopPusherTest extends TestCase {
             assertEquals("slop should have gone", 0, slopStoreNode1.get(nextSlop.makeKey(), null)
                                                                    .size());
         }
+
+        // Check counts
+        SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 0);
+        assertEquals(slopEngine.getOutstandingByNode().get(1), new Long(0));
+
+        slopEngine = getVoldemortServer(1).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 0);
+        assertEquals(slopEngine.getOutstandingByNode().get(0), new Long(0));
 
         stopServers(0, 1);
     }
