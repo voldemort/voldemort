@@ -2,6 +2,8 @@ package voldemort.scheduled;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -27,9 +29,13 @@ import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
 
 @SuppressWarnings("unchecked")
 public class StreamingSlopPusherTest extends TestCase {
@@ -177,6 +183,105 @@ public class StreamingSlopPusherTest extends TestCase {
         assertEquals(slopEngine.getOutstandingByNode().get(2), new Long(0));
 
         stopServers(0, 2);
+    }
+
+    /**
+     * Tests that everything works even if the slops get replayed out of order
+     */
+    @Test
+    public void testOutOfOrder() throws InterruptedException, IOException {
+        startServers(0, 1);
+
+        // Put into slop store 0
+        StorageEngine<ByteArray, Slop, byte[]> slopStoreNode0 = getVoldemortServer(0).getStoreRepository()
+                                                                                     .getSlopStore()
+                                                                                     .asSlopStore();
+
+        // 5 slops for 3 stores => ( key1 [put(value1), delete, put(value2)] AND
+        // key2 [put(value2), delete] )
+        long keyInt1 = (long) (Math.random() * 1000000000L), keyInt2 = (long) (Math.random() * 10000000L);
+        ByteArray key1 = new ByteArray(ByteUtils.getBytes("" + keyInt1, "UTF-8")), key2 = new ByteArray(ByteUtils.getBytes(""
+                                                                                                                                   + keyInt2,
+                                                                                                                           "UTF-8"));
+        byte[] value1 = ByteUtils.getBytes("value-" + new String(key1.get()), "UTF-8"), value2 = ByteUtils.getBytes("value-"
+                                                                                                                            + new String(key2.get()),
+                                                                                                                    "UTF-8");
+
+        VectorClock vectorClock1 = new VectorClock(), vectorClock2 = new VectorClock();
+
+        List<Versioned<Slop>> entrySet = Lists.newArrayList();
+        for(String storeName: Lists.newArrayList("test-replication-memory",
+                                                 "users",
+                                                 "test-replication-persistent")) {
+            entrySet.add(Versioned.value(new Slop(storeName,
+                                                  Slop.Operation.PUT,
+                                                  key1,
+                                                  value1,
+                                                  null,
+                                                  1,
+                                                  new Date()), vectorClock1));
+            vectorClock1 = vectorClock1.incremented(0, System.currentTimeMillis());
+            entrySet.add(Versioned.value(new Slop(storeName,
+                                                  Slop.Operation.DELETE,
+                                                  key1,
+                                                  null,
+                                                  null,
+                                                  1,
+                                                  new Date()), vectorClock1));
+            vectorClock1 = vectorClock1.incremented(0, System.currentTimeMillis());
+            entrySet.add(Versioned.value(new Slop(storeName,
+                                                  Slop.Operation.PUT,
+                                                  key1,
+                                                  value2,
+                                                  null,
+                                                  1,
+                                                  new Date()), vectorClock1));
+
+            vectorClock2 = vectorClock2.incremented(0, System.currentTimeMillis());
+            entrySet.add(Versioned.value(new Slop(storeName,
+                                                  Slop.Operation.PUT,
+                                                  key2,
+                                                  value2,
+                                                  null,
+                                                  1,
+                                                  new Date()), vectorClock2));
+            vectorClock2 = vectorClock2.incremented(0, System.currentTimeMillis());
+            entrySet.add(Versioned.value(new Slop(storeName,
+                                                  Slop.Operation.DELETE,
+                                                  key2,
+                                                  null,
+                                                  null,
+                                                  1,
+                                                  new Date()), vectorClock2));
+
+        }
+
+        Collections.shuffle(entrySet);
+        populateSlops(0, slopStoreNode0, entrySet);
+
+        StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
+                                                                   getVoldemortServer(0).getMetadataStore(),
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                                                                                                                         metadataStore,
+                                                                                                                                                                         configs[0]))),
+                                                                   configs[0]);
+
+        pusher.run();
+
+        // Give some time for the slops to go over
+        Thread.sleep(2000);
+
+        for(String storeName: Lists.newArrayList("test-replication-memory",
+                                                 "users",
+                                                 "test-replication-persistent")) {
+            StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
+                                                                                  .getStorageEngine(storeName);
+            assertEquals(store.get(key1, null).size(), 1);
+            assertEquals(ByteUtils.compare(store.get(key1, null).get(0).getValue(), value2), 0);
+            assertEquals(store.get(key2, null).size(), 0);
+        }
+        stopServers(0, 1);
     }
 
     @Test
