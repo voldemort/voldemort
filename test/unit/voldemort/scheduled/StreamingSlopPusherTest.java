@@ -257,7 +257,10 @@ public class StreamingSlopPusherTest extends TestCase {
         }
 
         Collections.shuffle(entrySet);
-        populateSlops(0, slopStoreNode0, entrySet);
+
+        // Generate two sub lists to send in batches
+        List<Versioned<Slop>> firstSet = entrySet.subList(0, 7), secondSet = entrySet.subList(7, 15);
+        populateSlops(0, slopStoreNode0, firstSet);
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
@@ -266,6 +269,10 @@ public class StreamingSlopPusherTest extends TestCase {
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0]);
+
+        pusher.run();
+
+        populateSlops(0, slopStoreNode0, secondSet);
 
         pusher.run();
 
