@@ -69,8 +69,8 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
             pipelineData.setFatalError((VoldemortApplicationException) e);
             pipeline.abort();
 
-            if(logger.isEnabledFor(Level.WARN))
-                logger.warn("Error is fatal - aborting further pipeline processing");
+            if(logger.isEnabledFor(Level.TRACE))
+                logger.trace("Error is terminal - aborting further pipeline processing");
 
             return true;
         } else {
