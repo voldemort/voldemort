@@ -8,9 +8,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 
-import junit.framework.TestCase;
-
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -38,8 +37,10 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 
+import static org.junit.Assert.*;
+
 @SuppressWarnings("unchecked")
-public class StreamingSlopPusherTest extends TestCase {
+public class StreamingSlopPusherTest {
 
     private VoldemortServer[] servers;
     private Cluster cluster;
@@ -53,8 +54,8 @@ public class StreamingSlopPusherTest extends TestCase {
     private Properties props;
     private VoldemortConfig[] configs;
 
-    @Override
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         cluster = ServerTestUtils.getLocalCluster(NUM_SERVERS);
         servers = new VoldemortServer[NUM_SERVERS];
         props = new Properties();
@@ -96,7 +97,6 @@ public class StreamingSlopPusherTest extends TestCase {
         return servers[nodeId];
     }
 
-    @Override
     @After
     public void tearDown() throws IOException, InterruptedException {
         socketStoreFactory.close();
