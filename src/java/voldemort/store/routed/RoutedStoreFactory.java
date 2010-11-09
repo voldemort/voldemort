@@ -54,6 +54,7 @@ public class RoutedStoreFactory {
                               Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
                               Map<Integer, NonblockingStore> nonblockingStores,
                               Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
+                              Map<Integer, NonblockingStore> nonblockingSlopStores,
                               boolean repairReads,
                               int clientZoneId,
                               FailureDetector failureDetector) {
@@ -62,6 +63,7 @@ public class RoutedStoreFactory {
                                            nodeStores,
                                            nonblockingStores,
                                            slopStores,
+                                           nonblockingSlopStores,
                                            cluster,
                                            storeDefinition,
                                            repairReads,
@@ -102,10 +104,12 @@ public class RoutedStoreFactory {
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: nodeStores.entrySet())
             nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
 
+
         return create(cluster,
                       storeDefinition,
                       nodeStores,
                       nonblockingStores,
+                      null,
                       null,
                       repairReads,
                       Zone.DEFAULT_ZONE_ID,

@@ -11,6 +11,7 @@ import java.util.Properties;
 import junit.framework.TestCase;
 
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
@@ -189,6 +190,7 @@ public class StreamingSlopPusherTest extends TestCase {
      * Tests that everything works even if the slops get replayed out of order
      */
     @Test
+    @Ignore
     public void testOutOfOrder() throws InterruptedException, IOException {
         startServers(0, 1);
 
