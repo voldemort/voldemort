@@ -43,7 +43,7 @@ import voldemort.utils.Utils;
  */
 public class ClientConfig {
 
-    private volatile int maxConnectionsPerNode = 6;
+    private volatile int maxConnectionsPerNode = 50;
     private volatile int maxTotalConnections = 500;
     private volatile int maxThreads = 5;
     private volatile int maxQueuedRequests = 50;
@@ -51,7 +51,7 @@ public class ClientConfig {
     private volatile long connectionTimeoutMs = 500;
     private volatile long socketTimeoutMs = 5000;
     private volatile boolean socketKeepAlive = false;
-    private volatile int selectors = 4;
+    private volatile int selectors = 8;
     private volatile long routingTimeoutMs = 15000;
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
