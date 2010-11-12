@@ -3,71 +3,86 @@
 from google.protobuf import descriptor
 from google.protobuf import message
 from google.protobuf import reflection
-from google.protobuf import service
-from google.protobuf import service_reflection
 from google.protobuf import descriptor_pb2
+# @@protoc_insertion_point(imports)
+
+
+DESCRIPTOR = descriptor.FileDescriptor(
+  name='slop.proto',
+  package='voldemort',
+  serialized_pb='\n\nslop.proto\x12\tvoldemort\"f\n\x04Slop\x12\r\n\x05store\x18\x01 \x01(\t\x12\x11\n\toperation\x18\x02 \x01(\t\x12\x0b\n\x03key\x18\x03 \x01(\x0c\x12\r\n\x05value\x18\x04 \x01(\x0c\x12\x0f\n\x07node_id\x18\x05 \x01(\x05\x12\x0f\n\x07\x61rrived\x18\x06 \x01(\x03\x42\'\n\x17voldemort.serializationB\nVSlopProtoH\x01')
+
 
 
 
 _SLOP = descriptor.Descriptor(
   name='Slop',
   full_name='voldemort.Slop',
-  filename='slop.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='store', full_name='voldemort.Slop.store', index=0,
       number=1, type=9, cpp_type=9, label=1,
-      default_value=unicode("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='operation', full_name='voldemort.Slop.operation', index=1,
       number=2, type=9, cpp_type=9, label=1,
-      default_value=unicode("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.Slop.key', index=2,
       number=3, type=12, cpp_type=9, label=1,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='value', full_name='voldemort.Slop.value', index=3,
       number=4, type=12, cpp_type=9, label=1,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='node_id', full_name='voldemort.Slop.node_id', index=4,
       number=5, type=5, cpp_type=1, label=1,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='arrived', full_name='voldemort.Slop.arrived', index=5,
       number=6, type=3, cpp_type=2, label=1,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=25,
+  serialized_end=127,
+)
 
 
 
 class Slop(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _SLOP
+  
+  # @@protoc_insertion_point(class_scope:voldemort.Slop)
 
+# @@protoc_insertion_point(module_scope)

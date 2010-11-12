@@ -3,13 +3,20 @@
 from google.protobuf import descriptor
 from google.protobuf import message
 from google.protobuf import reflection
-from google.protobuf import service
-from google.protobuf import service_reflection
 from google.protobuf import descriptor_pb2
+# @@protoc_insertion_point(imports)
+
+
+DESCRIPTOR = descriptor.FileDescriptor(
+  name='voldemort-client.proto',
+  package='voldemort',
+  serialized_pb='\n\x16voldemort-client.proto\x12\tvoldemort\".\n\nClockEntry\x12\x0f\n\x07node_id\x18\x01 \x02(\x05\x12\x0f\n\x07version\x18\x02 \x02(\x03\"H\n\x0bVectorClock\x12&\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x15.voldemort.ClockEntry\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\"C\n\tVersioned\x12\r\n\x05value\x18\x01 \x02(\x0c\x12\'\n\x07version\x18\x02 \x02(\x0b\x32\x16.voldemort.VectorClock\"2\n\x05\x45rror\x12\x12\n\nerror_code\x18\x01 \x02(\x05\x12\x15\n\rerror_message\x18\x02 \x02(\t\"D\n\rKeyedVersions\x12\x0b\n\x03key\x18\x01 \x02(\x0c\x12&\n\x08versions\x18\x02 \x03(\x0b\x32\x14.voldemort.Versioned\"-\n\nGetRequest\x12\x0b\n\x03key\x18\x01 \x01(\x0c\x12\x12\n\ntransforms\x18\x02 \x01(\x0c\"W\n\x0bGetResponse\x12\'\n\tversioned\x18\x01 \x03(\x0b\x32\x14.voldemort.Versioned\x12\x1f\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x10.voldemort.Error\"_\n\x12GetVersionResponse\x12(\n\x08versions\x18\x01 \x03(\x0b\x32\x16.voldemort.VectorClock\x12\x1f\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x10.voldemort.Error\"\x8e\x01\n\rGetAllRequest\x12\x0c\n\x04keys\x18\x01 \x03(\x0c\x12<\n\ntransforms\x18\x02 \x03(\x0b\x32(.voldemort.GetAllRequest.GetAllTransform\x1a\x31\n\x0fGetAllTransform\x12\x0b\n\x03key\x18\x01 \x02(\x0c\x12\x11\n\ttransform\x18\x02 \x02(\x0c\"[\n\x0eGetAllResponse\x12(\n\x06values\x18\x01 \x03(\x0b\x32\x18.voldemort.KeyedVersions\x12\x1f\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x10.voldemort.Error\"V\n\nPutRequest\x12\x0b\n\x03key\x18\x01 \x02(\x0c\x12\'\n\tversioned\x18\x02 \x02(\x0b\x32\x14.voldemort.Versioned\x12\x12\n\ntransforms\x18\x03 \x01(\x0c\".\n\x0bPutResponse\x12\x1f\n\x05\x65rror\x18\x01 \x01(\x0b\x32\x10.voldemort.Error\"E\n\rDeleteRequest\x12\x0b\n\x03key\x18\x01 \x02(\x0c\x12\'\n\x07version\x18\x02 \x02(\x0b\x32\x16.voldemort.VectorClock\"B\n\x0e\x44\x65leteResponse\x12\x0f\n\x07success\x18\x01 \x02(\x08\x12\x1f\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x10.voldemort.Error\"\x9a\x02\n\x10VoldemortRequest\x12$\n\x04type\x18\x01 \x02(\x0e\x32\x16.voldemort.RequestType\x12\x1b\n\x0cshould_route\x18\x02 \x02(\x08:\x05\x66\x61lse\x12\r\n\x05store\x18\x03 \x02(\t\x12\"\n\x03get\x18\x04 \x01(\x0b\x32\x15.voldemort.GetRequest\x12(\n\x06getAll\x18\x05 \x01(\x0b\x32\x18.voldemort.GetAllRequest\x12\"\n\x03put\x18\x06 \x01(\x0b\x32\x15.voldemort.PutRequest\x12(\n\x06\x64\x65lete\x18\x07 \x01(\x0b\x32\x18.voldemort.DeleteRequest\x12\x18\n\x10requestRouteType\x18\x08 \x01(\x05*I\n\x0bRequestType\x12\x07\n\x03GET\x10\x00\x12\x0b\n\x07GET_ALL\x10\x01\x12\x07\n\x03PUT\x10\x02\x12\n\n\x06\x44\x45LETE\x10\x03\x12\x0f\n\x0bGET_VERSION\x10\x04\x42(\n\x1cvoldemort.client.protocol.pbB\x06VProtoH\x01')
+
 _REQUESTTYPE = descriptor.EnumDescriptor(
   name='RequestType',
   full_name='voldemort.RequestType',
-  filename='RequestType',
+  filename=None,
+  file=DESCRIPTOR,
   values=[
     descriptor.EnumValueDescriptor(
       name='GET', index=0, number=0,
@@ -32,7 +39,10 @@ _REQUESTTYPE = descriptor.EnumDescriptor(
       options=None,
       type=None),
   ],
+  containing_type=None,
   options=None,
+  serialized_start=1381,
+  serialized_end=1454,
 )
 
 
@@ -47,506 +57,602 @@ GET_VERSION = 4
 _CLOCKENTRY = descriptor.Descriptor(
   name='ClockEntry',
   full_name='voldemort.ClockEntry',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='node_id', full_name='voldemort.ClockEntry.node_id', index=0,
       number=1, type=5, cpp_type=1, label=2,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='version', full_name='voldemort.ClockEntry.version', index=1,
       number=2, type=3, cpp_type=2, label=2,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=37,
+  serialized_end=83,
+)
 
 
 _VECTORCLOCK = descriptor.Descriptor(
   name='VectorClock',
   full_name='voldemort.VectorClock',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='entries', full_name='voldemort.VectorClock.entries', index=0,
       number=1, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='timestamp', full_name='voldemort.VectorClock.timestamp', index=1,
       number=2, type=3, cpp_type=2, label=1,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=85,
+  serialized_end=157,
+)
 
 
 _VERSIONED = descriptor.Descriptor(
   name='Versioned',
   full_name='voldemort.Versioned',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='value', full_name='voldemort.Versioned.value', index=0,
       number=1, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='version', full_name='voldemort.Versioned.version', index=1,
       number=2, type=11, cpp_type=10, label=2,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=159,
+  serialized_end=226,
+)
 
 
 _ERROR = descriptor.Descriptor(
   name='Error',
   full_name='voldemort.Error',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='error_code', full_name='voldemort.Error.error_code', index=0,
       number=1, type=5, cpp_type=1, label=2,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='error_message', full_name='voldemort.Error.error_message', index=1,
       number=2, type=9, cpp_type=9, label=2,
-      default_value=unicode("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=228,
+  serialized_end=278,
+)
 
 
 _KEYEDVERSIONS = descriptor.Descriptor(
   name='KeyedVersions',
   full_name='voldemort.KeyedVersions',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.KeyedVersions.key', index=0,
       number=1, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='versions', full_name='voldemort.KeyedVersions.versions', index=1,
       number=2, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=280,
+  serialized_end=348,
+)
 
 
 _GETREQUEST = descriptor.Descriptor(
   name='GetRequest',
   full_name='voldemort.GetRequest',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.GetRequest.key', index=0,
       number=1, type=12, cpp_type=9, label=1,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='transforms', full_name='voldemort.GetRequest.transforms', index=1,
       number=2, type=12, cpp_type=9, label=1,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=350,
+  serialized_end=395,
+)
 
 
 _GETRESPONSE = descriptor.Descriptor(
   name='GetResponse',
   full_name='voldemort.GetResponse',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='versioned', full_name='voldemort.GetResponse.versioned', index=0,
       number=1, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.GetResponse.error', index=1,
       number=2, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=397,
+  serialized_end=484,
+)
 
 
 _GETVERSIONRESPONSE = descriptor.Descriptor(
   name='GetVersionResponse',
   full_name='voldemort.GetVersionResponse',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='versions', full_name='voldemort.GetVersionResponse.versions', index=0,
       number=1, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.GetVersionResponse.error', index=1,
       number=2, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=486,
+  serialized_end=581,
+)
 
 
 _GETALLREQUEST_GETALLTRANSFORM = descriptor.Descriptor(
   name='GetAllTransform',
   full_name='voldemort.GetAllRequest.GetAllTransform',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.GetAllRequest.GetAllTransform.key', index=0,
       number=1, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='transform', full_name='voldemort.GetAllRequest.GetAllTransform.transform', index=1,
       number=2, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=677,
+  serialized_end=726,
+)
 
 _GETALLREQUEST = descriptor.Descriptor(
   name='GetAllRequest',
   full_name='voldemort.GetAllRequest',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='keys', full_name='voldemort.GetAllRequest.keys', index=0,
       number=1, type=12, cpp_type=9, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='transforms', full_name='voldemort.GetAllRequest.transforms', index=1,
       number=2, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[_GETALLREQUEST_GETALLTRANSFORM, ],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=584,
+  serialized_end=726,
+)
 
 
 _GETALLRESPONSE = descriptor.Descriptor(
   name='GetAllResponse',
   full_name='voldemort.GetAllResponse',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='values', full_name='voldemort.GetAllResponse.values', index=0,
       number=1, type=11, cpp_type=10, label=3,
-      default_value=[],
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.GetAllResponse.error', index=1,
       number=2, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=728,
+  serialized_end=819,
+)
 
 
 _PUTREQUEST = descriptor.Descriptor(
   name='PutRequest',
   full_name='voldemort.PutRequest',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.PutRequest.key', index=0,
       number=1, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='versioned', full_name='voldemort.PutRequest.versioned', index=1,
       number=2, type=11, cpp_type=10, label=2,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='transforms', full_name='voldemort.PutRequest.transforms', index=2,
       number=3, type=12, cpp_type=9, label=1,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=821,
+  serialized_end=907,
+)
 
 
 _PUTRESPONSE = descriptor.Descriptor(
   name='PutResponse',
   full_name='voldemort.PutResponse',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.PutResponse.error', index=0,
       number=1, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=909,
+  serialized_end=955,
+)
 
 
 _DELETEREQUEST = descriptor.Descriptor(
   name='DeleteRequest',
   full_name='voldemort.DeleteRequest',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='key', full_name='voldemort.DeleteRequest.key', index=0,
       number=1, type=12, cpp_type=9, label=2,
-      default_value="",
+      has_default_value=False, default_value="",
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='version', full_name='voldemort.DeleteRequest.version', index=1,
       number=2, type=11, cpp_type=10, label=2,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=957,
+  serialized_end=1026,
+)
 
 
 _DELETERESPONSE = descriptor.Descriptor(
   name='DeleteResponse',
   full_name='voldemort.DeleteResponse',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='success', full_name='voldemort.DeleteResponse.success', index=0,
       number=1, type=8, cpp_type=7, label=2,
-      default_value=False,
+      has_default_value=False, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='error', full_name='voldemort.DeleteResponse.error', index=1,
       number=2, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=1028,
+  serialized_end=1094,
+)
 
 
 _VOLDEMORTREQUEST = descriptor.Descriptor(
   name='VoldemortRequest',
   full_name='voldemort.VoldemortRequest',
-  filename='voldemort-client.proto',
+  filename=None,
+  file=DESCRIPTOR,
   containing_type=None,
   fields=[
     descriptor.FieldDescriptor(
       name='type', full_name='voldemort.VoldemortRequest.type', index=0,
       number=1, type=14, cpp_type=8, label=2,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='should_route', full_name='voldemort.VoldemortRequest.should_route', index=1,
       number=2, type=8, cpp_type=7, label=2,
-      default_value=False,
+      has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='store', full_name='voldemort.VoldemortRequest.store', index=2,
       number=3, type=9, cpp_type=9, label=2,
-      default_value=unicode("", "utf-8"),
+      has_default_value=False, default_value=unicode("", "utf-8"),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='get', full_name='voldemort.VoldemortRequest.get', index=3,
       number=4, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='getAll', full_name='voldemort.VoldemortRequest.getAll', index=4,
       number=5, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='put', full_name='voldemort.VoldemortRequest.put', index=5,
       number=6, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='delete', full_name='voldemort.VoldemortRequest.delete', index=6,
       number=7, type=11, cpp_type=10, label=1,
-      default_value=None,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     descriptor.FieldDescriptor(
       name='requestRouteType', full_name='voldemort.VoldemortRequest.requestRouteType', index=7,
       number=8, type=5, cpp_type=1, label=1,
-      default_value=0,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
   ],
   extensions=[
   ],
-  nested_types=[],  # TODO(robinson): Implement.
+  nested_types=[],
   enum_types=[
   ],
-  options=None)
+  options=None,
+  is_extendable=False,
+  extension_ranges=[],
+  serialized_start=1097,
+  serialized_end=1379,
+)
 
 
 _VECTORCLOCK.fields_by_name['entries'].message_type = _CLOCKENTRY
@@ -556,6 +662,7 @@ _GETRESPONSE.fields_by_name['versioned'].message_type = _VERSIONED
 _GETRESPONSE.fields_by_name['error'].message_type = _ERROR
 _GETVERSIONRESPONSE.fields_by_name['versions'].message_type = _VECTORCLOCK
 _GETVERSIONRESPONSE.fields_by_name['error'].message_type = _ERROR
+_GETALLREQUEST_GETALLTRANSFORM.containing_type = _GETALLREQUEST;
 _GETALLREQUEST.fields_by_name['transforms'].message_type = _GETALLREQUEST_GETALLTRANSFORM
 _GETALLRESPONSE.fields_by_name['values'].message_type = _KEYEDVERSIONS
 _GETALLRESPONSE.fields_by_name['error'].message_type = _ERROR
@@ -572,34 +679,50 @@ _VOLDEMORTREQUEST.fields_by_name['delete'].message_type = _DELETEREQUEST
 class ClockEntry(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _CLOCKENTRY
+  
+  # @@protoc_insertion_point(class_scope:voldemort.ClockEntry)
 
 class VectorClock(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _VECTORCLOCK
+  
+  # @@protoc_insertion_point(class_scope:voldemort.VectorClock)
 
 class Versioned(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _VERSIONED
+  
+  # @@protoc_insertion_point(class_scope:voldemort.Versioned)
 
 class Error(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _ERROR
+  
+  # @@protoc_insertion_point(class_scope:voldemort.Error)
 
 class KeyedVersions(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _KEYEDVERSIONS
+  
+  # @@protoc_insertion_point(class_scope:voldemort.KeyedVersions)
 
 class GetRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETREQUEST
+  
+  # @@protoc_insertion_point(class_scope:voldemort.GetRequest)
 
 class GetResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETRESPONSE
+  
+  # @@protoc_insertion_point(class_scope:voldemort.GetResponse)
 
 class GetVersionResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETVERSIONRESPONSE
+  
+  # @@protoc_insertion_point(class_scope:voldemort.GetVersionResponse)
 
 class GetAllRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
@@ -607,29 +730,46 @@ class GetAllRequest(message.Message):
   class GetAllTransform(message.Message):
     __metaclass__ = reflection.GeneratedProtocolMessageType
     DESCRIPTOR = _GETALLREQUEST_GETALLTRANSFORM
+    
+    # @@protoc_insertion_point(class_scope:voldemort.GetAllRequest.GetAllTransform)
   DESCRIPTOR = _GETALLREQUEST
+  
+  # @@protoc_insertion_point(class_scope:voldemort.GetAllRequest)
 
 class GetAllResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _GETALLRESPONSE
+  
+  # @@protoc_insertion_point(class_scope:voldemort.GetAllResponse)
 
 class PutRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _PUTREQUEST
+  
+  # @@protoc_insertion_point(class_scope:voldemort.PutRequest)
 
 class PutResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _PUTRESPONSE
+  
+  # @@protoc_insertion_point(class_scope:voldemort.PutResponse)
 
 class DeleteRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _DELETEREQUEST
+  
+  # @@protoc_insertion_point(class_scope:voldemort.DeleteRequest)
 
 class DeleteResponse(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _DELETERESPONSE
+  
+  # @@protoc_insertion_point(class_scope:voldemort.DeleteResponse)
 
 class VoldemortRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
   DESCRIPTOR = _VOLDEMORTREQUEST
+  
+  # @@protoc_insertion_point(class_scope:voldemort.VoldemortRequest)
 
+# @@protoc_insertion_point(module_scope)
