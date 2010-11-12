@@ -130,10 +130,20 @@ public class ClientRequestExecutorFactory implements
         while(!socketChannel.finishConnect()) {
             long diff = finishConnectTimeoutMs - System.currentTimeMillis();
 
-            if(diff < 0)
+            if(diff < 0) {
+                // Don't forget to close the socket before we throw our
+                // exception or they'll leak :(
+                try {
+                    socketChannel.close();
+                } catch(Exception e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
+
                 throw new ConnectException("Cannot connect socket " + numCreated + " for "
                                            + dest.getHost() + ":" + dest.getPort() + " after "
                                            + connectTimeoutMs + " ms");
+            }
 
             if(logger.isTraceEnabled())
                 logger.trace("Still creating socket " + numCreated + " for " + dest.getHost() + ":"
@@ -182,10 +192,23 @@ public class ClientRequestExecutorFactory implements
         // Block while we wait for the protocol negotiation to complete.
         clientRequest.await();
 
-        // This will throw an error if the result of the protocol negotiation
-        // failed, otherwise it returns an uninteresting token we can safely
-        // ignore.
-        clientRequest.getResult();
+        try {
+            // This will throw an error if the result of the protocol
+            // negotiation failed, otherwise it returns an uninteresting token
+            // we can safely ignore.
+            clientRequest.getResult();
+        } catch(Exception e) {
+            // Don't forget to close the socket before we throw our exception or
+            // they'll leak :(
+            try {
+                socketChannel.close();
+            } catch(Exception ex) {
+                if(logger.isEnabledFor(Level.WARN))
+                    logger.warn(ex, ex);
+            }
+
+            throw e;
+        }
 
         return clientRequestExecutor;
     }
