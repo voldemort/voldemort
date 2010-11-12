@@ -35,12 +35,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class ClientConnectionStressTest {
 
-    private final String storeName;
-    private final int connsParallel;
-    private final int connsTotal;
-    private final int reqsPerConn;
-    private final ExecutorService executor;
-    private final StoreClientFactory factory;
     private static final String CONNECTION_TIMEOUT = "connection-timeout";
     private static final String ROUTING_TIMEOUT = "routing-timeout";
     private static final String SOCKET_TIMEOUT = "socket-timeout";
@@ -51,6 +45,13 @@ public class ClientConnectionStressTest {
     private static final String SOCKET_BUFFER_SIZE = "socket-buffer-size";
     private static final String REQS = "reqs";
     private static final String CONNECTIONS = "connections";
+
+    private final String storeName;
+    private final int connsParallel;
+    private final int connsTotal;
+    private final int reqsPerConn;
+    private final ExecutorService executor;
+    private final StoreClientFactory factory;
 
     public ClientConnectionStressTest(ClientConfig config,
                                       String storeName,
@@ -71,7 +72,6 @@ public class ClientConnectionStressTest {
             final CountDownLatch latch = new CountDownLatch(connsParallel);
 
             for(int j = 0; j < connsParallel; j++) {
-
                 System.out.println("Connection " + (i + j));
                 executor.submit(new Runnable() {
 
@@ -98,35 +98,35 @@ public class ClientConnectionStressTest {
 
         OptionParser parser = new OptionParser();
         parser.accepts(CONNECTION_TIMEOUT, "Connection timeout (ms)")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(ROUTING_TIMEOUT, "Routing timeout (ms)")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(SOCKET_TIMEOUT, "Socket timeout (ms)")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(MAX_CONNECTIONS, "Max connections per node")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(MAX_CONNECTIONS_TOTAL, "Max total connections")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(MAX_THREADS, "Max threads")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(SELECTORS, "Number of NIO selectors")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(SOCKET_BUFFER_SIZE, "Socket buffer size")
-                .withRequiredArg()
-                .ofType(Integer.class);
+               .withRequiredArg()
+               .ofType(Integer.class);
         parser.accepts(REQS, "Requests per session")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts(CONNECTIONS, "Total connections to make")
-                .withRequiredArg()
-                .ofType(Integer.class);
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("help");
 
         OptionSet options = parser.parse(args);
