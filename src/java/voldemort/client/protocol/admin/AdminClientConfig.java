@@ -14,7 +14,7 @@ public class AdminClientConfig {
     private volatile int maxConnectionsPerNode = 3;
     private volatile int maxThreads = 6;
     private volatile long threadIdleMs = 100000;
-    private volatile long adminConnectionTimeoutSec = 300;
+    private volatile long adminConnectionTimeoutSec = 30;
     private volatile long adminSocketTimeoutSec = 3600;
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
     private volatile boolean adminSocketKeepAlive = false;
