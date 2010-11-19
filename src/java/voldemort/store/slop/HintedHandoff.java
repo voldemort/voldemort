@@ -89,13 +89,13 @@ public class HintedHandoff {
     }
 
     /**
-     * Like {@link #sendHintSync(voldemort.cluster.Node, voldemort.versioning.Version, Slop)},
+     * Like {@link #sendHintSerial(voldemort.cluster.Node, voldemort.versioning.Version, Slop)},
      * but doesn't block the pipeline. Intended for handling prolonged failures without
      * incurring a performance cost.
      *
-     * @see #sendHintSync(voldemort.cluster.Node, voldemort.versioning.Version, Slop)
+     * @see #sendHintSerial(voldemort.cluster.Node, voldemort.versioning.Version, Slop)
      */
-    public void sendHintAsync(final Node failedNode, final Version version, final Slop slop) {
+    public void sendHintParallel(final Node failedNode, final Version version, final Slop slop) {
         final ByteArray slopKey = slop.makeKey();
         Versioned<byte[]> slopVersioned = new Versioned<byte[]>(slopSerializer.toBytes(slop), version);
 
@@ -132,7 +132,7 @@ public class HintedHandoff {
                                                                     / Time.NS_PER_MS,
                                                                     use);
                                 }
-                                sendHintSync(failedNode, version, slop);
+                                sendHintSerial(failedNode, version, slop);
                             }
                             return;
                         }
@@ -162,7 +162,7 @@ public class HintedHandoff {
      * @param slop The hint
      * @return True if persisted on another node, false otherwise
      */
-    public boolean sendHintSync(Node failedNode, Version version, Slop slop) {
+    public boolean sendHintSerial(Node failedNode, Version version, Slop slop) {
         boolean persisted = false;
         for(Node node: handoffStrategy.routeHint(failedNode)) {
             int nodeId = node.getId();
@@ -176,7 +176,8 @@ public class HintedHandoff {
 
                 try {
                     if(logger.isTraceEnabled())
-                        logger.trace("Attempt to write " + slop.getKey() + " for " + failedNode
+                        logger.trace("Attempt to handoff " + slop.getOperation() + " on "
+                                     + slop.getKey() + " for " + failedNode
                                      + " to node " + node);
 
                     // No transform needs to applied to the slop

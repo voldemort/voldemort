@@ -74,7 +74,7 @@ public class PerformPutHintedHandoff extends AbstractHintedHandoffAction<Void, P
                                  transforms,
                                  failedNodeId,
                                  new Date());
-            hintedHandoff.sendHintAsync(failedNode, version, slop);
+            hintedHandoff.sendHintParallel(failedNode, version, slop);
         }
         pipeline.addEvent(completeEvent);
     }

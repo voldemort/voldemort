@@ -40,6 +40,7 @@ import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
@@ -98,7 +99,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         return enableHintedHandoff;
     }
 
-    @SuppressWarnings("unchecked")
     public void execute(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
         int attempts = Math.min(preferred, nodes.size());
@@ -126,10 +126,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            result,
                                                                                            requestTime);
                     responses.put(node.getId(), response);
-                    if(Pipeline.Operation.DELETE == pipeline.getOperation()
-                       && pipeline.isFinished()) {
-                        if(isHintedHandoffEnabled()
-                           && response.getValue() instanceof UnreachableStoreException) {
+                    if(Pipeline.Operation.DELETE == pipeline.getOperation() && pipeline.isFinished()) {
+                        if(isHintedHandoffEnabled() && response.getValue() instanceof UnreachableStoreException) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
                                                  Slop.Operation.DELETE,
                                                  key,
@@ -138,7 +136,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                  node.getId(),
                                                  new Date());
                             pipelineData.addFailedNode(node);
-                            hintedHandoff.sendHintSync(node, version, slop);
+                            hintedHandoff.sendHintSerial(node, version, slop);
                         }
                     }
                     latch.countDown();
@@ -177,13 +175,15 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 logger.warn(e, e);
         }
 
+
         for(Response<ByteArray, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
                 if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
-                pipelineData.getResponses().add((Response<ByteArray, V>) response);
+                Response<ByteArray,  V> rCast = Utils.uncheckedCast(response);
+                pipelineData.getResponses().add(rCast);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
