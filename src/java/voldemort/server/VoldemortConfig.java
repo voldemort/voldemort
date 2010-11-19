@@ -131,6 +131,7 @@ public class VoldemortConfig implements Serializable {
     private final long slopFrequencyMs;
     private long slopMaxWriteBytesPerSec, slopMaxReadBytesPerSec;
     private int slopBatchSize;
+    private int slopZonesDownToTerminate;
 
     private int adminCoreThreads;
     private int adminMaxThreads;
@@ -262,6 +263,7 @@ public class VoldemortConfig implements Serializable {
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
+        this.slopZonesDownToTerminate = props.getInt("slop.zone.terminate", 1);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
 
@@ -752,6 +754,17 @@ public class VoldemortConfig implements Serializable {
 
     public void setPusherType(String pusherType) {
         this.pusherType = pusherType;
+    }
+
+    /**
+     * Number of zones declared down before we terminate the pusher job
+     */
+    public int getSlopZonesDownToTerminate() {
+        return this.slopZonesDownToTerminate;
+    }
+
+    public void setSlopZonesDownToTerminate(int slopZonesDownToTerminate) {
+        this.slopZonesDownToTerminate = slopZonesDownToTerminate;
     }
 
     /**
