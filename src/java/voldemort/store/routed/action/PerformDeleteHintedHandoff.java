@@ -55,7 +55,7 @@ public class PerformDeleteHintedHandoff extends
                                  null,
                                  failedNodeId,
                                  new Date());
-            hintedHandoff.sendHintAsync(failedNode, version, slop);
+            hintedHandoff.sendHintParallel(failedNode, version, slop);
         }
         pipeline.addEvent(completeEvent);
     }
