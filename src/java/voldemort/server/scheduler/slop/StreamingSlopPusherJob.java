@@ -3,6 +3,7 @@ package voldemort.server.scheduler.slop;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,7 +40,9 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
+@SuppressWarnings("unchecked")
 public class StreamingSlopPusherJob implements Runnable {
 
     private final static Logger logger = Logger.getLogger(StreamingSlopPusherJob.class.getName());
@@ -55,10 +58,11 @@ public class StreamingSlopPusherJob implements Runnable {
     private final ExecutorService consumerExecutor;
     private final EventThrottler writeThrottler;
     private final EventThrottler readThrottler;
-    private final AdminClient adminClient;
+    private AdminClient adminClient;
     private final Cluster cluster;
     private final List<Future> consumerResults;
     private final VoldemortConfig voldemortConfig;
+    private final Map<Integer, Set<Integer>> zoneMapping;
     private ConcurrentHashMap<Integer, Long> attemptedByNode, succeededByNode;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
@@ -83,13 +87,38 @@ public class StreamingSlopPusherJob implements Runnable {
                                                              });
         this.writeThrottler = new EventThrottler(voldemortConfig.getSlopMaxWriteBytesPerSec());
         this.readThrottler = new EventThrottler(voldemortConfig.getSlopMaxReadBytesPerSec());
-        this.adminClient = new AdminClient(cluster,
-                                           new AdminClientConfig().setMaxThreads(cluster.getNumberOfNodes())
-                                                                  .setMaxConnectionsPerNode(1));
+        this.adminClient = null;
         this.consumerResults = Lists.newArrayList();
         this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
         this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
 
+        /**
+         * Required for early termination - Since the slop pusher job runs
+         * periodically it does full bdb sweeps resulting in random disk seeks
+         * (since bdb still doesn't support a cursor which reads k/vs in disk
+         * order). This can definitely slow the incoming requests. So to avoid
+         * this we include a new strategy which terminates the sweep when we
+         * find that all nodes in 'n' zones are down ( where n =
+         * getSlopZonesDownToTerminate ). We keep a mapping of zone ids to their
+         * node ids
+         */
+        this.zoneMapping = Maps.newHashMap();
+
+    }
+
+    private boolean checkZonesDown() {
+        int zonesDown = 0;
+        for(Integer zoneId: zoneMapping.keySet()) {
+            if(zoneMapping.get(zoneId).size() == 0)
+                zonesDown++;
+        }
+
+        if(voldemortConfig.getSlopZonesDownToTerminate() > 0
+           && voldemortConfig.getSlopZonesDownToTerminate() <= zoneMapping.size()
+           && zonesDown >= voldemortConfig.getSlopZonesDownToTerminate()) {
+            return true;
+        }
+        return false;
     }
 
     public void run() {
@@ -100,15 +129,34 @@ public class StreamingSlopPusherJob implements Runnable {
             return;
         }
 
-        // Allow only one job to run at one time - Two jobs may get started if
-        // someone disables and enables (through JMX) immediately during a run
+        /**
+         * Allow only one job to run at one time - Two jobs may get started if
+         * someone disables and enables (through JMX) immediately during a run
+         */
         synchronized(lock) {
-            boolean exceptionOccurred = false;
+            boolean terminatedEarly = false;
             Date startTime = new Date();
             logger.info("Started streaming slop pusher job at " + startTime);
 
             SlopStorageEngine slopStorageEngine = storeRepo.getSlopStore();
             ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
+
+            if(adminClient == null) {
+                adminClient = new AdminClient(cluster,
+                                              new AdminClientConfig().setMaxThreads(cluster.getNumberOfNodes())
+                                                                     .setMaxConnectionsPerNode(1));
+            }
+
+            // Populating the zone mapping
+            zoneMapping.clear();
+            for(Node n: cluster.getNodes()) {
+                Set<Integer> nodes = zoneMapping.get(n.getZoneId());
+                if(nodes == null) {
+                    nodes = Sets.newHashSet();
+                    zoneMapping.put(n.getZoneId(), nodes);
+                }
+                nodes.add(n.getId());
+            }
 
             // Clearing the statistics
             AtomicLong attemptedPushes = new AtomicLong(0);
@@ -137,10 +185,12 @@ public class StreamingSlopPusherJob implements Runnable {
                         if(attemptedPushes.get() % 10000 == 0)
                             logger.info("Attempted pushing " + attemptedPushes + " slops");
 
-                        logger.trace("On slop = " + versioned.getValue().getNodeId() + " => "
-                                     + new String(versioned.getValue().getKey().get()));
+                        if(logger.isTraceEnabled())
+                            logger.trace("Pushing slop for " + versioned.getValue().getNodeId()
+                                         + " and store  " + versioned.getValue().getStoreName());
 
                         if(failureDetector.isAvailable(node)) {
+                            zoneMapping.get(node.getZoneId()).add(node.getId());
                             SynchronousQueue<Versioned<Slop>> slopQueue = slopQueues.get(nodeId);
                             if(slopQueue == null) {
                                 // No previous slop queue, add one
@@ -155,6 +205,13 @@ public class StreamingSlopPusherJob implements Runnable {
                                             TimeUnit.MILLISECONDS);
                             readThrottler.maybeThrottle(nBytesRead(keyAndVal));
                         } else {
+                            zoneMapping.get(node.getZoneId()).remove(node.getId());
+
+                            // Check if we can terminate early
+                            if(checkZonesDown()) {
+                                terminatedEarly = true;
+                                return;
+                            }
                             logger.trace(node + " declared down, won't push slop");
                         }
                     } catch(RejectedExecutionException e) {
@@ -164,10 +221,10 @@ public class StreamingSlopPusherJob implements Runnable {
 
             } catch(InterruptedException e) {
                 logger.warn("Interrupted exception", e);
-                exceptionOccurred = true;
+                terminatedEarly = true;
             } catch(Exception e) {
                 logger.error(e, e);
-                exceptionOccurred = true;
+                terminatedEarly = true;
             } finally {
                 try {
                     if(iterator != null)
@@ -176,7 +233,7 @@ public class StreamingSlopPusherJob implements Runnable {
                     logger.warn("Failed to close iterator cleanly as database might be closed", e);
                 }
 
-                // Adding to poison pill
+                // Adding the poison pill
                 for(SynchronousQueue<Versioned<Slop>> slopQueue: slopQueues.values()) {
                     try {
                         slopQueue.offer(END,
@@ -196,25 +253,39 @@ public class StreamingSlopPusherJob implements Runnable {
                 }
 
                 // Only if exception didn't take place do we update the counts
-                if(!exceptionOccurred) {
+                if(!terminatedEarly) {
                     Map<Integer, Long> outstanding = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
                     for(int nodeId: succeededByNode.keySet()) {
-                        logger.debug("Slops pushed to node " + nodeId + " - "
-                                     + succeededByNode.get(nodeId));
+                        logger.info("Slops to node " + nodeId + " - Succeeded - "
+                                    + succeededByNode.get(nodeId) + " - Attempted - "
+                                    + attemptedByNode.get(nodeId));
                         outstanding.put(nodeId, attemptedByNode.get(nodeId)
                                                 - succeededByNode.get(nodeId));
                     }
-
                     slopStorageEngine.resetStats(outstanding);
+                    logger.info("Completed streaming slop pusher job which started at " + startTime);
+                } else {
+                    for(int nodeId: succeededByNode.keySet()) {
+                        logger.info("Slops to node " + nodeId + " - Succeeded - "
+                                    + succeededByNode.get(nodeId) + " - Attempted - "
+                                    + attemptedByNode.get(nodeId));
+                    }
+                    logger.info("Completed early streaming slop pusher job which started at "
+                                + startTime);
                 }
 
                 // Shut down admin client as not to waste connections
                 consumerResults.clear();
                 slopQueues.clear();
+                cleanUp();
             }
 
-            logger.info("Completed streaming slop pusher job which started at " + startTime);
         }
+    }
+
+    private void cleanUp() {
+        adminClient.stop();
+        adminClient = null;
     }
 
     private int nBytesRead(Pair<ByteArray, Versioned<Slop>> keyAndVal) {
