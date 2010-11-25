@@ -1,0 +1,63 @@
+ABOUT
+
+This directory contains a pure Python implementation of a voldemort client.
+It supports both raw (string) and JSON serialized stores. Only the protocol
+buffer interface over TCP is supported for talking to the server. Only
+server-side routing is supported.
+
+INSTALLING
+
+To install the module, you will need the following dependencies:
+- nose >= 0.11
+- simplejson >= 2.1.1
+- Google protobuf > 2.3.0
+
+The setup process will automatically install nose and simplejson, since they
+are well behaved Python packages. The protobuf module will need to be downloaded
+from https://code.google.com/p/protobuf/downloads/list and installed manually.
+
+Once the dependencies, run the test suite to sanity check things. You need to
+first start up a Voldemort server locally, pointing to the config files in
+tests/voldemort_config. From the root voldemort of the voldemort source tree, run:
+
+> bin/voldemort-server clients/python/tests/voldemort_config
+
+In a separate shell, change into the clients/python directory and run:
+
+> python setup.py nosetests
+
+If all tests pass, you can install the package with the command:
+
+> python setup.py install
+
+This may need to be run as root if you don't have permissions to install to your
+local python library.
+
+USING THE MODULE
+
+To use the client, simple import it into your program with the statement:
+
+import voldemort
+
+To create a client connection, instantiate a StoreClient object:
+
+client = voldemort.StoreClient('store_name', [('node1', 6666), ('node2', 6666)])
+
+The values of the store name and cluster nodes/ports will depend on your particular
+Voldemort setup. The key and value serialization type will be determined
+automatically during client initialization using the values in your cluster's
+stores.xml file.
+
+The StoreClient object implements the get(), get_all(), put(), maybe_put(),
+and delete() methods. For example:
+
+> v1 = client.put("foo", "hello")
+> resp = client.get("foo")
+> resp[0][0]
+"hello"
+
+> client.delete("foo")
+> client.get("foo")
+[]
+
+The test suite contains many other usage examples.
