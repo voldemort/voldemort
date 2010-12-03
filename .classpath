@@ -50,6 +50,6 @@
 	<classpathentry kind="lib" path="lib/jna.jar"/>
 	<classpathentry kind="lib" path="lib/google-collect-1.0-rc2.jar"/>
 	<classpathentry kind="lib" path="lib/je-4.0.92.jar"/>
-	<classpathentry kind="lib" path="lib/protobuf-java-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
