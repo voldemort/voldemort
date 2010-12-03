@@ -44,7 +44,7 @@ public class HintedHandoffStrategyFactory {
         } else if(HintedHandoffStrategyType.PROXIMITY_STRATEGY.toDisplay()
                                                               .compareTo(storeDef.getHintedHandoffStrategyType()
                                                                                  .toDisplay()) == 0) {
-            return new ProximityHandoffStrategy(cluster);
+            return new ProximityHandoffStrategy(cluster, clientZoneId);
         } else {
             throw new VoldemortException("HintedHandoffStrategyType:"
                                          + storeDef.getHintedHandoffStrategyType()

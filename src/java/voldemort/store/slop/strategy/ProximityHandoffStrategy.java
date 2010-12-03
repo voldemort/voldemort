@@ -16,6 +16,7 @@
 
 package voldemort.store.slop.strategy;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +32,9 @@ import com.google.common.collect.Maps;
  */
 public class ProximityHandoffStrategy implements HintedHandoffStrategy {
 
-    private final Map<Integer, List<Node>> zoneMapping;
     private final Cluster cluster;
+    private final int clientZoneId;
+    private Map<Integer, List<Node>> zoneMapping;
 
     /**
      * Constructor which makes zone based mapping
@@ -40,9 +42,12 @@ public class ProximityHandoffStrategy implements HintedHandoffStrategy {
      * @param cluster The cluster
      * @param clientZoneId Client zone id
      */
-    public ProximityHandoffStrategy(Cluster cluster) {
+    public ProximityHandoffStrategy(Cluster cluster, int clientZoneId) {
         this.cluster = cluster;
-        this.zoneMapping = Maps.newHashMap();
+        this.clientZoneId = clientZoneId;
+
+        // Generate a mapping from zone to nodes
+        zoneMapping = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
             List<Node> nodes = zoneMapping.get(node.getZoneId());
             if(nodes == null) {
@@ -51,20 +56,24 @@ public class ProximityHandoffStrategy implements HintedHandoffStrategy {
             }
             nodes.add(node);
         }
+
     }
 
     public List<Node> routeHint(Node origin) {
-        List<Node> prefList = Lists.newArrayList();
-        prefList.addAll(zoneMapping.get(origin.getZoneId()));
-        Collections.shuffle(prefList);
-        if(cluster.getNumberOfZones() > 1) {
-            for(Integer zoneId: cluster.getZoneById(origin.getZoneId()).getProximityList()) {
-                List<Node> nodesInZone = zoneMapping.get(zoneId);
-                Collections.shuffle(nodesInZone);
-                prefList.addAll(nodesInZone);
-            }
+        List<Node> proximityList = new ArrayList<Node>();
+
+        // Add the client zone id
+        Collections.shuffle(zoneMapping.get(clientZoneId));
+        proximityList.addAll(zoneMapping.get(clientZoneId));
+
+        for(Integer zoneId: cluster.getZoneById(clientZoneId).getProximityList()) {
+            Collections.shuffle(zoneMapping.get(zoneId));
+            proximityList.addAll(zoneMapping.get(zoneId));
         }
-        return prefList;
+
+        // Remove the origin node
+        proximityList.remove(origin);
+        return proximityList;
     }
 
     @Override

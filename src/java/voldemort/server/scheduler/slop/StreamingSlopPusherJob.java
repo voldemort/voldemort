@@ -21,6 +21,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -92,33 +93,8 @@ public class StreamingSlopPusherJob implements Runnable {
         this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
         this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
 
-        /**
-         * Required for early termination - Since the slop pusher job runs
-         * periodically it does full bdb sweeps resulting in random disk seeks
-         * (since bdb still doesn't support a cursor which reads k/vs in disk
-         * order). This can definitely slow the incoming requests. So to avoid
-         * this we include a new strategy which terminates the sweep when we
-         * find that all nodes in 'n' zones are down ( where n =
-         * getSlopZonesDownToTerminate ). We keep a mapping of zone ids to their
-         * node ids
-         */
         this.zoneMapping = Maps.newHashMap();
 
-    }
-
-    private boolean checkZonesDown() {
-        int zonesDown = 0;
-        for(Integer zoneId: zoneMapping.keySet()) {
-            if(zoneMapping.get(zoneId).size() == 0)
-                zonesDown++;
-        }
-
-        if(voldemortConfig.getSlopZonesDownToTerminate() > 0
-           && voldemortConfig.getSlopZonesDownToTerminate() <= zoneMapping.size()
-           && zonesDown >= voldemortConfig.getSlopZonesDownToTerminate()) {
-            return true;
-        }
-        return false;
     }
 
     public void run() {
@@ -147,15 +123,36 @@ public class StreamingSlopPusherJob implements Runnable {
                                                                      .setMaxConnectionsPerNode(1));
             }
 
-            // Populating the zone mapping
-            zoneMapping.clear();
-            for(Node n: cluster.getNodes()) {
-                Set<Integer> nodes = zoneMapping.get(n.getZoneId());
-                if(nodes == null) {
-                    nodes = Sets.newHashSet();
-                    zoneMapping.put(n.getZoneId(), nodes);
+            if(voldemortConfig.getSlopZonesDownToTerminate() > 0) {
+                // Populating the zone mapping for early termination
+                zoneMapping.clear();
+                for(Node n: cluster.getNodes()) {
+                    if(failureDetector.isAvailable(n)) {
+                        Set<Integer> nodes = zoneMapping.get(n.getZoneId());
+                        if(nodes == null) {
+                            nodes = Sets.newHashSet();
+                            zoneMapping.put(n.getZoneId(), nodes);
+                        }
+                        nodes.add(n.getId());
+                    }
                 }
-                nodes.add(n.getId());
+
+                // Check how many zones are down
+                int zonesDown = 0;
+                for(Zone zone: cluster.getZones()) {
+                    if(zoneMapping.get(zone.getId()) == null
+                       || zoneMapping.get(zone.getId()).size() == 0)
+                        zonesDown++;
+                }
+
+                // Terminate early
+                if(voldemortConfig.getSlopZonesDownToTerminate() <= zoneMapping.size()
+                   && zonesDown >= voldemortConfig.getSlopZonesDownToTerminate()) {
+                    logger.info("Completed streaming slop pusher job at " + startTime
+                                + " early because " + zonesDown + " zones are down");
+                    cleanUp();
+                    return;
+                }
             }
 
             // Clearing the statistics
@@ -190,7 +187,6 @@ public class StreamingSlopPusherJob implements Runnable {
                                          + " and store  " + versioned.getValue().getStoreName());
 
                         if(failureDetector.isAvailable(node)) {
-                            zoneMapping.get(node.getZoneId()).add(node.getId());
                             SynchronousQueue<Versioned<Slop>> slopQueue = slopQueues.get(nodeId);
                             if(slopQueue == null) {
                                 // No previous slop queue, add one
@@ -205,13 +201,6 @@ public class StreamingSlopPusherJob implements Runnable {
                                             TimeUnit.MILLISECONDS);
                             readThrottler.maybeThrottle(nBytesRead(keyAndVal));
                         } else {
-                            zoneMapping.get(node.getZoneId()).remove(node.getId());
-
-                            // Check if we can terminate early
-                            if(checkZonesDown()) {
-                                terminatedEarly = true;
-                                return;
-                            }
                             logger.trace(node + " declared down, won't push slop");
                         }
                     } catch(RejectedExecutionException e) {
