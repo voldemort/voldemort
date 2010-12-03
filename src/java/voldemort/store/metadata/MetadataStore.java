@@ -104,7 +104,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     private final Store<String, String, String> innerStore;
-    private final HashMap<String, Versioned<Object>> metadataCache;
+    private final Map<String, Versioned<Object>> metadataCache;
 
     private static final ClusterMapper clusterMapper = new ClusterMapper();
     private static final StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
@@ -165,7 +165,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      * @param value
      */
     @SuppressWarnings("unchecked")
-    public void put(String key, Versioned<Object> value) {
+    public synchronized void put(String key, Versioned<Object> value) {
         if(METADATA_KEYS.contains(key)) {
 
             // try inserting into inner store first
@@ -237,7 +237,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      *         bytes for cluster xml definitions
      * @throws VoldemortException
      */
-    public List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
+    public synchronized List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
             throws VoldemortException {
         try {
             String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
@@ -247,6 +247,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
                 // Get the cached value and convert to string
                 Versioned<String> value = convertObjectToString(key, metadataCache.get(key));
+
+                // Metadata debugging information
+                if(logger.isDebugEnabled())
+                    logger.debug("Key " + key + " requested, returning " + value.getValue());
 
                 values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
                                                  value.getVersion()));
@@ -270,7 +274,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     @JmxOperation(description = "Clean all rebalancing server/cluster states from this node.", impact = MBeanOperationInfo.ACTION)
-    public void cleanAllRebalancingState() {
+    public synchronized void cleanAllRebalancingState() {
         for(String key: OPTIONAL_KEYS) {
             if(!key.equals(NODE_ID_KEY))
                 innerStore.delete(key,
@@ -356,7 +360,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return routingStrategyMap.get(storeName);
     }
 
-    public void updateRoutingStrategies(Cluster cluster, List<StoreDefinition> storeDefs) {
+    private void updateRoutingStrategies(Cluster cluster, List<StoreDefinition> storeDefs) {
         VectorClock clock = new VectorClock();
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
@@ -433,7 +437,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         updateRoutingStrategies(getCluster(), getStoreDefList());
     }
 
-    private void initCache(String key) {
+    private synchronized void initCache(String key) {
         metadataCache.put(key, convertStringToObject(key, getInnerValue(key)));
     }
 
