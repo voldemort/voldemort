@@ -58,7 +58,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
-import voldemort.server.scheduler.slop.RepairerJob;
+import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -228,17 +228,14 @@ public class StorageService extends AbstractService {
              * Register the repairer thread only if slop pusher job is also
              * enabled
              */
-            if(voldemortConfig.isRepairerEnabled()) {
+            if(voldemortConfig.isRepairEnabled()) {
                 cal.add(Calendar.SECOND,
                         (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
                 nextRun = cal.getTime();
                 logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
                             + nextRun);
                 scheduler.schedule("repair",
-                                   new RepairerJob(storeRepository,
-                                                   metadata,
-                                                   voldemortConfig,
-                                                   repairPermits),
+                                   new RepairJob(storeRepository, metadata, repairPermits),
                                    nextRun,
                                    voldemortConfig.getRepairFrequencyMs());
             }

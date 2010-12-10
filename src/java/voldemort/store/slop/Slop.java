@@ -148,7 +148,7 @@ public class Slop {
     @Override
     public String toString() {
         return "Slop(storeName = " + storeName + ", operation = " + operation + ", key = " + key
-               + ", value = " + value + ", nodeId = " + nodeId + ", arrived" + arrived + ")";
+               + ", value = " + value + ", nodeId = " + nodeId + ", arrived = " + arrived + ")";
     }
 
 }

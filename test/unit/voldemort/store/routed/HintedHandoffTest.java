@@ -17,6 +17,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Logger;
 import org.junit.After;
@@ -114,9 +115,12 @@ public class HintedHandoffTest {
 
     @Parameterized.Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { /* { HintedHandoffStrategyType.CONSISTENT_STRATEGY }, */
-                                              { HintedHandoffStrategyType.ANY_STRATEGY },
-                                              { HintedHandoffStrategyType.PROXIMITY_STRATEGY } });
+        return Arrays.asList(new Object[][] { /*
+                                               * {HintedHandoffStrategyType.
+                                               * CONSISTENT_STRATEGY },
+                                               */
+        { HintedHandoffStrategyType.ANY_STRATEGY },
+                { HintedHandoffStrategyType.PROXIMITY_STRATEGY } });
     }
 
     private StoreDefinition getStoreDef(String storeName,
@@ -157,7 +161,8 @@ public class HintedHandoffTest {
 
             InMemoryStorageEngine<ByteArray, byte[], byte[]> storageEngine = new InMemoryStorageEngine<ByteArray, byte[], byte[]>(STORE_NAME);
             LoggingStore<ByteArray, byte[], byte[]> loggingStore = new LoggingStore<ByteArray, byte[], byte[]>(storageEngine);
-            subStores.put(node.getId(), new ForceFailStore<ByteArray, byte[], byte[]>(loggingStore, e));
+            subStores.put(node.getId(), new ForceFailStore<ByteArray, byte[], byte[]>(loggingStore,
+                                                                                      e));
         }
 
         setFailureDetector(subStores);
@@ -165,7 +170,7 @@ public class HintedHandoffTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
         routedStoreFactory = new RoutedStoreFactory(true, routedStoreThreadPool, 1500L);
         strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
-        
+
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
             int nodeId = node.getId();
@@ -179,7 +184,8 @@ public class HintedHandoffTest {
                                                                         cluster);
             StorageEngine<ByteArray, Slop, byte[]> storageEngine = slopStorageEngine.asSlopStore();
             storeRepo.setSlopStore(slopStorageEngine);
-            nonblockingSlopStores.put(nodeId, routedStoreFactory.toNonblockingStore(slopStorageEngine));
+            nonblockingSlopStores.put(nodeId,
+                                      routedStoreFactory.toNonblockingStore(slopStorageEngine));
             slopStores.put(nodeId, storageEngine);
 
             MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
@@ -193,16 +199,15 @@ public class HintedHandoffTest {
                                                                                                                            .getAbsolutePath(),
                                                                                                                   cluster,
                                                                                                                   Lists.newArrayList(storeDef),
-                                                                                                                  new Properties()));
+                                                                                                                  new Properties()),
+                                                                       new Semaphore(1));
             slopPusherJobs.add(pusher);
         }
-
 
         Map<Integer, NonblockingStore> nonblockingStores = Maps.newHashMap();
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: subStores.entrySet())
             nonblockingStores.put(entry.getKey(),
                                   routedStoreFactory.toNonblockingStore(entry.getValue()));
-        
 
         store = routedStoreFactory.create(cluster,
                                           storeDef,
@@ -249,7 +254,8 @@ public class HintedHandoffTest {
             byte[] expected = keyValues.get(failedKey.getValue()).get();
             byte[] actual = dataInSlops.get(failedKey.getValue());
 
-            assertNotNull("data should be stored in the slop for key = " + failedKey.getValue(), actual);
+            assertNotNull("data should be stored in the slop for key = " + failedKey.getValue(),
+                          actual);
             assertEquals("correct should be stored in slop", 0, ByteUtils.compare(actual, expected));
         }
 
@@ -287,6 +293,7 @@ public class HintedHandoffTest {
         final CountDownLatch latch = new CountDownLatch(slopPusherJobs.size());
         for(final StreamingSlopPusherJob job: slopPusherJobs) {
             executor.submit(new Runnable() {
+
                 public void run() {
                     try {
                         if(logger.isTraceEnabled())
@@ -381,11 +388,6 @@ public class HintedHandoffTest {
             logger.trace("Failing requests to " + failedNodes);
 
         return failedNodes;
-    }
-
-    private void stopFailing(Collection<Integer> failedNodes) {
-        for(int node: failedNodes)
-            getForceFailStore(node).setFail(false);
     }
 
     private Multimap<Integer, ByteArray> populateStore(Set<Integer> failedNodes) {

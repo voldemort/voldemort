@@ -1,5 +1,8 @@
 package voldemort.scheduled;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -7,6 +10,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Semaphore;
 
 import org.junit.After;
 import org.junit.Before;
@@ -36,8 +40,6 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
-
-import static org.junit.Assert.*;
 
 @SuppressWarnings("unchecked")
 public class StreamingSlopPusherTest {
@@ -98,7 +100,7 @@ public class StreamingSlopPusherTest {
     }
 
     @After
-    public void tearDown() throws IOException, InterruptedException {
+    public void tearDown() {
         socketStoreFactory.close();
     }
 
@@ -138,7 +140,8 @@ public class StreamingSlopPusherTest {
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
-                                                                   configs[0]);
+                                                                   configs[0],
+                                                                   new Semaphore(1));
 
         pusher.run();
 
@@ -270,7 +273,8 @@ public class StreamingSlopPusherTest {
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
-                                                                   configs[0]);
+                                                                   configs[0],
+                                                                   new Semaphore(1));
 
         pusher.run();
 
@@ -320,7 +324,8 @@ public class StreamingSlopPusherTest {
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
-                                                                   configs[0]);
+                                                                   configs[0],
+                                                                   new Semaphore(1));
 
         pusher.run();
 
@@ -434,13 +439,15 @@ public class StreamingSlopPusherTest {
                                                                                                                                 .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                           metadataStore,
                                                                                                                                                                           configs[0]))),
-                                                                    configs[0]), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
-                                                                                                                      getVoldemortServer(1).getMetadataStore(),
-                                                                                                                      new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                                                                                  .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
-                                                                                                                                                                                                                            metadataStore,
-                                                                                                                                                                                                                            configs[1]))),
-                                                                                                                      configs[1]);
+                                                                    configs[0],
+                                                                    new Semaphore(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
+                                                                                                                            getVoldemortServer(1).getMetadataStore(),
+                                                                                                                            new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                                                                                        .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                                                                                                                                                                                  metadataStore,
+                                                                                                                                                                                                                                  configs[1]))),
+                                                                                                                            configs[1],
+                                                                                                                            new Semaphore(1));
 
         pusher0.run();
         pusher1.run();
