@@ -107,6 +107,7 @@ public class VoldemortConfig implements Serializable {
     private RequestFormatType requestFormatType;
 
     private boolean enableSlop;
+    private boolean enableRepairer;
     private boolean enableGui;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
@@ -128,7 +129,7 @@ public class VoldemortConfig implements Serializable {
 
     private String slopStoreType;
     private String pusherType;
-    private final long slopFrequencyMs;
+    private final long slopFrequencyMs, repairFrequencyMs;
     private long slopMaxWriteBytesPerSec, slopMaxReadBytesPerSec;
     private int slopBatchSize;
     private int slopZonesDownToTerminate;
@@ -253,6 +254,7 @@ public class VoldemortConfig implements Serializable {
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
+        this.enableRepairer = props.getBoolean("enable.repairer", true);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -261,6 +263,7 @@ public class VoldemortConfig implements Serializable {
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
+        this.repairFrequencyMs = props.getLong("repair.frequency.ms", 5 * 60 * 1000);
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
@@ -786,6 +789,10 @@ public class VoldemortConfig implements Serializable {
         return this.slopFrequencyMs;
     }
 
+    public long getRepairFrequencyMs() {
+        return this.repairFrequencyMs;
+    }
+
     public void setSocketTimeoutMs(int socketTimeoutMs) {
         this.socketTimeoutMs = socketTimeoutMs;
     }
@@ -870,6 +877,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableSlop(boolean enableSlop) {
         this.enableSlop = enableSlop;
+    }
+
+    public boolean isRepairerEnabled() {
+        return this.enableRepairer;
+    }
+
+    public void setEnableRepairer(boolean enableRepairer) {
+        this.enableRepairer = enableRepairer;
     }
 
     public boolean isVerboseLoggingEnabled() {
