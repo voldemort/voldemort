@@ -107,7 +107,7 @@ public class VoldemortConfig implements Serializable {
     private RequestFormatType requestFormatType;
 
     private boolean enableSlop;
-    private boolean enableRepairer;
+    private boolean enableRepair;
     private boolean enableGui;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
@@ -256,7 +256,7 @@ public class VoldemortConfig implements Serializable {
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableRepairer = props.getBoolean("enable.repairer", true);
+        this.enableRepair = props.getBoolean("enable.repair", true);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -881,12 +881,12 @@ public class VoldemortConfig implements Serializable {
         this.enableSlop = enableSlop;
     }
 
-    public boolean isRepairerEnabled() {
-        return this.enableRepairer;
+    public boolean isRepairEnabled() {
+        return this.enableRepair;
     }
 
-    public void setEnableRepairer(boolean enableRepairer) {
-        this.enableRepairer = enableRepairer;
+    public void setEnableRepair(boolean enableRepair) {
+        this.enableRepair = enableRepair;
     }
 
     public boolean isVerboseLoggingEnabled() {

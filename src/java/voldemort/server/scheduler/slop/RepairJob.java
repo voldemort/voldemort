@@ -11,7 +11,6 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
-import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -22,24 +21,19 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
-public class RepairerJob implements Runnable {
+public class RepairJob implements Runnable {
 
-    private final static Logger logger = Logger.getLogger(RepairerJob.class.getName());
+    private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
 
     private final Semaphore repairPermits;
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
-    private final VoldemortConfig voldemortConfig;
 
-    public RepairerJob(StoreRepository storeRepo,
-                       MetadataStore metadataStore,
-                       VoldemortConfig voldemortConfig,
-                       Semaphore repairPermits) {
+    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
-        this.voldemortConfig = voldemortConfig;
         this.repairPermits = Utils.notNull(repairPermits);
     }
 
@@ -64,6 +58,7 @@ public class RepairerJob implements Runnable {
                                                                                 .asSlopStore();
             for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
                 if(isWritableStore(storeDef)) {
+                    logger.info("Repairing store " + storeDef.getName());
                     StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
                     ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
 
@@ -92,6 +87,7 @@ public class RepairerJob implements Runnable {
                             }
                         }
                     }
+                    logger.info("Completed store " + storeDef.getName());
                 }
             }
         } finally {
@@ -111,7 +107,7 @@ public class RepairerJob implements Runnable {
     }
 
     private boolean isWritableStore(StoreDefinition storeDef) {
-        if(!storeDef.isView() && !blackList.contains(storeDef.getName())) {
+        if(!storeDef.isView() && !blackList.contains(storeDef.getType())) {
             return true;
         } else {
             return false;
