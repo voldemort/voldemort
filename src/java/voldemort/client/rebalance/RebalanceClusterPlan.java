@@ -1,5 +1,6 @@
 package voldemort.client.rebalance;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,13 +11,17 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 
 /**
@@ -245,5 +250,41 @@ public class RebalanceClusterPlan {
         }
 
         return builder.toString();
+    }
+
+    public static void main(String args[]) throws IOException {
+        OptionParser parser = new OptionParser();
+        parser.accepts("help", "print help information");
+        parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
+              .withRequiredArg()
+              .describedAs("path");
+        parser.accepts("stores-xml", "[REQUIRED] stores xml file location")
+              .withRequiredArg()
+              .describedAs("path");
+        parser.accepts("old-cluster-xml", "[REQUIRED] old cluster xml file location")
+              .withRequiredArg()
+              .describedAs("path");
+
+        OptionSet options = parser.parse(args);
+
+        if(options.has("help")) {
+            parser.printHelpOn(System.out);
+            System.exit(0);
+        }
+
+        Set<String> missing = CmdUtils.missing(options,
+                                               "cluster-xml",
+                                               "stores-xml",
+                                               "old-cluster-xml");
+        if(missing.size() > 0) {
+            System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
+            parser.printHelpOn(System.err);
+            System.exit(1);
+        }
+
+        String newClusterXml = (String) options.valueOf("cluster-xml");
+        String oldClusterXml = (String) options.valueOf("old-cluster-xml");
+        String storesXml = (String) options.valueOf("stores-xml");
+
     }
 }
