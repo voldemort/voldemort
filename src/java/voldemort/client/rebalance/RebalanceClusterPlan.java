@@ -1,5 +1,6 @@
 package voldemort.client.rebalance;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +21,9 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
@@ -286,5 +290,20 @@ public class RebalanceClusterPlan {
         String oldClusterXml = (String) options.valueOf("old-cluster-xml");
         String storesXml = (String) options.valueOf("stores-xml");
 
+        if(!Utils.isReadableFile(newClusterXml) || !Utils.isReadableFile(oldClusterXml)
+           || !Utils.isReadableFile(storesXml)) {
+            System.err.println("Could not read files");
+            System.exit(1);
+        }
+
+        ClusterMapper clusterMapper = new ClusterMapper();
+        StoreDefinitionsMapper storeDefMapper = new StoreDefinitionsMapper();
+
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(clusterMapper.readCluster(new File(oldClusterXml)),
+                                                             clusterMapper.readCluster(new File(newClusterXml)),
+                                                             storeDefMapper.readStoreList(new File(storesXml)),
+                                                             false,
+                                                             null);
+        System.out.println(plan);
     }
 }
