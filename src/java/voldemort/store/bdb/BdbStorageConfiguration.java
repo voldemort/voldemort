@@ -196,6 +196,22 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         return envStats;
     }
 
+    /**
+     * Forceful cleanup the logs
+     */
+    @JmxOperation(description = "Forceful start the cleaner threads")
+    public void cleanLogs() {
+        synchronized(lock) {
+            try {
+                for(Environment environment: environments.values()) {
+                    environment.cleanLog();
+                }
+            } catch(DatabaseException e) {
+                throw new VoldemortException(e);
+            }
+        }
+    }
+
     public void close() {
         synchronized(lock) {
             try {
