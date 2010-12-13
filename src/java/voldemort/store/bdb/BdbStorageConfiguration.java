@@ -87,6 +87,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbCleanerMinFileUtilization()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MIN_UTILIZATION,
                                          Integer.toString(config.getBdbCleanerMinUtilization()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS,
+                                         Integer.toString(config.getBdbCleanerThreads()));
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());

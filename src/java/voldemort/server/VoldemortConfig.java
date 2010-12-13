@@ -70,6 +70,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
     private boolean bdbCursorPreload;
+    private int bdbCleanerThreads;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -190,6 +191,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
+        this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -525,6 +527,26 @@ public class VoldemortConfig implements Serializable {
         if(minFileUtilization < 0 || minFileUtilization > 50)
             throw new IllegalArgumentException("minFileUtilization should be between 0 and 50 (both inclusive)");
         this.bdbCleanerMinFileUtilization = minFileUtilization;
+    }
+
+    /**
+     * 
+     * The number of cleaner threads
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.threads"</li>
+     * <li>default: 1</li>
+     * <li>minimum: 1</li>
+     * </ul>
+     */
+    public int getBdbCleanerThreads() {
+        return bdbCleanerThreads;
+    }
+
+    public final void setBdbCleanerThreads(int bdbCleanerThreads) {
+        if(bdbCleanerThreads <= 0)
+            throw new IllegalArgumentException("bdbCleanerThreads should be greater than 0");
+        this.bdbCleanerThreads = bdbCleanerThreads;
     }
 
     /**
