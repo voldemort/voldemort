@@ -1,9 +1,7 @@
-package voldemort;
+package voldemort.client.rebalance;
 
 import com.google.common.collect.Lists;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalanceClusterPlan;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
