@@ -92,11 +92,11 @@ public class RebalanceClusterPlan {
      * @param deleteDonorPartition Delete the donor partitions after rebalance
      * @return List of plans per donor node
      */
-    private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                               Cluster targetCluster,
-                                                               List<String> storeList,
-                                                               int stealNodeId,
-                                                               boolean deleteDonorPartition) {
+    public List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
+                                                              Cluster targetCluster,
+                                                              List<String> storeList,
+                                                              int stealNodeId,
+                                                              boolean deleteDonorPartition) {
         Map<Integer, Integer> currentPartitionsToNodeMap = RebalanceUtils.getCurrentPartitionMapping(currentCluster);
         List<Integer> stealList = getStealList(currentCluster, targetCluster, stealNodeId);
 

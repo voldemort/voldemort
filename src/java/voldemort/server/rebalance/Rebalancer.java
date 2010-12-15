@@ -187,7 +187,7 @@ public class Rebalancer implements Runnable {
             int rebalanceAsyncId = rebalanceLocalNode(stealInfo);
             adminClient.waitForCompletion(stealInfo.getStealerId(),
                                           rebalanceAsyncId,
-                                          voldemortConfig.getAdminSocketTimeout(),
+                                          voldemortConfig.getRebalancingTimeout(),
                                           TimeUnit.SECONDS);
         } finally {
             adminClient.stop();
