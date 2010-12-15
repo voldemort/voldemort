@@ -63,10 +63,13 @@ public class BlockingSlopPusherTest extends TestCase {
 
         MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
                                                                           ServerTestUtils.getStoreDefs(1));
+        Props props = new Props();
+        props.put("node.id", 0);
+        props.put("voldemort.home", "/");
         pusher = new BlockingSlopPusherJob(repo,
                                            metadataStore,
                                            new NoopFailureDetector(),
-                                           new VoldemortConfig(new Props()),
+                                           new VoldemortConfig(props),
                                            new Semaphore(1));
     }
 

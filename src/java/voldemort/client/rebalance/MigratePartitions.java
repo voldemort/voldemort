@@ -21,18 +21,15 @@ public class MigratePartitions {
     private final Cluster targetCluster;
     private final AdminClient adminClient;
     private final List<StoreDefinition> storeDefs;
-    private final VoldemortConfig voldemortConfig;
 
     public MigratePartitions(Cluster currentCluster,
                              Cluster targetCluster,
                              List<StoreDefinition> storeDefs,
-                             AdminClient adminClient,
-                             VoldemortConfig voldemortConfig) {
+                             AdminClient adminClient) {
         this.currentCluster = currentCluster;
         this.targetCluster = targetCluster;
         this.storeDefs = storeDefs;
         this.adminClient = adminClient;
-        this.voldemortConfig = voldemortConfig;
     }
 
     public void migrate(int stealerId) {
@@ -60,7 +57,7 @@ public class MigratePartitions {
                                                               null);
                 adminClient.waitForCompletion(stealerId,
                                               requestId,
-                                              voldemortConfig.getRebalancingTimeout(),
+                                              24 * 60 * 60,
                                               TimeUnit.SECONDS);
             }
         }
@@ -93,8 +90,7 @@ public class MigratePartitions {
             MigratePartitions migratePartitions = new MigratePartitions(currentCluster,
                                                                         targetCluster,
                                                                         storeDefs,
-                                                                        adminClient,
-                                                                        voldemortConfig);
+                                                                        adminClient);
             migratePartitions.migrate(stealerNodeId);
         } catch(Exception e) {
             e.printStackTrace();
