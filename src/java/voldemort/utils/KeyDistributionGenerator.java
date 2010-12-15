@@ -74,9 +74,9 @@ public class KeyDistributionGenerator {
         }
     }
 
-    static HashMap<Integer, Integer> generateDistribution(Cluster cluster,
-                                                          StoreDefinition storeDef,
-                                                          int numKeys) {
+    public static HashMap<Integer, Integer> generateDistribution(Cluster cluster,
+                                                                 StoreDefinition storeDef,
+                                                                 int numKeys) {
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
@@ -102,10 +102,20 @@ public class KeyDistributionGenerator {
         return finalDistribution;
     }
 
-    static void printDistribution(HashMap<Integer, Integer> distribution) {
+    public static void printDistribution(HashMap<Integer, Integer> distribution) {
         for(int nodeId: distribution.keySet()) {
             System.out.println("Node " + nodeId + " - " + distribution.get(nodeId));
         }
+    }
+
+    public static double getStdDeviation(HashMap<Integer, Integer> distribution) {
+        long sum = 0, squareSum = 0;
+        for(int num: distribution.values()) {
+            squareSum += num * num;
+            sum += num;
+        }
+        double mean = sum / distribution.size();
+        return Math.sqrt(squareSum / distribution.size() - mean * mean);
     }
 
 }

@@ -64,6 +64,7 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.grandfather.GrandfatheringStore;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
@@ -367,6 +368,9 @@ public class StorageService extends AbstractService {
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
+            if(voldemortConfig.isGrandfatherEnabled())
+                store = new GrandfatheringStore(store, metadata, storeRepository);
+
             if(voldemortConfig.isRedirectRoutingEnabled())
                 store = new RedirectingStore(store,
                                              metadata,
