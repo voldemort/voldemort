@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -26,6 +27,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 /**
@@ -82,6 +84,21 @@ public class RebalanceClusterPlan {
     }
 
     /**
+     * Returns a map of stealer node to their corresponding node plan
+     * 
+     * @return Map of stealer node to plan
+     */
+    public HashMap<Integer, RebalanceNodePlan> getRebalancingTaskQueuePerNode() {
+        HashMap<Integer, RebalanceNodePlan> rebalanceMap = Maps.newHashMap();
+        Iterator<RebalanceNodePlan> iter = rebalanceTaskQueue.iterator();
+        while(iter.hasNext()) {
+            RebalanceNodePlan plan = iter.next();
+            rebalanceMap.put(plan.getStealerNode(), plan);
+        }
+        return rebalanceMap;
+    }
+
+    /**
      * For a particular stealer node retrieves a list of plans corresponding to
      * each donor node.
      * 
@@ -92,11 +109,11 @@ public class RebalanceClusterPlan {
      * @param deleteDonorPartition Delete the donor partitions after rebalance
      * @return List of plans per donor node
      */
-    public List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                              Cluster targetCluster,
-                                                              List<String> storeList,
-                                                              int stealNodeId,
-                                                              boolean deleteDonorPartition) {
+    private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
+                                                               Cluster targetCluster,
+                                                               List<String> storeList,
+                                                               int stealNodeId,
+                                                               boolean deleteDonorPartition) {
         Map<Integer, Integer> currentPartitionsToNodeMap = RebalanceUtils.getCurrentPartitionMapping(currentCluster);
         List<Integer> stealList = getStealList(currentCluster, targetCluster, stealNodeId);
 

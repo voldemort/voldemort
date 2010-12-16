@@ -76,6 +76,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
+    public static final String GRANDFATHERING_INFO = "grandfathering.info.key";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -83,7 +84,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO);
+                                                                    REBALANCING_STEAL_INFO,
+                                                                    GRANDFATHERING_INFO);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -95,7 +97,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static enum VoldemortState {
         NORMAL_SERVER,
-        REBALANCING_MASTER_SERVER
+        REBALANCING_MASTER_SERVER,
+        GRANDFATHERING_SERVER
     }
 
     public static enum StoreState {
