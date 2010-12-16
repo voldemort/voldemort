@@ -31,7 +31,8 @@ def _extract_text(elm):
 
 ## Get a single child from the element, if there are multiple children, explode.
 def _child(elmt, name, required=True):
-    children = elmt.getElementsByTagName(name)
+    children = [child for child in elmt.childNodes
+                if child.nodeType == minidom.Node.ELEMENT_NODE and child.tagName == name]
     if not children:
         if required:
             raise VoldemortException("No child '%s' for element '%s'." % (name, elmt.nodeName))
@@ -120,7 +121,7 @@ class Store:
 
     def _create_serializer(self, serializer_type, serializer_node):
         if serializer_type not in serialization.SERIALIZER_CLASSES:
-            raise VoldemortException("Unknown serializer type: %s" % serializer_type)
+            return serialization.UnimplementedSerializer(serializer_type)
 
         return serialization.SERIALIZER_CLASSES[serializer_type].create_from_xml(serializer_node)
 
