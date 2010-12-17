@@ -15,9 +15,10 @@ package voldemort.store.grandfather;
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.server.StoreRepository;
@@ -35,23 +36,18 @@ import voldemort.versioning.Versioned;
 public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
     private MetadataStore metadata;
-    private ExecutorService service;
+    private ExecutorService threadPool;
     private StorageEngine<ByteArray, Slop, byte[]> slopStore;
     private boolean isReadOnly;
+    private final Logger logger = Logger.getLogger(getClass());
 
     public GrandfatheringStore(final Store<ByteArray, byte[], byte[]> innerStore,
                                MetadataStore metadata,
-                               StoreRepository storeRepository) {
+                               StoreRepository storeRepository,
+                               ExecutorService threadPool) {
         super(innerStore);
         this.metadata = metadata;
-        this.service = Executors.newSingleThreadExecutor(new ThreadFactory() {
-
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName("grandfather-thread-" + innerStore.getName());
-                return thread;
-            }
-        });
+        this.threadPool = threadPool;
         SlopStorageEngine slopEngine = null;
         try {
             slopEngine = storeRepository.getSlopStore();
@@ -71,7 +67,6 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
 
     @Override
     public void close() throws VoldemortException {
-        this.service.shutdown();
         getInnerStore().close();
     }
 
@@ -81,9 +76,26 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
             throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
 
         /*
-         * Check if this key is one of the grandfathered keys and accordingly
+         * Check if this key is one of the grand-fathered keys and accordingly
          * put a delete slop
          */
+        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
+           && metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
+                                                 .getPartitionList(key.get());
+            this.threadPool.execute(new Runnable() {
+
+                public void run() {
+                    try {
+
+                    } catch(Exception e) {
+                        logger.warn("Failed to put DELETE operation on " + getName()
+                                    + " to slop store", e);
+                    }
+                }
+            });
+        }
+
         return getInnerStore().delete(key, version);
     }
 
@@ -94,9 +106,27 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
             throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
 
         /*
-         * Check if this key is one of the grandfatehered keys and accordingly
+         * Check if this key is one of the grand-fathered keys and accordingly
          * put a put slop
          */
+        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
+           && metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
+                                                 .getPartitionList(key.get());
+
+            this.threadPool.execute(new Runnable() {
+
+                public void run() {
+                    try {
+                        // Put into slop store
+                    } catch(Exception e) {
+                        logger.warn("Failed to put PUT operation on " + getName()
+                                    + " to slop store", e);
+                    }
+                }
+            });
+        }
+
         getInnerStore().put(key, value, transform);
     }
 

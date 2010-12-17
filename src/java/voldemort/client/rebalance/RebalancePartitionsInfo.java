@@ -153,9 +153,9 @@ public class RebalancePartitionsInfo {
 
     @Override
     public String toString() {
-        return "RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId() + " partitions:"
-               + getPartitionList() + " steal master partitions:" + getStealMasterPartitions()
-               + " stores:" + getUnbalancedStoreList() + ")";
+        return "RebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId()
+               + " partitions:" + getPartitionList() + " steal master partitions:"
+               + getStealMasterPartitions() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
     public String toJsonString() {

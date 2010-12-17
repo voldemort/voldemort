@@ -369,7 +369,7 @@ public class StorageService extends AbstractService {
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
             if(voldemortConfig.isGrandfatherEnabled())
-                store = new GrandfatheringStore(store, metadata, storeRepository);
+                store = new GrandfatheringStore(store, metadata, storeRepository, clientThreadPool);
 
             if(voldemortConfig.isRedirectRoutingEnabled())
                 store = new RedirectingStore(store,

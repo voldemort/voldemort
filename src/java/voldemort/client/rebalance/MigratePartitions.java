@@ -13,6 +13,7 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
@@ -22,6 +23,7 @@ import voldemort.utils.CmdUtils;
 import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -29,7 +31,6 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 public class MigratePartitions {
 
@@ -67,74 +68,101 @@ public class MigratePartitions {
             stealerNodeIds = Lists.newArrayList(rebalancingTaskQueue.keySet());
         }
 
+        logger.info("Stealer nodes being worked on " + stealerNodeIds);
+
         /**
          * Lets move all the donor nodes into grandfathering state. First
-         * generate all donor node ids
+         * generate all donor node ids and corresponding migration plans
          */
-        Set<Integer> donorNodeIds = Sets.newHashSet();
+        HashMap<Integer, List<RebalancePartitionsInfo>> donorNodePlans = Maps.newHashMap();
         for(int stealerNodeId: stealerNodeIds) {
             RebalanceNodePlan nodePlan = rebalancingTaskQueue.get(stealerNodeId);
             if(nodePlan == null)
                 continue;
             for(RebalancePartitionsInfo info: nodePlan.getRebalanceTaskList()) {
-                donorNodeIds.add(info.getDonorId());
-            }
-        }
-        logger.info("Changing state of donor nodes " + donorNodeIds);
-
-        /**
-         * Lets retrieve the current store state
-         */
-        for(int donorNodeId: donorNodeIds) {
-            Versioned<String> serverState = adminClient.getRemoteMetadata(donorNodeId,
-                                                                          MetadataStore.SERVER_STATE_KEY);
-            if(!serverState.getValue().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-                logger.error("Node " + donorNodeId
-                             + " is not in normal state to perform grandfathering");
+                List<RebalancePartitionsInfo> donorPlan = donorNodePlans.get(info.getDonorId());
+                if(donorPlan == null) {
+                    donorPlan = Lists.newArrayList();
+                    donorNodePlans.put(info.getDonorId(), donorPlan);
+                }
+                donorPlan.add(info);
             }
         }
 
-        /**
-         * Do all the stealer nodes sequentially, while each store can be done
-         * in parallel
-         * 
-         */
-        for(int stealerNodeId: stealerNodeIds) {
-            RebalanceNodePlan nodePlan = rebalancingTaskQueue.get(stealerNodeId);
-            if(nodePlan == null) {
-                logger.info("No plan for stealer node id " + stealerNodeId);
-                continue;
-            }
-            List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
+        logger.info("Changing state of donor nodes " + donorNodePlans.keySet());
 
-            logger.info("Working on stealer node id " + stealerNodeId);
-            for(StoreDefinition storeDef: storeDefs) {
-                logger.info("- Working on store " + storeDef.getName());
-
-                HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
-                for(RebalancePartitionsInfo r: partitionInfo) {
-                    logger.info("-- Started migration for donor node id " + r.getDonorId());
-                    nodeIdToRequestId.put(r.getDonorId(),
-                                          adminClient.migratePartitions(r.getDonorId(),
-                                                                        stealerNodeId,
-                                                                        storeDef.getName(),
-                                                                        r.getPartitionList(),
-                                                                        null));
-
+        HashMap<Integer, Versioned<String>> donorState = Maps.newHashMap();
+        try {
+            for(int donorNodeId: donorNodePlans.keySet()) {
+                logger.info("Transitioning " + donorNodeId + " to grandfathering state");
+                Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
+                                                                                      donorNodePlans.get(donorNodeId));
+                if(!serverState.getValue()
+                               .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+                    throw new VoldemortException("Node "
+                                                 + donorNodeId
+                                                 + " is not in normal state to perform grandfathering");
                 }
-
-                // Now that we started parallel migration for one store, wait
-                // for it to complete
-                for(int nodeId: nodeIdToRequestId.keySet()) {
-                    adminClient.waitForCompletion(stealerNodeId,
-                                                  nodeIdToRequestId.get(nodeId),
-                                                  voldemortConfig.getRebalancingTimeout(),
-                                                  TimeUnit.SECONDS);
-                    logger.info("-- Completed migration for donor node id "
-                                + nodeIdToRequestId.get(nodeId));
-                }
+                donorState.put(donorNodeId, serverState);
+                logger.info("Successfully transitioned " + donorNodeId + " to grandfathering state");
             }
 
+            /**
+             * Do all the stealer nodes sequentially, while each store can be
+             * done in parallel for all the respective donor nodes
+             */
+            for(int stealerNodeId: stealerNodeIds) {
+                RebalanceNodePlan nodePlan = rebalancingTaskQueue.get(stealerNodeId);
+                if(nodePlan == null) {
+                    logger.info("No plan for stealer node id " + stealerNodeId);
+                    continue;
+                }
+                List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
+
+                logger.info("Working on stealer node id " + stealerNodeId);
+                for(StoreDefinition storeDef: storeDefs) {
+                    logger.info("- Working on store " + storeDef.getName());
+
+                    HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
+                    for(RebalancePartitionsInfo r: partitionInfo) {
+                        logger.info("-- Started migration for donor node id " + r.getDonorId());
+                        nodeIdToRequestId.put(r.getDonorId(),
+                                              adminClient.migratePartitions(r.getDonorId(),
+                                                                            stealerNodeId,
+                                                                            storeDef.getName(),
+                                                                            r.getPartitionList(),
+                                                                            null));
+
+                    }
+
+                    // Now that we started parallel migration for one store,
+                    // wait for it to complete
+                    for(int nodeId: nodeIdToRequestId.keySet()) {
+                        adminClient.waitForCompletion(stealerNodeId,
+                                                      nodeIdToRequestId.get(nodeId),
+                                                      voldemortConfig.getRebalancingTimeout(),
+                                                      TimeUnit.SECONDS);
+                        logger.info("-- Completed migration for donor node id "
+                                    + nodeIdToRequestId.get(nodeId));
+                    }
+                }
+
+            }
+        } finally {
+            // Move all nodes in grandfathered state back to normal
+            for(int donorNodeId: donorState.keySet()) {
+                logger.info("Rolling back state of " + donorNodeId + " to normal");
+                try {
+                    VectorClock clock = (VectorClock) donorState.get(donorNodeId).getVersion();
+                    adminClient.updateRemoteMetadata(donorNodeId,
+                                                     MetadataStore.SERVER_STATE_KEY,
+                                                     Versioned.value(MetadataStore.VoldemortState.NORMAL_SERVER.toString(),
+                                                                     clock.incremented(donorNodeId,
+                                                                                       System.currentTimeMillis())));
+                } catch(Exception e) {
+                    logger.error("Rolling back state for " + donorNodeId + " failed");
+                }
+            }
         }
     }
 

@@ -36,6 +36,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -225,11 +226,47 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case UPDATE_SLOP_ENTRIES:
                 return handleUpdateSlopEntries(request.getUpdateSlopEntries());
+            case UPDATE_GRANDFATHER_METADATA:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleUpdateGrandfatherMetadata(request.getUpdateGrandfatherMetadata()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.UpdateGrandfatherMetadataResponse handleUpdateGrandfatherMetadata(VAdminProto.UpdateGrandfatherMetadataRequest request) {
+        List<RebalancePartitionsInfo> plans = Lists.newArrayList();
+        for(InitiateRebalanceNodeRequest nodeRequest: request.getPlanList()) {
+            plans.add(new RebalancePartitionsInfo(nodeRequest.getStealerId(),
+                                                  nodeRequest.getDonorId(),
+                                                  nodeRequest.getPartitionsList(),
+                                                  nodeRequest.getDeletePartitionsList(),
+                                                  nodeRequest.getStealMasterPartitionsList(),
+                                                  nodeRequest.getUnbalancedStoreList(),
+                                                  encodeROStoreVersionDirMap(nodeRequest.getStealerRoStoreToDirList()),
+                                                  encodeROStoreVersionDirMap(nodeRequest.getDonorRoStoreToDirList()),
+                                                  nodeRequest.getAttempt()));
+        }
+
+        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder();
+        try {
+            if(metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+                // If normal, set the state + rebalancer state
+                metadataStore.put(MetadataStore.GRANDFATHERING_INFO, plans);
+                metadataStore.put(MetadataStore.SERVER_STATE_KEY,
+                                  MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+            }
+        } catch(VoldemortException e) {
+            logger.error("handleUpdateGrandfatherMetadata failed for request(" + request.toString()
+                         + ")", e);
+        }
+        Versioned<byte[]> versioned = metadataStore.get(MetadataStore.SERVER_STATE_KEY, null)
+                                                   .get(0);
+        response.setVersion(ProtoUtils.encodeVersioned(versioned));
+        return response.build();
     }
 
     public VAdminProto.GetROCurrentVersionDirResponse handleGetROCurrentVersionDir(VAdminProto.GetROCurrentVersionDirRequest request) {
