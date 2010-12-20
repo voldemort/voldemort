@@ -197,7 +197,7 @@ public class StorageService extends AbstractService {
             if(config == null)
                 throw new ConfigurationException("Attempt to get slop store failed");
 
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore("slop"),
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
                                                                  metadata.getCluster());
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
@@ -322,7 +322,7 @@ public class StorageService extends AbstractService {
         String engineName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(engineName);
 
-        boolean isSlop = storeType.compareTo("slop") == 0;
+        boolean isSlop = storeType.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
         boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
 
         if(store != null) {
@@ -362,14 +362,20 @@ public class StorageService extends AbstractService {
 
         /* Now add any store wrappers that are enabled */
         Store<ByteArray, byte[], byte[]> store = engine;
-        boolean isSlop = store.getName().compareTo("slop") == 0;
+
+        boolean isSlop = store.getName().compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
+        boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(voldemortConfig.isGrandfatherEnabled())
-                store = new GrandfatheringStore(store, metadata, storeRepository, clientThreadPool);
+            if(!isMetadata)
+                if(voldemortConfig.isGrandfatherEnabled())
+                    store = new GrandfatheringStore(store,
+                                                    metadata,
+                                                    storeRepository,
+                                                    clientThreadPool);
 
             if(voldemortConfig.isRedirectRoutingEnabled())
                 store = new RedirectingStore(store,

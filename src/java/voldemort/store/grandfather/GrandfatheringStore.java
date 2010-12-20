@@ -15,12 +15,12 @@ package voldemort.store.grandfather;
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.StorageEngine;
@@ -52,7 +52,8 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
         try {
             slopEngine = storeRepository.getSlopStore();
         } catch(IllegalStateException e) {
-            throw new VoldemortException("Grandfathering cannot run without initialization of slop engine");
+            throw new VoldemortException("Grandfathering cannot run without initialization of slop engine",
+                                         e);
         }
 
         this.slopStore = slopEngine.asSlopStore();
@@ -79,21 +80,21 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
          * Check if this key is one of the grand-fathered keys and accordingly
          * put a delete slop
          */
-        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
-           && metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
-            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
-                                                 .getPartitionList(key.get());
-            this.threadPool.execute(new Runnable() {
+        if(metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+            RoutingStrategy strategy = metadata.getGrandfatherState().getRoutingStrategy(getName());
+            if(strategy != null) {
+                this.threadPool.execute(new Runnable() {
 
-                public void run() {
-                    try {
+                    public void run() {
+                        try {
 
-                    } catch(Exception e) {
-                        logger.warn("Failed to put DELETE operation on " + getName()
-                                    + " to slop store", e);
+                        } catch(Exception e) {
+                            logger.warn("Failed to put DELETE operation on " + getName()
+                                        + " to slop store", e);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         return getInnerStore().delete(key, version);
@@ -109,22 +110,22 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
          * Check if this key is one of the grand-fathered keys and accordingly
          * put a put slop
          */
-        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
-           && metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
-            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
-                                                 .getPartitionList(key.get());
+        if(metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+            RoutingStrategy strategy = metadata.getGrandfatherState().getRoutingStrategy(getName());
+            if(strategy != null) {
 
-            this.threadPool.execute(new Runnable() {
+                this.threadPool.execute(new Runnable() {
 
-                public void run() {
-                    try {
-                        // Put into slop store
-                    } catch(Exception e) {
-                        logger.warn("Failed to put PUT operation on " + getName()
-                                    + " to slop store", e);
+                    public void run() {
+                        try {
+                            // Put into slop store
+                        } catch(Exception e) {
+                            logger.warn("Failed to put PUT operation on " + getName()
+                                        + " to slop store", e);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         getInnerStore().put(key, value, transform);

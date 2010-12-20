@@ -39,6 +39,7 @@ public class MigratePartitions {
     private final Cluster targetCluster;
     private final AdminClient adminClient;
     private final List<StoreDefinition> storeDefs;
+    private final String storeDefsString;
     private List<Integer> stealerNodeIds;
     private final VoldemortConfig voldemortConfig;
 
@@ -54,6 +55,7 @@ public class MigratePartitions {
         this.adminClient = adminClient;
         this.stealerNodeIds = stealerNodeIds;
         this.voldemortConfig = voldemortConfig;
+        this.storeDefsString = new StoreDefinitionsMapper().writeStoreList(storeDefs);
     }
 
     public void migrate() {
@@ -96,7 +98,8 @@ public class MigratePartitions {
             for(int donorNodeId: donorNodePlans.keySet()) {
                 logger.info("Transitioning " + donorNodeId + " to grandfathering state");
                 Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
-                                                                                      donorNodePlans.get(donorNodeId));
+                                                                                      donorNodePlans.get(donorNodeId),
+                                                                                      storeDefsString);
                 if(!serverState.getValue()
                                .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
                     throw new VoldemortException("Node "

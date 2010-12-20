@@ -222,11 +222,13 @@ message SwapStoresAndCleanStateResponse {
 }
 
 message UpdateGrandfatherMetadataRequest {
-  repeated InitiateRebalanceNodeRequest plan = 1;
+  required string storesDef = 1;
+  repeated InitiateRebalanceNodeRequest plan = 2;
 }
 
 message UpdateGrandfatherMetadataResponse {
   required Versioned version = 1;
+  optional Error error = 2;
 }
 
 enum AdminRequestType {

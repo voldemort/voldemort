@@ -440,7 +440,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(GRANDFATHERING_INFO,
-                  new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
+                  new GrandfatherState(new ArrayList<RebalancePartitionsInfo>(), (List) null, null));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
 
         // set transient values

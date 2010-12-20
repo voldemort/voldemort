@@ -45,6 +45,8 @@ public class RepairJob implements Runnable {
             return;
         }
 
+        ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
+
         Date startTime = new Date();
         logger.info("Started repair job at " + startTime);
 
@@ -60,7 +62,7 @@ public class RepairJob implements Runnable {
                 if(isWritableStore(storeDef)) {
                     logger.info("Repairing store " + storeDef.getName());
                     StorageEngine<ByteArray, byte[], byte[]> engine = storeRepo.getStorageEngine(storeDef.getName());
-                    ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = engine.entries();
+                    iterator = engine.entries();
 
                     // Lets generate routing strategy for this storage engine
                     RoutingStrategy routingStrategy = routingStrategyFactory.updateRoutingStrategy(storeDef,
@@ -91,6 +93,8 @@ public class RepairJob implements Runnable {
                 }
             }
         } finally {
+            if(iterator != null)
+                iterator.close();
             this.repairPermits.release();
             logger.info("Completed repair job started at " + startTime);
         }
