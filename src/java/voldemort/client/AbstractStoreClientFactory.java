@@ -292,15 +292,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private String bootstrapMetadata(String key, URI[] urls) {
         for(URI url: urls) {
             try {
-                Store<ByteArray, byte[], byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
-                                                                        url.getHost(),
-                                                                        url.getPort(),
-                                                                        this.requestFormatType);
-                Store<String, String, byte[]> store = SerializingStore.wrap(remoteStore,
-                                                                            new StringSerializer("UTF-8"),
-                                                                            new StringSerializer("UTF-8"),
-                                                                            new IdentitySerializer());
-                List<Versioned<String>> found = store.get(key, null);
+                List<Versioned<String>> found = getRemoteMetadata(key, url);
                 if(found.size() == 1)
                     return found.get(0).getValue();
             } catch(Exception e) {
@@ -308,6 +300,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
         throw new BootstrapFailureException("No available bootstrap servers found!");
+    }
+
+    protected List<Versioned<String>> getRemoteMetadata(String key, URI url) {
+        Store<ByteArray, byte[], byte[]> remoteStore = getStore(MetadataStore.METADATA_STORE_NAME,
+                                                                url.getHost(),
+                                                                url.getPort(),
+                                                                this.requestFormatType);
+        Store<String, String, byte[]> store = SerializingStore.wrap(remoteStore,
+                                                                    new StringSerializer("UTF-8"),
+                                                                    new StringSerializer("UTF-8"),
+                                                                    new IdentitySerializer());
+        return store.get(key, null);
     }
 
     public URI[] validateUrls(String[] urls) {
@@ -351,6 +355,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public SerializerFactory getSerializerFactory() {
         return serializerFactory;
+    }
+
+    public RequestFormatType getRequestFormatType() {
+        return requestFormatType;
     }
 
     public void close() {
