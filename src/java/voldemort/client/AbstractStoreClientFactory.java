@@ -141,7 +141,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                 InconsistencyResolver<Versioned<V>> resolver) {
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
-        logger.info("Cluster xml received " + clusterXml);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
