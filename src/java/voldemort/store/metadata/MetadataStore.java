@@ -249,8 +249,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
                 Versioned<String> value = convertObjectToString(key, metadataCache.get(key));
 
                 // Metadata debugging information
-                if(logger.isDebugEnabled())
-                    logger.debug("Key " + key + " requested, returning " + value.getValue());
+                if(logger.isTraceEnabled())
+                    logger.trace("Key " + key + " requested, returning: " + value.getValue());
 
                 values.add(new Versioned<byte[]>(ByteUtils.getBytes(value.getValue(), "UTF-8"),
                                                  value.getVersion()));
