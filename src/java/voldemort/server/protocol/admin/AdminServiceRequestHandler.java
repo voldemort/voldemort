@@ -51,7 +51,6 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -259,8 +258,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
             if(metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
                 // If normal, set the state + rebalancer state
-                metadataStore.put(MetadataStore.GRANDFATHERING_INFO,
-                                  new GrandfatherState(plans, storeDefs));
+                // metadataStore.put(MetadataStore.GRANDFATHERING_INFO,
+                // new GrandfatherState(plans, storeDefs));
                 metadataStore.put(MetadataStore.SERVER_STATE_KEY,
                                   MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
             }

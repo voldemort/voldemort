@@ -276,13 +276,13 @@ public class RebalanceClusterPlan {
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
-        parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
+        parser.accepts("cluster-xml", "[REQUIRED] old cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
         parser.accepts("stores-xml", "[REQUIRED] stores xml file location")
               .withRequiredArg()
               .describedAs("path");
-        parser.accepts("old-cluster-xml", "[REQUIRED] old cluster xml file location")
+        parser.accepts("target-cluster-xml", "[REQUIRED] new cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
 
@@ -296,20 +296,21 @@ public class RebalanceClusterPlan {
         Set<String> missing = CmdUtils.missing(options,
                                                "cluster-xml",
                                                "stores-xml",
-                                               "old-cluster-xml");
+                                               "target-cluster-xml");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
         }
 
-        String newClusterXml = (String) options.valueOf("cluster-xml");
-        String oldClusterXml = (String) options.valueOf("old-cluster-xml");
+        String newClusterXml = (String) options.valueOf("target-cluster-xml");
+        String oldClusterXml = (String) options.valueOf("cluster-xml");
         String storesXml = (String) options.valueOf("stores-xml");
 
         if(!Utils.isReadableFile(newClusterXml) || !Utils.isReadableFile(oldClusterXml)
            || !Utils.isReadableFile(storesXml)) {
             System.err.println("Could not read files");
+            parser.printHelpOn(System.err);
             System.exit(1);
         }
 

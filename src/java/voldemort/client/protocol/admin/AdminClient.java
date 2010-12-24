@@ -546,11 +546,20 @@ public class AdminClient {
         }
     }
 
+    /**
+     * For a particular store and node, runs the replication job
+     * 
+     * @param restoringNodeId The node which we want to restore
+     * @param cluster The cluster metadata
+     * @param storeDef The definition of the store which we want to restore
+     * @param executorService An executor to allow us to run the replication job
+     */
     private void restoreStoreFromReplication(final int restoringNodeId,
                                              final Cluster cluster,
                                              final StoreDefinition storeDef,
                                              final ExecutorService executorService) {
-        logger.info("Restoring data for store:" + storeDef.getName());
+        logger.info("Restoring data for store " + storeDef.getName() + " on node "
+                    + restoringNodeId);
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
@@ -589,9 +598,18 @@ public class AdminClient {
         }
     }
 
-    private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
-                                                              int nodeId,
-                                                              RoutingStrategy strategy) {
+    /**
+     * For a particular node and routing strategy, generates a mapping of node
+     * to their corresponding list of replica partitions.
+     * 
+     * @param cluster The cluster metadata
+     * @param nodeId The id of the node
+     * @param strategy The routing strategy used
+     * @return Mapping of node to replica partitions of nodeId
+     */
+    public Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
+                                                             int nodeId,
+                                                             RoutingStrategy strategy) {
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
@@ -618,6 +636,23 @@ public class AdminClient {
         return restoreMapping;
     }
 
+    /**
+     * For a particular node id and routing strategy, finds all the partitions
+     * which are replicas to the partitions belonging to this particular node.
+     * This returned list includes the partitions belonging to the particular
+     * node as well. <br>
+     * 
+     * For example, say we have 4 nodes, N_0 => P_3, N_1 => P_0, N_2 => P_1 and
+     * N_3 => P_2 and if zone routing is being used then the replica mapping is
+     * P_3 => P_1, P_0 => P_1, P_1 => P_3 and P_2 => P_3. So if we're moving
+     * node N_0, the replicas of partition P_3 would be P_1 and P_2 ( in other
+     * words we need to read from nodes N_2 and N_3 respectively)
+     * 
+     * @param cluster The cluster metadata
+     * @param nodeId The id of the node
+     * @param strategy Routing strategy used
+     * @return List of replica partitions
+     */
     private List<Integer> getNodePartitions(Cluster cluster, int nodeId, RoutingStrategy strategy) {
         List<Integer> partitionsList = new ArrayList<Integer>(cluster.getNodeById(nodeId)
                                                                      .getPartitionIds());
