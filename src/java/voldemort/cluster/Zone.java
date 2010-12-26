@@ -57,6 +57,11 @@ public class Zone implements Serializable {
         return true;
     }
 
+    @Override
+    public int hashCode() {
+        return getId() ^ getProximityList().size();
+    }
+
     public int getId() {
         return this.zoneId;
     }
