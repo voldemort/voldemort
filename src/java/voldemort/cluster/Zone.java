@@ -49,7 +49,7 @@ public class Zone implements Serializable {
         while(proxListFirst.hasNext() && proxListSecond.hasNext()) {
             Integer first = proxListFirst.next();
             Integer second = proxListSecond.next();
-            if(first != second) {
+            if(!first.equals(second)) {
                 return false;
             }
         }
