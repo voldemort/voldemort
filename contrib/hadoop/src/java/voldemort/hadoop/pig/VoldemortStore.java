@@ -36,8 +36,6 @@ import voldemort.versioning.Versioned;
 @SuppressWarnings("unchecked")
 public class VoldemortStore extends LoadFunc {
 
-    private Configuration conf;
-
     private RecordReader reader;
 
     @Override
@@ -82,7 +80,7 @@ public class VoldemortStore extends LoadFunc {
         if(!location.startsWith("tcp://"))
             throw new IOException("The correct format is tcp://<url:port>/storeName");
         String[] subParts = location.split("/+");
-        conf = job.getConfiguration();
+        Configuration conf = job.getConfiguration();
         VoldemortHadoopConfig.setVoldemortURL(conf, subParts[0] + "//" + subParts[1]);
         VoldemortHadoopConfig.setVoldemortStoreName(conf, subParts[2]);
     }
