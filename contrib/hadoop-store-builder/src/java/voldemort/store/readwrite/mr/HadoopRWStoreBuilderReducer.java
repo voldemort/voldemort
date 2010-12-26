@@ -45,7 +45,6 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
 
     private AdminClient client;
     private int nodeId, chunkId;
-    private Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
     private long totalBytes;
     private long transferStartTime;
     private int sizeInt = ByteUtils.SIZE_OF_INT;
@@ -60,7 +59,7 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
                        final Reporter reporter) throws IOException {
         this.transferStartTime = System.nanoTime();
 
-        this.iterator = new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
 
             @Override
             protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
@@ -112,7 +111,7 @@ public class HadoopRWStoreBuilderReducer extends AbstractStoreBuilderConfigurabl
         };
         logger.info("Connecting to admin client on " + this.nodeId + " - chunk id - "
                     + this.chunkId);
-        this.client.updateEntries(this.nodeId, getStoreName(), this.iterator, null);
+        this.client.updateEntries(this.nodeId, getStoreName(), iterator, null);
         logger.info("Completed transfer of chunk id " + this.chunkId + " to node " + this.nodeId);
     }
 

@@ -29,8 +29,6 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final EventThrottler throttler;
 
-    private final ReadOnlyStorageEngine storageEngine;
-
     private final File storeDir;
 
     private final Logger logger = Logger.getLogger(getClass());
@@ -49,7 +47,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
 
-        this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
+        ReadOnlyStorageEngine storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                  storeRepository,
                                                                                  request.getStore());
 
