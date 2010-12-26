@@ -140,14 +140,6 @@ public class PerformParallelGetAllRequests
                         else
                             existing.addAll(retrieved);
                     }
-
-                    HashSet<Integer> zoneResponses = null;
-                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
-                        zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
-                    } else {
-                        zoneResponses = new HashSet<Integer>();
-                    }
-                    zoneResponses.add(response.getNode().getZoneId());
                 }
 
                 pipelineData.getResponses()
