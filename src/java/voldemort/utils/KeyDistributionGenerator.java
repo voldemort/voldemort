@@ -83,7 +83,7 @@ public class KeyDistributionGenerator {
         HashMap<Integer, Long> requestRouting = Maps.newHashMap();
         Long total = new Long(0);
         for(int i = 0; i < numKeys; i++) {
-            List<Node> nodes = strategy.routeRequest(new String("key" + i).getBytes());
+            List<Node> nodes = strategy.routeRequest(("key" + i).getBytes());
             for(Node node: nodes) {
                 Long count = requestRouting.get(node.getId());
                 if(count == null) {
