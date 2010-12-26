@@ -38,30 +38,34 @@ public class MigratePartitions {
     private final Cluster currentCluster;
     private final Cluster targetCluster;
     private final AdminClient adminClient;
-    private final List<StoreDefinition> storeDefs;
-    private final String storeDefsString;
+    private final List<StoreDefinition> currentStoreDefs;
+    private final List<StoreDefinition> targetStoreDefs;
+    private final String targetStoreDefsString;
     private List<Integer> stealerNodeIds;
     private final VoldemortConfig voldemortConfig;
 
     public MigratePartitions(Cluster currentCluster,
                              Cluster targetCluster,
-                             List<StoreDefinition> storeDefs,
+                             List<StoreDefinition> currentStoreDefs,
+                             List<StoreDefinition> targetStoreDefs,
                              AdminClient adminClient,
                              VoldemortConfig voldemortConfig,
                              List<Integer> stealerNodeIds) {
         this.currentCluster = currentCluster;
         this.targetCluster = targetCluster;
-        this.storeDefs = storeDefs;
+        this.currentStoreDefs = currentStoreDefs;
+        this.targetStoreDefs = targetStoreDefs;
         this.adminClient = adminClient;
         this.stealerNodeIds = stealerNodeIds;
         this.voldemortConfig = voldemortConfig;
-        this.storeDefsString = new StoreDefinitionsMapper().writeStoreList(storeDefs);
+        this.targetStoreDefsString = new StoreDefinitionsMapper().writeStoreList(targetStoreDefs);
     }
 
     public void migrate() {
         RebalanceClusterPlan plan = new RebalanceClusterPlan(currentCluster,
                                                              targetCluster,
-                                                             storeDefs,
+                                                             currentStoreDefs,
+                                                             targetStoreDefs,
                                                              false,
                                                              null);
 
@@ -99,7 +103,7 @@ public class MigratePartitions {
                 logger.info("Transitioning " + donorNodeId + " to grandfathering state");
                 Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
                                                                                       donorNodePlans.get(donorNodeId),
-                                                                                      storeDefsString);
+                                                                                      targetStoreDefsString);
                 if(!serverState.getValue()
                                .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
                     throw new VoldemortException("Node "
@@ -123,8 +127,8 @@ public class MigratePartitions {
                 List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
 
                 logger.info("Working on stealer node id " + stealerNodeId);
-                for(StoreDefinition storeDef: storeDefs) {
-                    logger.info("- Working on store " + storeDef.getName());
+                for(String storeName: RebalanceUtils.getStoreNames(targetStoreDefs)) {
+                    logger.info("- Working on store " + storeName);
 
                     HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
                     for(RebalancePartitionsInfo r: partitionInfo) {
@@ -132,7 +136,7 @@ public class MigratePartitions {
                         nodeIdToRequestId.put(r.getDonorId(),
                                               adminClient.migratePartitions(r.getDonorId(),
                                                                             stealerNodeId,
-                                                                            storeDef.getName(),
+                                                                            storeName,
                                                                             r.getPartitionList(),
                                                                             null));
 
@@ -179,6 +183,9 @@ public class MigratePartitions {
         parser.accepts("stores-xml", "[REQUIRED] stores xml file location")
               .withRequiredArg()
               .describedAs("path");
+        parser.accepts("target-stores-xml", "stores xml file location if changed")
+              .withRequiredArg()
+              .describedAs("path");
         parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
@@ -206,7 +213,19 @@ public class MigratePartitions {
 
         String targetClusterFile = (String) options.valueOf("target-cluster-xml");
         String currentClusterFile = (String) options.valueOf("cluster-xml");
-        String storesFile = (String) options.valueOf("stores-xml");
+        String currentStoresFile = (String) options.valueOf("stores-xml");
+        String targetStoresFile = currentStoresFile;
+
+        if(options.has("target-stores-xml")) {
+            targetStoresFile = (String) options.valueOf("target-stores-xml");
+        }
+
+        if(!Utils.isReadableFile(targetClusterFile) || !Utils.isReadableFile(currentClusterFile)
+           || !Utils.isReadableFile(currentStoresFile) || !Utils.isReadableFile(targetStoresFile)) {
+            System.err.println("Could not read metadata files from path provided");
+            parser.printHelpOn(System.err);
+            System.exit(1);
+        }
 
         List<Integer> stealerNodeIds = null;
         if(options.has("stealer-node-ids")) {
@@ -222,11 +241,13 @@ public class MigratePartitions {
                                                                1,
                                                                1);
             Cluster targetCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(targetClusterFile)));
-            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(storesFile)));
+            List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(currentStoresFile)));
+            List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(targetStoresFile)));
 
             MigratePartitions migratePartitions = new MigratePartitions(currentCluster,
                                                                         targetCluster,
-                                                                        storeDefs,
+                                                                        currentStoreDefs,
+                                                                        targetStoreDefs,
                                                                         adminClient,
                                                                         voldemortConfig,
                                                                         stealerNodeIds);

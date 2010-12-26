@@ -63,6 +63,33 @@ public class RebalanceUtils {
     }
 
     /**
+     * Checks if two lists of store definitions has the same number of stores
+     * and same stores. This is not same as
+     * {@link voldemort.store.StoreDefinition#equals(Object)} because we expect
+     * some parameters to change ( eg : rep-factor, routing strategy ) during
+     * grandfathering
+     * 
+     * @param storeDefList1
+     * @param storeDefList2
+     * @return Boolean indicating if the store definitions are same or not
+     */
+    public static boolean hasSameStores(List<StoreDefinition> storeDefList1,
+                                        List<StoreDefinition> storeDefList2) {
+        if(storeDefList1.size() != storeDefList2.size())
+            return false;
+
+        List<String> storeNames1 = RebalanceUtils.getStoreNames(storeDefList1);
+        List<String> storeNames2 = RebalanceUtils.getStoreNames(storeDefList2);
+        for(String storeName: storeNames1) {
+            if(!storeNames2.contains(storeName)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Update the cluster with desired changes as marked in rebalanceNodeInfo
      * rebalanceNodeInfo.getFirst() is the stealerNode (destinationNode) <br>
      * rebalanceNodeInfo.getSecond() is the rebalance steal info contatining
