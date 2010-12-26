@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.IOUtils;
+
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
@@ -120,6 +122,8 @@ public class ClientConfig {
             properties.load(input);
         } catch(IOException e) {
             throw new ConfigurationException(e);
+        } finally {
+            IOUtils.closeQuietly(input);
         }
         setProperties(properties);
     }
