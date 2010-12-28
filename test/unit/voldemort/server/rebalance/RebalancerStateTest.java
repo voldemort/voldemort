@@ -34,18 +34,25 @@ public class RebalancerStateTest {
 
     @Test
     public void testToJson() {
+        HashMap<String, String> roToDir = new HashMap<String, String>();
+        roToDir.put("a", "b");
+        roToDir.put("c", "d");
+        roToDir.put("e", "f");
         List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
                                                                                                            0,
                                                                                                            Arrays.asList(1,
                                                                                                                          2,
                                                                                                                          3,
                                                                                                                          4),
-                                                                                                           new ArrayList<Integer>(0),
-                                                                                                           new ArrayList<Integer>(0),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1,
+                                                                                                                         2),
                                                                                                            Arrays.asList("test1",
                                                                                                                          "test2"),
-                                                                                                           new HashMap<String, String>(),
-                                                                                                           new HashMap<String, String>(),
+                                                                                                           roToDir,
+                                                                                                           roToDir,
                                                                                                            0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,

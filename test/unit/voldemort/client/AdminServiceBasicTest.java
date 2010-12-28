@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import junit.framework.Assert;
 import junit.framework.TestCase;
 
 import org.junit.After;
@@ -42,6 +44,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -53,6 +56,7 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -64,6 +68,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
+import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -332,6 +337,91 @@ public class AdminServiceBasicTest extends TestCase {
         assertEquals("State should be changed correctly to rebalancing state",
                      MetadataStore.VoldemortState.NORMAL_SERVER,
                      state);
+    }
+
+    @Test
+    public void testUpdateGrandfatherMetadata() {
+        AdminClient client = getAdminClient();
+        HashMap<String, String> roToDir = new HashMap<String, String>();
+        roToDir.put("a", "b");
+        roToDir.put("c", "d");
+        roToDir.put("e", "f");
+        List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
+                                                                                                           0,
+                                                                                                           Arrays.asList(1,
+                                                                                                                         2,
+                                                                                                                         3,
+                                                                                                                         4),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1,
+                                                                                                                         2),
+                                                                                                           Arrays.asList("test1",
+                                                                                                                         "test2"),
+                                                                                                           roToDir,
+                                                                                                           roToDir,
+                                                                                                           0),
+                                                                               new RebalancePartitionsInfo(3,
+                                                                                                           1,
+                                                                                                           Arrays.asList(5,
+                                                                                                                         6,
+                                                                                                                         7,
+                                                                                                                         8),
+                                                                                                           new ArrayList<Integer>(0),
+                                                                                                           new ArrayList<Integer>(0),
+                                                                                                           Arrays.asList("test1",
+                                                                                                                         "test2"),
+                                                                                                           new HashMap<String, String>(),
+                                                                                                           new HashMap<String, String>(),
+                                                                                                           0));
+
+        Versioned<String> currentState = client.getRemoteMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                       .getId(),
+                                                                  MetadataStore.SERVER_STATE_KEY);
+
+        // Check if initially the server is set up correctly
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
+        // Update the metadata
+        Versioned<String> updatedState = client.updateGrandfatherMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                               .getId(),
+                                                                          rebalancePartitionsInfos);
+        assertEquals(updatedState.getValue(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER.toString());
+        assertEquals(updatedState.getVersion().compare(currentState.getVersion()), Occured.AFTER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(rebalancePartitionsInfos));
+
+        // Now try updating since its already in grandfathering state
+        try {
+            client.updateGrandfatherMetadata(getVoldemortServer(0).getIdentityNode().getId(),
+                                             new ArrayList<RebalancePartitionsInfo>());
+        } catch(VoldemortException e) {
+            Assert.fail("Should have thrown an exception");
+        }
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(rebalancePartitionsInfos));
+
+        // Lets set the state of the server back to normal
+        VectorClock updatedVectorClock = ((VectorClock) updatedState.getVersion()).incremented(getVoldemortServer(0).getIdentityNode()
+                                                                                                                    .getId(),
+                                                                                               System.currentTimeMillis());
+        adminClient.updateRemoteMetadata(getVoldemortServer(0).getIdentityNode().getId(),
+                                         MetadataStore.SERVER_STATE_KEY,
+                                         Versioned.value(MetadataStore.VoldemortState.NORMAL_SERVER.toString(),
+                                                         updatedVectorClock));
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.NORMAL_SERVER);
+
+        Versioned<String> newState = client.getRemoteMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                   .getId(),
+                                                              MetadataStore.SERVER_STATE_KEY);
+        assertTrue(((VectorClock) newState.getVersion()).equals(updatedVectorClock));
     }
 
     @Test

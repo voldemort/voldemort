@@ -1680,15 +1680,11 @@ public class AdminClient {
      * 
      * @param donorNodeId The node id on which to update the metadata
      * @param plan The list of all migrating partitions
-     * @param storeDefsString Contains the stores.xml as a string - This is
-     *        required since we may be updating the store definitions as a part
-     *        of the grandfathering
      * @return Returns the current state of the server. If we get back a state
      *         other than rebalancing it means we have a problem
      */
     public Versioned<String> updateGrandfatherMetadata(int donorNodeId,
-                                                       List<RebalancePartitionsInfo> plans,
-                                                       String storeDefsString) {
+                                                       List<RebalancePartitionsInfo> plans) {
         List<VAdminProto.InitiateRebalanceNodeRequest> rebalanceRequests = Lists.newArrayList();
 
         for(RebalancePartitionsInfo plan: plans) {
@@ -1706,7 +1702,6 @@ public class AdminClient {
         }
 
         UpdateGrandfatherMetadataRequest metadataRequest = VAdminProto.UpdateGrandfatherMetadataRequest.newBuilder()
-                                                                                                       .setStoresDef(storeDefsString)
                                                                                                        .addAllPlan(rebalanceRequests)
                                                                                                        .build();
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()

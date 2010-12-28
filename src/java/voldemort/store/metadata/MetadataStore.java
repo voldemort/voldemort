@@ -440,7 +440,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(GRANDFATHERING_INFO,
-                  new GrandfatherState(new ArrayList<RebalancePartitionsInfo>(), (List) null, null));
+                  new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
 
         // set transient values
@@ -496,9 +496,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             RebalancerState rebalancerState = (RebalancerState) value.getValue();
             valueStr = rebalancerState.toJsonString();
         } else if(GRANDFATHERING_INFO.equals(key)) {
-            // GrandfatherState grandfatherState = (GrandfatherState)
-            // value.getValue();
-            // valueStr = grandfatherState.toJsonString();
+            GrandfatherState grandfatherState = (GrandfatherState) value.getValue();
+            valueStr = grandfatherState.toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
         } else {
@@ -538,13 +537,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
                 valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
             }
         } else if(GRANDFATHERING_INFO.equals(key)) {
-            // String valueString = value.getValue();
-            // if(valueString.startsWith("[")) {
-            // valueObject = GrandfatherState.create(valueString);
-            // } else {
-            // valueObject = new
-            // GrandfatherState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
-            // }
+            String valueString = value.getValue();
+            if(valueString.startsWith("[")) {
+                valueObject = GrandfatherState.create(valueString);
+            } else {
+                valueObject = new GrandfatherState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
+            }
         } else {
             throw new VoldemortException("Unhandled key:'" + key
                                          + "' for String to Object serialization.");

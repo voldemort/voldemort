@@ -222,8 +222,7 @@ message SwapStoresAndCleanStateResponse {
 }
 
 message UpdateGrandfatherMetadataRequest {
-  required string storesDef = 1;
-  repeated InitiateRebalanceNodeRequest plan = 2;
+  repeated InitiateRebalanceNodeRequest plan = 1;
 }
 
 message UpdateGrandfatherMetadataResponse {

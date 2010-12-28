@@ -15,12 +15,14 @@ package voldemort.store.grandfather;
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.store.DelegatingStore;
 import voldemort.store.StorageEngine;
@@ -29,6 +31,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -55,7 +58,6 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
             throw new VoldemortException("Grandfathering cannot run without initialization of slop engine",
                                          e);
         }
-
         this.slopStore = slopEngine.asSlopStore();
         try {
             this.isReadOnly = metadata.getStoreDef(getName())
@@ -64,6 +66,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
         } catch(Exception e) {
             this.isReadOnly = false;
         }
+
     }
 
     @Override
@@ -72,7 +75,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
     }
 
     @Override
-    public boolean delete(ByteArray key, Version version) throws VoldemortException {
+    public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
         if(isReadOnly)
             throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
 
@@ -81,13 +84,40 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
          * put a delete slop
          */
         if(metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
-            RoutingStrategy strategy = metadata.getGrandfatherState().getRoutingStrategy(getName());
-            if(strategy != null) {
+            final List<Integer> mappedPartitions = metadata.getRoutingStrategy(getName())
+                                                           .getPartitionList(key.get());
+            List<Integer> currentPartitions = metadata.getCluster()
+                                                      .getNodeById(metadata.getNodeId())
+                                                      .getPartitionIds();
+            mappedPartitions.removeAll(currentPartitions);
+
+            if(mappedPartitions.size() != 1) {
+                logger.error("Received key which mapped to multiple partitions on single node");
+            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)) != null) {
                 this.threadPool.execute(new Runnable() {
 
                     public void run() {
                         try {
-
+                            Date date = new Date();
+                            Set<Integer> futureNodeIds = metadata.getGrandfatherState()
+                                                                 .findNodeIds(mappedPartitions.get(0));
+                            for(int futureNodeId: futureNodeIds) {
+                                Slop slop = new Slop(getName(),
+                                                     Operation.DELETE,
+                                                     key,
+                                                     null,
+                                                     null,
+                                                     futureNodeId,
+                                                     date);
+                                try {
+                                    slopStore.put(slop.makeKey(),
+                                                  Versioned.value(slop, version),
+                                                  null);
+                                } catch(Exception e) {
+                                    logger.warn("Failed to put DELETE operation on " + getName()
+                                                + " to node " + futureNodeId);
+                                }
+                            }
                         } catch(Exception e) {
                             logger.warn("Failed to put DELETE operation on " + getName()
                                         + " to slop store", e);
@@ -101,7 +131,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
     }
 
     @Override
-    public void put(ByteArray key, Versioned<byte[]> value, byte[] transform)
+    public void put(final ByteArray key, final Versioned<byte[]> value, final byte[] transform)
             throws VoldemortException {
         if(this.isReadOnly)
             throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
@@ -111,16 +141,42 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
          * put a put slop
          */
         if(metadata.getServerState().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
-            RoutingStrategy strategy = metadata.getGrandfatherState().getRoutingStrategy(getName());
-            if(strategy != null) {
+            final List<Integer> mappedPartitions = metadata.getRoutingStrategy(getName())
+                                                           .getPartitionList(key.get());
+            List<Integer> currentPartitions = metadata.getCluster()
+                                                      .getNodeById(metadata.getNodeId())
+                                                      .getPartitionIds();
+            mappedPartitions.removeAll(currentPartitions);
 
+            if(mappedPartitions.size() != 1) {
+                logger.error("Received key which mapped to multiple partitions on single node");
+            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)) != null) {
                 this.threadPool.execute(new Runnable() {
 
                     public void run() {
                         try {
-                            // Put into slop store
+                            Date date = new Date();
+                            Set<Integer> futureNodeIds = metadata.getGrandfatherState()
+                                                                 .findNodeIds(mappedPartitions.get(0));
+                            for(int futureNodeId: futureNodeIds) {
+                                Slop slop = new Slop(getName(),
+                                                     Operation.DELETE,
+                                                     key,
+                                                     value.getValue(),
+                                                     transform,
+                                                     futureNodeId,
+                                                     date);
+                                try {
+                                    slopStore.put(slop.makeKey(),
+                                                  Versioned.value(slop, value.getVersion()),
+                                                  null);
+                                } catch(Exception e) {
+                                    logger.warn("Failed to put DELETE operation on " + getName()
+                                                + " to node " + futureNodeId);
+                                }
+                            }
                         } catch(Exception e) {
-                            logger.warn("Failed to put PUT operation on " + getName()
+                            logger.warn("Failed to put DELETE operation on " + getName()
                                         + " to slop store", e);
                         }
                     }
@@ -130,5 +186,4 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
 
         getInnerStore().put(key, value, transform);
     }
-
 }
