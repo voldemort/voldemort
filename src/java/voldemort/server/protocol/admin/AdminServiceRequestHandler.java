@@ -260,6 +260,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 metadataStore.put(MetadataStore.GRANDFATHERING_INFO, new GrandfatherState(plans));
                 metadataStore.put(MetadataStore.SERVER_STATE_KEY,
                                   MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+            } else {
+                throw new VoldemortException("Voldemort server was not in normal state");
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));

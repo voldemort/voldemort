@@ -492,7 +492,7 @@ public class ServerTestUtils {
                                                              int nodeId,
                                                              String baseDir,
                                                              Cluster cluster,
-                                                             ArrayList<StoreDefinition> stores,
+                                                             List<StoreDefinition> stores,
                                                              Properties properties)
             throws IOException {
 

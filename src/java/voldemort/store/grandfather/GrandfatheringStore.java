@@ -160,7 +160,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                                  .findNodeIds(mappedPartitions.get(0));
                             for(int futureNodeId: futureNodeIds) {
                                 Slop slop = new Slop(getName(),
-                                                     Operation.DELETE,
+                                                     Operation.PUT,
                                                      key,
                                                      value.getValue(),
                                                      transform,
@@ -171,12 +171,12 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                   Versioned.value(slop, value.getVersion()),
                                                   null);
                                 } catch(Exception e) {
-                                    logger.warn("Failed to put DELETE operation on " + getName()
+                                    logger.warn("Failed to put PUT operation on " + getName()
                                                 + " to node " + futureNodeId);
                                 }
                             }
                         } catch(Exception e) {
-                            logger.warn("Failed to put DELETE operation on " + getName()
+                            logger.warn("Failed to put PUT operation on " + getName()
                                         + " to slop store", e);
                         }
                     }

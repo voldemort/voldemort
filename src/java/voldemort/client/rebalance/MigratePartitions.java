@@ -13,14 +13,15 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
+import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -50,9 +51,9 @@ public class MigratePartitions {
                              AdminClient adminClient,
                              VoldemortConfig voldemortConfig,
                              List<Integer> stealerNodeIds) {
-        this.adminClient = adminClient;
+        this.adminClient = Utils.notNull(adminClient);
         this.stealerNodeIds = stealerNodeIds;
-        this.voldemortConfig = voldemortConfig;
+        this.voldemortConfig = Utils.notNull(voldemortConfig);
         RebalanceClusterPlan plan = new RebalanceClusterPlan(currentCluster,
                                                              targetCluster,
                                                              currentStoreDefs,
@@ -84,7 +85,6 @@ public class MigratePartitions {
             }
         }
         this.donorStates = Maps.newHashMap();
-        logger.info("Stealer nodes being worked on " + this.stealerNodeIds);
     }
 
     /**
@@ -104,7 +104,8 @@ public class MigratePartitions {
             logger.info("Transitioning " + donorNodeId + " to grandfathering state");
             Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
                                                                                   donorNodePlans.get(donorNodeId));
-            if(!serverState.getValue().equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+            if(!VoldemortState.valueOf(serverState.getValue())
+                              .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
                 throw new VoldemortException("Node " + donorNodeId
                                              + " is not in normal state to perform grandfathering");
             }
@@ -136,11 +137,14 @@ public class MigratePartitions {
 
     public void migrate() {
 
+        if(donorNodePlans.size() == 0) {
+            logger.info("Nothing to move around");
+            return;
+        }
         /**
          * Lets move all the donor nodes into grandfathering state. First
          * generate all donor node ids and corresponding migration plans
          */
-
         logger.info("Changing state of donor nodes " + donorNodePlans.keySet());
 
         try {
@@ -188,6 +192,7 @@ public class MigratePartitions {
 
             }
         } finally {
+
             // Move all nodes in grandfathered state back to normal
             if(donorStates != null) {
                 changeToNormal();
@@ -257,7 +262,7 @@ public class MigratePartitions {
 
         AdminClient adminClient = null;
         try {
-            VoldemortConfig voldemortConfig = new VoldemortConfig(new Props());
+            VoldemortConfig voldemortConfig = ServerTestUtils.getVoldemortConfig();
             Cluster currentCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(currentClusterFile)));
             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                currentCluster,

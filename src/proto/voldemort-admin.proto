@@ -226,7 +226,7 @@ message UpdateGrandfatherMetadataRequest {
 }
 
 message UpdateGrandfatherMetadataResponse {
-  required Versioned version = 1;
+  optional Versioned version = 1;
   optional Error error = 2;
 }
 

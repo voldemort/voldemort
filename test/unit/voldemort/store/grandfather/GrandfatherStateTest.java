@@ -62,7 +62,7 @@ public class GrandfatherStateTest {
                                                                          / NUM_PARTITIONS_PER_NODE));
         }
 
-        partitionsInfo = dummyPartitionsInfo(5, 4, true);
+        partitionsInfo = dummyPartitionsInfo(NUM_NODES, NUM_PARTITIONS_PER_NODE, true);
         state = new GrandfatherState(partitionsInfo);
 
         for(int partitionId = 0; partitionId < NUM_NODES * NUM_PARTITIONS_PER_NODE; partitionId++) {
