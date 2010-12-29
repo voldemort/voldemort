@@ -89,11 +89,11 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
             List<Integer> currentPartitions = metadata.getCluster()
                                                       .getNodeById(metadata.getNodeId())
                                                       .getPartitionIds();
-            mappedPartitions.removeAll(currentPartitions);
+            mappedPartitions.retainAll(currentPartitions);
 
             if(mappedPartitions.size() != 1) {
                 logger.error("Received key which mapped to multiple partitions on single node");
-            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)) != null) {
+            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)).size() != 0) {
                 this.threadPool.execute(new Runnable() {
 
                     public void run() {
@@ -115,7 +115,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                   null);
                                 } catch(Exception e) {
                                     logger.warn("Failed to put DELETE operation on " + getName()
-                                                + " to node " + futureNodeId);
+                                                + " to node " + futureNodeId + " to slop store");
                                 }
                             }
                         } catch(Exception e) {
@@ -146,11 +146,11 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
             List<Integer> currentPartitions = metadata.getCluster()
                                                       .getNodeById(metadata.getNodeId())
                                                       .getPartitionIds();
-            mappedPartitions.removeAll(currentPartitions);
+            mappedPartitions.retainAll(currentPartitions);
 
             if(mappedPartitions.size() != 1) {
                 logger.error("Received key which mapped to multiple partitions on single node");
-            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)) != null) {
+            } else if(metadata.getGrandfatherState().findNodeIds(mappedPartitions.get(0)).size() != 0) {
                 this.threadPool.execute(new Runnable() {
 
                     public void run() {
@@ -172,7 +172,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                   null);
                                 } catch(Exception e) {
                                     logger.warn("Failed to put PUT operation on " + getName()
-                                                + " to node " + futureNodeId);
+                                                + " to node " + futureNodeId + " to slop store");
                                 }
                             }
                         } catch(Exception e) {
