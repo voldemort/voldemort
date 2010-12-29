@@ -15859,7 +15859,7 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_UpdateGrandfatherMetadataResponse_fieldAccessorTable;
     }
     
-    // optional .voldemort.Versioned version = 1;
+    // required .voldemort.Versioned version = 1;
     public static final int VERSION_FIELD_NUMBER = 1;
     private boolean hasVersion;
     private voldemort.client.protocol.pb.VProto.Versioned version_;
@@ -15878,9 +15878,8 @@ public final class VAdminProto {
       error_ = voldemort.client.protocol.pb.VProto.Error.getDefaultInstance();
     }
     public final boolean isInitialized() {
-      if (hasVersion()) {
-        if (!getVersion().isInitialized()) return false;
-      }
+      if (!hasVersion) return false;
+      if (!getVersion().isInitialized()) return false;
       if (hasError()) {
         if (!getError().isInitialized()) return false;
       }
@@ -16125,7 +16124,7 @@ public final class VAdminProto {
       }
       
       
-      // optional .voldemort.Versioned version = 1;
+      // required .voldemort.Versioned version = 1;
       public boolean hasVersion() {
         return result.hasVersion();
       }
@@ -18303,7 +18302,7 @@ public final class VAdminProto {
       "erMetadataRequest\0225\n\004plan\030\001 \003(\0132\'.voldem" +
       "ort.InitiateRebalanceNodeRequest\"k\n!Upda" +
       "teGrandfatherMetadataResponse\022%\n\007version" +
-      "\030\001 \001(\0132\024.voldemort.Versioned\022\037\n\005error\030\002 " +
+      "\030\001 \002(\0132\024.voldemort.Versioned\022\037\n\005error\030\002 " +
       "\001(\0132\020.voldemort.Error\"\367\013\n\025VoldemortAdmin" +
       "Request\022)\n\004type\030\001 \002(\0162\033.voldemort.AdminR" +
       "equestType\0223\n\014get_metadata\030\002 \001(\0132\035.volde" +

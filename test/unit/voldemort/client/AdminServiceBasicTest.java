@@ -44,7 +44,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
-import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -399,8 +398,9 @@ public class AdminServiceBasicTest extends TestCase {
         try {
             client.updateGrandfatherMetadata(getVoldemortServer(0).getIdentityNode().getId(),
                                              new ArrayList<RebalancePartitionsInfo>());
-        } catch(VoldemortException e) {
             Assert.fail("Should have thrown an exception");
+        } catch(Exception e) {
+
         }
         assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
                      MetadataStore.VoldemortState.GRANDFATHERING_SERVER);

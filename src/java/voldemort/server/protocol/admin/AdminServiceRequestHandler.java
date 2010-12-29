@@ -267,7 +267,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleUpdateGrandfatherMetadata failed for request(" + request.toString()
                          + ")", e);
-            return response.build();
         }
 
         Versioned<byte[]> versioned = metadataStore.get(MetadataStore.SERVER_STATE_KEY, null)
