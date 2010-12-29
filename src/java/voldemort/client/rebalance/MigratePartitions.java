@@ -1,10 +1,12 @@
 package voldemort.client.rebalance;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -13,7 +15,6 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
-import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
@@ -262,7 +263,7 @@ public class MigratePartitions {
 
         AdminClient adminClient = null;
         try {
-            VoldemortConfig voldemortConfig = ServerTestUtils.getVoldemortConfig();
+            VoldemortConfig voldemortConfig = createTempVoldemortConfig();
             Cluster currentCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(currentClusterFile)));
             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                currentCluster,
@@ -287,5 +288,16 @@ public class MigratePartitions {
             if(adminClient != null)
                 adminClient.stop();
         }
+    }
+
+    public static VoldemortConfig createTempVoldemortConfig() {
+        File temp = new File(System.getProperty("java.io.tmpdir"),
+                             Integer.toString(new Random().nextInt()));
+        temp.delete();
+        temp.mkdir();
+        temp.deleteOnExit();
+        VoldemortConfig config = new VoldemortConfig(0, temp.getAbsolutePath());
+        new File(config.getMetadataDirectory()).mkdir();
+        return config;
     }
 }
