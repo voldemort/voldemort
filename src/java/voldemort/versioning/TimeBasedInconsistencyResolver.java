@@ -43,4 +43,17 @@ public class TimeBasedInconsistencyResolver<T> implements InconsistencyResolver<
             return Collections.singletonList(max);
         }
     }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if(o == this)
+            return true;
+        return (o instanceof TimeBasedInconsistencyResolver);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * this.getClass().hashCode();
+    }
 }

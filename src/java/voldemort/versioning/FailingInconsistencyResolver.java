@@ -31,4 +31,17 @@ public class FailingInconsistencyResolver<T> implements InconsistencyResolver<T>
         else
             return items;
     }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if(o == this)
+            return true;
+        return (o instanceof FailingInconsistencyResolver);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * this.getClass().hashCode();
+    }
 }

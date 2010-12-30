@@ -41,4 +41,15 @@ public class ArbitraryInconsistencyResolver<T> implements InconsistencyResolver<
             return Collections.singletonList(values.get(0));
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if(o == this)
+            return true;
+        return (o instanceof ArbitraryInconsistencyResolver);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * this.getClass().hashCode();
+    }
 }

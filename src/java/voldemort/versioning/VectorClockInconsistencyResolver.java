@@ -54,4 +54,16 @@ public class VectorClockInconsistencyResolver<T> implements InconsistencyResolve
         }
         return newItems;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(o == this)
+            return true;
+        return (o instanceof VectorClockInconsistencyResolver);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * this.getClass().hashCode();
+    }
 }
