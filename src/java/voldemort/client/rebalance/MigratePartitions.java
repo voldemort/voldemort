@@ -186,8 +186,7 @@ public class MigratePartitions {
                                                       nodeIdToRequestId.get(nodeId),
                                                       voldemortConfig.getRebalancingTimeout(),
                                                       TimeUnit.SECONDS);
-                        logger.info("-- Completed migration for donor node id "
-                                    + nodeIdToRequestId.get(nodeId));
+                        logger.info("-- Completed migration for donor node id " + nodeId);
                     }
                 }
 

@@ -3,13 +3,10 @@ package voldemort.client.rebalance;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.Map.Entry;
 
 import junit.framework.Assert;
 
@@ -23,27 +20,15 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
-import voldemort.store.StorageEngine;
-import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.slop.Slop;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -52,7 +37,6 @@ public class MigratePartitionsTest {
 
     private final int NUM_NODES = 2;
     private final int NUM_ZONES = 2;
-    private static int TEST_VALUES_SIZE = 1000;
     private VoldemortServer voldemortServer[];
 
     private Cluster consistentRoutingCluster;
@@ -62,7 +46,6 @@ public class MigratePartitionsTest {
     private StoreDefinition afterStoreDef;
     private AdminClient adminClient;
     private VoldemortConfig voldemortConfig;
-    private RoutingStrategy routingStrategy;
 
     @Before
     public void setUp() throws IOException {
@@ -157,8 +140,6 @@ public class MigratePartitionsTest {
                                                     HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                     RoutingStrategyType.ZONE_STRATEGY);
         voldemortServer = new VoldemortServer[NUM_NODES];
-        routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(beforeStoreDef,
-                                                                             consistentRoutingCluster);
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             voldemortServer[nodeId] = startServer(nodeId,
@@ -198,199 +179,6 @@ public class MigratePartitionsTest {
             // ignore exceptions here
         }
 
-    }
-
-    @Test
-    public void testDelete() throws InterruptedException {
-        // First test will have a migration plan for one partition
-        RebalancePartitionsInfo info = new RebalancePartitionsInfo(NUM_NODES - 1,
-                                                                   0,
-                                                                   Lists.newArrayList(0),
-                                                                   new ArrayList<Integer>(),
-                                                                   new ArrayList<Integer>(),
-                                                                   new ArrayList<String>(),
-                                                                   new HashMap<String, String>(),
-                                                                   new HashMap<String, String>(),
-                                                                   0);
-        voldemortServer[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                                  VoldemortState.GRANDFATHERING_SERVER);
-        voldemortServer[0].getMetadataStore().put(MetadataStore.GRANDFATHERING_INFO,
-                                                  new GrandfatherState(Lists.newArrayList(info)));
-
-        // Random key-values
-        Map<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
-
-        Store<ByteArray, byte[], byte[]> store = voldemortServer[0].getStoreRepository()
-                                                                   .getLocalStore("consistent_to_zone_store");
-
-        Map<ByteArray, byte[]> entriesMigrating = Maps.newHashMap();
-        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            List<Integer> partitions = routingStrategy.getPartitionList(entry.getKey().get());
-            if(hasOverLap(partitions, consistentRoutingCluster.getNodeById(0).getPartitionIds())) {
-                VectorClock vectorClock = new VectorClock();
-                vectorClock.incrementVersion(0, System.currentTimeMillis());
-                store.delete(entry.getKey(), vectorClock);
-            }
-            if(partitions.contains(0))
-                entriesMigrating.put(entry.getKey(), entry.getValue());
-        }
-
-        // Check that no slops made through
-        StorageEngine<ByteArray, Slop, byte[]> slopEngine = voldemortServer[0].getStoreRepository()
-                                                                              .getSlopStore()
-                                                                              .asSlopStore();
-        Thread.sleep(1000);
-        checkSlopStore(slopEngine, entriesMigrating, Slop.Operation.DELETE);
-    }
-
-    @Test
-    public void testPutsWithPlan() throws InterruptedException {
-        // First test will have a migration plan for one partition
-        RebalancePartitionsInfo info = new RebalancePartitionsInfo(NUM_NODES - 1,
-                                                                   0,
-                                                                   Lists.newArrayList(0),
-                                                                   new ArrayList<Integer>(),
-                                                                   new ArrayList<Integer>(),
-                                                                   new ArrayList<String>(),
-                                                                   new HashMap<String, String>(),
-                                                                   new HashMap<String, String>(),
-                                                                   0);
-        voldemortServer[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                                  VoldemortState.GRANDFATHERING_SERVER);
-        voldemortServer[0].getMetadataStore().put(MetadataStore.GRANDFATHERING_INFO,
-                                                  new GrandfatherState(Lists.newArrayList(info)));
-
-        // Random key-values
-        Map<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
-
-        Store<ByteArray, byte[], byte[]> store = voldemortServer[0].getStoreRepository()
-                                                                   .getLocalStore("consistent_to_zone_store");
-
-        Map<ByteArray, byte[]> entriesMigrating = Maps.newHashMap();
-        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            List<Integer> partitions = routingStrategy.getPartitionList(entry.getKey().get());
-            if(hasOverLap(partitions, consistentRoutingCluster.getNodeById(0).getPartitionIds())) {
-                VectorClock vectorClock = new VectorClock();
-                vectorClock.incrementVersion(0, System.currentTimeMillis());
-                store.put(entry.getKey(), Versioned.value(entry.getValue(), vectorClock), null);
-            }
-            if(partitions.contains(0))
-                entriesMigrating.put(entry.getKey(), entry.getValue());
-        }
-
-        // Check that no slops made through
-        StorageEngine<ByteArray, Slop, byte[]> slopEngine = voldemortServer[0].getStoreRepository()
-                                                                              .getSlopStore()
-                                                                              .asSlopStore();
-        Thread.sleep(1000);
-        checkSlopStore(slopEngine, entriesMigrating, Slop.Operation.PUT);
-
-        // Second test - Move all partitions on node 0 to node NUM_NODES-1
-        info = new RebalancePartitionsInfo(NUM_NODES - 1,
-                                           0,
-                                           consistentRoutingCluster.getNodeById(0)
-                                                                   .getPartitionIds(),
-                                           new ArrayList<Integer>(),
-                                           new ArrayList<Integer>(),
-                                           new ArrayList<String>(),
-                                           new HashMap<String, String>(),
-                                           new HashMap<String, String>(),
-                                           0);
-        voldemortServer[0].getMetadataStore().put(MetadataStore.GRANDFATHERING_INFO,
-                                                  new GrandfatherState(Lists.newArrayList(info)));
-
-        entriesMigrating = Maps.newHashMap();
-        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            List<Integer> partitions = routingStrategy.getPartitionList(entry.getKey().get());
-            if(hasOverLap(partitions, consistentRoutingCluster.getNodeById(0).getPartitionIds())) {
-                VectorClock vectorClock = new VectorClock();
-                vectorClock.incrementVersion(0, System.currentTimeMillis());
-                try {
-                    store.put(entry.getKey(), Versioned.value(entry.getValue(), vectorClock), null);
-                } catch(ObsoleteVersionException e) {}
-                entriesMigrating.put(entry.getKey(), entry.getValue());
-            }
-        }
-        Thread.sleep(1000);
-        checkSlopStore(slopEngine, entriesMigrating, Slop.Operation.PUT);
-    }
-
-    private void checkSlopStore(StorageEngine<ByteArray, Slop, byte[]> slopEngine,
-                                Map<ByteArray, byte[]> entriesMigrating,
-                                Slop.Operation operation) {
-        int count = 0;
-        ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = null;
-        try {
-            iterator = slopEngine.entries();
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<Slop>> slopStored = iterator.next();
-                Slop slop = slopStored.getSecond().getValue();
-                Assert.assertEquals(slop.getNodeId(), NUM_NODES - 1);
-                Assert.assertEquals(slop.getStoreName(), "consistent_to_zone_store");
-                Assert.assertEquals(slop.getOperation(), operation);
-                if(Slop.Operation.PUT.equals(operation))
-                    Assert.assertEquals(ByteUtils.compare(slop.getValue(),
-                                                          entriesMigrating.get(slop.getKey())), 0);
-                count++;
-                // Clear up slop for next test
-                slopEngine.delete(slopStored.getFirst(), slopStored.getSecond().getVersion());
-            }
-            Assert.assertEquals(count, entriesMigrating.size());
-        } finally {
-            if(iterator != null)
-                iterator.close();
-        }
-    }
-
-    @Test
-    public void testPutsWithNoPlan() {
-
-        // First test will put one server in grandfather state forcefully. The
-        // plan should have no migration for any of the partitions. In other
-        // words, no slops should be stored
-        voldemortServer[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                                  VoldemortState.GRANDFATHERING_SERVER);
-        voldemortServer[0].getMetadataStore()
-                          .put(MetadataStore.GRANDFATHERING_INFO,
-                               new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
-
-        // Random key-values
-        Map<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
-
-        Store<ByteArray, byte[], byte[]> store = voldemortServer[0].getStoreRepository()
-                                                                   .getLocalStore("consistent_to_zone_store");
-
-        for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            List<Integer> partitions = routingStrategy.getPartitionList(entry.getKey().get());
-            if(hasOverLap(partitions, consistentRoutingCluster.getNodeById(0).getPartitionIds()))
-                store.put(entry.getKey(),
-                          Versioned.value(entry.getValue(),
-                                          new VectorClock().incremented(0,
-                                                                        System.currentTimeMillis())),
-                          null);
-        }
-
-        // Check that no slops made through
-        StorageEngine<ByteArray, Slop, byte[]> slopEngine = voldemortServer[0].getStoreRepository()
-                                                                              .getSlopStore()
-                                                                              .asSlopStore();
-        int count = 0;
-        ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = slopEngine.entries();
-        while(iterator.hasNext()) {
-            iterator.next();
-            count++;
-        }
-        Assert.assertEquals(count, 0);
-
-    }
-
-    private boolean hasOverLap(List<Integer> list1, List<Integer> list2) {
-        List<Integer> list1Replica = Lists.newArrayList(list1);
-        list1Replica.retainAll(list2);
-        if(list1Replica.size() != 0)
-            return true;
-        else
-            return false;
     }
 
     @Test
