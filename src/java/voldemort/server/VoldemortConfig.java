@@ -103,7 +103,7 @@ public class VoldemortConfig implements Serializable {
 
     private int schedulerThreads;
 
-    private int numCleanupPermits;
+    private int numScanPermits;
 
     private RequestFormatType requestFormatType;
 
@@ -278,7 +278,7 @@ public class VoldemortConfig implements Serializable {
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
 
-        this.numCleanupPermits = props.getInt("num.cleanup.permits", 1);
+        this.numScanPermits = props.getInt("num.scan.permits", 1);
 
         this.storageConfigurations = props.getList("storage.configs",
                                                    ImmutableList.of(BdbStorageConfiguration.class.getName(),
@@ -1095,12 +1095,12 @@ public class VoldemortConfig implements Serializable {
         this.enableServerRouting = enableServerRouting;
     }
 
-    public int getNumCleanupPermits() {
-        return numCleanupPermits;
+    public int getNumScanPermits() {
+        return numScanPermits;
     }
 
-    public void setNumCleanupPermits(int numCleanupPermits) {
-        this.numCleanupPermits = numCleanupPermits;
+    public void setNumScanPermits(int numScanPermits) {
+        this.numScanPermits = numScanPermits;
     }
 
     public String getFailureDetectorImplementation() {
