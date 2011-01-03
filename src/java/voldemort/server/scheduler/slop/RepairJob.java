@@ -3,10 +3,15 @@ package voldemort.server.scheduler.slop;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
+
+import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
@@ -21,6 +26,8 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Maps;
+
 public class RepairJob implements Runnable {
 
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
@@ -30,11 +37,34 @@ public class RepairJob implements Runnable {
     private final Semaphore repairPermits;
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
+    private final Map<String, Long> storeStats;
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
+        this.storeStats = Maps.newHashMap();
+
+    }
+
+    @JmxOperation(description = "Get repair slops per store", impact = MBeanOperationInfo.ACTION)
+    public long getRepairSlopsPerStore(String storeName) {
+        if(!storeStats.containsKey(storeName))
+            return 0L;
+        return storeStats.get(storeName);
+    }
+
+    @JmxGetter(name = "totalRepairSlops", description = "total repair slops")
+    public long totalRepairSlops() {
+        Long totalRepairSlops = new Long(0);
+        for(Long repairSlops: storeStats.values()) {
+            totalRepairSlops += repairSlops;
+        }
+        return totalRepairSlops;
+    }
+
+    public void resetStats(Map<String, Long> storeStatistics) {
+        storeStats.putAll(storeStatistics);
     }
 
     public void run() {
@@ -48,7 +78,13 @@ public class RepairJob implements Runnable {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
 
         Date startTime = new Date();
+        boolean terminatedEarly = false;
         logger.info("Started repair job at " + startTime);
+
+        Map<String, Long> localStats = Maps.newHashMap();
+        for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
+            localStats.put(storeDef.getName(), 0L);
+        }
 
         acquireRepairPermit();
         try {
@@ -67,7 +103,7 @@ public class RepairJob implements Runnable {
                     // Lets generate routing strategy for this storage engine
                     RoutingStrategy routingStrategy = routingStrategyFactory.updateRoutingStrategy(storeDef,
                                                                                                    metadataStore.getCluster());
-
+                    long repairSlops = 0L;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
@@ -86,16 +122,25 @@ public class RepairJob implements Runnable {
                                                                                     keyAndVal.getSecond()
                                                                                              .getVersion());
                                 slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
+                                repairSlops++;
                             }
                         }
                     }
                     iterator.close();
+                    localStats.put(storeDef.getName(), repairSlops);
                     logger.info("Completed store " + storeDef.getName());
                 }
             }
+        } catch(Exception e) {
+            logger.error(e, e);
+            terminatedEarly = true;
         } finally {
             if(iterator != null)
                 iterator.close();
+
+            if(!terminatedEarly) {
+                resetStats(localStats);
+            }
             this.repairPermits.release();
             logger.info("Completed repair job started at " + startTime);
         }
