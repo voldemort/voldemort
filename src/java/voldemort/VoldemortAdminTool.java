@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -45,10 +45,13 @@ import org.codehaus.jackson.map.ObjectMapper;
 import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -124,7 +127,8 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("input-directory")
               .ofType(String.class);
-        parser.accepts("get-metadata", "retreive metadata information [stores.xml | cluster.xml]")
+        parser.accepts("get-metadata",
+                       "retreive metadata information [stores.xml | cluster.xml | server.state]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -135,6 +139,14 @@ public class VoldemortAdminTool {
         parser.accepts("truncate", "truncate a store")
               .withRequiredArg()
               .describedAs("store-name")
+              .ofType(String.class);
+        parser.accepts("set-state",
+                       "change the state of nodes to " + MetadataStore.VoldemortState.NORMAL_SERVER
+                               + " [default] , "
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ", "
+                               + MetadataStore.VoldemortState.GRANDFATHERING_SERVER)
+              .withRequiredArg()
+              .describedAs("state")
               .ofType(String.class);
 
         OptionSet options = parser.parse(args);
@@ -148,7 +160,9 @@ public class VoldemortAdminTool {
         if(missing.size() > 0) {
             // Not the most elegant way to do this
             if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
-                                                             || options.has("delete-store") || options.has("ro-version")))) {
+                                                             || options.has("delete-store")
+                                                             || options.has("ro-version")
+                                                             || options.has("set-state") || options.has("get-metadata")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -192,8 +206,11 @@ public class VoldemortAdminTool {
         if(options.has("truncate")) {
             ops += "t";
         }
+        if(options.has("set-state")) {
+            ops += "c";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-state) must be specified");
         }
 
         List<String> storeNames = null;
@@ -275,9 +292,47 @@ public class VoldemortAdminTool {
                 String storeName = (String) options.valueOf("truncate");
                 executeTruncateStore(nodeId, adminClient, storeName);
             }
+            if(ops.contains("c")) {
+                String state = (String) options.valueOf("set-state");
+                executeSetState(nodeId, adminClient, state);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    public static void executeSetState(Integer nodeId,
+                                       AdminClient adminClient,
+                                       String newStateString) {
+        VoldemortState newState = VoldemortState.valueOf(newStateString);
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
+        } else {
+            nodeIds.add(nodeId);
+        }
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println("Setting state for "
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
+            Versioned<String> currentState = adminClient.getRemoteMetadata(currentNodeId,
+                                                                           MetadataStore.SERVER_STATE_KEY);
+            if(!newState.equals(VoldemortState.valueOf(currentState.getValue()))) {
+                VectorClock updatedVersion = ((VectorClock) currentState.getVersion()).incremented(currentNodeId,
+                                                                                                   System.currentTimeMillis());
+                adminClient.updateRemoteMetadata(currentNodeId,
+                                                 MetadataStore.SERVER_STATE_KEY,
+                                                 Versioned.value(newState.toString(),
+                                                                 updatedVersion));
+            }
         }
     }
 
@@ -310,7 +365,7 @@ public class VoldemortAdminTool {
             } else if(versionType.compareTo("current") == 0) {
                 storeToVersion = adminClient.getROCurrentVersion(nodeId, storeNames);
             } else {
-                System.err.println("Unsupported operation, only max allowed for all nodes");
+                System.err.println("Unsupported operation, only max OR current allowed for individual nodes");
                 return;
             }
         }
@@ -323,14 +378,31 @@ public class VoldemortAdminTool {
     public static void executeGetMetadata(Integer nodeId,
                                           AdminClient adminClient,
                                           String metadataKey) {
-        Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, metadataKey);
-        if(versioned == null) {
-            System.out.println("null");
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
         } else {
-            System.out.println(versioned.getVersion());
-            System.out.print(": ");
-            System.out.println(versioned.getValue());
-            System.out.println();
+            nodeIds.add(nodeId);
+        }
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println(adminClient.getAdminClientCluster()
+                                          .getNodeById(currentNodeId)
+                                          .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
+            Versioned<String> versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
+            if(versioned == null) {
+                System.out.println("null");
+            } else {
+                System.out.println(versioned.getVersion());
+                System.out.print(": ");
+                System.out.println(versioned.getValue());
+                System.out.println();
+            }
         }
     }
 
