@@ -103,8 +103,9 @@ public class StreamingSlopPusherJob implements Runnable {
     public void run() {
 
         // don't try to run slop pusher job when rebalancing
-        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-            logger.error("Cannot run slop pusher job since cluster is rebalancing");
+       if(metadataStore.getServerState()
+                       .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+            logger.error("Cannot run slop pusher job since Voldemort server is rebalancing");
             return;
         }
 
