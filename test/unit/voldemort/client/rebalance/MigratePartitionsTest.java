@@ -183,7 +183,8 @@ public class MigratePartitionsTest {
                                                        Lists.newArrayList(afterStoreDef),
                                                        adminClient,
                                                        voldemortConfig,
-                                                       null);
+                                                       null,
+                                                       true);
         try {
             tool.migrate();
             fail("Should have failed due to one node being in grandfathering state already");
@@ -222,7 +223,8 @@ public class MigratePartitionsTest {
                                      Lists.newArrayList(afterStoreDef),
                                      adminClient,
                                      voldemortConfig,
-                                     null);
+                                     null,
+                                     true);
         tool.migrate();
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {

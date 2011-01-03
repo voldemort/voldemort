@@ -45,6 +45,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
@@ -60,6 +61,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
@@ -128,7 +130,9 @@ public class VoldemortAdminTool {
               .describedAs("input-directory")
               .ofType(String.class);
         parser.accepts("get-metadata",
-                       "retreive metadata information [stores.xml | cluster.xml | server.state]")
+                       "retreive metadata information [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
+                               + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -140,13 +144,22 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("set-state",
-                       "change the state of nodes to " + MetadataStore.VoldemortState.NORMAL_SERVER
-                               + " [default] , "
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ", "
+        parser.accepts("set-metadata",
+                       "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
+                               + " ], possibly after grandfathering or partial rebalancing")
+              .withRequiredArg()
+              .describedAs("metadata-key")
+              .ofType(String.class);
+        parser.accepts("set-metadata-value",
+                       "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " ] - xml file location, [ "
+                               + MetadataStore.SERVER_STATE_KEY + " ] - "
+                               + MetadataStore.VoldemortState.NORMAL_SERVER + ","
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ","
                                + MetadataStore.VoldemortState.GRANDFATHERING_SERVER)
               .withRequiredArg()
-              .describedAs("state")
+              .describedAs("metadata-value")
               .ofType(String.class);
 
         OptionSet options = parser.parse(args);
@@ -162,7 +175,7 @@ public class VoldemortAdminTool {
             if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
                                                              || options.has("delete-store")
                                                              || options.has("ro-version")
-                                                             || options.has("set-state") || options.has("get-metadata")))) {
+                                                             || options.has("set-metadata") || options.has("get-metadata")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -206,11 +219,11 @@ public class VoldemortAdminTool {
         if(options.has("truncate")) {
             ops += "t";
         }
-        if(options.has("set-state")) {
-            ops += "c";
+        if(options.has("set-metadata")) {
+            ops += "m";
         }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-state) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata) must be specified");
         }
 
         List<String> storeNames = null;
@@ -292,9 +305,41 @@ public class VoldemortAdminTool {
                 String storeName = (String) options.valueOf("truncate");
                 executeTruncateStore(nodeId, adminClient, storeName);
             }
-            if(ops.contains("c")) {
-                String state = (String) options.valueOf("set-state");
-                executeSetState(nodeId, adminClient, state);
+            if(ops.contains("m")) {
+                String metadataKey = (String) options.valueOf("set-metadata");
+                if(!options.has("set-metadata-value")) {
+                    throw new VoldemortException("Missing set-metadata-value");
+                } else {
+                    String metadataValue = (String) options.valueOf("set-metadata-value");
+                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Cluster xml file path incorrect");
+                        ClusterMapper mapper = new ClusterMapper();
+                        Cluster newCluster = mapper.readCluster(new File(metadataValue));
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.CLUSTER_KEY,
+                                           mapper.writeCluster(newCluster));
+                    } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
+                        VoldemortState newState = VoldemortState.valueOf(metadataValue);
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.SERVER_STATE_KEY,
+                                           newState.toString());
+                    } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Stores definition xml file path incorrect");
+                        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+                        List<StoreDefinition> storeDefs = mapper.readStoreList(new File(metadataValue));
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.STORES_KEY,
+                                           mapper.writeStoreList(storeDefs));
+                    } else {
+                        throw new VoldemortException("Incorrect metadata key");
+                    }
+                }
+
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -302,10 +347,11 @@ public class VoldemortAdminTool {
         }
     }
 
-    public static void executeSetState(Integer nodeId,
-                                       AdminClient adminClient,
-                                       String newStateString) {
-        VoldemortState newState = VoldemortState.valueOf(newStateString);
+    private static void executeSetMetadata(Integer nodeId,
+                                           AdminClient adminClient,
+                                           String key,
+                                           Object value) {
+
         List<Integer> nodeIds = Lists.newArrayList();
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
@@ -315,7 +361,9 @@ public class VoldemortAdminTool {
             nodeIds.add(nodeId);
         }
         for(Integer currentNodeId: nodeIds) {
-            System.out.println("Setting state for "
+            System.out.println("Setting "
+                               + key
+                               + " for "
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getHost()
@@ -323,15 +371,13 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> currentState = adminClient.getRemoteMetadata(currentNodeId,
-                                                                           MetadataStore.SERVER_STATE_KEY);
-            if(!newState.equals(VoldemortState.valueOf(currentState.getValue()))) {
-                VectorClock updatedVersion = ((VectorClock) currentState.getVersion()).incremented(currentNodeId,
+            Versioned<String> currentValue = adminClient.getRemoteMetadata(currentNodeId, key);
+            if(!value.equals(currentValue.getValue())) {
+                VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
                                                                                                    System.currentTimeMillis());
                 adminClient.updateRemoteMetadata(currentNodeId,
-                                                 MetadataStore.SERVER_STATE_KEY,
-                                                 Versioned.value(newState.toString(),
-                                                                 updatedVersion));
+                                                 key,
+                                                 Versioned.value(value.toString(), updatedVersion));
             }
         }
     }

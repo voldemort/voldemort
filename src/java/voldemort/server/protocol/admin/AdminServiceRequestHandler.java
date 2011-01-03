@@ -859,7 +859,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.DeleteStoreResponse handleDeleteStore(VAdminProto.DeleteStoreRequest request) {
         VAdminProto.DeleteStoreResponse.Builder response = VAdminProto.DeleteStoreResponse.newBuilder();
 
-        // don't try to delete a store in the middle of rebalancing
+        // don't try to delete a store when not in normal state
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server is not in normal state")));
@@ -925,7 +925,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AddStoreResponse handleAddStore(VAdminProto.AddStoreRequest request) {
         VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
 
-        // don't try to add a store in the middle of rebalancing
+        // don't try to add a store when not in normal state
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server is not in normal state")));
