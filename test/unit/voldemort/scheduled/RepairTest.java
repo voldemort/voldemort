@@ -134,12 +134,14 @@ public class RepairTest {
         RoutingStrategy strategy1 = factory.updateRoutingStrategy(def1, cluster), strategy3 = factory.updateRoutingStrategy(def3,
                                                                                                                             cluster);
 
-        // Run repair job as node 0
         for(int nodeId = 0; nodeId < 4; nodeId++) {
             metadata.put(MetadataStore.NODE_ID_KEY, nodeId);
             RepairJob job = new RepairJob(repository, metadata, new Semaphore(1));
             job.run();
 
+            long slopsTest1 = job.getRepairSlopsPerStore("test1"), slopsTest2 = job.getRepairSlopsPerStore("test2"), slopsTest3 = job.getRepairSlopsPerStore("test3");
+
+            long slop1 = 0, slop2 = 0, slop3 = 0;
             // Go over every slop and check if everything should be present
             ClosableIterator<Pair<ByteArray, Versioned<Slop>>> iterator = slopStorageEngine.asSlopStore()
                                                                                            .entries();
@@ -149,13 +151,19 @@ public class RepairTest {
                 byte[] key = keyVal.getSecond().getValue().getKey().get();
 
                 if(storeName.compareTo("test1") == 0) {
+                    slop1++;
                     assertFalse(containsNode(strategy1.routeRequest(key), nodeId));
                 } else if(storeName.compareTo("test3") == 0) {
+                    slop3++;
                     assertFalse(containsNode(strategy3.routeRequest(key), nodeId));
-                } else {
+                } else if(storeName.compareTo("test2") == 0) {
+                    slop2++;
                     Assert.fail("Cannot have slops for any other store");
                 }
             }
+            Assert.assertEquals(slop1, slopsTest1);
+            Assert.assertEquals(slop2, slopsTest2);
+            Assert.assertEquals(slop3, slopsTest3);
             slopStore.truncate();
         }
 

@@ -235,10 +235,10 @@ public class StorageService extends AbstractService {
                 nextRun = cal.getTime();
                 logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
                             + nextRun);
-                scheduler.schedule("repair",
-                                   new RepairJob(storeRepository, metadata, repairPermits),
-                                   nextRun,
-                                   voldemortConfig.getRepairFrequencyMs());
+                RepairJob job = new RepairJob(storeRepository, metadata, repairPermits);
+
+                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+                scheduler.schedule("repair", job, nextRun, voldemortConfig.getRepairFrequencyMs());
             }
 
         }

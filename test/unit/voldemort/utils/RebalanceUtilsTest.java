@@ -190,8 +190,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                    new HashMap<String, String>(),
                                                                    new HashMap<String, String>(),
                                                                    0);
-        System.out.println("info:" + info.toString());
-
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
                      (RebalancePartitionsInfo.create(info.toJsonString())).toString());
