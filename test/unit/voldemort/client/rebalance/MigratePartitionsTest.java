@@ -255,7 +255,8 @@ public class MigratePartitionsTest {
                                                        Lists.newArrayList(afterStoreDef),
                                                        adminClient,
                                                        voldemortConfig,
-                                                       Lists.newArrayList(0));
+                                                       Lists.newArrayList(0),
+                                                       true);
         HashMap<Integer, List<RebalancePartitionsInfo>> donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
         Assert.assertEquals(donorNodePlans.get(1).size(), 1);
@@ -267,7 +268,8 @@ public class MigratePartitionsTest {
                                      Lists.newArrayList(afterStoreDef),
                                      adminClient,
                                      voldemortConfig,
-                                     Lists.newArrayList(1));
+                                     Lists.newArrayList(1),
+                                     true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
         Assert.assertEquals(donorNodePlans.get(0).size(), 1);
@@ -279,7 +281,8 @@ public class MigratePartitionsTest {
                                      Lists.newArrayList(afterStoreDef),
                                      adminClient,
                                      voldemortConfig,
-                                     Lists.newArrayList(0, -1));
+                                     Lists.newArrayList(0, -1),
+                                     true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
         Assert.assertEquals(donorNodePlans.get(1).size(), 1);
@@ -291,7 +294,8 @@ public class MigratePartitionsTest {
                                      Lists.newArrayList(afterStoreDef),
                                      adminClient,
                                      voldemortConfig,
-                                     null);
+                                     null,
+                                     true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 2);
         Assert.assertEquals(donorNodePlans.get(0).size(), 1);

@@ -46,23 +46,6 @@ public class MigratePartitions {
     private final HashMap<Integer, Versioned<String>> donorStates;
     private final boolean transitionToNormal;
 
-    public MigratePartitions(Cluster currentCluster,
-                             Cluster targetCluster,
-                             List<StoreDefinition> currentStoreDefs,
-                             List<StoreDefinition> targetStoreDefs,
-                             AdminClient adminClient,
-                             VoldemortConfig voldemortConfig,
-                             List<Integer> stealerNodeIds) {
-        this(currentCluster,
-             targetCluster,
-             currentStoreDefs,
-             targetStoreDefs,
-             adminClient,
-             voldemortConfig,
-             stealerNodeIds,
-             false);
-    }
-
     /**
      * 
      * @param currentCluster The cluster as it is now
@@ -256,10 +239,12 @@ public class MigratePartitions {
         parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
-        parser.accepts("stealer-node-ids", "Comma separated node ids [ Default - all]")
+        parser.accepts("stealer-node-ids", "Comma separated node ids [Default - all]")
               .withRequiredArg()
               .ofType(Integer.class)
               .withValuesSeparatedBy(',');
+        parser.accepts("transition-to-normal",
+                       "At the end of migration do we want to transition back to normal state? [Default-false]");
 
         OptionSet options = parser.parse(args);
 
@@ -282,6 +267,7 @@ public class MigratePartitions {
         String currentClusterFile = (String) options.valueOf("cluster-xml");
         String currentStoresFile = (String) options.valueOf("stores-xml");
         String targetStoresFile = currentStoresFile;
+        boolean transitionToNormal = options.has("transition-to-normal");
 
         if(options.has("target-stores-xml")) {
             targetStoresFile = (String) options.valueOf("target-stores-xml");
@@ -317,7 +303,8 @@ public class MigratePartitions {
                                                                         targetStoreDefs,
                                                                         adminClient,
                                                                         voldemortConfig,
-                                                                        stealerNodeIds);
+                                                                        stealerNodeIds,
+                                                                        transitionToNormal);
 
             migratePartitions.migrate();
         } catch(Exception e) {
