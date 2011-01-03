@@ -104,7 +104,7 @@ public class StreamingSlopPusherJob implements Runnable {
 
         // don't try to run slop pusher job when rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-            logger.error("Cannot run slop pusher job since cluster is rebalancing");
+            logger.error("Cannot run slop pusher job since Voldemort server is not in normal state");
             return;
         }
 
@@ -200,8 +200,9 @@ public class StreamingSlopPusherJob implements Runnable {
                                                           TimeUnit.MILLISECONDS);
                         if(!offered) {
                             if(logger.isDebugEnabled())
-                                logger.debug("No consumer appeared for slop in " +
-                                             voldemortConfig.getClientConnectionTimeoutMs() + " ms");
+                                logger.debug("No consumer appeared for slop in "
+                                             + voldemortConfig.getClientConnectionTimeoutMs()
+                                             + " ms");
                         }
                         readThrottler.maybeThrottle(nBytesRead(keyAndVal));
                     } else {
@@ -275,8 +276,10 @@ public class StreamingSlopPusherJob implements Runnable {
     }
 
     private void stopAdminClient() {
-        adminClient.stop();
-        adminClient = null;
+        if(adminClient != null) {
+            adminClient.stop();
+            adminClient = null;
+        }
     }
 
     private int nBytesRead(Pair<ByteArray, Versioned<Slop>> keyAndVal) {
@@ -367,7 +370,9 @@ public class StreamingSlopPusherJob implements Runnable {
         logger.info("Acquiring lock to perform streaming slop pusher job ");
         try {
             this.repairPermits.acquire();
+            logger.info("Acquired lock to perform streaming slop pusher job ");
         } catch(InterruptedException e) {
+            stopAdminClient();
             throw new IllegalStateException("Streaming slop pusher job interrupted while waiting for permit.",
                                             e);
         }

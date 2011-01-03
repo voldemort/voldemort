@@ -84,7 +84,7 @@ public class BlockingSlopPusherJob implements Runnable {
 
         // don't try to run slop pusher job when rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-            logger.error("Cannot run slop pusher job since cluster is rebalancing");
+            logger.error("Cannot run slop pusher job since Voldemort server is not in normal state");
             return;
         }
 
@@ -219,6 +219,7 @@ public class BlockingSlopPusherJob implements Runnable {
         logger.info("Acquiring lock to perform blocking slop pusher job ");
         try {
             this.repairPermits.acquire();
+            logger.info("Acquired lock to perform blocking slop pusher job ");
         } catch(InterruptedException e) {
             throw new IllegalStateException("Blocking slop pusher job interrupted while waiting for permit.",
                                             e);

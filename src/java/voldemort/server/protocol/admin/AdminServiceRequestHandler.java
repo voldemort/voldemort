@@ -57,6 +57,7 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -861,7 +862,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         // don't try to delete a store in the middle of rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Rebalancing in progress")));
+                                                     new VoldemortException("Voldemort server is not in normal state")));
             return response.build();
         }
 
@@ -871,7 +872,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             synchronized(lock) {
 
                 if(storeRepository.hasLocalStore(storeName)) {
-                    if(storeName.compareTo("slop") == 0) {
+                    if(storeName.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0) {
                         storageService.unregisterEngine(storeName,
                                                         "slop",
                                                         storeRepository.getStorageEngine(storeName));
@@ -927,7 +928,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         // don't try to add a store in the middle of rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Rebalancing in progress")));
+                                                     new VoldemortException("Voldemort server is not in normal state")));
             return response.build();
         }
 

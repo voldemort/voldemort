@@ -70,11 +70,6 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
     }
 
     @Override
-    public void close() throws VoldemortException {
-        getInnerStore().close();
-    }
-
-    @Override
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
         if(isReadOnly)
             throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");

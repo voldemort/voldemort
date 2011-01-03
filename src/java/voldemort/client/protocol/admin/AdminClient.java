@@ -1218,12 +1218,13 @@ public class AdminClient {
                                                                                      .setAddStore(addStoreRequest)
                                                                                      .build();
         for(Node node: currentCluster.getNodes()) {
+            logger.info("Adding on node " + node.getHost() + ":" + node.getId());
             VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
                                                                            request,
                                                                            VAdminProto.AddStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
-            logger.info("Added on node " + node.getHost());
+            logger.info("Successfully added on node " + node.getHost() + ":" + node.getId());
         }
     }
 
@@ -1241,12 +1242,13 @@ public class AdminClient {
                                                                                      .setDeleteStore(deleteStoreRequest)
                                                                                      .build();
         for(Node node: currentCluster.getNodes()) {
+            logger.info("Deleting on node " + node.getHost() + ":" + node.getId());
             VAdminProto.DeleteStoreResponse.Builder response = sendAndReceive(node.getId(),
                                                                               request,
                                                                               VAdminProto.DeleteStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
-            logger.info("Deleted on node " + node.getHost());
+            logger.info("Successfully deleted on node " + node.getHost() + ":" + node.getId());
         }
     }
 

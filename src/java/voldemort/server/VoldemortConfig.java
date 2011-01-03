@@ -131,8 +131,10 @@ public class VoldemortConfig implements Serializable {
 
     private String slopStoreType;
     private String pusherType;
-    private final long slopFrequencyMs, repairFrequencyMs;
-    private long slopMaxWriteBytesPerSec, slopMaxReadBytesPerSec;
+    private final long slopFrequencyMs;
+    private final long repairFrequencyMs;
+    private long slopMaxWriteBytesPerSec;
+    private long slopMaxReadBytesPerSec;
     private int slopBatchSize;
     private int slopZonesDownToTerminate;
 

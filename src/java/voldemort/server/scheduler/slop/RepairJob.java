@@ -41,7 +41,7 @@ public class RepairJob implements Runnable {
 
         // don't try to run slop pusher job when rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-            logger.error("Cannot run repair job since cluster is rebalancing");
+            logger.error("Cannot run repair job since Voldemort server is not in normal state");
             return;
         }
 
@@ -89,6 +89,7 @@ public class RepairJob implements Runnable {
                             }
                         }
                     }
+                    iterator.close();
                     logger.info("Completed store " + storeDef.getName());
                 }
             }
@@ -122,6 +123,7 @@ public class RepairJob implements Runnable {
         logger.info("Acquiring lock to perform repair job ");
         try {
             this.repairPermits.acquire();
+            logger.info("Acquired lock to perform repair job ");
         } catch(InterruptedException e) {
             throw new IllegalStateException("Repair job interrupted while waiting for permit.", e);
         }

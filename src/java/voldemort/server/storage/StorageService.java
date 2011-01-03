@@ -113,7 +113,8 @@ public class StorageService extends AbstractService {
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
-    private final Semaphore cleanupPermits, repairPermits;
+    private final Semaphore cleanupPermits;
+    private final Semaphore repairPermits;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
@@ -322,7 +323,7 @@ public class StorageService extends AbstractService {
         String engineName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(engineName);
 
-        boolean isSlop = storeType.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
+        boolean isSlop = storeType.compareTo("slop") == 0;
         boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
 
         if(store != null) {
