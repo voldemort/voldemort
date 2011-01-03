@@ -282,6 +282,29 @@ public class ServerTestUtils {
     }
 
     /**
+     * Returns a list of zones with their proximity list being in increasing
+     * order
+     * 
+     * @param numberOfZones The number of zones to return
+     * @return List of zones
+     */
+    public static List<Zone> getZones(int numberOfZones) {
+        List<Zone> zones = Lists.newArrayList();
+        for(int i = 0; i < numberOfZones; i++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList();
+            int zoneId = i + 1;
+            for(int j = 0; j < numberOfZones; j++) {
+                if(zoneId % numberOfZones == i)
+                    break;
+                proximityList.add(zoneId % numberOfZones);
+                zoneId++;
+            }
+            zones.add(new Zone(i, proximityList));
+        }
+        return zones;
+    }
+
+    /**
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>

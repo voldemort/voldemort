@@ -4,7 +4,6 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 
@@ -52,16 +51,7 @@ public class MigratePartitionsTest {
         List<Node> nodes = Lists.newArrayList();
         List<Node> zoneNodes = Lists.newArrayList();
         int[] freePorts = ServerTestUtils.findFreePorts(3 * NUM_NODES);
-        List<Zone> zones = Lists.newArrayList();
-        for(int i = 0; i < NUM_ZONES; i++) {
-            LinkedList<Integer> proximityList = Lists.newLinkedList();
-            int zoneId = i + 1;
-            for(int j = 0; j < NUM_ZONES; j++) {
-                proximityList.add(zoneId % NUM_ZONES);
-                zoneId++;
-            }
-            zones.add(new Zone(i, proximityList));
-        }
+        List<Zone> zones = ServerTestUtils.getZones(NUM_ZONES);
 
         for(int i = 0; i < NUM_NODES; i++) {
             nodes.add(new Node(i,

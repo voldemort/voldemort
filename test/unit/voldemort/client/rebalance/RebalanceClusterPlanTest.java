@@ -1,7 +1,6 @@
 package voldemort.client.rebalance;
 
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 
 import junit.framework.Assert;
@@ -54,16 +53,7 @@ public class RebalanceClusterPlanTest {
         }
         consistentRoutingClusterModified = new Cluster("consistent2", nodes2);
 
-        List<Zone> zones = Lists.newArrayList();
-        for(int i = 0; i < NUM_ZONES; i++) {
-            LinkedList<Integer> proximityList = Lists.newLinkedList();
-            int zoneId = i + 1;
-            for(int j = 0; j < NUM_ZONES; j++) {
-                proximityList.add(zoneId % NUM_ZONES);
-                zoneId++;
-            }
-            zones.add(new Zone(i, proximityList));
-        }
+        List<Zone> zones = ServerTestUtils.getZones(NUM_ZONES);
 
         List<Node> nodes3 = Lists.newArrayList();
         for(int i = 0; i < NUM_NODES; i++) {

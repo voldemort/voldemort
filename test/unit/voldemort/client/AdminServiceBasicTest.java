@@ -48,7 +48,9 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
@@ -62,6 +64,7 @@ import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
@@ -73,6 +76,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  */
@@ -234,6 +238,82 @@ public class AdminServiceBasicTest extends TestCase {
         // make sure that the store list we get back from AdminClient
         Versioned<List<StoreDefinition>> list = adminClient.getRemoteStoreDefList(0);
         assertTrue(list.getValue().contains(definition));
+    }
+
+    @Test
+    public void testReplicationMapping() {
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(2, "localhost", 1, 2, 3, 1, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(3, 7, 11)));
+
+        RoutingStrategyFactory factory = new RoutingStrategyFactory();
+
+        // Test 1 - With consistent routing strategy
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               2,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, newCluster);
+        Map<Integer, List<Integer>> replicationMapping = adminClient.getReplicationMapping(newCluster,
+                                                                                           0,
+                                                                                           strategy);
+        Map<Integer, List<Integer>> expected = Maps.newHashMap();
+        expected.put(1, Lists.newArrayList(1, 5, 9));
+        expected.put(3, Lists.newArrayList(3, 7, 11));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
+        expected = Maps.newHashMap();
+        expected.put(0, Lists.newArrayList(0, 4, 8));
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        assertEquals(replicationMapping, expected);
+
+        // Test 2 - With zone routing strategy
+        List<Zone> zones = ServerTestUtils.getZones(2);
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
+            zoneReplicationFactors.put(zoneIds, 1);
+        }
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        strategy = factory.updateRoutingStrategy(storeDef, newCluster);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 0, strategy);
+        expected = Maps.newHashMap();
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        expected.put(3, Lists.newArrayList(3, 7, 11));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
+        expected = Maps.newHashMap();
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
+        expected = Maps.newHashMap();
+        expected.put(0, Lists.newArrayList(4, 8, 0));
+        expected.put(1, Lists.newArrayList(1, 5, 9));
+        assertEquals(replicationMapping, expected);
+
     }
 
     @Test
