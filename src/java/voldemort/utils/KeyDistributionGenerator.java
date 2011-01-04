@@ -63,20 +63,24 @@ public class KeyDistributionGenerator {
         List<StoreDefinition> storeDef = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
         // Print distribution for every store
-
         for(StoreDefinition def: storeDef) {
-            HashMap<Integer, Integer> storeDistribution = generateDistribution(cluster,
-                                                                               def,
-                                                                               numKeys);
+            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, numKeys);
             System.out.println("For Store " + def.getName());
             printDistribution(storeDistribution);
+            System.out.println("Std dev - " + getStdDeviation(storeDistribution));
             System.out.println("=========================");
         }
     }
 
-    public static HashMap<Integer, Integer> generateDistribution(Cluster cluster,
-                                                                 StoreDefinition storeDef,
-                                                                 int numKeys) {
+    /**
+     * @param cluster The cluster metadata
+     * @param storeDef The store definition metadata
+     * @param numKeys Number of keys used to generate distribution
+     * @return Map of node id to their corresponding %age distribution
+     */
+    public static HashMap<Integer, Double> generateDistribution(Cluster cluster,
+                                                                StoreDefinition storeDef,
+                                                                int numKeys) {
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
@@ -94,28 +98,33 @@ public class KeyDistributionGenerator {
                 total++;
             }
         }
-        HashMap<Integer, Integer> finalDistribution = Maps.newHashMap();
+        HashMap<Integer, Double> finalDistribution = Maps.newHashMap();
         for(int nodeId: requestRouting.keySet()) {
-            finalDistribution.put(nodeId,
-                                  new Integer((int) ((requestRouting.get(nodeId) * 100) / total)));
+            finalDistribution.put(nodeId, new Double((requestRouting.get(nodeId) * 100.0) / total));
         }
         return finalDistribution;
     }
 
-    public static void printDistribution(HashMap<Integer, Integer> distribution) {
+    public static void printDistribution(HashMap<Integer, Double> distribution) {
         for(int nodeId: distribution.keySet()) {
             System.out.println("Node " + nodeId + " - " + distribution.get(nodeId));
         }
     }
 
-    public static double getStdDeviation(HashMap<Integer, Integer> distribution) {
-        long sum = 0, squareSum = 0;
-        for(int num: distribution.values()) {
+    public static double getStdDeviation(HashMap<Integer, Double> distribution) {
+        HashMap<Integer, Double> offBy = Maps.newHashMap();
+        int numberOfNodes = distribution.keySet().size();
+        double distributionPerNode = 100.0 / numberOfNodes;
+
+        for(Integer nodeId: distribution.keySet()) {
+            offBy.put(nodeId, new Double(distributionPerNode - distribution.get(nodeId)));
+        }
+        double sum = 0, squareSum = 0;
+        for(double num: offBy.values()) {
             squareSum += num * num;
             sum += num;
         }
         double mean = sum / distribution.size();
         return Math.sqrt(squareSum / distribution.size() - mean * mean);
     }
-
 }

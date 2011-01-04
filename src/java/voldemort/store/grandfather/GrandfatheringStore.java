@@ -115,7 +115,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                   null);
                                 } catch(Exception e) {
                                     logger.warn("Failed to put DELETE operation on " + getName()
-                                                + " to node " + futureNodeId + " to slop store");
+                                                + " to node " + futureNodeId + " to slop store", e);
                                 }
                             }
                         } catch(Exception e) {
@@ -172,7 +172,7 @@ public class GrandfatheringStore extends DelegatingStore<ByteArray, byte[], byte
                                                   null);
                                 } catch(Exception e) {
                                     logger.warn("Failed to put PUT operation on " + getName()
-                                                + " to node " + futureNodeId + " to slop store");
+                                                + " to node " + futureNodeId + " to slop store", e);
                                 }
                             }
                         } catch(Exception e) {
