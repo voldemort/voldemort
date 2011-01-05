@@ -43,14 +43,19 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     private AbstractSocketService socketService;
 
     private final boolean useNio;
+    private final boolean useLazy;
 
-    public SocketStoreClientFactoryTest(boolean useNio) {
+    public SocketStoreClientFactoryTest(boolean useNio, boolean useLazy) {
         this.useNio = useNio;
+        this.useLazy = useLazy;
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { true, true },
+                                              { true, false },
+                                              { false, true },
+                                              { false, false } });
     }
 
     @Override
@@ -74,13 +79,15 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
 
     @Override
     protected StoreClientFactory getFactory(String... bootstrapUrls) {
-        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls));
+        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+                                                              .setEnableLazy(useLazy));
     }
 
     @Override
     protected StoreClientFactory getFactoryWithSerializer(SerializerFactory factory,
                                                           String... bootstrapUrls) {
         return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+                                                              .setEnableLazy(useLazy)
                                                               .setSerializerFactory(factory));
     }
 
@@ -102,4 +109,38 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
         factories.add(getFactory(getValidBootstrapUrl()));
     }
 
+    @Test
+    @Override
+    public void testBootstrapServerDown() throws Exception {
+        try {
+            getFactory(getValidScheme() + "://localhost:58558")
+                    .getStoreClient(getValidStoreName())
+                    .get("test");
+            fail("Should throw exception.");
+        } catch(BootstrapFailureException e) {
+            // this is good
+        }
+    }
+
+    @Test
+    @Override
+    public void testUnknownStoreName() throws Exception {
+        try {
+            StoreClient<String, String> client = getFactory(getValidBootstrapUrl()).getStoreClient("12345");
+            assertNotNull(client);
+            if(useLazy)
+                client.get("test");
+            fail("Bootstrapped a bad name.");
+        } catch(BootstrapFailureException e) {
+            // this is good
+        }
+    }
+
+    @Test
+    @Override
+    public void testBootstrapFailoverSucceeds() throws Exception {
+        getFactory(getValidScheme() + "://localhost:58558", getValidBootstrapUrl())
+                .getStoreClient(getValidStoreName())
+                .get("test");
+    }
 }

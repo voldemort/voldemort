@@ -76,7 +76,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     @Override
     public <K, V> StoreClient<K, V> getStoreClient(final String storeName,
                                                    final InconsistencyResolver<Versioned<V>> resolver) {
-        // TODO HIGH: FIX testBootstrapServerDown, testUknownStoreName
         if(getConfig().isLazyEnabled())
             return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
 
