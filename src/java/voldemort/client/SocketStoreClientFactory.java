@@ -21,6 +21,7 @@ import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
@@ -38,6 +39,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
 /**
@@ -69,6 +71,25 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketKeepAlive());
         if(config.isJmxEnabled())
             JmxUtils.registerMbean(storeFactory, JmxUtils.createObjectName(storeFactory.getClass()));
+    }
+
+    @Override
+    public <K, V> StoreClient<K, V> getStoreClient(final String storeName,
+                                                   final InconsistencyResolver<Versioned<V>> resolver) {
+        // TODO HIGH: FIX testBootstrapServerDown, testUknownStoreName
+        if(getConfig().isLazyEnabled())
+            return new LazyStoreClient<K, V>(new Callable<StoreClient<K, V>>() {
+
+                public StoreClient<K, V> call() throws Exception {
+                    return getParentStoreClient(storeName, resolver);
+                }
+            });
+
+        return getParentStoreClient(storeName, resolver);
+    }
+
+    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName, InconsistencyResolver<Versioned<V>> resolver) {
+        return super.getStoreClient(storeName, resolver);
     }
 
     @Override
