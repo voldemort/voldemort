@@ -80,8 +80,8 @@ public class StatusServlet extends HttpServlet {
                 Store<ByteArray, byte[], byte[]> store = server.getStoreRepository()
                                                                .getLocalStore(storeName);
 
-                if(store != null && store instanceof StatTrackingStore<?, ?, ?>) {
-                    ((StatTrackingStore<?, ?, ?>) store).resetStatistics();
+                if(store != null && store instanceof StatTrackingStore) {
+                    ((StatTrackingStore) store).resetStatistics();
                 }
             }
         }
@@ -152,9 +152,9 @@ public class StatusServlet extends HttpServlet {
         int i = 0;
         for(Store<ByteArray, byte[], byte[]> store: server.getStoreRepository().getAllLocalStores()) {
 
-            if(store instanceof StatTrackingStore<?, ?, ?>) {
+            if(store instanceof StatTrackingStore) {
 
-                StatTrackingStore<?, ?, ?> statStore = (StatTrackingStore<?, ?, ?>) store;
+                StatTrackingStore statStore = (StatTrackingStore) store;
 
                 Map<Tracked, RequestCounter> stats = statStore.getStats().getCounters();
 

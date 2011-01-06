@@ -379,7 +379,7 @@ public class StorageService extends AbstractService {
         }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
-            StatTrackingStore<ByteArray, byte[], byte[]> statStore = new StatTrackingStore<ByteArray, byte[], byte[]>(store,
+            StatTrackingStore statStore = new StatTrackingStore(store,
                                                                                                                       this.storeStats);
             store = statStore;
             if(voldemortConfig.isJmxEnabled()) {
