@@ -51,9 +51,10 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     protected StoreClient<K, V> initStoreClient() {
         try {
             return storeClientThunk.call();
-        } catch(BootstrapFailureException bfe) {
-            throw bfe;
+        } catch(VoldemortException ve) {
+            throw ve;
         } catch(Exception e) {
+            // Callable's type signature includes checked exceptions
             throw new VoldemortException("Unexpected exception during initialization",
                                          e);
         }
@@ -95,8 +96,8 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
         getStoreClient().put(key, value, transforms);
     }
 
-    public void put(K key, Versioned<V> vVersioned) throws ObsoleteVersionException {
-        getStoreClient().put(key, vVersioned);
+    public void put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
+        getStoreClient().put(key, versioned);
     }
 
     public boolean putIfNotObsolete(K key, Versioned<V> versioned) {
