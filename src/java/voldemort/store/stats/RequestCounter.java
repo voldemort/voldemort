@@ -2,6 +2,7 @@ package voldemort.store.stats;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
 /**
@@ -14,12 +15,21 @@ public class RequestCounter {
 
     private final AtomicReference<Accumulator> values;
     private final int durationMS;
+    private final Time time;
 
     /**
      * @param durationMS specifies for how long you want to maintain this
      *        counter (in milliseconds).
      */
     public RequestCounter(int durationMS) {
+        this(durationMS, SystemTime.INSTANCE);
+    }
+
+    /**
+     * For testing request expiration via an injected time provider
+     */
+    RequestCounter(int durationMS, Time time) {
+        this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMS = durationMS;
     }
@@ -34,7 +44,7 @@ public class RequestCounter {
 
     public float getThroughput() {
         Accumulator oldv = getValidAccumulator();
-        double elapsed = (System.currentTimeMillis() - oldv.startTimeMS)
+        double elapsed = (time.getMilliseconds() - oldv.startTimeMS)
                          / (double) Time.MS_PER_SECOND;
         if(elapsed > 0f) {
             return (float) (oldv.count / elapsed);
@@ -66,7 +76,7 @@ public class RequestCounter {
     private Accumulator getValidAccumulator() {
 
         Accumulator accum = values.get();
-        long now = System.currentTimeMillis();
+        long now = time.getMilliseconds();
 
         /*
          * if still in the window, just return it
@@ -112,7 +122,8 @@ public class RequestCounter {
     public void addRequest(long timeNS, long numEmptyResponses, long bytes, long getAllAggregatedCount) {
         for(int i = 0; i < 3; i++) {
             Accumulator oldv = getValidAccumulator();
-            Accumulator newv = new Accumulator(oldv.startTimeMS, oldv.count + 1,
+            Accumulator newv = new Accumulator(oldv.startTimeMS,
+                                               oldv.count + 1,
                                                oldv.totalTimeNS + timeNS,
                                                oldv.total + 1,
                                                oldv.numEmptyResponses + numEmptyResponses,
@@ -153,7 +164,7 @@ public class RequestCounter {
         return getValidAccumulator().getAllAggregatedCount;
     }
 
-    private static class Accumulator {
+    private class Accumulator {
 
         final long startTimeMS;
         final long count;
@@ -166,11 +177,11 @@ public class RequestCounter {
         final long totalBytes;   // Sum of all the values
 
         public Accumulator() {
-            this(System.currentTimeMillis(), 0, 0, 0, 0, 0, 0, 0, 0);
+            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public Accumulator newWithTotal() {
-            return new Accumulator(System.currentTimeMillis(), 0, 0, total, 0, 0, 0, 0, 0);
+            return new Accumulator(RequestCounter.this.time.getMilliseconds(), 0, 0, total, 0, 0, 0, 0, 0);
         }
 
         public Accumulator(long startTimeMS, long count, long totalTimeNS, long total, long numEmptyResponses, long maxLatencyNS, long totalBytes,  long maxBytes, long getAllAggregatedCount) {
