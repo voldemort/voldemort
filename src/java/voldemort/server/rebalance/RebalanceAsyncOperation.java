@@ -204,7 +204,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         adminClient.waitForCompletion(metadataStore.getNodeId(),
                                       asyncId,
-                                      voldemortConfig.getAdminSocketTimeout(),
+                                      voldemortConfig.getRebalancingTimeout(),
                                       TimeUnit.SECONDS);
 
         rebalanceStatusList.remove((Object) asyncId);

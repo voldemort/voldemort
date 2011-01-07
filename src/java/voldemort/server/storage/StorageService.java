@@ -50,9 +50,6 @@ import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.serialization.ByteArraySerializer;
-import voldemort.serialization.IdentitySerializer;
-import voldemort.serialization.SlopSerializer;
 import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
@@ -61,6 +58,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
+import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -77,7 +75,6 @@ import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.routed.RoutedStoreFactory;
-import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -115,7 +112,7 @@ public class StorageService extends AbstractService {
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
-    private final Semaphore cleanupPermits;
+    private final Semaphore cleanupPermits, repairPermits;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
@@ -133,6 +130,7 @@ public class StorageService extends AbstractService {
         this.storeRepository = storeRepository;
         this.metadata = metadata;
         this.cleanupPermits = new Semaphore(1);
+        this.repairPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
@@ -211,27 +209,39 @@ public class StorageService extends AbstractService {
             logger.info("Initializing slop pusher job type " + voldemortConfig.getPusherType()
                         + " at " + nextRun);
 
-            if(voldemortConfig.getPusherType().compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) {
-                scheduler.schedule("slop",
-                                   new BlockingSlopPusherJob(storeRepository,
-                                                             metadata,
-                                                             failureDetector,
-                                                             voldemortConfig.getSlopMaxWriteBytesPerSec()),
+            scheduler.schedule("slop",
+                               (voldemortConfig.getPusherType()
+                                               .compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) ? new BlockingSlopPusherJob(storeRepository,
+                                                                                                                             metadata,
+                                                                                                                             failureDetector,
+                                                                                                                             voldemortConfig,
+                                                                                                                             repairPermits)
+                                                                                                : new StreamingSlopPusherJob(storeRepository,
+                                                                                                                             metadata,
+                                                                                                                             failureDetector,
+                                                                                                                             voldemortConfig,
+                                                                                                                             repairPermits),
+                               nextRun,
+                               voldemortConfig.getSlopFrequencyMs());
+
+            /*
+             * Register the repairer thread only if slop pusher job is also
+             * enabled
+             */
+            if(voldemortConfig.isRepairEnabled()) {
+                cal.add(Calendar.SECOND,
+                        (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
+                nextRun = cal.getTime();
+                logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
+                            + nextRun);
+                scheduler.schedule("repair",
+                                   new RepairJob(storeRepository, metadata, repairPermits),
                                    nextRun,
-                                   voldemortConfig.getSlopFrequencyMs());
-            } else if(voldemortConfig.getPusherType().compareTo(StreamingSlopPusherJob.TYPE_NAME) == 0) {
-                scheduler.schedule("slop",
-                                   new StreamingSlopPusherJob(storeRepository,
-                                                              metadata,
-                                                              failureDetector,
-                                                              voldemortConfig),
-                                   nextRun,
-                                   voldemortConfig.getSlopFrequencyMs());
-            } else {
-                logger.error("Unsupported slop pusher job type " + voldemortConfig.getPusherType());
+                                   voldemortConfig.getRepairFrequencyMs());
             }
 
         }
+
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
 

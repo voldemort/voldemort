@@ -21,6 +21,7 @@ import static voldemort.TestUtils.bytesEqual;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 
 import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
@@ -29,6 +30,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
 import voldemort.store.FailingStore;
 import voldemort.store.memory.InMemoryStorageEngine;
@@ -37,6 +39,7 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -60,10 +63,14 @@ public class BlockingSlopPusherTest extends TestCase {
 
         MetadataStore metadataStore = ServerTestUtils.createMetadataStore(cluster,
                                                                           ServerTestUtils.getStoreDefs(1));
+        Props props = new Props();
+        props.put("node.id", 0);
+        props.put("voldemort.home", "/");
         pusher = new BlockingSlopPusherJob(repo,
                                            metadataStore,
                                            new NoopFailureDetector(),
-                                           10 * 1000 * 1000);
+                                           new VoldemortConfig(props),
+                                           new Semaphore(1));
     }
 
     private Cluster makeCluster(int numNodes) {

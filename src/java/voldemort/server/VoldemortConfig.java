@@ -70,6 +70,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
     private boolean bdbCursorPreload;
+    private int bdbCleanerThreads;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -107,6 +108,7 @@ public class VoldemortConfig implements Serializable {
     private RequestFormatType requestFormatType;
 
     private boolean enableSlop;
+    private boolean enableRepair;
     private boolean enableGui;
     private boolean enableHttpServer;
     private boolean enableSocketServer;
@@ -128,7 +130,7 @@ public class VoldemortConfig implements Serializable {
 
     private String slopStoreType;
     private String pusherType;
-    private final long slopFrequencyMs;
+    private final long slopFrequencyMs, repairFrequencyMs;
     private long slopMaxWriteBytesPerSec, slopMaxReadBytesPerSec;
     private int slopBatchSize;
     private int slopZonesDownToTerminate;
@@ -189,6 +191,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
+        this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -245,7 +248,9 @@ public class VoldemortConfig implements Serializable {
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
-       this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
+        this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
+        this.enableSlop = props.getBoolean("slop.enable", true);
+        this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
@@ -253,6 +258,7 @@ public class VoldemortConfig implements Serializable {
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
+        this.enableRepair = props.getBoolean("enable.repair", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -261,9 +267,10 @@ public class VoldemortConfig implements Serializable {
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
+        this.repairFrequencyMs = props.getLong("repair.frequency.ms", 5 * 60 * 1000);
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
-        this.slopZonesDownToTerminate = props.getInt("slop.zone.terminate", 1);
+        this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
 
@@ -292,7 +299,7 @@ public class VoldemortConfig implements Serializable {
 
         // rebalancing parameters
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
-        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 60 * 60);
+        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 24 * 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000 * 60);
         this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
 
@@ -520,6 +527,26 @@ public class VoldemortConfig implements Serializable {
         if(minFileUtilization < 0 || minFileUtilization > 50)
             throw new IllegalArgumentException("minFileUtilization should be between 0 and 50 (both inclusive)");
         this.bdbCleanerMinFileUtilization = minFileUtilization;
+    }
+
+    /**
+     * 
+     * The number of cleaner threads
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.threads"</li>
+     * <li>default: 1</li>
+     * <li>minimum: 1</li>
+     * </ul>
+     */
+    public int getBdbCleanerThreads() {
+        return bdbCleanerThreads;
+    }
+
+    public final void setBdbCleanerThreads(int bdbCleanerThreads) {
+        if(bdbCleanerThreads <= 0)
+            throw new IllegalArgumentException("bdbCleanerThreads should be greater than 0");
+        this.bdbCleanerThreads = bdbCleanerThreads;
     }
 
     /**
@@ -786,6 +813,10 @@ public class VoldemortConfig implements Serializable {
         return this.slopFrequencyMs;
     }
 
+    public long getRepairFrequencyMs() {
+        return this.repairFrequencyMs;
+    }
+
     public void setSocketTimeoutMs(int socketTimeoutMs) {
         this.socketTimeoutMs = socketTimeoutMs;
     }
@@ -870,6 +901,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableSlop(boolean enableSlop) {
         this.enableSlop = enableSlop;
+    }
+
+    public boolean isRepairEnabled() {
+        return this.enableRepair;
+    }
+
+    public void setEnableRepair(boolean enableRepair) {
+        this.enableRepair = enableRepair;
     }
 
     public boolean isVerboseLoggingEnabled() {

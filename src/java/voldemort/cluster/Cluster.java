@@ -170,4 +170,14 @@ public class Cluster implements Serializable {
 
         return true;
     }
+
+    @Override
+    public int hashCode() {
+        int hc = getNodes().size();
+        for(Node node: getNodes()) {
+            hc ^= node.getHost().hashCode();
+        }
+
+        return hc;
+    }
 }

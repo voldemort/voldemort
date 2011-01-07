@@ -20,8 +20,10 @@ import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.ClientStoreVerifier;
@@ -36,6 +38,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.versioning.Versioned;
 
 /**
  * A StoreClientFactory abstracts away the connection pooling, threading, and
@@ -66,6 +69,20 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketKeepAlive());
         if(config.isJmxEnabled())
             JmxUtils.registerMbean(storeFactory, JmxUtils.createObjectName(storeFactory.getClass()));
+    }
+
+    @Override
+    protected List<Versioned<String>> getRemoteMetadata(String key, URI url) {
+        try {
+            return super.getRemoteMetadata(key, url);
+        } catch(VoldemortException e) {
+            // Fix SNA-4227: When an error occurs during bootstrap, close the socket
+            SocketDestination destination = new SocketDestination(url.getHost(),
+                                                                  url.getPort(),
+                                                                  getRequestFormatType());
+            storeFactory.close(destination);
+            throw new VoldemortException(e);
+        }
     }
 
     @Override

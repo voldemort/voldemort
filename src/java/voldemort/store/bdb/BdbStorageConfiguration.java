@@ -87,6 +87,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbCleanerMinFileUtilization()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MIN_UTILIZATION,
                                          Integer.toString(config.getBdbCleanerMinUtilization()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS,
+                                         Integer.toString(config.getBdbCleanerThreads()));
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
@@ -192,6 +194,22 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         String envStats = getStats(storeName).toString();
         logger.debug("Bdb Environment stats:\n" + envStats);
         return envStats;
+    }
+
+    /**
+     * Forceful cleanup the logs
+     */
+    @JmxOperation(description = "Forceful start the cleaner threads")
+    public void cleanLogs() {
+        synchronized(lock) {
+            try {
+                for(Environment environment: environments.values()) {
+                    environment.cleanLog();
+                }
+            } catch(DatabaseException e) {
+                throw new VoldemortException(e);
+            }
+        }
     }
 
     public void close() {

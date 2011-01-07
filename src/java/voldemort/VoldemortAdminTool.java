@@ -132,6 +132,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("version-type")
               .ofType(String.class);
+        parser.accepts("truncate", "truncate a store")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
 
         OptionSet options = parser.parse(args);
 
@@ -184,6 +188,9 @@ public class VoldemortAdminTool {
         }
         if(options.has("ro-version")) {
             ops += "e";
+        }
+        if(options.has("truncate")) {
+            ops += "t";
         }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version) must be specified");
@@ -264,6 +271,10 @@ public class VoldemortAdminTool {
                 String versionType = (String) options.valueOf("ro-version");
                 executeROVersion(nodeId, adminClient, storeNames, versionType);
             }
+            if(ops.contains("t")) {
+                String storeName = (String) options.valueOf("truncate");
+                executeTruncateStore(nodeId, adminClient, storeName);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
@@ -326,6 +337,11 @@ public class VoldemortAdminTool {
     public static void executeDeleteStore(AdminClient adminClient, String storeName) {
         System.out.println("Deleting " + storeName);
         adminClient.deleteStore(storeName);
+    }
+
+    public static void executeTruncateStore(int nodeId, AdminClient adminClient, String storeName) {
+        System.out.println("Truncating " + storeName + " on node " + nodeId);
+        adminClient.truncate(nodeId, storeName);
     }
 
     public static void executeAddStores(AdminClient adminClient,

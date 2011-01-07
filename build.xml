@@ -22,7 +22,7 @@
           <isset property="env.BUILD_NUMBER" />
           <not>
               <equals arg1="" arg2="${env.BUILD_NUMBER}" trim="yes"/>
-          </not> 
+          </not>
        </and>
   </condition>
 
@@ -79,7 +79,7 @@
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
-    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
+    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
     </javac>
@@ -99,7 +99,7 @@
         <exclude name="**/*.html" />
       </fileset>
     </copy>
-    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
+    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
@@ -112,7 +112,7 @@
       <fileset dir="${testclasses.dir}" />
     </jar>
   </target>
-  
+
   <target name="protobuff" description="Generate source files from .proto files">
     <pathconvert property="proto.sources" pathsep=" ">
       <path id="proto-files">
@@ -120,9 +120,9 @@
       </path>
     </pathconvert>
 
-    <property name="proto.path" location="${protobuff.dir}"/> 
+    <property name="proto.path" location="${protobuff.dir}"/>
     <property name="javaout.path" location="${java.dir}"/>
-    <property name="pythonout.path" location="${python.dir}"/>
+    <property name="pythonout.path" location="${python.proto.dir}"/>
     <exec executable="protoc" failonerror="true">
       <arg value="--proto_path=${proto.path}"/>
       <arg value="--java_out=${javaout.path}"/>
@@ -151,7 +151,7 @@
       </fileset>
     </jar>
   </target>
-  
+
   <target name="alljar" depends="build, contrib-build" description="Build a jar file that includes all contrib code.">
     <jar destfile="${dist.dir}/${name}-${curr.release}-all.jar">
       <fileset dir="${classes.dir}">
@@ -166,7 +166,7 @@
       </fileset>
     </jar>
   </target>
-  
+
   <target name="war" depends="build" description="Build server war file">
     <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
       <classes dir="${classes.dir}"/>
@@ -179,7 +179,7 @@
 
   <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
     <replace-dir dir="${contrib.classes.dir}" />
-    <javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true">
+    <javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${contrib.root.dir}" />
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />
@@ -312,7 +312,7 @@
       <report todir="${contribtesthtml.dir}" format="frames" />
     </junitreport>
   </target>
-  
+
   <macrodef name="create-release-artifacts">
     <attribute name="version" />
     <sequential>
@@ -340,12 +340,12 @@
   <target name="snapshot"  description="Create a release-snapshot zip file with everything pre-built.">
     <create-release-artifacts version="${curr.release.snapshot}" />
   </target>
-  
+
   <target name="release" description="Create a release zip file with everything pre-built.">
     <create-release-artifacts version="${curr.release}" />
   </target>
-  
-  <target name="hadoop-benchmark-jar" depends="build, contrib-build" 
+
+  <target name="hadoop-benchmark-jar" depends="build, contrib-build"
     description="Build a jar file that includes all contrib code plus the necessary jars for running the hadoop benchmark.">
     <jar destfile="${dist.dir}/hadoop-benchmark.jar">
       <fileset dir="${classes.dir}">

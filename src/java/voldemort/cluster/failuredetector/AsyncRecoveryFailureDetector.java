@@ -39,12 +39,6 @@ import voldemort.store.UnreachableStoreException;
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
 public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implements Runnable {
 
-    /**
-     * Thread that checks availability of the nodes in the unavailableNodes set.
-     */
-
-    private final Thread recoveryThread;
-
     private volatile boolean isRunning;
 
     public AsyncRecoveryFailureDetector(FailureDetectorConfig failureDetectorConfig) {
@@ -52,7 +46,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
         isRunning = true;
 
-        recoveryThread = new Thread(this, "AsyncNodeRecoverer");
+        Thread recoveryThread = new Thread(this, "AsyncNodeRecoverer");
         recoveryThread.setDaemon(true);
         recoveryThread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 

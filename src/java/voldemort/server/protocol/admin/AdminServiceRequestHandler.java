@@ -580,7 +580,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         }
 
                     }
-                    fetchDirPath = new String(fetchDir.getAbsolutePath());
+                    fetchDirPath = fetchDir.getAbsolutePath();
                 }
 
                 @Override
