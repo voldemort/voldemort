@@ -31,8 +31,13 @@ import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class RebalanceUtilsTest extends TestCase {
 
@@ -57,6 +62,157 @@ public class RebalanceUtilsTest extends TestCase {
         }
     }
 
+    public void testUniqueStoreDefinitions() {
+        List<StoreDefinition> storeDefs = Lists.newArrayList();
+
+        // Put zero store
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 0);
+
+        // Put one store
+        StoreDefinition consistentStore1 = ServerTestUtils.getStoreDef("a",
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
+        storeDefs.add(consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+
+        // Put another store with same rep-factor + strategy but different name
+        StoreDefinition consistentStore2 = ServerTestUtils.getStoreDef("b",
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
+        storeDefs.add(consistentStore2);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+
+        // Put another store with different rep-factor
+        StoreDefinition consistentStore3 = ServerTestUtils.getStoreDef("c",
+                                                                       2,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       1,
+                                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
+        storeDefs.add(consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 2);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+
+        // Put another store with same rep-factor but zone routing
+        HashMap<Integer, Integer> zoneRepFactor = Maps.newHashMap();
+        zoneRepFactor.put(0, 1);
+        zoneRepFactor.put(1, 1);
+        StoreDefinition zoneStore1 = ServerTestUtils.getStoreDef("d",
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 0,
+                                                                 0,
+                                                                 zoneRepFactor,
+                                                                 HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                                 RoutingStrategyType.ZONE_STRATEGY);
+        storeDefs.add(zoneStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(2), zoneStore1);
+
+        // Put another store with different rep-factor but zone routing
+        zoneRepFactor = Maps.newHashMap();
+        zoneRepFactor.put(0, 2);
+        zoneRepFactor.put(1, 1);
+        StoreDefinition zoneStore2 = ServerTestUtils.getStoreDef("e",
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 0,
+                                                                 0,
+                                                                 zoneRepFactor,
+                                                                 HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                                 RoutingStrategyType.ZONE_STRATEGY);
+        storeDefs.add(zoneStore2);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 4);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(2), zoneStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(3), zoneStore2);
+
+        // Put another zone store with same rep factor
+        zoneRepFactor = Maps.newHashMap();
+        zoneRepFactor.put(0, 1);
+        zoneRepFactor.put(1, 1);
+        StoreDefinition zoneStore3 = ServerTestUtils.getStoreDef("f",
+                                                                 1,
+                                                                 1,
+                                                                 2,
+                                                                 1,
+                                                                 0,
+                                                                 0,
+                                                                 zoneRepFactor,
+                                                                 HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                                 RoutingStrategyType.ZONE_STRATEGY);
+        storeDefs.add(zoneStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 4);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(2), zoneStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(3), zoneStore2);
+
+        // Put another zone store with same rep factor
+        zoneRepFactor = Maps.newHashMap();
+        zoneRepFactor.put(0, 2);
+        zoneRepFactor.put(1, 1);
+        StoreDefinition zoneStore4 = ServerTestUtils.getStoreDef("g",
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 0,
+                                                                 0,
+                                                                 zoneRepFactor,
+                                                                 HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                                 RoutingStrategyType.ZONE_STRATEGY);
+        storeDefs.add(zoneStore4);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 4);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(2), zoneStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(3), zoneStore2);
+
+        // Put another store with same total rep-factor but different indiv
+        // rep-factor, zone routing
+        zoneRepFactor = Maps.newHashMap();
+        zoneRepFactor.put(0, 1);
+        zoneRepFactor.put(1, 2);
+        StoreDefinition zoneStore5 = ServerTestUtils.getStoreDef("h",
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 1,
+                                                                 0,
+                                                                 0,
+                                                                 zoneRepFactor,
+                                                                 HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                                                 RoutingStrategyType.ZONE_STRATEGY);
+        storeDefs.add(zoneStore5);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).size(), 5);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(0), consistentStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(1), consistentStore3);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(2), zoneStore1);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(3), zoneStore2);
+        assertEquals(RebalanceUtils.getUniqueStoreDefinitions(storeDefs).get(4), zoneStore5);
+
+    }
+
     public void testRebalancePlan() {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
@@ -74,15 +230,7 @@ public class RebalanceUtilsTest extends TestCase {
                          rebalanceNodeInfo.getRebalanceTaskList().size());
             RebalancePartitionsInfo expected = new RebalancePartitionsInfo(rebalanceNodeInfo.getStealerNode(),
                                                                            0,
-                                                                           Arrays.asList(0,
-                                                                                         1,
-                                                                                         2,
-                                                                                         3,
-                                                                                         4,
-                                                                                         5,
-                                                                                         6,
-                                                                                         7,
-                                                                                         8),
+                                                                           Arrays.asList(2, 3),
                                                                            Arrays.asList(2, 3),
                                                                            Arrays.asList(2, 3),
                                                                            RebalanceUtils.getStoreNames(storeDefList),
