@@ -1,9 +1,12 @@
 package voldemort.store.stats;
 
 import org.junit.Test;
+import voldemort.utils.Time;
 
-import static voldemort.utils.Time.*;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static voldemort.utils.Time.NS_PER_MS;
 
 
 public class StatsTest  {
@@ -62,8 +65,14 @@ public class StatsTest  {
 
     @Test
     public void statsExpireOnTime() throws InterruptedException {
-        // Create a quickly expring counter
-        RequestCounter rc = new RequestCounter(1000);
+        final long startTime = 1445468640; // Oct 21, 2015
+        final int delay = 1000;
+        Time mockTime = mock(Time.class);
+
+        when(mockTime.getMilliseconds()).thenReturn(startTime);
+
+        RequestCounter rc = new RequestCounter(delay, mockTime);
+
         // Add some new stats and verify they were calculated correctly
         rc.addRequest(100 * NS_PER_MS, 1, 200, 1);
         rc.addRequest(50 * NS_PER_MS, 0, 1000, 2);
@@ -73,8 +82,8 @@ public class StatsTest  {
         assertEquals(1000, rc.getMaxSizeInBytes());
         assertEquals(3, rc.getGetAllAggregatedCount());
 
-        // Sleep to let the counter expire
-        Thread.sleep(1500);
+        // Jump into the future after the counter should have expired
+        when(mockTime.getMilliseconds()).thenReturn(startTime + delay + 1);
 
         // Now verify that the counter has aged out the previous values
         assertEquals(0, rc.getNumEmptyResponses());
