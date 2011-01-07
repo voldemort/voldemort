@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -19,13 +20,14 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 /**
@@ -43,35 +45,46 @@ import com.google.common.collect.Multimap;
  *        rebalance
  * 
  */
-public class RebalanceClusterPlan {
+public class MigratePartitionsPlan {
 
-    private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
-    private final List<StoreDefinition> storeDefList;
+    private Queue<RebalanceNodePlan> rebalanceTaskQueue;
+    private List<StoreDefinition> oldStoreDefList;
+    private List<StoreDefinition> newStoreDefList;
 
-    public RebalanceClusterPlan(Cluster currentCluster,
-                                Cluster targetCluster,
-                                List<StoreDefinition> storeDefList,
-                                boolean deleteDonorPartition,
-                                Map<Integer, Map<String, String>> currentROStoreVersionsDirs) {
+    public MigratePartitionsPlan(Cluster currentCluster,
+                                 Cluster targetCluster,
+                                 List<StoreDefinition> oldStoreDefList,
+                                 List<StoreDefinition> newStoreDefList) {
+        initialize(currentCluster, targetCluster, oldStoreDefList, newStoreDefList);
+
+    }
+
+    public MigratePartitionsPlan(Cluster currentCluster,
+                                 Cluster targetCluster,
+                                 List<StoreDefinition> storeDefList) {
+        initialize(currentCluster, targetCluster, storeDefList, storeDefList);
+    }
+
+    private void initialize(Cluster currentCluster,
+                            Cluster targetCluster,
+                            List<StoreDefinition> oldStoreDefList,
+                            List<StoreDefinition> newStoreDefList) {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
-        this.storeDefList = storeDefList;
+        this.oldStoreDefList = oldStoreDefList;
+        this.newStoreDefList = newStoreDefList;
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should not change !!");
 
+        if(!RebalanceUtils.hasSameStores(oldStoreDefList, newStoreDefList))
+            throw new VoldemortException("Either the number of stores has changed or some stores are missing");
+
         for(Node node: targetCluster.getNodes()) {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalanceNodeTask(currentCluster,
                                                                                    targetCluster,
-                                                                                   RebalanceUtils.getStoreNames(storeDefList),
-                                                                                   node.getId(),
-                                                                                   deleteDonorPartition);
+                                                                                   RebalanceUtils.getStoreNames(oldStoreDefList),
+                                                                                   node.getId());
             if(rebalanceNodeList.size() > 0) {
-                if(currentROStoreVersionsDirs != null && currentROStoreVersionsDirs.size() > 0) {
-                    for(RebalancePartitionsInfo partitionsInfo: rebalanceNodeList) {
-                        partitionsInfo.setStealerNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getStealerId()));
-                        partitionsInfo.setDonorNodeROStoreToDir(currentROStoreVersionsDirs.get(partitionsInfo.getDonorId()));
-                    }
-                }
                 rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
             }
         }
@@ -82,6 +95,21 @@ public class RebalanceClusterPlan {
     }
 
     /**
+     * Returns a map of stealer node to their corresponding node plan
+     * 
+     * @return Map of stealer node to plan
+     */
+    public HashMap<Integer, RebalanceNodePlan> getRebalancingTaskQueuePerNode() {
+        HashMap<Integer, RebalanceNodePlan> rebalanceMap = Maps.newHashMap();
+        Iterator<RebalanceNodePlan> iter = rebalanceTaskQueue.iterator();
+        while(iter.hasNext()) {
+            RebalanceNodePlan plan = iter.next();
+            rebalanceMap.put(plan.getStealerNode(), plan);
+        }
+        return rebalanceMap;
+    }
+
+    /**
      * For a particular stealer node retrieves a list of plans corresponding to
      * each donor node.
      * 
@@ -89,22 +117,18 @@ public class RebalanceClusterPlan {
      * @param targetCluster The cluster definition of the target cluster
      * @param storeList The list of stores
      * @param stealNodeId The node id of the stealer node
-     * @param deleteDonorPartition Delete the donor partitions after rebalance
      * @return List of plans per donor node
      */
-    public List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
-                                                              Cluster targetCluster,
-                                                              List<String> storeList,
-                                                              int stealNodeId,
-                                                              boolean deleteDonorPartition) {
+    private List<RebalancePartitionsInfo> getRebalanceNodeTask(Cluster currentCluster,
+                                                               Cluster targetCluster,
+                                                               List<String> storeList,
+                                                               int stealNodeId) {
         Map<Integer, Integer> currentPartitionsToNodeMap = RebalanceUtils.getCurrentPartitionMapping(currentCluster);
         List<Integer> stealList = getStealList(currentCluster, targetCluster, stealNodeId);
 
         Map<Integer, List<Integer>> masterPartitionsMap = getStealMasterPartitions(stealList,
                                                                                    currentPartitionsToNodeMap);
 
-        // copies partitions needed to satisfy new replication mapping.
-        // these partitions should be copied but not deleted from original node.
         Map<Integer, List<Integer>> replicationPartitionsMap = getReplicationChanges(currentCluster,
                                                                                      targetCluster,
                                                                                      stealNodeId,
@@ -113,16 +137,11 @@ public class RebalanceClusterPlan {
         List<RebalancePartitionsInfo> stealInfoList = new ArrayList<RebalancePartitionsInfo>();
         for(Node donorNode: currentCluster.getNodes()) {
             Set<Integer> stealPartitions = new HashSet<Integer>();
-            Set<Integer> deletePartitions = new HashSet<Integer>();
-            // create Set for steal master partitions
             Set<Integer> stealMasterPartitions = new HashSet<Integer>();
 
             if(masterPartitionsMap.containsKey(donorNode.getId())) {
                 stealPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
-                // add one steal master partition
                 stealMasterPartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
-                if(deleteDonorPartition)
-                    deletePartitions.addAll(masterPartitionsMap.get(donorNode.getId()));
             }
 
             if(replicationPartitionsMap.containsKey(donorNode.getId())) {
@@ -133,7 +152,7 @@ public class RebalanceClusterPlan {
                 stealInfoList.add(new RebalancePartitionsInfo(stealNodeId,
                                                               donorNode.getId(),
                                                               new ArrayList<Integer>(stealPartitions),
-                                                              new ArrayList<Integer>(deletePartitions),
+                                                              new ArrayList<Integer>(),
                                                               new ArrayList<Integer>(stealMasterPartitions),
                                                               storeList,
                                                               new HashMap<String, String>(),
@@ -189,12 +208,20 @@ public class RebalanceClusterPlan {
         List<Integer> targetList = targetCluster.getNodeById(stealNodeId).getPartitionIds();
 
         // get changing replication mapping
-        RebalanceClusterTool clusterTool = new RebalanceClusterTool(currentCluster,
-                                                                    RebalanceUtils.getMaxReplicationStore(this.storeDefList));
-        Multimap<Integer, Pair<Integer, Integer>> replicationChanges = clusterTool.getRemappedReplicas(targetCluster);
+        Multimap<Integer, Integer> replicationChanges = HashMultimap.create();
 
-        for(final Entry<Integer, Pair<Integer, Integer>> entry: replicationChanges.entries()) {
-            int newReplicationPartition = entry.getValue().getSecond();
+        // for every unique store
+        for(StoreDefinition storeDef: RebalanceUtils.getUniqueStoreDefinitions(this.oldStoreDefList)) {
+            RebalanceClusterTool clusterTool = new RebalanceClusterTool(currentCluster, storeDef);
+
+            Multimap<Integer, Integer> storeLevelReplicationChanges = clusterTool.getRemappedReplicas(targetCluster,
+                                                                                                      RebalanceUtils.getStore(this.newStoreDefList,
+                                                                                                                              storeDef.getName()));
+            replicationChanges.putAll(storeLevelReplicationChanges);
+        }
+
+        for(final Entry<Integer, Integer> entry: replicationChanges.entries()) {
+            int newReplicationPartition = entry.getValue();
             if(targetList.contains(newReplicationPartition)) {
                 // stealerNode need to replicate some new partition now.
                 int donorNode = currentPartitionsToNodeMap.get(entry.getKey());
@@ -259,13 +286,16 @@ public class RebalanceClusterPlan {
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
-        parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
+        parser.accepts("cluster-xml", "[REQUIRED] old cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
         parser.accepts("stores-xml", "[REQUIRED] stores xml file location")
               .withRequiredArg()
               .describedAs("path");
-        parser.accepts("old-cluster-xml", "[REQUIRED] old cluster xml file location")
+        parser.accepts("target-stores-xml", "new stores xml file location")
+              .withRequiredArg()
+              .describedAs("path");
+        parser.accepts("target-cluster-xml", "[REQUIRED] new cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
 
@@ -279,31 +309,35 @@ public class RebalanceClusterPlan {
         Set<String> missing = CmdUtils.missing(options,
                                                "cluster-xml",
                                                "stores-xml",
-                                               "old-cluster-xml");
+                                               "target-cluster-xml");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
             System.exit(1);
         }
 
-        String newClusterXml = (String) options.valueOf("cluster-xml");
-        String oldClusterXml = (String) options.valueOf("old-cluster-xml");
-        String storesXml = (String) options.valueOf("stores-xml");
+        String newClusterXml = (String) options.valueOf("target-cluster-xml");
+        String oldClusterXml = (String) options.valueOf("cluster-xml");
+        String oldStoresXml = (String) options.valueOf("stores-xml");
+        String newStoresXml = oldStoresXml;
+        if(options.has("target-stores-xml")) {
+            newStoresXml = (String) options.valueOf("target-stores-xml");
+        }
 
         if(!Utils.isReadableFile(newClusterXml) || !Utils.isReadableFile(oldClusterXml)
-           || !Utils.isReadableFile(storesXml)) {
-            System.err.println("Could not read files");
+           || !Utils.isReadableFile(oldStoresXml) || !Utils.isReadableFile(newStoresXml)) {
+            System.err.println("Could not read metadata files from path provided");
+            parser.printHelpOn(System.err);
             System.exit(1);
         }
 
         ClusterMapper clusterMapper = new ClusterMapper();
         StoreDefinitionsMapper storeDefMapper = new StoreDefinitionsMapper();
 
-        RebalanceClusterPlan plan = new RebalanceClusterPlan(clusterMapper.readCluster(new File(oldClusterXml)),
-                                                             clusterMapper.readCluster(new File(newClusterXml)),
-                                                             storeDefMapper.readStoreList(new File(storesXml)),
-                                                             false,
-                                                             null);
+        MigratePartitionsPlan plan = new MigratePartitionsPlan(clusterMapper.readCluster(new File(oldClusterXml)),
+                                                               clusterMapper.readCluster(new File(newClusterXml)),
+                                                               storeDefMapper.readStoreList(new File(oldStoresXml)),
+                                                               storeDefMapper.readStoreList(new File(newStoresXml)));
         System.out.println(plan);
     }
 }
