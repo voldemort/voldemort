@@ -37,6 +37,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
+import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -54,8 +55,7 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList("mysql",
-                                                                                     "krati");
+    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME);
 
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
@@ -391,7 +391,7 @@ public class RebalanceUtils {
         List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
 
         for(StoreDefinition def: storeDefList) {
-            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
+            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getType())) {
                 storeNameList.add(def);
             } else {
                 logger.debug("ignoring store " + def.getName() + " for rebalancing");
