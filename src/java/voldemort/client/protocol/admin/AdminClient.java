@@ -544,7 +544,6 @@ public class AdminClient {
                     writableStores.add(def);
                 }
             }
-            System.out.println(writableStores);
             for(StoreDefinition def: writableStores) {
                 restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
