@@ -25,6 +25,7 @@ import com.google.common.base.Joiner;
 
 public class EntropyDetection {
 
+    @SuppressWarnings("unchecked")
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
