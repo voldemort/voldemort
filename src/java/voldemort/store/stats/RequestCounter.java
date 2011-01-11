@@ -39,7 +39,7 @@ public class RequestCounter {
         if(elapsed > 0f) {
             return (float) (oldv.count / elapsed);
         } else {
-            return -1f;
+            return 0f;
         }
     }
 
@@ -132,7 +132,7 @@ public class RequestCounter {
         }
 
         public double getAverageTimeNS() {
-            return count > 0 ? 1f * totalTimeNS / count : -0f;
+            return count > 0 ? 1f * totalTimeNS / count : 0f;
         }
     }
 }
