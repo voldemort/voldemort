@@ -41,11 +41,11 @@ public class CachingStoreClientFactory implements StoreClientFactory {
     private final static Logger logger = Logger.getLogger(CachingStoreClientFactory.class);
 
     private final StoreClientFactory inner;
-    private final ConcurrentMap<Pair<String, Object>, StoreClient> cache;
+    private final ConcurrentMap<Pair<String, Object>, StoreClient<?, ?>> cache;
 
     public CachingStoreClientFactory(StoreClientFactory inner) {
         this.inner = inner;
-        this.cache = new ConcurrentHashMap<Pair<String, Object>, StoreClient>();
+        this.cache = new ConcurrentHashMap<Pair<String, Object>, StoreClient<?, ?>>();
     }
 
 
@@ -57,7 +57,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
             cache.putIfAbsent(key, result);
         }
 
-        return cache.get(key);
+        return (StoreClient<K, V>) cache.get(key);
     }
 
     @SuppressWarnings("unchecked")
@@ -69,7 +69,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
             cache.putIfAbsent(key, result);
         }
 
-        return cache.get(key);
+        return (StoreClient<K, V>) cache.get(key);
     }
 
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
@@ -100,9 +100,9 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     @JmxOperation(description = "Bootstrap all clients in the cache")
     public void bootstrapAllClients() {
-        List<StoreClient> allClients = ImmutableList.copyOf(cache.values());
+        List<StoreClient<?, ?>> allClients = ImmutableList.copyOf(cache.values());
         try {
-            for(StoreClient client: allClients) {
+            for(StoreClient<?, ?> client: allClients) {
                 if(client instanceof DefaultStoreClient)
                     ((DefaultStoreClient) client).bootStrap();
             }
