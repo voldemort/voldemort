@@ -566,8 +566,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testFetchPartitionFiles() throws IOException {
-        if(useNio)
-            generateAndFetchFiles(10, 1, 1000, 1000);
+        generateAndFetchFiles(10, 1, 1000, 1000);
     }
 
     private void generateFiles(int numChunks,
