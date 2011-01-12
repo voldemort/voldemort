@@ -16,12 +16,17 @@
 
 package voldemort.client;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.log4j.Logger;
+import voldemort.annotations.jmx.JmxManaged;
+import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.utils.Pair;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -30,7 +35,10 @@ import java.util.concurrent.ConcurrentMap;
  * to <code>getStoreClient</code>
  *
  */
+@JmxManaged(description = "A StoreClientFactory which caches clients")
 public class CachingStoreClientFactory implements StoreClientFactory {
+
+    private final static Logger logger = Logger.getLogger(CachingStoreClientFactory.class);
 
     private final StoreClientFactory inner;
     private final ConcurrentMap<Pair<String, Object>, StoreClient> cache;
@@ -79,5 +87,27 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     public FailureDetector getFailureDetector() {
         return inner.getFailureDetector();
+    }
+
+    @JmxOperation(description = "Clear the cache")
+    public synchronized void clear() {
+        try {
+            cache.clear();
+        } catch(Exception e) {
+            logger.warn("Exception when clearing the cache", e);
+        }
+    }
+
+    @JmxOperation(description = "Bootstrap all clients in the cache")
+    public void bootstrapAllClients() {
+        List<StoreClient> allClients = ImmutableList.copyOf(cache.values());
+        try {
+            for(StoreClient client: allClients) {
+                if(client instanceof DefaultStoreClient)
+                    ((DefaultStoreClient) client).bootStrap();
+            }
+        } catch(Exception e) {
+            logger.warn("Exception during bootstrapAllClients", e);
+        }
     }
 }
