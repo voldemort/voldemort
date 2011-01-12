@@ -74,17 +74,14 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
 
         // Registering self to be able to bootstrap client dynamically via JMX
-        JmxUtils.registerMbean(this,
-                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                         JmxUtils.getClassName(this.getClass())
-                                                                 + "." + storeName));
+        JmxUtils.registerMbean(this, JmxUtils.createObjectName(this.getClass()));
 
         bootStrap();
     }
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
-        logger.info("bootstrapping metadata for store " + this.storeName);
+        logger.info("bootstrapping metadata.");
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
