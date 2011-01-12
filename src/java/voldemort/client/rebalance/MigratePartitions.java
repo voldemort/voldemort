@@ -93,10 +93,12 @@ public class MigratePartitions {
         this.stealerNodeIds = stealerNodeIds;
         this.voldemortConfig = Utils.notNull(voldemortConfig);
         this.transitionToNormal = transitionToNormal;
-        MigratePartitionsPlan plan = new MigratePartitionsPlan(currentCluster,
-                                                               targetCluster,
-                                                               currentStoreDefs,
-                                                               targetStoreDefs);
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(currentCluster,
+                                                             targetCluster,
+                                                             currentStoreDefs,
+                                                             targetStoreDefs,
+                                                             false,
+                                                             null);
 
         logger.info("Rebalance cluster plan => " + plan);
 

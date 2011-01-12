@@ -310,13 +310,10 @@ public class ServerTestUtils {
      * <b>numberOfZones</b>
      * 
      * @param numberOfNodes Number of nodes in the cluster
-     * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
      * @return Cluster
      */
-    public static Cluster getLocalCluster(int numberOfNodes,
-                                          int partitionsPerNode,
-                                          int numberOfZones) {
+    public static Cluster getLocalCluster(int numberOfNodes, int numberOfZones) {
 
         if(numberOfZones > 0 && numberOfNodes > 0 && numberOfNodes % numberOfZones != 0) {
             throw new VoldemortException("The number of nodes (" + numberOfNodes
@@ -326,9 +323,10 @@ public class ServerTestUtils {
 
         int[] ports = findFreePorts(3 * numberOfNodes);
 
+        // Generate partitions, 10 partitions per node
         List<Integer> partitions = Lists.newArrayList();
 
-        for(int i = 0; i < partitionsPerNode * numberOfNodes; i++)
+        for(int i = 0; i < 10 * numberOfNodes; i++)
             partitions.add(i);
 
         Collections.shuffle(partitions);
@@ -343,8 +341,7 @@ public class ServerTestUtils {
                                ports[3 * i + 1],
                                ports[3 * i + 2],
                                i / numberOfNodesPerZone,
-                               partitions.subList(partitionsPerNode * i, partitionsPerNode * i
-                                                                         + partitionsPerNode)));
+                               partitions.subList(10 * i, 10 * i + 10)));
         }
 
         // Generate zones

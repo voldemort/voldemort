@@ -19,7 +19,7 @@ import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class MigratePartitionsPlanTest {
+public class RebalanceClusterPlanTest {
 
     private final int NUM_NODES = 4;
     private final int NUM_ZONES = 2;
@@ -113,9 +113,11 @@ public class MigratePartitionsPlanTest {
                                                                          1,
                                                                          1,
                                                                          RoutingStrategyType.CONSISTENT_STRATEGY);
-        MigratePartitionsPlan plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                                               consistentRoutingClusterModified,
-                                                               Lists.newArrayList(storeDefRepFactor1));
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                                             consistentRoutingClusterModified,
+                                                             Lists.newArrayList(storeDefRepFactor1),
+                                                             false,
+                                                             null);
 
         HashMap<Integer, RebalanceNodePlan> nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 1);
@@ -131,9 +133,11 @@ public class MigratePartitionsPlanTest {
                                                                          1,
                                                                          1,
                                                                          RoutingStrategyType.CONSISTENT_STRATEGY);
-        plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                         consistentRoutingClusterModified,
-                                         Lists.newArrayList(storeDefRepFactor2));
+        plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                        consistentRoutingClusterModified,
+                                        Lists.newArrayList(storeDefRepFactor2),
+                                        false,
+                                        null);
 
         nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 2);
@@ -170,10 +174,12 @@ public class MigratePartitionsPlanTest {
                                                                     1,
                                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        MigratePartitionsPlan plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                                               consistentRoutingClusterModified,
-                                                               Lists.newArrayList(beforeStoreDef),
-                                                               Lists.newArrayList(afterStoreDef));
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                                             consistentRoutingClusterModified,
+                                                             Lists.newArrayList(beforeStoreDef),
+                                                             Lists.newArrayList(afterStoreDef),
+                                                             false,
+                                                             null);
 
         HashMap<Integer, RebalanceNodePlan> nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 4);
@@ -218,10 +224,12 @@ public class MigratePartitionsPlanTest {
                                                     1,
                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                         consistentRoutingClusterModified,
-                                         Lists.newArrayList(beforeStoreDef),
-                                         Lists.newArrayList(afterStoreDef));
+        plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                        consistentRoutingClusterModified,
+                                        Lists.newArrayList(beforeStoreDef),
+                                        Lists.newArrayList(afterStoreDef),
+                                        false,
+                                        null);
 
         nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 4);
@@ -273,9 +281,11 @@ public class MigratePartitionsPlanTest {
                                                                          zoneReplicationFactors,
                                                                          HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                          RoutingStrategyType.ZONE_STRATEGY);
-        MigratePartitionsPlan plan = new MigratePartitionsPlan(zoneRoutingCluster,
-                                                               zoneRoutingClusterModified,
-                                                               Lists.newArrayList(storeDefRepFactor1));
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(zoneRoutingCluster,
+                                                             zoneRoutingClusterModified,
+                                                             Lists.newArrayList(storeDefRepFactor1),
+                                                             false,
+                                                             null);
 
         HashMap<Integer, RebalanceNodePlan> nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 2);
@@ -308,9 +318,11 @@ public class MigratePartitionsPlanTest {
                                                                          zoneReplicationFactors,
                                                                          HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                          RoutingStrategyType.ZONE_STRATEGY);
-        plan = new MigratePartitionsPlan(zoneRoutingCluster,
-                                         zoneRoutingClusterModified,
-                                         Lists.newArrayList(storeDefRepFactor2));
+        plan = new RebalanceClusterPlan(zoneRoutingCluster,
+                                        zoneRoutingClusterModified,
+                                        Lists.newArrayList(storeDefRepFactor2),
+                                        false,
+                                        null);
 
         nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 2);
@@ -358,10 +370,12 @@ public class MigratePartitionsPlanTest {
                                                                     HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                     RoutingStrategyType.ZONE_STRATEGY);
 
-        MigratePartitionsPlan plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                                               zoneRoutingClusterModified,
-                                                               Lists.newArrayList(beforeStoreDef),
-                                                               Lists.newArrayList(afterStoreDef));
+        RebalanceClusterPlan plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                                             zoneRoutingClusterModified,
+                                                             Lists.newArrayList(beforeStoreDef),
+                                                             Lists.newArrayList(afterStoreDef),
+                                                             false,
+                                                             null);
 
         HashMap<Integer, RebalanceNodePlan> nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 4);
@@ -418,10 +432,12 @@ public class MigratePartitionsPlanTest {
                                                     HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                     RoutingStrategyType.ZONE_STRATEGY);
 
-        plan = new MigratePartitionsPlan(consistentRoutingCluster,
-                                         zoneRoutingClusterModified,
-                                         Lists.newArrayList(beforeStoreDef),
-                                         Lists.newArrayList(afterStoreDef));
+        plan = new RebalanceClusterPlan(consistentRoutingCluster,
+                                        zoneRoutingClusterModified,
+                                        Lists.newArrayList(beforeStoreDef),
+                                        Lists.newArrayList(afterStoreDef),
+                                        false,
+                                        null);
 
         nodePlan = plan.getRebalancingTaskQueuePerNode();
         Assert.assertEquals(nodePlan.size(), 4);

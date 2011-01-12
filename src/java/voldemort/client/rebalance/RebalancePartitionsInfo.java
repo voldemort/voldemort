@@ -155,8 +155,7 @@ public class RebalancePartitionsInfo {
     public String toString() {
         return "RebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId()
                + " partitions:" + getPartitionList() + " steal master partitions:"
-               + getStealMasterPartitions() + " delete: " + getDeletePartitionsList() + " stores:"
-               + getUnbalancedStoreList() + ")";
+               + getStealMasterPartitions() + " stores:" + getUnbalancedStoreList() + ")";
     }
 
     public String toJsonString() {

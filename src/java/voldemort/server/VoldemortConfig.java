@@ -71,7 +71,6 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerMinUtilization;
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
-    private long bdbLockTimeoutMs;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -132,10 +131,8 @@ public class VoldemortConfig implements Serializable {
 
     private String slopStoreType;
     private String pusherType;
-    private long slopFrequencyMs;
-    private final long repairFrequencyMs;
-    private long slopMaxWriteBytesPerSec;
-    private long slopMaxReadBytesPerSec;
+    private final long slopFrequencyMs, repairFrequencyMs;
+    private long slopMaxWriteBytesPerSec, slopMaxReadBytesPerSec;
     private int slopBatchSize;
     private int slopZonesDownToTerminate;
 
@@ -196,7 +193,6 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
         this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
-        this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -557,29 +553,6 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * 
-     * The lock timeout for all transactional and non-transactional operations.
-     * Value of zero disables lock timeouts i.e. a deadlock scenario will block
-     * forever
-     * 
-     * <ul>
-     * <li>property: "bdb.lock.timeout.ms"</li>
-     * <li>default: 500</li>
-     * <li>minimum: 0</li>
-     * <li>maximum: 75 * 60 * 1000</li>
-     * </ul>
-     */
-    public long getBdbLockTimeoutMs() {
-        return bdbLockTimeoutMs;
-    }
-
-    public final void setBdbLockTimeoutMs(long bdbLockTimeoutMs) {
-        if(bdbLockTimeoutMs < 0)
-            throw new IllegalArgumentException("bdbLockTimeoutMs should be greater than 0");
-        this.bdbLockTimeoutMs = bdbLockTimeoutMs;
-    }
-
-    /**
-     * 
      * The cleaner will keep the total disk space utilization percentage above
      * this value.
      * 
@@ -840,10 +813,6 @@ public class VoldemortConfig implements Serializable {
 
     public long getSlopFrequencyMs() {
         return this.slopFrequencyMs;
-    }
-
-    public void setSlopFrequencyMs(long slopFrequencyMs) {
-        this.slopFrequencyMs = slopFrequencyMs;
     }
 
     public long getRepairFrequencyMs() {
