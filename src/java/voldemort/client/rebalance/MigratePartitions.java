@@ -45,28 +45,6 @@ public class MigratePartitions {
     private final HashMap<Integer, List<RebalancePartitionsInfo>> donorNodePlans;
     private final HashMap<Integer, Versioned<String>> donorStates;
     private final boolean transitionToNormal;
-    private boolean simulation = false;
-
-    public MigratePartitions(Cluster currentCluster,
-                             Cluster targetCluster,
-                             List<StoreDefinition> currentStoreDefs,
-                             List<StoreDefinition> targetStoreDefs,
-                             AdminClient adminClient,
-                             VoldemortConfig voldemortConfig,
-                             List<Integer> stealerNodeIds,
-                             boolean transitionToNormal,
-                             boolean simulation) {
-
-        this(currentCluster,
-             targetCluster,
-             currentStoreDefs,
-             targetStoreDefs,
-             adminClient,
-             voldemortConfig,
-             stealerNodeIds,
-             transitionToNormal);
-        this.simulation = simulation;
-    }
 
     /**
      * 
@@ -100,8 +78,6 @@ public class MigratePartitions {
                                                              false,
                                                              null);
 
-        logger.info("Rebalance cluster plan => " + plan);
-
         this.stealerNodePlans = plan.getRebalancingTaskQueuePerNode();
         if(this.stealerNodeIds == null) {
             this.stealerNodeIds = Lists.newArrayList(stealerNodePlans.keySet());
@@ -129,12 +105,8 @@ public class MigratePartitions {
         this.donorStates = Maps.newHashMap();
 
         for(int donorNodeId: donorNodePlans.keySet()) {
-            logger.info("Plan for donor node id " + donorNodeId + " => ");
-            List<RebalancePartitionsInfo> list = donorNodePlans.get(donorNodeId);
-            for(RebalancePartitionsInfo stealInfo: list) {
-                logger.info(stealInfo);
-            }
-            logger.info("===============================================");
+            logger.info("Plan for donor node id " + donorNodeId + " - "
+                        + donorNodePlans.get(donorNodeId));
         }
     }
 
@@ -153,17 +125,14 @@ public class MigratePartitions {
     public void changeToGrandfather() {
         for(int donorNodeId: donorNodePlans.keySet()) {
             logger.info("Transitioning " + donorNodeId + " to grandfathering state");
-            if(!simulation) {
-                Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
-                                                                                      donorNodePlans.get(donorNodeId));
-                if(!VoldemortState.valueOf(serverState.getValue())
-                                  .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
-                    throw new VoldemortException("Node "
-                                                 + donorNodeId
-                                                 + " is not in normal state to perform grandfathering");
-                }
-                donorStates.put(donorNodeId, serverState);
+            Versioned<String> serverState = adminClient.updateGrandfatherMetadata(donorNodeId,
+                                                                                  donorNodePlans.get(donorNodeId));
+            if(!VoldemortState.valueOf(serverState.getValue())
+                              .equals(MetadataStore.VoldemortState.GRANDFATHERING_SERVER)) {
+                throw new VoldemortException("Node " + donorNodeId
+                                             + " is not in normal state to perform grandfathering");
             }
+            donorStates.put(donorNodeId, serverState);
             logger.info("Successfully transitioned " + donorNodeId + " to grandfathering state");
         }
     }
@@ -222,14 +191,13 @@ public class MigratePartitions {
 
                     HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
                     for(RebalancePartitionsInfo r: partitionInfo) {
-                        logger.info("-- Started migration for donor node id " + r);
-                        if(!simulation)
-                            nodeIdToRequestId.put(r.getDonorId(),
-                                                  adminClient.migratePartitions(r.getDonorId(),
-                                                                                stealerNodeId,
-                                                                                storeName,
-                                                                                r.getPartitionList(),
-                                                                                null));
+                        logger.info("-- Started migration for donor node id " + r.getDonorId());
+                        nodeIdToRequestId.put(r.getDonorId(),
+                                              adminClient.migratePartitions(r.getDonorId(),
+                                                                            stealerNodeId,
+                                                                            storeName,
+                                                                            r.getPartitionList(),
+                                                                            null));
 
                     }
 
@@ -243,7 +211,7 @@ public class MigratePartitions {
                         logger.info("-- Completed migration for donor node id " + nodeId);
                     }
                 }
-                logger.info("===============================================");
+
             }
         } finally {
 
@@ -277,7 +245,6 @@ public class MigratePartitions {
               .withValuesSeparatedBy(',');
         parser.accepts("transition-to-normal",
                        "At the end of migration do we want to transition back to normal state? [Default-false]");
-        parser.accepts("simulation", "Run the full process as simulation");
 
         OptionSet options = parser.parse(args);
 
@@ -301,7 +268,6 @@ public class MigratePartitions {
         String currentStoresFile = (String) options.valueOf("stores-xml");
         String targetStoresFile = currentStoresFile;
         boolean transitionToNormal = options.has("transition-to-normal");
-        boolean simulation = options.has("simulation");
 
         if(options.has("target-stores-xml")) {
             targetStoresFile = (String) options.valueOf("target-stores-xml");
@@ -338,8 +304,7 @@ public class MigratePartitions {
                                                                         adminClient,
                                                                         voldemortConfig,
                                                                         stealerNodeIds,
-                                                                        transitionToNormal,
-                                                                        simulation);
+                                                                        transitionToNormal);
 
             migratePartitions.migrate();
         } catch(Exception e) {
