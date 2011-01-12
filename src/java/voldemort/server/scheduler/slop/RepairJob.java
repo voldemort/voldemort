@@ -124,10 +124,9 @@ public class RepairJob implements Runnable {
                                 slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
                                 repairSlops++;
                             }
-                            engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                         }
                     }
-                    closeIterator(iterator);
+                    iterator.close();
                     localStats.put(storeDef.getName(), repairSlops);
                     logger.info("Completed store " + storeDef.getName());
                 }
@@ -136,7 +135,8 @@ public class RepairJob implements Runnable {
             logger.error(e, e);
             terminatedEarly = true;
         } finally {
-            closeIterator(iterator);
+            if(iterator != null)
+                iterator.close();
 
             if(!terminatedEarly) {
                 resetStats(localStats);
@@ -145,15 +145,6 @@ public class RepairJob implements Runnable {
             logger.info("Completed repair job started at " + startTime);
         }
 
-    }
-
-    private void closeIterator(ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator) {
-        try {
-            if(iterator != null)
-                iterator.close();
-        } catch(Exception e) {
-            logger.error("Error in closing iterator", e);
-        }
     }
 
     private boolean hasDestination(List<Node> nodes) {
