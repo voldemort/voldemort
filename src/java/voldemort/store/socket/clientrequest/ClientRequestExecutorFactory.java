@@ -123,18 +123,14 @@ public class ClientRequestExecutorFactory implements
         socketChannel.configureBlocking(false);
         socketChannel.connect(new InetSocketAddress(dest.getHost(), dest.getPort()));
 
-        long startTime = System.currentTimeMillis();
-        long duration = 0;
-        long currWaitTime = 1;
-        long prevWaitTime = 1;
+        long finishConnectTimeoutMs = System.currentTimeMillis() + connectTimeoutMs;
 
         // Since we're non-blocking and it takes a non-zero amount of time
         // to connect, invoke finishConnect and loop.
         while(!socketChannel.finishConnect()) {
-            duration = System.currentTimeMillis() - startTime;
-            long remaining = this.connectTimeoutMs - duration;
+            long diff = finishConnectTimeoutMs - System.currentTimeMillis();
 
-            if(remaining < 0) {
+            if(diff < 0) {
                 // Don't forget to close the socket before we throw our
                 // exception or they'll leak :(
                 try {
@@ -146,19 +142,17 @@ public class ClientRequestExecutorFactory implements
 
                 throw new ConnectException("Cannot connect socket " + numCreated + " for "
                                            + dest.getHost() + ":" + dest.getPort() + " after "
-                                           + duration + " ms");
+                                           + connectTimeoutMs + " ms");
             }
 
             if(logger.isTraceEnabled())
                 logger.trace("Still creating socket " + numCreated + " for " + dest.getHost() + ":"
-                             + dest.getPort() + ", " + remaining + " ms. remaining to connect");
+                             + dest.getPort() + ", " + diff + " ms. remaining to connect");
 
+            // Break up the connection timeout into chunks N/10 of the
+            // total.
             try {
-                // Break up the connection timeout into smaller units,
-                // employing a Fibonacci-style back-off (1, 2, 3, 5, 8, ...)
-                Thread.sleep(Math.min(remaining, currWaitTime));
-                currWaitTime = Math.min(currWaitTime + prevWaitTime, 50);
-                prevWaitTime = currWaitTime - prevWaitTime;
+                Thread.sleep(connectTimeoutMs / 10);
             } catch(InterruptedException e) {
                 if(logger.isEnabledFor(Level.WARN))
                     logger.warn(e, e);
@@ -168,7 +162,7 @@ public class ClientRequestExecutorFactory implements
         if(logger.isDebugEnabled())
             logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
                          + dest.getPort() + " using protocol "
-                         + dest.getRequestFormatType().getCode() + " after " + duration + " ms.");
+                         + dest.getRequestFormatType().getCode());
 
         // check buffer sizes--you often don't get out what you put in!
         if(socketChannel.socket().getReceiveBufferSize() != this.socketBufferSize)
