@@ -32,7 +32,6 @@ import voldemort.serialization.Serializer;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -72,10 +71,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-
-        // Registering self to be able to bootstrap client dynamically via JMX
-        JmxUtils.registerMbean(this, JmxUtils.createObjectName(this.getClass()));
-
         bootStrap();
     }
 
