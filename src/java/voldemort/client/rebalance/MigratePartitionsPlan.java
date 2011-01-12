@@ -272,7 +272,7 @@ public class MigratePartitionsPlan {
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("Cluster Migration Plan:\n");
+        builder.append("Cluster Rebalancing Plan:\n");
         for(RebalanceNodePlan nodePlan: rebalanceTaskQueue) {
             builder.append("StealerNode:" + nodePlan.getStealerNode() + "\n");
             for(RebalancePartitionsInfo stealInfo: nodePlan.getRebalanceTaskList()) {
