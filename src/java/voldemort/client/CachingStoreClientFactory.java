@@ -103,8 +103,8 @@ public class CachingStoreClientFactory implements StoreClientFactory {
         List<StoreClient<?, ?>> allClients = ImmutableList.copyOf(cache.values());
         try {
             for(StoreClient<?, ?> client: allClients) {
-                if(client instanceof DefaultStoreClient)
-                    ((DefaultStoreClient) client).bootStrap();
+                if(client instanceof DefaultStoreClient<?, ?>)
+                    ((DefaultStoreClient<?, ?>) client).bootStrap();
             }
         } catch(Exception e) {
             logger.warn("Exception during bootstrapAllClients", e);
