@@ -43,13 +43,12 @@ public class ArbitraryInconsistencyResolver<T> implements InconsistencyResolver<
 
     @Override
     public boolean equals(Object o) {
-        if(o == this)
-            return true;
-        return (o instanceof ArbitraryInconsistencyResolver);
+        if (this == o) return true;
+        return (o != null && getClass() == o.getClass());
     }
 
     @Override
     public int hashCode() {
-        return 31 * this.getClass().hashCode();
+        return getClass().hashCode();
     }
 }

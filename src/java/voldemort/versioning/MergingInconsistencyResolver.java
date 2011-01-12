@@ -50,16 +50,20 @@ public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Ve
         }
     }
 
-
     @Override
     public boolean equals(Object o) {
-        if(o == this)
-            return true;
-        return (o instanceof MergingInconsistencyResolver);
+        if(this == o) return true;
+        if(o == null || getClass() != o.getClass()) return false;
+
+        MergingInconsistencyResolver that = (MergingInconsistencyResolver) o;
+
+        if(merger != null ? !merger.equals(that.merger) : that.merger != null) return false;
+
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return 31 * this.getClass().hashCode();
+        return merger != null ? merger.hashCode() : 0;
     }
 }
