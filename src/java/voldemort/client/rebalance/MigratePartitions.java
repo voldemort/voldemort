@@ -321,12 +321,11 @@ public class MigratePartitions {
         try {
             VoldemortConfig voldemortConfig = createTempVoldemortConfig();
             Cluster currentCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(currentClusterFile)));
-            Cluster targetCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(targetClusterFile)));
             adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                currentCluster,
-                                                               targetCluster.getNumberOfNodes(),
+                                                               1,
                                                                1);
-
+            Cluster targetCluster = new ClusterMapper().readCluster(new BufferedReader(new FileReader(targetClusterFile)));
             List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(currentStoresFile)));
             List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(targetStoresFile)));
 
