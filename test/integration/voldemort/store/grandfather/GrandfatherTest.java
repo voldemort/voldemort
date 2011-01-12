@@ -730,6 +730,7 @@ public class GrandfatherTest {
 
         Thread.sleep(10 * 1000);
 
+        System.out.println("*************** ALL SERVERS STARTED ***************");
         try {
             ClientConfig config = new ClientConfig().setBootstrapUrls("tcp://localhost:"
                                                                       + currentCluster.getNodeById(0)
@@ -812,6 +813,8 @@ public class GrandfatherTest {
                 for(int storeNo = 1; storeNo <= numStores; storeNo++) {
                     storeClients[storeNo - 1] = factory.getStoreClient("test" + storeNo);
                 }
+                System.out.println("=================");
+                System.out.println("ZONE " + zoneId);
                 for(int storeNo = 1; storeNo <= numStores; storeNo++) {
                     for(int i = 0; i < NUM_KEYS; i++) {
                         if(storeClients[storeNo - 1].get("key" + i, null) == null) {
@@ -829,12 +832,14 @@ public class GrandfatherTest {
                                                                                       + "_" + 2);
                         }
                     }
+                    System.out.println("------");
 
                 }
                 factory.close();
                 factory = null;
             }
         } catch(Exception e) {
+            System.out.println("=============ERRROR=============");
             e.printStackTrace();
         } finally {
             if(factory != null)
