@@ -51,8 +51,7 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList("mysql",
-                                                                                     "krati");
+    public static List<String> rebalancingStoreEngineBlackList = Arrays.asList("mysql", "krati");
 
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {

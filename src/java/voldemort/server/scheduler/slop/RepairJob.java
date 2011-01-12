@@ -32,7 +32,7 @@ public class RepairJob implements Runnable {
 
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
-    public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
+    public static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
 
     private final Semaphore repairPermits;
     private final StoreRepository storeRepo;
