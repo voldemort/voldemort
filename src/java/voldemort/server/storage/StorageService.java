@@ -113,9 +113,7 @@ public class StorageService extends AbstractService {
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
-
-    // Common permit shared by all job which do a disk scan
-    private final Semaphore scanPermits;
+    private final Semaphore cleanupPermits, repairPermits;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
@@ -132,7 +130,8 @@ public class StorageService extends AbstractService {
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        this.scanPermits = new Semaphore(voldemortConfig.getNumScanPermits());
+        this.cleanupPermits = new Semaphore(1);
+        this.repairPermits = new Semaphore(1);
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
@@ -217,12 +216,12 @@ public class StorageService extends AbstractService {
                                                                                                                              metadata,
                                                                                                                              failureDetector,
                                                                                                                              voldemortConfig,
-                                                                                                                             scanPermits)
+                                                                                                                             repairPermits)
                                                                                                 : new StreamingSlopPusherJob(storeRepository,
                                                                                                                              metadata,
                                                                                                                              failureDetector,
                                                                                                                              voldemortConfig,
-                                                                                                                             scanPermits),
+                                                                                                                             repairPermits),
                                nextRun,
                                voldemortConfig.getSlopFrequencyMs());
 
@@ -236,7 +235,7 @@ public class StorageService extends AbstractService {
                 nextRun = cal.getTime();
                 logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
                             + nextRun);
-                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                RepairJob job = new RepairJob(storeRepository, metadata, repairPermits);
 
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 scheduler.schedule("repair", job, nextRun, voldemortConfig.getRepairFrequencyMs());
@@ -514,7 +513,7 @@ public class StorageService extends AbstractService {
         EventThrottler throttler = new EventThrottler(maxReadRate);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                            scanPermits,
+                                                                            cleanupPermits,
                                                                             storeDef.getRetentionDays()
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
@@ -641,10 +640,10 @@ public class StorageService extends AbstractService {
                 if(storeDef.hasRetentionPeriod()) {
                     ExecutorService executor = Executors.newFixedThreadPool(1);
                     try {
-                        if(scanPermits.availablePermits() >= 1) {
+                        if(cleanupPermits.availablePermits() >= 1) {
 
                             executor.execute(new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                                           scanPermits,
+                                                                                           cleanupPermits,
                                                                                            storeDef.getRetentionDays()
                                                                                                    * Time.MS_PER_DAY,
                                                                                            SystemTime.INSTANCE,
