@@ -68,7 +68,6 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
-import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
@@ -118,8 +117,7 @@ public class AdminClient {
     private final AdminClientConfig adminClientConfig;
 
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                 ReadOnlyStorageConfiguration.TYPE_NAME,
-                                                                                 ViewStorageConfiguration.TYPE_NAME);
+                                                                                 ReadOnlyStorageConfiguration.TYPE_NAME);
 
     private Cluster currentCluster;
 

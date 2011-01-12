@@ -38,7 +38,6 @@ import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.store.mysql.MysqlStorageConfiguration;
-import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -56,8 +55,7 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                     ViewStorageConfiguration.TYPE_NAME);
+    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME);
 
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
