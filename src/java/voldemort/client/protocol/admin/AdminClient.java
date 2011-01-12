@@ -18,7 +18,6 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,7 +27,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -62,8 +60,6 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.mysql.MysqlStorageConfiguration;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
@@ -115,9 +111,6 @@ public class AdminClient {
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
     private final AdminClientConfig adminClientConfig;
-
-    public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                 ReadOnlyStorageConfiguration.TYPE_NAME);
 
     private Cluster currentCluster;
 
@@ -536,15 +529,8 @@ public class AdminClient {
             List<StoreDefinition> storeDefList = getRemoteStoreDefList(nodeId).getValue();
             Cluster cluster = getRemoteCluster(nodeId).getValue();
 
-            List<StoreDefinition> writableStores = Lists.newArrayList();
-            for(StoreDefinition def: storeDefList) {
-                if(def.isView() || restoreStoreEngineBlackList.contains(def.getType())) {
-                    logger.info("Ignoring store " + def.getName() + " for restoring");
-                } else {
-                    writableStores.add(def);
-                }
-            }
-            System.out.println(writableStores);
+            List<StoreDefinition> writableStores = RebalanceUtils.getWritableStores(storeDefList);
+
             for(StoreDefinition def: writableStores) {
                 restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
@@ -1657,16 +1643,7 @@ public class AdminClient {
             outputStream.flush();
 
             while(true) {
-                int size = 0;
-
-                try {
-                    size = inputStream.readInt();
-                } catch(EOFException e) {
-                    logger.error("Received EOF Exception while fetching files", e);
-                    close(sands.getSocket());
-                    return;
-                }
-
+                int size = inputStream.readInt();
                 if(size == -1) {
                     close(sands.getSocket());
                     break;
