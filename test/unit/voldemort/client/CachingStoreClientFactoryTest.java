@@ -46,4 +46,25 @@ public class CachingStoreClientFactoryTest {
         verify(spyFactory, times(1)).getStoreClient("foo");
         verify(spyFactory, times(2)).getStoreClient("foo", resolver);
     }
+
+    @Test
+    public void testBootstrapAll() {
+        StoreClientFactory inner = new MockStoreClientFactory(new StringSerializer(),
+                                                              new StringSerializer(),
+                                                              null);
+        DefaultStoreClient<Object, Object> aStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test1"));
+        DefaultStoreClient<Object, Object> bStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test2"));
+        StoreClientFactory mocked = mock(StoreClientFactory.class);
+
+        when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(aStoreClient);
+        when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(bStoreClient);
+
+        CachingStoreClientFactory cachingFactory = new CachingStoreClientFactory(mocked);
+        cachingFactory.getStoreClient("test1");
+        cachingFactory.getStoreClient("test2");
+        cachingFactory.bootstrapAllClients();
+
+        verify(aStoreClient, times(1)).bootStrap();
+        verify(bStoreClient, times(1)).bootStrap();
+    }
 }
