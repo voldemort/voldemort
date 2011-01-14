@@ -40,17 +40,20 @@ public class ReadOnlyStorageEngineTestInstance {
     private final Map<String, String> data;
     private final File baseDir;
     private final Map<Integer, Store<String, String, String>> nodeStores;
+    private final Map<Integer, ReadOnlyStorageEngine> readOnlyStores;
     private final RoutingStrategy routingStrategy;
     private final Serializer<String> keySerializer;
 
     private ReadOnlyStorageEngineTestInstance(Map<String, String> data,
                                               File baseDir,
+                                              Map<Integer, ReadOnlyStorageEngine> readOnlyStores,
                                               Map<Integer, Store<String, String, String>> nodeStores,
                                               RoutingStrategy routingStrategy,
                                               Serializer<String> keySerializer) {
         this.data = data;
         this.baseDir = baseDir;
         this.nodeStores = nodeStores;
+        this.readOnlyStores = readOnlyStores;
         this.routingStrategy = routingStrategy;
         this.keySerializer = keySerializer;
     }
@@ -141,6 +144,8 @@ public class ReadOnlyStorageEngineTestInstance {
         Serializer<String> valueSerializer = (Serializer<String>) new DefaultSerializerFactory().getSerializer(valueSerDef);
         Serializer<String> transSerializer = new StringSerializer();
         Map<Integer, Store<String, String, String>> nodeStores = Maps.newHashMap();
+        Map<Integer, ReadOnlyStorageEngine> readOnlyStores = Maps.newHashMap();
+
         for(int i = 0; i < numNodes; i++) {
             File currNode = new File(nodeDir, Integer.toString(i));
             currNode.mkdirs();
@@ -151,15 +156,16 @@ public class ReadOnlyStorageEngineTestInstance {
             CompressionStrategyFactory comppressionStrategyFactory = new CompressionStrategyFactory();
             CompressionStrategy keyCompressionStrat = comppressionStrategyFactory.get(keySerDef.getCompression());
             CompressionStrategy valueCompressionStrat = comppressionStrategyFactory.get(valueSerDef.getCompression());
-            Store<ByteArray, byte[], byte[]> innerStore = new CompressingStore(new ReadOnlyStorageEngine("test",
-                                                                                                         strategy,
-                                                                                                         router,
-                                                                                                         i,
-                                                                                                         currNode,
-                                                                                                         1),
+            ReadOnlyStorageEngine readOnlyStorageEngine = new ReadOnlyStorageEngine("test",
+                                                                                    strategy,
+                                                                                    router,
+                                                                                    i,
+                                                                                    currNode,
+                                                                                    1);
+            readOnlyStores.put(i, readOnlyStorageEngine);
+            Store<ByteArray, byte[], byte[]> innerStore = new CompressingStore(readOnlyStorageEngine,
                                                                                keyCompressionStrat,
                                                                                valueCompressionStrat);
-
             nodeStores.put(i, SerializingStore.wrap(innerStore,
                                                     keySerializer,
                                                     valueSerializer,
@@ -168,6 +174,7 @@ public class ReadOnlyStorageEngineTestInstance {
 
         return new ReadOnlyStorageEngineTestInstance(data,
                                                      baseDir,
+                                                     readOnlyStores,
                                                      nodeStores,
                                                      router,
                                                      keySerializer);
@@ -187,6 +194,10 @@ public class ReadOnlyStorageEngineTestInstance {
 
     public Map<Integer, Store<String, String, String>> getNodeStores() {
         return nodeStores;
+    }
+
+    public Map<Integer, ReadOnlyStorageEngine> getReadOnlyStores() {
+        return readOnlyStores;
     }
 
     public RoutingStrategy getRoutingStrategy() {

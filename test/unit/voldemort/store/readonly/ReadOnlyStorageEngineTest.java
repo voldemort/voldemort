@@ -14,9 +14,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import junit.framework.Assert;
 
 import org.junit.After;
 import org.junit.Test;
@@ -37,10 +40,16 @@ import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
@@ -469,6 +478,52 @@ public class ReadOnlyStorageEngineTest {
 
         engine.truncate();
         assertEquals(dir.exists(), false);
+    }
+
+    @Test
+    public void testIteration() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TEST_SIZE,
+                                                                                              2,
+                                                                                              2,
+                                                                                              serDef,
+                                                                                              serDef,
+                                                                                              storageType);
+        ListMultimap<Integer, Pair<String, String>> nodeToEntries = ArrayListMultimap.create();
+        for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
+            for(Node node: testData.routeRequest(entry.getKey())) {
+                nodeToEntries.put(node.getId(), Pair.create(entry.getKey(), entry.getValue()));
+            }
+        }
+        for(Map.Entry<Integer, ReadOnlyStorageEngine> storeEntry: testData.getReadOnlyStores()
+                                                                          .entrySet()) {
+            List<Pair<String, String>> entries = Lists.newArrayList(nodeToEntries.get(storeEntry.getKey()));
+            ClosableIterator<ByteArray> keyIterator = null;
+            try {
+                keyIterator = storeEntry.getValue().keys();
+            } catch(Exception e) {
+                if(storageType.compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0) {
+                    fail("Should not have thrown exception since this version supports iteration");
+                } else {
+                    return;
+                }
+            }
+
+            // Generate keys from entries
+            List<String> keys = Lists.newArrayList();
+            Iterator<Pair<String, String>> pairIterator = entries.iterator();
+            while(pairIterator.hasNext()) {
+                keys.add(new String(pairIterator.next().getFirst()));
+            }
+
+            while(keyIterator.hasNext()) {
+                String key = new String(keyIterator.next().get());
+                Assert.assertEquals(keys.contains(key), true);
+                keys.remove(key);
+            }
+            Assert.assertEquals(keys.size(), 0);
+        }
     }
 
     private void assertVersionsExist(File dir, int... versions) throws IOException {

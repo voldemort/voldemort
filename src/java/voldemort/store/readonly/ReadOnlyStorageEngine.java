@@ -17,6 +17,8 @@
 package voldemort.store.readonly;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -361,13 +363,150 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     }
 
     public ClosableIterator<ByteArray> keys() {
-        throw new UnsupportedOperationException("Iteration is not supported for "
-                                                + getClass().getName());
+        if(!(fileSet.getReadOnlyStorageFormat().compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0))
+            throw new UnsupportedOperationException("Iteration is not supported for "
+                                                    + getClass().getName()
+                                                    + " with storage format "
+                                                    + fileSet.getReadOnlyStorageFormat());
+        return new ROKeyIterator(fileSet);
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
-        throw new UnsupportedOperationException("Iteration is not supported for "
-                                                + getClass().getName());
+        if(!(fileSet.getReadOnlyStorageFormat().compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0))
+            throw new UnsupportedOperationException("Iteration is not supported for "
+                                                    + getClass().getName()
+                                                    + " with storage format "
+                                                    + fileSet.getReadOnlyStorageFormat());
+        return new ROEntriesIterator(fileSet);
+    }
+
+    private abstract static class ROIterator<T> implements ClosableIterator<T> {
+
+        protected ChunkedFileSet chunkedFileSet;
+        protected int currentChunk;
+        protected long currentOffsetInChunk;
+        private boolean chunksFinished;
+
+        public ROIterator(ChunkedFileSet chunkedFileSet) {
+            this.chunkedFileSet = chunkedFileSet;
+            this.currentChunk = 0;
+            this.currentOffsetInChunk = 0;
+            this.chunksFinished = false;
+        }
+
+        public void close() {}
+
+        public abstract T next();
+
+        public boolean hasNext() {
+            if(!chunksFinished && currentChunk < chunkedFileSet.getNumChunks()
+               && currentOffsetInChunk < chunkedFileSet.getDataFileSize(currentChunk)) {
+                return true;
+            }
+            return false;
+        }
+
+        public void updateOffset(long updatedOffset) {
+            if(updatedOffset < chunkedFileSet.getDataFileSize(currentChunk)) {
+                currentOffsetInChunk = updatedOffset;
+            } else {
+                currentChunk++;
+                if(currentChunk < chunkedFileSet.getNumChunks()) {
+                    currentOffsetInChunk = 0;
+                } else {
+                    chunksFinished = true;
+                }
+            }
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("Cannot remove from read-only store");
+        }
+    }
+
+    private static class ROKeyIterator extends ROIterator<ByteArray> {
+
+        public ROKeyIterator(ChunkedFileSet chunkedFileSet) {
+            super(chunkedFileSet);
+        }
+
+        @Override
+        public ByteArray next() {
+            if(!hasNext())
+                throw new VoldemortException("Reached the end");
+
+            try {
+                // Read key size
+                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
+                int keySize = sizeBuffer.getInt(0);
+                sizeBuffer.clear();
+
+                // Read value size
+                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
+                                                              currentOffsetInChunk + 4 + keySize);
+                int valueSize = sizeBuffer.getInt(0);
+
+                // Read the key contents
+                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
+
+                // Update the offset
+                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
+
+                // Return the key
+                return new ByteArray(keyBuffer.array());
+            } catch(IOException e) {
+                logger.error(e);
+                throw new VoldemortException(e);
+            }
+
+        }
+    }
+
+    private static class ROEntriesIterator extends ROIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        public ROEntriesIterator(ChunkedFileSet chunkedFileSet) {
+            super(chunkedFileSet);
+        }
+
+        @Override
+        public Pair<ByteArray, Versioned<byte[]>> next() {
+            if(!hasNext())
+                throw new VoldemortException("Reached the end");
+
+            try {
+                // Read key size
+                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
+                int keySize = sizeBuffer.getInt(0);
+                sizeBuffer.clear();
+
+                // Read value size
+                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
+                                                              currentOffsetInChunk + 4 + keySize);
+                int valueSize = sizeBuffer.getInt(0);
+
+                // Read the key contents
+                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
+
+                // Read the value contents
+                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                chunkedFileSet.dataFileFor(currentChunk).read(valueBuffer,
+                                                              currentOffsetInChunk + 4 + keySize
+                                                                      + 4);
+
+                // Update the offset
+                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
+
+                return Pair.create(new ByteArray(keyBuffer.array()),
+                                   Versioned.value(valueBuffer.array()));
+            } catch(IOException e) {
+                logger.error(e);
+                throw new VoldemortException(e);
+            }
+        }
     }
 
     public void truncate() {
