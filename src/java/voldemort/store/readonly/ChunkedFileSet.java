@@ -324,7 +324,7 @@ public class ChunkedFileSet {
     }
 
     public int getDataFileSize(int chunk) {
-        return this.indexFileSizes.get(chunk);
+        return this.dataFileSizes.get(chunk);
     }
 
 }

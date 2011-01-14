@@ -19,9 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import junit.framework.Assert;
-
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -37,7 +36,10 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
@@ -480,13 +482,14 @@ public class ReadOnlyStorageEngineTest {
         assertEquals(dir.exists(), false);
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testIteration() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
                                                                                               TEST_SIZE,
-                                                                                              2,
-                                                                                              2,
+                                                                                              10,
+                                                                                              3,
                                                                                               serDef,
                                                                                               serDef,
                                                                                               storageType);
@@ -496,12 +499,16 @@ public class ReadOnlyStorageEngineTest {
                 nodeToEntries.put(node.getId(), Pair.create(entry.getKey(), entry.getValue()));
             }
         }
+        SerializerFactory factory = new DefaultSerializerFactory();
+        Serializer<String> serializer = (Serializer<String>) factory.getSerializer(serDef);
         for(Map.Entry<Integer, ReadOnlyStorageEngine> storeEntry: testData.getReadOnlyStores()
                                                                           .entrySet()) {
             List<Pair<String, String>> entries = Lists.newArrayList(nodeToEntries.get(storeEntry.getKey()));
             ClosableIterator<ByteArray> keyIterator = null;
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = null;
             try {
                 keyIterator = storeEntry.getValue().keys();
+                entryIterator = storeEntry.getValue().entries();
             } catch(Exception e) {
                 if(storageType.compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0) {
                     fail("Should not have thrown exception since this version supports iteration");
@@ -514,15 +521,27 @@ public class ReadOnlyStorageEngineTest {
             List<String> keys = Lists.newArrayList();
             Iterator<Pair<String, String>> pairIterator = entries.iterator();
             while(pairIterator.hasNext()) {
-                keys.add(new String(pairIterator.next().getFirst()));
+                keys.add(pairIterator.next().getFirst());
             }
 
+            // Test keys
             while(keyIterator.hasNext()) {
-                String key = new String(keyIterator.next().get());
+                String key = serializer.toObject(keyIterator.next().get());
                 Assert.assertEquals(keys.contains(key), true);
                 keys.remove(key);
             }
             Assert.assertEquals(keys.size(), 0);
+
+            // Test entries
+            while(entryIterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
+
+                Pair<String, String> stringEntry = Pair.create(serializer.toObject(entry.getFirst()
+                                                                                        .get()),
+                                                               serializer.toObject(entry.getSecond()
+                                                                                        .getValue()));
+                Assert.assertEquals(entries.contains(stringEntry), true);
+            }
         }
     }
 

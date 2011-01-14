@@ -399,11 +399,21 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         public abstract T next();
 
         public boolean hasNext() {
-            if(!chunksFinished && currentChunk < chunkedFileSet.getNumChunks()
-               && currentOffsetInChunk < chunkedFileSet.getDataFileSize(currentChunk)) {
-                return true;
+            if(chunksFinished)
+                return false;
+
+            // Jump till you reach the first non-zero data size file or end
+            while(currentChunk != chunkedFileSet.getNumChunks() - 1
+                  && chunkedFileSet.getDataFileSize(currentChunk) == 0) {
+                currentChunk++;
             }
-            return false;
+
+            // Check if our offset is end or we're on the last chunk
+            if(currentOffsetInChunk >= chunkedFileSet.getDataFileSize(currentChunk)
+               && currentChunk == chunkedFileSet.getNumChunks() - 1) {
+                return false;
+            }
+            return true;
         }
 
         public void updateOffset(long updatedOffset) {

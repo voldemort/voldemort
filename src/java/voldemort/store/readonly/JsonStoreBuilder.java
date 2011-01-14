@@ -183,7 +183,7 @@ public class JsonStoreBuilder {
         int ioBufferSize = CmdUtils.valueOf(options, "io-buffer-size", 1000000);
         ReadOnlyStorageFormat storageFormat = ReadOnlyStorageFormat.fromCode(CmdUtils.valueOf(options,
                                                                                               "format",
-                                                                                              ReadOnlyStorageFormat.READONLY_V1.getCode()));
+                                                                                              ReadOnlyStorageFormat.READONLY_V2.getCode()));
         boolean gzipIntermediate = options.has("gzip");
         File tempDir = new File(CmdUtils.valueOf(options,
                                                  "temp-dir",
