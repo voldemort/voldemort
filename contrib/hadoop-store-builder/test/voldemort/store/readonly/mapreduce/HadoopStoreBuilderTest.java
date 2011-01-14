@@ -19,11 +19,11 @@ package voldemort.store.readonly.mapreduce;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import junit.framework.TestCase;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -31,6 +31,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -61,7 +66,19 @@ import voldemort.versioning.Versioned;
  * will be only one hence we will see only one node files irrespective of
  * cluster details.</strong>
  */
-public class HadoopStoreBuilderTest extends TestCase {
+@RunWith(Parameterized.class)
+public class HadoopStoreBuilderTest {
+
+    private boolean saveKeys;
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
+
+    public HadoopStoreBuilderTest(boolean saveKeys) {
+        this.saveKeys = saveKeys;
+    }
 
     public static class TextStoreMapper extends
             AbstractHadoopStoreBuilderMapper<LongWritable, Text> {
@@ -80,6 +97,7 @@ public class HadoopStoreBuilderTest extends TestCase {
 
     }
 
+    @Test
     public void testHadoopBuild() throws Exception {
         // create test data
         Map<String, String> values = new HashMap<String, String>();
@@ -124,7 +142,8 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             new Path(tempDir2.getAbsolutePath()),
                                                             new Path(outputDir2.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
-                                                            CheckSumType.NONE);
+                                                            CheckSumType.NONE,
+                                                            saveKeys);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),
@@ -136,7 +155,8 @@ public class HadoopStoreBuilderTest extends TestCase {
                                          new Path(tempDir.getAbsolutePath()),
                                          new Path(outputDir.getAbsolutePath()),
                                          new Path(inputFile.getAbsolutePath()),
-                                         CheckSumType.MD5);
+                                         CheckSumType.MD5,
+                                         saveKeys);
         builder.build();
 
         // Check if checkSum is generated in outputDir
@@ -144,14 +164,18 @@ public class HadoopStoreBuilderTest extends TestCase {
 
         // Check if metadata file exists
         File metadataFile = new File(nodeFile, ".metadata");
-        assertTrue(metadataFile.exists());
+        Assert.assertTrue(metadataFile.exists());
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(metadataFile);
-        assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
-                     ReadOnlyStorageFormat.READONLY_V1.getCode());
+        if(saveKeys)
+            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+                                ReadOnlyStorageFormat.READONLY_V2.getCode());
+        else
+            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+                                ReadOnlyStorageFormat.READONLY_V1.getCode());
 
         File checkSumFile = new File(nodeFile, "md5checkSum.txt");
-        assertTrue(checkSumFile.exists());
+        Assert.assertTrue(checkSumFile.exists());
 
         // Check contents of checkSum file
         byte[] md5 = new byte[16];
@@ -161,7 +185,7 @@ public class HadoopStoreBuilderTest extends TestCase {
 
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
-        assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
+        Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
         // check if fetching works
         HdfsFetcher fetcher = new HdfsFetcher();
@@ -169,7 +193,7 @@ public class HadoopStoreBuilderTest extends TestCase {
         // Fetch to version directory
         File versionDir = new File(storeDir, "version-0");
         fetcher.fetch(nodeFile.getAbsolutePath(), versionDir.getAbsolutePath());
-        assertTrue(versionDir.exists());
+        Assert.assertTrue(versionDir.exists());
 
         // open store
         @SuppressWarnings("unchecked")
@@ -188,8 +212,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         // check values
         for(Map.Entry<String, String> entry: values.entrySet()) {
             List<Versioned<Object>> found = store.get(entry.getKey(), null);
-            assertEquals("Incorrect number of results", 1, found.size());
-            assertEquals(entry.getValue(), found.get(0).getValue());
+            Assert.assertEquals("Incorrect number of results", 1, found.size());
+            Assert.assertEquals(entry.getValue(), found.get(0).getValue());
         }
     }
 }

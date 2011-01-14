@@ -72,10 +72,11 @@ public class ChunkedFileSet {
 
         switch(storageFormat) {
             case READONLY_V0:
-                initV0();
+                initVersion0();
                 break;
             case READONLY_V1:
-                initV1();
+            case READONLY_V2:
+                initVersion12();
                 break;
             default:
                 throw new VoldemortException("Invalid chunked storage format type " + storageFormat);
@@ -86,7 +87,11 @@ public class ChunkedFileSet {
                      + " chunks.");
     }
 
-    public void initV0() {
+    public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
+        return this.storageFormat;
+    }
+
+    public void initVersion0() {
         // if the directory is empty create empty files
         if(baseDir.list() != null && baseDir.list().length <= 1) {
             try {
@@ -125,7 +130,7 @@ public class ChunkedFileSet {
             throw new VoldemortException("No data chunks found in directory " + baseDir.toString());
     }
 
-    public void initV1() {
+    public void initVersion12() {
         int globalChunkId = 0;
         if(this.partitionIds != null) {
             for(Integer partitionId: this.partitionIds) {
@@ -247,7 +252,8 @@ public class ChunkedFileSet {
             case READONLY_V0: {
                 return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
             }
-            case READONLY_V1: {
+            case READONLY_V1:
+            case READONLY_V2: {
                 List<Integer> partitionList = routingStrategy.getPartitionList(key);
                 partitionList.retainAll(partitionIds);
                 if(partitionList.size() != 1)
@@ -262,6 +268,47 @@ public class ChunkedFileSet {
             }
         }
 
+    }
+
+    public byte[] readValue(int chunk, int valueLocation) {
+        FileChannel dataFile = dataFileFor(chunk);
+        try {
+            switch(storageFormat) {
+                case READONLY_V0:
+                case READONLY_V1: {
+                    // Read value size
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                    dataFile.read(sizeBuffer, valueLocation);
+                    int valueSize = sizeBuffer.getInt(0);
+
+                    // Read value
+                    ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                    dataFile.read(valueBuffer, valueLocation + 4);
+                    return valueBuffer.array();
+                }
+                case READONLY_V2: {
+                    // Read key size
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                    dataFile.read(sizeBuffer, valueLocation);
+                    int keySize = sizeBuffer.getInt(0);
+                    sizeBuffer.clear();
+
+                    // Read value size
+                    dataFile.read(sizeBuffer, valueLocation + 4 + keySize);
+                    int valueSize = sizeBuffer.getInt(0);
+
+                    // Read value
+                    ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                    dataFile.read(valueBuffer, valueLocation + 4 + 4 + keySize);
+                    return valueBuffer.array();
+                }
+                default: {
+                    throw new VoldemortException("Storage format not supported ");
+                }
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
     }
 
     public ByteBuffer indexFileFor(int chunk) {

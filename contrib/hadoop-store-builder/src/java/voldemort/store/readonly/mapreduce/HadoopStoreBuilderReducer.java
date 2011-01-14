@@ -64,6 +64,7 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
     private CheckSumType checkSumType;
     private CheckSum checkSumDigestIndex;
     private CheckSum checkSumDigestValue;
+    private boolean saveKeys;
 
     /**
      * Reduce should get sorted MD5 keys here with a single value (appended in
@@ -86,20 +87,36 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
         // Write key and position
         this.indexFileStream.write(key.getBytes(), 0, key.getLength());
         this.indexFileStream.writeInt(this.position);
+
+        // Run key through checksum digest
         if(this.checkSumDigestIndex != null) {
             this.checkSumDigestIndex.update(key.getBytes(), 0, key.getLength());
             this.checkSumDigestIndex.update(this.position);
         }
 
-        // Write length and value
         int valueLength = writable.getLength() - 8;
-        this.valueFileStream.writeInt(valueLength);
-        this.valueFileStream.write(valueBytes, 8, valueLength);
-        if(this.checkSumDigestValue != null) {
-            this.checkSumDigestValue.update(valueLength);
-            this.checkSumDigestValue.update(valueBytes, 8, valueLength);
+        if(saveKeys) {
+            // Write (key_length + key + value_length + value)
+            this.valueFileStream.write(valueBytes, 8, valueLength);
+
+            // Run value through checksum digest
+            if(this.checkSumDigestValue != null) {
+                this.checkSumDigestValue.update(valueBytes, 8, valueLength);
+            }
+            this.position += valueLength;
+        } else {
+            // Write (value_length + value)
+            this.valueFileStream.writeInt(valueLength);
+            this.valueFileStream.write(valueBytes, 8, valueLength);
+
+            // Run value through checksum digest
+            if(this.checkSumDigestValue != null) {
+                this.checkSumDigestValue.update(valueLength);
+                this.checkSumDigestValue.update(valueBytes, 8, valueLength);
+            }
+            this.position += 4 + valueLength;
         }
-        this.position += 4 + valueLength;
+
         if(this.position < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
                                          + " has exceeded " + Integer.MAX_VALUE + " bytes.");
@@ -125,6 +142,7 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
             this.checkSumType = CheckSum.fromString(conf.get("checksum.type"));
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
+            this.saveKeys = conf.getBoolean("save.keys", false);
 
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
             if(storeDefs.size() != 1)

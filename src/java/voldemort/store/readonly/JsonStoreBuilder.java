@@ -232,7 +232,8 @@ public class JsonStoreBuilder {
                 break;
 
             case READONLY_V1:
-                buildVersion1();
+            case READONLY_V2:
+                buildVersion12(type);
                 break;
 
             default:
@@ -311,10 +312,10 @@ public class JsonStoreBuilder {
         }
     }
 
-    public void buildVersion1() throws IOException {
+    public void buildVersion12(ReadOnlyStorageFormat type) throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
                     + cluster.getNumberOfPartitions() + " partitions with " + numChunks
-                    + " chunks per partitions.");
+                    + " chunks per partitions and version " + type);
         // initialize nodes
         int numNodes = cluster.getNumberOfNodes();
         DataOutputStream[][] indexes = new DataOutputStream[numNodes][];
@@ -336,8 +337,7 @@ public class JsonStoreBuilder {
             // Create metadata file
             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-            metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+            metadata.add(ReadOnlyStorageMetadata.FORMAT, type.getCode());
             writer.write(metadata.toJsonString());
             writer.close();
 
@@ -377,13 +377,30 @@ public class JsonStoreBuilder {
             for(Integer partitionId: partitionIds) {
                 int localChunkId = ReadOnlyUtils.chunk(keyMd5, numChunks);
                 int chunk = localChunkId + partitionIdToChunkOffset[partitionId];
-                int numBytes = pair.getValue().length;
                 int nodeId = partitionIdToNodeId[partitionId];
-                datas[nodeId][chunk].writeInt(numBytes);
-                datas[nodeId][chunk].write(pair.getValue());
-                indexes[nodeId][chunk].write(keyMd5);
-                indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
-                positions[nodeId][chunk] += numBytes + 4;
+                switch(type) {
+                    case READONLY_V1:
+                        datas[nodeId][chunk].writeInt(pair.getValue().length);
+                        datas[nodeId][chunk].write(pair.getValue());
+                        indexes[nodeId][chunk].write(keyMd5);
+                        indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
+                        positions[nodeId][chunk] += pair.getValue().length + 4;
+                        break;
+                    case READONLY_V2:
+                        datas[nodeId][chunk].writeInt(pair.getKey().length);
+                        datas[nodeId][chunk].write(pair.getKey());
+                        datas[nodeId][chunk].writeInt(pair.getValue().length);
+                        datas[nodeId][chunk].write(pair.getValue());
+                        indexes[nodeId][chunk].write(keyMd5);
+                        indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
+                        positions[nodeId][chunk] += pair.getKey().length + pair.getValue().length
+                                                    + 4 + 4;
+
+                        break;
+                    default:
+                        throw new VoldemortException("Cannot support building readonly storage format "
+                                                     + type);
+                }
                 checkOverFlow(chunk, positions[nodeId][chunk]);
             }
             count++;

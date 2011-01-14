@@ -53,7 +53,9 @@ public class ReadOnlyStorageEngineTest {
                 { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
                 { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
                 { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
-                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 } });
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
+                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 } });
     }
 
     private File dir;
@@ -516,7 +518,8 @@ public class ReadOnlyStorageEngineTest {
                 }
             }
                 break;
-            case READONLY_V1: {
+            case READONLY_V1:
+            case READONLY_V2: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_"
@@ -537,7 +540,7 @@ public class ReadOnlyStorageEngineTest {
             }
                 break;
             default:
-                return;
+                throw new VoldemortException("Do not support storage type " + storageType);
         }
 
     }

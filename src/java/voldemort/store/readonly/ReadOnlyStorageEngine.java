@@ -17,9 +17,6 @@
 package voldemort.store.readonly;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -393,7 +390,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                   ByteUtils.md5(key.get()),
                                                   fileSet.getIndexFileSize(chunk));
             if(location >= 0) {
-                byte[] value = readValue(chunk, location);
+                byte[] value = fileSet.readValue(chunk, location);
                 return Collections.singletonList(Versioned.value(value));
             } else {
                 return Collections.emptyList();
@@ -422,26 +419,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             Collections.sort(keysAndValueLocations);
 
             for(KeyValueLocation keyVal: keysAndValueLocations) {
-                byte[] value = readValue(keyVal.getChunk(), keyVal.getValueLocation());
+                byte[] value = fileSet.readValue(keyVal.getChunk(), keyVal.getValueLocation());
                 results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
             }
             return results;
         } finally {
             fileModificationLock.readLock().unlock();
-        }
-    }
-
-    private byte[] readValue(int chunk, int valueLocation) {
-        FileChannel dataFile = fileSet.dataFileFor(chunk);
-        try {
-            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-            dataFile.read(sizeBuffer, valueLocation);
-            int size = sizeBuffer.getInt(0);
-            ByteBuffer valueBuffer = ByteBuffer.allocate(size);
-            dataFile.read(valueBuffer, valueLocation + 4);
-            return valueBuffer.array();
-        } catch(IOException e) {
-            throw new VoldemortException(e);
         }
     }
 
