@@ -2,7 +2,7 @@ package voldemort.store.krati;
 
 import java.io.File;
 
-import krati.cds.impl.segment.MappedSegmentFactory;
+import krati.core.segment.MappedSegmentFactory;
 import voldemort.TestUtils;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
