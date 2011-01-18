@@ -386,11 +386,14 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         protected int currentChunk;
         protected long currentOffsetInChunk;
         private boolean chunksFinished;
+        // Number of k-v pairs which have collided and are in one bucket
+        private int tupleCount;
 
         public ROIterator(ChunkedFileSet chunkedFileSet) {
             this.chunkedFileSet = chunkedFileSet;
             this.currentChunk = 0;
             this.currentOffsetInChunk = 0;
+            this.tupleCount = 0;
             this.chunksFinished = false;
         }
 
@@ -403,30 +406,43 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                 return false;
 
             // Jump till you reach the first non-zero data size file or end
-            while(currentChunk != chunkedFileSet.getNumChunks() - 1
-                  && chunkedFileSet.getDataFileSize(currentChunk) == 0) {
+            if(currentOffsetInChunk >= chunkedFileSet.getDataFileSize(currentChunk)) {
+                // Time to jump to another chunk with a non-zero size data file
                 currentChunk++;
+                currentOffsetInChunk = 0;
+
+                // Jump over all zero size data files
+                while(currentChunk < chunkedFileSet.getNumChunks()
+                      && chunkedFileSet.getDataFileSize(currentChunk) == 0) {
+                    currentChunk++;
+                }
+
+                if(currentChunk == chunkedFileSet.getNumChunks()) {
+                    chunksFinished = true;
+                    return false;
+                }
             }
 
-            // Check if our offset is end or we're on the last chunk
-            if(currentOffsetInChunk >= chunkedFileSet.getDataFileSize(currentChunk)
-               && currentChunk == chunkedFileSet.getNumChunks() - 1) {
-                return false;
+            if(tupleCount == 0) {
+                // Update the tuple count
+                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(1);
+                try {
+                    chunkedFileSet.dataFileFor(currentChunk).read(numKeyValsBuffer,
+                                                                  currentOffsetInChunk);
+                } catch(IOException e) {
+                    logger.error("Error while reading tuple count in iterator", e);
+                    return false;
+                }
+                tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
+                currentOffsetInChunk += 1;
             }
             return true;
         }
 
         public void updateOffset(long updatedOffset) {
-            if(updatedOffset < chunkedFileSet.getDataFileSize(currentChunk)) {
-                currentOffsetInChunk = updatedOffset;
-            } else {
-                currentChunk++;
-                if(currentChunk < chunkedFileSet.getNumChunks()) {
-                    currentOffsetInChunk = 0;
-                } else {
-                    chunksFinished = true;
-                }
-            }
+            tupleCount--;
+            currentOffsetInChunk = updatedOffset;
+            hasNext();
         }
 
         public void remove() {

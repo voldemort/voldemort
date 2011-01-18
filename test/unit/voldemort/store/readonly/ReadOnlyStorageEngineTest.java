@@ -495,7 +495,7 @@ public class ReadOnlyStorageEngineTest {
     }
 
     @SuppressWarnings("unchecked")
-    // @Test
+    @Test
     public void testIteration() throws Exception {
         ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
                                                                                               dir,
@@ -537,14 +537,16 @@ public class ReadOnlyStorageEngineTest {
             }
 
             // Test keys
+            int keyCount = 0;
             while(keyIterator.hasNext()) {
                 String key = serializer.toObject(keyIterator.next().get());
                 Assert.assertEquals(keys.contains(key), true);
-                keys.remove(key);
+                keyCount++;
             }
-            Assert.assertEquals(keys.size(), 0);
+            Assert.assertEquals(keyCount, entries.size());
 
             // Test entries
+            int entriesCount = 0;
             while(entryIterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
 
@@ -553,7 +555,9 @@ public class ReadOnlyStorageEngineTest {
                                                                serializer.toObject(entry.getSecond()
                                                                                         .getValue()));
                 Assert.assertEquals(entries.contains(stringEntry), true);
+                entriesCount++;
             }
+            Assert.assertEquals(entriesCount, entries.size());
         }
     }
 
