@@ -89,13 +89,12 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             valBytes = valueCompressor.deflate(valBytes);
         }
 
-        BytesWritable outputKey = new BytesWritable(md5er.digest(keyBytes));
-
         // Generate partition and node list this key is destined for
         List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
         Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
         byte[] outputValue;
+        BytesWritable outputKey;
         if(saveKeys) {
             // 4 ( for node id ) + 4 ( partition id ) + 4 ( value size ) + 4 (
             // key size )
@@ -112,10 +111,19 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
                              outputValue,
                              4 + 4 + 4 + keyBytes.length + 4,
                              valBytes.length);
+
+            // generate key - upper 4 bytes of 16 byte md5
+            outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
+                                                         0,
+                                                         ByteUtils.SIZE_OF_INT));
+
         } else {
             // 4 ( for node id ) + 4 ( partition id )
             outputValue = new byte[valBytes.length + 4 + 4];
             System.arraycopy(valBytes, 0, outputValue, 8, valBytes.length);
+
+            // generate key - 16 byte md5
+            outputKey = new BytesWritable(md5er.digest(keyBytes));
         }
 
         for(Integer partition: partitionList) {

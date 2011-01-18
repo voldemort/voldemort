@@ -27,15 +27,20 @@ import voldemort.utils.ByteUtils;
 public class SearchStrategyTest {
 
     private SearchStrategy strategy;
+    private int keyHashSize;
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { new BinarySearchStrategy() },
-                { new InterpolationSearchStrategy() } });
+        return Arrays.asList(new Object[][] {
+                { new BinarySearchStrategy(), ByteUtils.SIZE_OF_BYTE },
+                { new InterpolationSearchStrategy(), ByteUtils.SIZE_OF_BYTE },
+                { new BinarySearchStrategy(), ByteUtils.SIZE_OF_INT },
+                { new InterpolationSearchStrategy(), ByteUtils.SIZE_OF_INT } });
     }
 
-    public SearchStrategyTest(SearchStrategy strategy) {
+    public SearchStrategyTest(SearchStrategy strategy, int keyHashSize) {
         this.strategy = strategy;
+        this.keyHashSize = keyHashSize;
     }
 
     @Test
@@ -84,7 +89,7 @@ public class SearchStrategyTest {
             byte[][] keys = new byte[size][];
             int[] values = new int[size];
             for(int i = 0; i < size; i++) {
-                byte[] key = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
+                byte[] key = new byte[keyHashSize];
                 rand.nextBytes(key);
                 values[i] = rand.nextInt(1000000);
                 keys[i] = key;
@@ -94,7 +99,7 @@ public class SearchStrategyTest {
             for(int i = 0; i < size; i++)
                 assertKeyFound(index, keys[i], values[i]);
             for(int i = 0; i < 10; i++) {
-                byte[] key = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
+                byte[] key = new byte[keyHashSize];
                 assertKeysNotFound(index, key);
             }
 
@@ -129,7 +134,7 @@ public class SearchStrategyTest {
                 return ByteUtils.compare(b1, b2);
             }
         });
-        ByteBuffer buffer = ByteBuffer.allocate(20 * copy.length);
+        ByteBuffer buffer = ByteBuffer.allocate((keyHashSize + ByteUtils.SIZE_OF_INT) * copy.length);
         for(int i = 0; i < copy.length; i++) {
             buffer.put(copy[i]);
             buffer.putInt(m.get(copy[i]));
@@ -138,7 +143,7 @@ public class SearchStrategyTest {
     }
 
     public byte[] key(long v1, long v2) {
-        byte[] bytes = new byte[16];
+        byte[] bytes = new byte[keyHashSize];
         ByteUtils.writeLong(bytes, v1, 0);
         ByteUtils.writeLong(bytes, v2, 8);
         return bytes;

@@ -536,10 +536,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                 return Collections.emptyList();
             }
             int location = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                                  ByteUtils.md5(key.get()),
+                                                  fileSet.keyToStorageFormat(key.get()),
                                                   fileSet.getIndexFileSize(chunk));
             if(location >= 0) {
-                byte[] value = fileSet.readValue(chunk, location);
+                byte[] value = fileSet.readValue(key.get(), chunk, location);
                 return Collections.singletonList(Versioned.value(value));
             } else {
                 return Collections.emptyList();
@@ -560,7 +560,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             for(ByteArray key: keys) {
                 int chunk = fileSet.getChunkForKey(key.get());
                 int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
-                                                           ByteUtils.md5(key.get()),
+                                                           fileSet.keyToStorageFormat(key.get()),
                                                            fileSet.getIndexFileSize(chunk));
                 if(valueLocation >= 0)
                     keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
@@ -568,7 +568,9 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             Collections.sort(keysAndValueLocations);
 
             for(KeyValueLocation keyVal: keysAndValueLocations) {
-                byte[] value = fileSet.readValue(keyVal.getChunk(), keyVal.getValueLocation());
+                byte[] value = fileSet.readValue(keyVal.getKey().get(),
+                                                 keyVal.getChunk(),
+                                                 keyVal.getValueLocation());
                 results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
             }
             return results;
