@@ -50,10 +50,12 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
+import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.SearchStrategy;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
@@ -69,15 +71,19 @@ import voldemort.versioning.Versioned;
 @RunWith(Parameterized.class)
 public class HadoopStoreBuilderTest {
 
+    private SearchStrategy searchStrategy;
     private boolean saveKeys;
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { new BinarySearchStrategy(), true },
+                { new InterpolationSearchStrategy(), true }, { new BinarySearchStrategy(), false },
+                { new InterpolationSearchStrategy(), false } });
     }
 
-    public HadoopStoreBuilderTest(boolean saveKeys) {
+    public HadoopStoreBuilderTest(SearchStrategy searchStrategy, boolean saveKeys) {
         this.saveKeys = saveKeys;
+        this.searchStrategy = searchStrategy;
     }
 
     public static class TextStoreMapper extends
@@ -199,7 +205,7 @@ public class HadoopStoreBuilderTest {
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
-                                                                                              new BinarySearchStrategy(),
+                                                                                              searchStrategy,
                                                                                               new RoutingStrategyFactory().updateRoutingStrategy(def,
                                                                                                                                                  cluster),
                                                                                               0,

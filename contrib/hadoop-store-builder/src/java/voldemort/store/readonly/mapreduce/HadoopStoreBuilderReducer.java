@@ -90,7 +90,9 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
         }
 
         int numKeyValues = 0;
-        ByteArrayOutputStream valueStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        DataOutputStream valueStream = new DataOutputStream(stream);
+
         while(iterator.hasNext()) {
             BytesWritable writable = iterator.next();
             byte[] valueBytes = writable.getBytes();
@@ -108,7 +110,7 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
                 valueStream.write(valueBytes, 8, valueLength);
             } else {
                 // Write (value_length + value)
-                valueStream.write(valueLength);
+                valueStream.writeInt(valueLength);
                 valueStream.write(valueBytes, 8, valueLength);
             }
 
@@ -127,17 +129,27 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
         }
 
         if(saveKeys) {
-            // Write the number of k/vs
-            this.valueFileStream.writeByte(numKeyValues);
+            // Write the number of k/vs as a single byte
+            byte[] numBuf = new byte[1];
+            numBuf[0] = (byte) numKeyValues;
+
+            this.valueFileStream.write(numBuf);
             this.position += 1;
+
+            if(this.checkSumDigestValue != null) {
+                this.checkSumDigestValue.update(numBuf);
+            }
         }
 
         // Write the value out
-        this.valueFileStream.write(valueStream.toByteArray());
-        this.position += valueStream.size();
+        valueStream.flush();
+
+        byte[] value = stream.toByteArray();
+        this.valueFileStream.write(value);
+        this.position += value.length;
 
         if(this.checkSumDigestValue != null) {
-            this.checkSumDigestValue.update(valueStream.toByteArray());
+            this.checkSumDigestValue.update(value);
         }
 
         if(this.position < 0)

@@ -16,6 +16,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
+import voldemort.VoldemortException;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -31,11 +32,9 @@ public class SearchStrategyTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] {
-                { new BinarySearchStrategy(), ByteUtils.SIZE_OF_BYTE },
-                { new InterpolationSearchStrategy(), ByteUtils.SIZE_OF_BYTE },
-                { new BinarySearchStrategy(), ByteUtils.SIZE_OF_INT },
-                { new InterpolationSearchStrategy(), ByteUtils.SIZE_OF_INT } });
+        return Arrays.asList(new Object[][] { { new BinarySearchStrategy(), 4 },
+                { new InterpolationSearchStrategy(), 4 }, { new BinarySearchStrategy(), 16 },
+                { new InterpolationSearchStrategy(), 16 } });
     }
 
     public SearchStrategyTest(SearchStrategy strategy, int keyHashSize) {
@@ -46,39 +45,42 @@ public class SearchStrategyTest {
     @Test
     public void findNothingInEmptyIndex() {
         ByteBuffer index = makeIndex(new byte[][] {}, new int[] {});
-        assertKeysNotFound(index, key(-1, 2), key(9, 9));
+        assertKeysNotFound(index, key(-1, 2, -1, 2), key(9, 9, 9, 9));
     }
 
     @Test
     public void testSingleton() {
-        byte[] theKey = key(1, 2);
+        byte[] theKey = key(1, 2, 1, 2);
         int theVal = 42;
         ByteBuffer index = makeIndex(new byte[][] { theKey }, new int[] { theVal });
         assertKeyFound(index, theKey, theVal);
-        assertKeysNotFound(index, key(-1, 2), key(9, 9));
+        assertKeysNotFound(index, key(-1, 2, -1, 2), key(9, 9, 9, 9));
     }
 
     @Test
     public void keyOutOfRange() {
-        byte[] startKey = key(0, 1);
-        byte[] endKey = key(Long.MIN_VALUE, 0);
+        byte[] startKey = key(0, 1, 0, 1);
+        byte[] endKey = key(Integer.MIN_VALUE, 0, 0, 0);
         ByteBuffer index = makeIndex(new byte[][] { startKey, endKey }, new int[] { 1, 2 });
         assertKeyFound(index, startKey, 1);
         assertKeyFound(index, endKey, 2);
-        assertKeysNotFound(index, key(0, 0), key(Long.MIN_VALUE, 1));
+        assertKeysNotFound(index, key(-2, 0, 0, 0), key(-1, 1, 0, 0));
     }
 
     @Test
     public void locationIsEndPoint() {
-        byte[] startKey = key(0, 0);
-        byte[] middleKey = key(5, 5);
-        byte[] endKey = key(Long.MIN_VALUE, Long.MIN_VALUE);
+        byte[] startKey = key(0, 0, 0, 0);
+        byte[] middleKey = key(5, 5, 5, 5);
+        byte[] endKey = key(Integer.MIN_VALUE,
+                            Integer.MIN_VALUE,
+                            Integer.MIN_VALUE,
+                            Integer.MIN_VALUE);
         ByteBuffer index = makeIndex(new byte[][] { startKey, middleKey, endKey }, new int[] { 1,
                 2, 3 });
         assertKeyFound(index, startKey, 1);
         assertKeyFound(index, middleKey, 2);
         assertKeyFound(index, endKey, 3);
-        assertKeysNotFound(index, key(-1, 2), key(9, 9));
+        assertKeysNotFound(index, key(-1, 2, -1, 2), key(9, 9, 9, 9));
     }
 
     @Test
@@ -142,10 +144,23 @@ public class SearchStrategyTest {
         return buffer;
     }
 
-    public byte[] key(long v1, long v2) {
+    public byte[] key(int v1, int v2, int v3, int v4) {
         byte[] bytes = new byte[keyHashSize];
-        ByteUtils.writeLong(bytes, v1, 0);
-        ByteUtils.writeLong(bytes, v2, 8);
+        switch(keyHashSize) {
+            case 16:
+                ByteUtils.writeInt(bytes, v1, 0);
+                ByteUtils.writeInt(bytes, v2, 4);
+                ByteUtils.writeInt(bytes, v3, 8);
+                ByteUtils.writeInt(bytes, v4, 12);
+                break;
+            case 4:
+                ByteUtils.writeInt(bytes, v1, 0);
+                break;
+            default:
+                throw new VoldemortException("Key hash size " + keyHashSize + " not supported");
+
+        }
+
         return bytes;
     }
 

@@ -507,12 +507,13 @@ public class JsonStoreBuilder {
                 indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
 
                 int tuples = 0;
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                DataOutputStream valueStream = new DataOutputStream(stream);
                 do {
-                    outputStream.write(currentPair.getKey().length);
-                    outputStream.write(currentPair.getKey());
-                    outputStream.write(currentPair.getValue().length);
-                    outputStream.write(currentPair.getValue());
+                    valueStream.writeInt(currentPair.getKey().length);
+                    valueStream.write(currentPair.getKey());
+                    valueStream.writeInt(currentPair.getValue().length);
+                    valueStream.write(currentPair.getValue());
 
                     index++;
                     tuples++;
@@ -531,11 +532,15 @@ public class JsonStoreBuilder {
                                                             0,
                                                             ByteUtils.SIZE_OF_INT)) == 0);
 
-                datas[nodeId][chunk].writeByte(tuples);
-                datas[nodeId][chunk].write(outputStream.toByteArray());
+                valueStream.flush();
 
-                positions[nodeId][chunk] += 1 + outputStream.size();
-                outputStream.close();
+                byte[] numBuf = new byte[1];
+                numBuf[0] = (byte) tuples;
+
+                datas[nodeId][chunk].write(numBuf);
+                datas[nodeId][chunk].write(stream.toByteArray());
+
+                positions[nodeId][chunk] += 1 + stream.toByteArray().length;
             }
         }
 

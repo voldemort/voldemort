@@ -23,7 +23,7 @@ public class InterpolationSearchStrategy implements SearchStrategy {
         long lowValue = 0;
         long highValue = 0xFFFFFFFFL;
         long keyInt = ByteUtils.readUnsignedInt(key, 0);
-        byte[] found = new byte[16];
+        byte[] found = new byte[key.length];
         while(true) {
             if(lowIdx > highIdx || keyInt < lowValue || keyInt > highValue)
                 return -1;

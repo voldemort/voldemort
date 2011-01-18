@@ -289,7 +289,7 @@ public class ChunkedFileSet {
      * Given a particular key, first converts its to the storage format and then
      * determines which chunk it belongs to
      * 
-     * @param key Byte array of ke
+     * @param key Byte array of keys
      * @return Chunk id
      */
     public int getChunkForKey(byte[] key) {
