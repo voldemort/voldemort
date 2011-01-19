@@ -711,7 +711,7 @@ public class VoldemortAdminTool {
                 dos.write(keyBytes);
                 dos.writeInt(versionBytes.length);
                 dos.write(versionBytes);
-                dos.write(valueBytes.length);
+                dos.writeInt(valueBytes.length);
                 dos.write(valueBytes);
             }
         } finally {
