@@ -88,6 +88,7 @@ public class VoldemortClientShell {
         }
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl)
+                                                      .setEnableLazy(false)
                                                       .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
 
         if(options.has("client-zone-id")) {
