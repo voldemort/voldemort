@@ -105,6 +105,11 @@ public class CachingStoreClientFactory implements StoreClientFactory {
             for(StoreClient<?, ?> client: allClients) {
                 if(client instanceof DefaultStoreClient<?, ?>)
                     ((DefaultStoreClient<?, ?>) client).bootStrap();
+                else if(client instanceof LazyStoreClient<?, ?>) {
+                    LazyStoreClient<?, ?> lazyStoreClient = (LazyStoreClient<?, ?>) client;
+                    ((DefaultStoreClient<?, ?>) lazyStoreClient.getStoreClient()).bootStrap();
+                }
+
             }
         } catch(Exception e) {
             logger.warn("Exception during bootstrapAllClients", e);

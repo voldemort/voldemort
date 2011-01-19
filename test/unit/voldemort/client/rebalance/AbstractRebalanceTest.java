@@ -373,6 +373,7 @@ public abstract class AbstractRebalanceTest {
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
+                                                                                                .setEnableLazy(false)
                                                                                                 .setSocketTimeout(120,
                                                                                                                   TimeUnit.SECONDS));
 
@@ -497,6 +498,7 @@ public abstract class AbstractRebalanceTest {
 
         final SocketStoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCluster,
                                                                                                                                   0))
+                                                                                                .setEnableLazy(false)
                                                                                                 .setSocketTimeout(120,
                                                                                                                   TimeUnit.SECONDS));
 

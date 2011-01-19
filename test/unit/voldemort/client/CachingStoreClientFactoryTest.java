@@ -17,14 +17,32 @@
 package voldemort.client;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import voldemort.serialization.StringSerializer;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.Callable;
 
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
+@RunWith(Parameterized.class)
 public class CachingStoreClientFactoryTest {
+
+    private final boolean useLazy;
+
+    public CachingStoreClientFactoryTest(boolean useLazy) {
+        this.useLazy = useLazy;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { true }, { false } });
+    }
 
     @Test
     public void testCaching() {
@@ -52,12 +70,17 @@ public class CachingStoreClientFactoryTest {
         StoreClientFactory inner = new MockStoreClientFactory(new StringSerializer(),
                                                               new StringSerializer(),
                                                               null);
-        DefaultStoreClient<Object, Object> aStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test1"));
-        DefaultStoreClient<Object, Object> bStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test2"));
+        final DefaultStoreClient<Object, Object> aStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test1"));
+        final DefaultStoreClient<Object, Object> bStoreClient = spy((DefaultStoreClient<Object, Object>) inner.getStoreClient("test2"));
         StoreClientFactory mocked = mock(StoreClientFactory.class);
 
-        when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(aStoreClient);
-        when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(bStoreClient);
+        if(useLazy) {
+            when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(createLazyStoreClient(aStoreClient));
+            when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(createLazyStoreClient(bStoreClient));
+        } else {
+            when(mocked.<Object, Object>getStoreClient("test1")).thenReturn(aStoreClient);
+            when(mocked.<Object, Object>getStoreClient("test2")).thenReturn(bStoreClient);
+        }
 
         CachingStoreClientFactory cachingFactory = new CachingStoreClientFactory(mocked);
         cachingFactory.getStoreClient("test1");
@@ -66,5 +89,13 @@ public class CachingStoreClientFactoryTest {
 
         verify(aStoreClient, times(1)).bootStrap();
         verify(bStoreClient, times(1)).bootStrap();
+    }
+
+    private LazyStoreClient<Object, Object> createLazyStoreClient(final DefaultStoreClient<Object, Object> storeClient                                                                 ) {
+        return new LazyStoreClient<Object, Object>(new Callable<StoreClient<Object, Object>>() {
+            public StoreClient<Object, Object> call() throws Exception {
+                return storeClient;
+            }
+        });
     }
 }
