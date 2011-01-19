@@ -96,7 +96,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                "cluster",
                                                "storedefinitions",
                                                "storename",
-                                               "chunksize");
+                                               "chunksize",
+                                               "tmpdir");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing)
                                + "\n");
