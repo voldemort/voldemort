@@ -41,4 +41,10 @@ public class Adler32CheckSum extends CheckSum {
         checkSumGenerator.update(input, startIndex, length);
 
     }
+
+    @Override
+    public void reset() {
+        checkSumGenerator.reset();
+    }
+
 }

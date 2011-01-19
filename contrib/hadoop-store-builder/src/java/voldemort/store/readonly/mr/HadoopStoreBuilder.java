@@ -73,6 +73,7 @@ public class HadoopStoreBuilder {
     private final Path outputDir;
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
+    private boolean saveKeys = false;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -192,6 +193,47 @@ public class HadoopStoreBuilder {
     }
 
     /**
+     * Create the store builder
+     * 
+     * @param conf A base configuration to start with
+     * @param mapperClass The class to use as the mapper
+     * @param inputFormatClass The input format to use for reading values
+     * @param cluster The voldemort cluster for which the stores are being built
+     * @param storeDef The store definition of the store
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
+     * @param checkSumType The checksum algorithm to use
+     * @PARAM saveKeys Boolean to signify if we want to save the key as well
+     */
+    @SuppressWarnings("unchecked")
+    public HadoopStoreBuilder(Configuration conf,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends InputFormat> inputFormatClass,
+                              Cluster cluster,
+                              StoreDefinition storeDef,
+                              long chunkSizeBytes,
+                              Path tempDir,
+                              Path outputDir,
+                              Path inputPath,
+                              CheckSumType checkSumType,
+                              boolean saveKeys) {
+        this(conf,
+             mapperClass,
+             inputFormatClass,
+             cluster,
+             storeDef,
+             chunkSizeBytes,
+             tempDir,
+             outputDir,
+             inputPath,
+             checkSumType);
+        this.saveKeys = saveKeys;
+    }
+
+    /**
      * Run the job
      */
     public void build() {
@@ -200,6 +242,7 @@ public class HadoopStoreBuilder {
         conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+        conf.setBoolean("save.keys", saveKeys);
         conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
         conf.setMapperClass(mapperClass);
         conf.setMapOutputKeyClass(BytesWritable.class);
@@ -243,8 +286,12 @@ public class HadoopStoreBuilder {
             JobClient.runJob(conf);
 
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-            metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+            if(saveKeys)
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V2.getCode());
+            else
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V1.getCode());
 
             // Check if all folder exists and with format file
             for(Node node: cluster.getNodes()) {
