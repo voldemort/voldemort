@@ -90,6 +90,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbCleanerMinUtilization()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS,
                                          Integer.toString(config.getBdbCleanerThreads()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LOOK_AHEAD_CACHE_SIZE,
+                                         Integer.toString(config.getBdbCleanerLookAheadCacheSize()));
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);

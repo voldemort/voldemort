@@ -69,6 +69,8 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbOneEnvPerStore;
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
+    private int bdbCleanerLookAheadCacheSize;
+
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
@@ -196,6 +198,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
         this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
+        this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
@@ -553,6 +556,16 @@ public class VoldemortConfig implements Serializable {
         if(bdbCleanerThreads <= 0)
             throw new IllegalArgumentException("bdbCleanerThreads should be greater than 0");
         this.bdbCleanerThreads = bdbCleanerThreads;
+    }
+
+    public int getBdbCleanerLookAheadCacheSize() {
+        return bdbCleanerLookAheadCacheSize;
+    }
+
+    public final void setBdbCleanerLookAheadCacheSize(int bdbCleanerLookAheadCacheSize) {
+        if(bdbCleanerLookAheadCacheSize < 0)
+            throw new IllegalArgumentException("bdbCleanerLookAheadCacheSize should be at least 0");
+        this.bdbCleanerLookAheadCacheSize = bdbCleanerLookAheadCacheSize;
     }
 
     /**
