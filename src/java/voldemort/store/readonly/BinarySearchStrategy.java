@@ -13,16 +13,17 @@ import voldemort.utils.ByteUtils;
 public class BinarySearchStrategy implements SearchStrategy {
 
     public int indexOf(ByteBuffer index, byte[] key, int indexFileSize) {
-        byte[] keyBuffer = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
+        byte[] keyBuffer = new byte[key.length];
+        int indexSize = ReadOnlyUtils.POSITION_SIZE + key.length;
         int low = 0;
-        int high = indexFileSize / ReadOnlyUtils.INDEX_ENTRY_SIZE - 1;
+        int high = indexFileSize / indexSize - 1;
         while(low <= high) {
             int mid = (low + high) / 2;
-            ReadOnlyUtils.readKey(index, mid * ReadOnlyUtils.INDEX_ENTRY_SIZE, keyBuffer);
+            ReadOnlyUtils.readKey(index, mid * indexSize, keyBuffer);
             int cmp = ByteUtils.compare(keyBuffer, key);
             if(cmp == 0) {
                 // they are equal, return the location stored here
-                index.position(mid * ReadOnlyUtils.INDEX_ENTRY_SIZE + ReadOnlyUtils.KEY_HASH_SIZE);
+                index.position(mid * indexSize + key.length);
                 return index.getInt();
             } else if(cmp > 0) {
                 // midVal is bigger

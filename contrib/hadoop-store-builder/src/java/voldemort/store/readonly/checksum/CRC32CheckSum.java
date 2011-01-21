@@ -40,4 +40,9 @@ public class CRC32CheckSum extends CheckSum {
     public void update(byte[] input, int startIndex, int length) {
         checkSumGenerator.update(input, startIndex, length);
     }
+
+    @Override
+    public void reset() {
+        checkSumGenerator.reset();
+    }
 }

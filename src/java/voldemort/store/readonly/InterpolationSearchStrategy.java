@@ -14,27 +14,16 @@ import voldemort.utils.ByteUtils;
  */
 public class InterpolationSearchStrategy implements SearchStrategy {
 
-    private final byte[] MIN_KEY;
-    private final byte[] MAX_KEY;
-
-    public InterpolationSearchStrategy() {
-        MIN_KEY = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
-        MAX_KEY = new byte[ReadOnlyUtils.KEY_HASH_SIZE];
-        for(int i = 0; i < ReadOnlyUtils.KEY_HASH_SIZE; i++) {
-            MIN_KEY[i] = 0x0;
-            MAX_KEY[i] = (byte) 0xFF;
-        }
-    }
-
-    public int indexOf(ByteBuffer index, byte[] key, int indexSize) {
+    public int indexOf(ByteBuffer index, byte[] key, int indexFileSize) {
         int guess;
         int lowIdx = 0;
-        int highIdx = indexSize / ReadOnlyUtils.INDEX_ENTRY_SIZE - 1;
+        int indexSize = ReadOnlyUtils.POSITION_SIZE + key.length;
+        int highIdx = indexFileSize / indexSize - 1;
         long lastIdx = highIdx;
         long lowValue = 0;
         long highValue = 0xFFFFFFFFL;
         long keyInt = ByteUtils.readUnsignedInt(key, 0);
-        byte[] found = new byte[16];
+        byte[] found = new byte[key.length];
         while(true) {
             if(lowIdx > highIdx || keyInt < lowValue || keyInt > highValue)
                 return -1;
@@ -47,7 +36,7 @@ public class InterpolationSearchStrategy implements SearchStrategy {
                 guess = lowIdx + (int) offset;
             }
 
-            index.position(guess * ReadOnlyUtils.INDEX_ENTRY_SIZE);
+            index.position(guess * indexSize);
             index.get(found);
             int compare = ByteUtils.compare(key, found);
 
