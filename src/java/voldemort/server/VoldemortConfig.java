@@ -111,6 +111,7 @@ public class VoldemortConfig implements Serializable {
     private RequestFormatType requestFormatType;
 
     private boolean enableSlop;
+    private boolean enableSlopPusherJob;
     private boolean enableRepair;
     private boolean enableGui;
     private boolean enableHttpServer;
@@ -258,6 +259,7 @@ public class VoldemortConfig implements Serializable {
         this.enableJmx = props.getBoolean("jmx.enable", true);
         this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
         this.enableSlop = props.getBoolean("slop.enable", true);
+        this.enableSlopPusherJob = props.getBoolean("slop.pusher.enable", true);
         this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.enableVerboseLogging = props.getBoolean("enable.verbose.logging", true);
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
@@ -267,11 +269,10 @@ public class VoldemortConfig implements Serializable {
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
         this.enableGrandfather = props.getBoolean("enable.grandfather", true);
-        this.enableRepair = props.getBoolean("enable.repair", true);
+        this.enableRepair = props.getBoolean("enable.repair", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
-        this.enableSlop = props.getBoolean("slop.enable", true);
         this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
@@ -947,6 +948,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableSlop(boolean enableSlop) {
         this.enableSlop = enableSlop;
+    }
+
+    public boolean isSlopPusherJobEnabled() {
+        return enableSlopPusherJob;
+    }
+
+    public void setEnableSlopPusherJob(boolean enableSlopPusherJob) {
+        this.enableSlopPusherJob = enableSlopPusherJob;
     }
 
     public boolean isRepairEnabled() {
