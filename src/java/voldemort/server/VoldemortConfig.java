@@ -277,7 +277,7 @@ public class VoldemortConfig implements Serializable {
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
-        this.repairFrequencyMs = props.getLong("repair.frequency.ms", 5 * 60 * 1000);
+        this.repairFrequencyMs = props.getLong("repair.frequency.ms", 24 * 60 * 60 * 1000);
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
