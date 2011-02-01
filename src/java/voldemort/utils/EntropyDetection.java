@@ -4,28 +4,32 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.client.ClientConfig;
-import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.StoreClient;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
+import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.RequestRoutingType;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.versioning.Versioned;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 
 public class EntropyDetection {
 
-    @SuppressWarnings("unchecked")
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
@@ -127,11 +131,27 @@ public class EntropyDetection {
                             continue;
                         }
                         FileInputStream reader = null;
-                        SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(url));
-                        StoreClient storeClient = socketFactory.getStoreClient(storeDef.getName());
+                        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                              10000,
+                                                                                              100000,
+                                                                                              32 * 1024);
 
-                        DefaultSerializerFactory factory = new DefaultSerializerFactory();
-                        Serializer<?> keySerializer = factory.getSerializer(storeDef.getKeySerializer());
+                        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                      cluster);
+                        RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(false,
+                                                                                                         false);
+                        // Cache connections to all nodes for this store
+                        // in advance
+                        HashMap<Integer, Store<ByteArray, byte[], byte[]>> socketStoresPerNode = Maps.newHashMap();
+                        for(Node node: cluster.getNodes()) {
+                            socketStoresPerNode.put(node.getId(),
+                                                    socketStoreFactory.create(storeDef.getName(),
+                                                                              node.getHost(),
+                                                                              node.getSocketPort(),
+                                                                              RequestFormatType.VOLDEMORT_V1,
+                                                                              requestRoutingType));
+                        }
+
                         long foundKeys = 0L;
                         long totalKeys = 0L;
                         try {
@@ -147,10 +167,19 @@ public class EntropyDetection {
                                 byte[] key = new byte[size];
                                 reader.read(key);
 
-                                Versioned<Object> value = storeClient.get(keySerializer.toObject(key));
-                                if(value != null) {
-                                    foundKeys++;
+                                List<Node> responsibleNodes = strategy.routeRequest(key);
+                                boolean missingKey = false;
+                                for(Node node: responsibleNodes) {
+                                    List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
+                                                                                       .get(new ByteArray(key),
+                                                                                            null);
+                                    if(value == null || value.size() == 0) {
+                                        missingKey = true;
+                                    }
                                 }
+                                if(!missingKey)
+                                    foundKeys++;
+
                                 totalKeys++;
 
                             }
@@ -162,6 +191,11 @@ public class EntropyDetection {
                         } finally {
                             if(reader != null)
                                 reader.close();
+
+                            // close all socket stores
+                            for(Store<ByteArray, byte[], byte[]> store: socketStoresPerNode.values()) {
+                                store.close();
+                            }
                         }
                         break;
                 }
@@ -170,5 +204,5 @@ public class EntropyDetection {
             if(adminClient != null)
                 adminClient.stop();
         }
-   }
+    }
 }
