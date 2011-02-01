@@ -67,6 +67,11 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private CheckSum checkSumDigestValue;
     private boolean saveKeys;
 
+    protected static enum CollisionCounter {
+        NUM_COLLISIONS,
+        MAX_COLLISIONS;
+    }
+
     /**
      * Reduce should get sorted MD5 of Voldemort key ( either 16 bytes if saving
      * keys is disabled, else 4 bytes ) as key and for value (a) node-id,
@@ -126,6 +131,16 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                                                                     0,
                                                                                     key.getSize())));
 
+        }
+
+        // Update number of collisions + max keys per collision
+        if(numKeyValues > 1) {
+            reporter.incrCounter(CollisionCounter.NUM_COLLISIONS, 1);
+
+            long numCollisions = reporter.getCounter(CollisionCounter.MAX_COLLISIONS).getCounter();
+            if(numKeyValues > numCollisions) {
+                reporter.incrCounter(CollisionCounter.MAX_COLLISIONS, numKeyValues - numCollisions);
+            }
         }
 
         if(saveKeys) {

@@ -16,15 +16,14 @@
 
 package voldemort.store.readonly.mr;
 
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -56,6 +55,7 @@ import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.SearchStrategy;
+import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
@@ -241,15 +241,11 @@ public class HadoopStoreBuilderTest {
             Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
 
-        File checkSumFile = new File(nodeFile, "md5checkSum.txt");
-        Assert.assertTrue(checkSumFile.exists());
+        Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
+                            CheckSum.toString(CheckSumType.MD5));
 
         // Check contents of checkSum file
-        byte[] md5 = new byte[16];
-        DataInputStream in = new DataInputStream(new FileInputStream(checkSumFile));
-        in.read(md5);
-        in.close();
-
+        byte[] md5 = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
         Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));

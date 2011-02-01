@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -39,6 +41,7 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
@@ -138,6 +141,7 @@ public class HdfsFetcher implements FileFetcher {
 
                 for(FileStatus status: statuses) {
 
+                    // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
                         // Read checksum
@@ -155,9 +159,35 @@ public class HdfsFetcher implements FileFetcher {
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 
-                        // Read metadata
+                        // Read metadata into local file
                         File copyLocation = new File(dest, status.getPath().getName());
                         copyFileWithCheckSum(fs, status.getPath(), copyLocation, stats, null);
+
+                        // Open the local file to initialize checksum
+                        ReadOnlyStorageMetadata metadata;
+                        try {
+                            metadata = new ReadOnlyStorageMetadata(copyLocation);
+                        } catch(IOException e) {
+                            logger.error("Error reading metadata file ", e);
+                            throw new VoldemortException(e);
+                        }
+
+                        // Read checksum
+                        String checkSumTypeString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE);
+                        if(checkSumTypeString != null) {
+
+                            try {
+                                origCheckSum = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
+                            } catch(DecoderException e) {
+                                logger.error("Exception reading checksum file. Ignoring checksum ",
+                                             e);
+                                continue;
+                            }
+
+                            checkSumType = CheckSum.fromString(checkSumTypeString);
+                            checkSumGenerator = CheckSum.getInstance(checkSumType);
+                            fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
+                        }
 
                     } else if(!status.getPath().getName().startsWith(".")) {
 
@@ -181,7 +211,7 @@ public class HdfsFetcher implements FileFetcher {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
                     return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
                 } else {
-                    // If checkSum file does not exist
+                    logger.info("Completed reading all files. No check-sum verification required");
                     return true;
                 }
             }
@@ -326,10 +356,10 @@ public class HdfsFetcher implements FileFetcher {
 
             String f1 = fs1.getPath().getName(), f2 = fs2.getPath().getName();
 
-            // All checksum files given priority
-            if(f1.endsWith("checkSum.txt"))
+            // All metadata files given priority
+            if(f1.endsWith("metadata"))
                 return -1;
-            if(f2.endsWith("checkSum.txt"))
+            if(f2.endsWith("metadata"))
                 return 1;
 
             // if both same, lexicographically
