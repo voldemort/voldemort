@@ -164,6 +164,9 @@ class StoreClient:
         self.request_count = 0
         self.conflict_resolver = conflict_resolver
         self.nodes, self.store = self._bootstrap_metadata(bootstrap_urls, store_name)
+        if not self.store:
+            raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
+
         self.node_id = random.randint(0, len(self.nodes) - 1)
         self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
