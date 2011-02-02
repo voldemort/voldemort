@@ -112,12 +112,22 @@ class Store:
         self.preferred_writes = _int_or_none(_child_text(store_node, "preferred-writes", required=False))
 
         key_serializer_node = _child(store_node, "key-serializer")
-        self.key_serializer_type = _child_text(key_serializer_node, "type")
-        self.key_serializer = self._create_serializer(self.key_serializer_type, key_serializer_node)
+        try:
+            self.key_serializer_type = _child_text(key_serializer_node, "type")
+            self.key_serializer = self._create_serializer(self.key_serializer_type, key_serializer_node)
+        except serialization.SerializationException, e:
+            logging.warn("Error while creating key serializer for store [%s]: %s" % (self.name, e))
+            self.key_serializer_type = "invalid"
+            self.key_serializer = serialization.UnimplementedSerializer("invalid")
 
         value_serializer_node = _child(store_node, "value-serializer")
-        self.value_serializer_type = _child_text(value_serializer_node, "type")
-        self.value_serializer = self._create_serializer(self.value_serializer_type, value_serializer_node)
+        try:
+            self.value_serializer_type = _child_text(value_serializer_node, "type")
+            self.value_serializer = self._create_serializer(self.value_serializer_type, value_serializer_node)
+        except serialization.SerializationException, e:
+            logging.warn("Error while creating value serializer for store [%s]: %s" % (self.name, e))
+            self.value_serializer_type = "invalid"
+            self.value_serializer = serialization.UnimplementedSerializer("invalid")
 
     def _create_serializer(self, serializer_type, serializer_node):
         if serializer_type not in serialization.SERIALIZER_CLASSES:
@@ -126,10 +136,16 @@ class Store:
         return serialization.SERIALIZER_CLASSES[serializer_type].create_from_xml(serializer_node)
 
     @staticmethod
-    def parse_stores_xml(xml):
+    def parse_stores_xml(xml, store_name):
         doc = minidom.parseString(xml)
-        stores = [Store(store_node) for store_node in doc.getElementsByTagName("store")]
-        return dict((store.name, store) for store in stores)
+        store_nodes = doc.getElementsByTagName("store")
+        for store_node in store_nodes:
+            name = _child_text(store_node, "name")
+            if name == store_name:
+                return Store(store_node)
+
+        return None
+
 
 class VoldemortException(Exception):
     def __init__(self, msg, code = 1):
@@ -147,13 +163,13 @@ class StoreClient:
         self.store_name = store_name
         self.request_count = 0
         self.conflict_resolver = conflict_resolver
-        self.nodes, self.stores = self._bootstrap_metadata(bootstrap_urls)
+        self.nodes, self.store = self._bootstrap_metadata(bootstrap_urls, store_name)
         self.node_id = random.randint(0, len(self.nodes) - 1)
         self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
         self.open = True
-        self.key_serializer = self.stores[store_name].key_serializer
-        self.value_serializer = self.stores[store_name].value_serializer
+        self.key_serializer = self.store.key_serializer
+        self.value_serializer = self.store.value_serializer
 
     def _make_connection(self, host, port):
         protocol = 'pb0'
@@ -236,7 +252,7 @@ class StoreClient:
     ## Bootstrap cluster metadata from a list of urls of nodes in the cluster.
     ## The urls are tuples in the form (host, port).
     ## A dictionary of node_id => node is returned.
-    def _bootstrap_metadata(self, bootstrap_urls):
+    def _bootstrap_metadata(self, bootstrap_urls, store_name):
         random.shuffle(bootstrap_urls)
         for host, port in bootstrap_urls:
             logging.debug('Attempting to bootstrap metadata from ' + host + ':' + str(port))
@@ -249,9 +265,9 @@ class StoreClient:
                 nodes = Node.parse_cluster(cluster_xmls[0][0])
                 logging.debug('Bootstrap from ' + host + ':' + str(port) + ' succeeded, found ' + str(len(nodes)) + " nodes.")
                 stores_xml = self._get_with_connection(connection, 'metadata', 'stores.xml', should_route=False)[0][0]
-                stores = Store.parse_stores_xml(stores_xml)
+                store = Store.parse_stores_xml(stores_xml, store_name)
 
-                return nodes, stores
+                return nodes, store
             except socket.error, (err_num, message):
                 logging.warn('Metadata bootstrap from ' + host + ':' + str(port) + " failed: " + message)
             finally:
