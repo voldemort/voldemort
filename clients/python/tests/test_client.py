@@ -300,3 +300,16 @@ class VoldemortClientTest(unittest.TestCase):
         resp = s.get(1)
         self.assertEquals(resp, [])
 
+
+    def test_missing_store(self):
+        """
+        Tests that we get an exception when we try to get a non-existent store.
+        """
+
+        try:
+            s = StoreClient('does-not-exist', [('localhost', 6666)])
+        except VoldemortException:
+            self.assertTrue(True)
+            return
+
+        self.assertTrue(False)
