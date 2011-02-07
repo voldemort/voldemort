@@ -41,6 +41,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -156,10 +157,10 @@ public class GrandfatherTest {
 
         StoreDefinition storeDefRepFactor2 = ServerTestUtils.getStoreDef("test1",
                                                                          2,
-                                                                         1,
-                                                                         1,
-                                                                         1,
-                                                                         1,
+                                                                         2,
+                                                                         2,
+                                                                         2,
+                                                                         2,
                                                                          RoutingStrategyType.CONSISTENT_STRATEGY);
         test(consistentRoutingCluster,
              consistentRoutingClusterModified,
@@ -178,10 +179,10 @@ public class GrandfatherTest {
                                                                      RoutingStrategyType.CONSISTENT_STRATEGY);
         StoreDefinition afterStoreDef = ServerTestUtils.getStoreDef("test1",
                                                                     2,
-                                                                    1,
-                                                                    1,
-                                                                    1,
-                                                                    1,
+                                                                    2,
+                                                                    2,
+                                                                    2,
+                                                                    2,
                                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
         test(consistentRoutingCluster,
              consistentRoutingClusterModified,
@@ -190,17 +191,17 @@ public class GrandfatherTest {
 
         beforeStoreDef = ServerTestUtils.getStoreDef("test1",
                                                      2,
-                                                     1,
-                                                     1,
-                                                     1,
-                                                     1,
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      RoutingStrategyType.CONSISTENT_STRATEGY);
         afterStoreDef = ServerTestUtils.getStoreDef("test1",
                                                     3,
-                                                    1,
-                                                    1,
-                                                    1,
-                                                    1,
+                                                    3,
+                                                    3,
+                                                    3,
+                                                    3,
                                                     RoutingStrategyType.CONSISTENT_STRATEGY);
         test(consistentRoutingCluster,
              consistentRoutingClusterModified,
@@ -215,11 +216,11 @@ public class GrandfatherTest {
         }
         StoreDefinition storeDefRepFactor1 = ServerTestUtils.getStoreDef("test1",
                                                                          2,
+                                                                         2,
+                                                                         2,
+                                                                         2,
                                                                          1,
                                                                          1,
-                                                                         1,
-                                                                         0,
-                                                                         0,
                                                                          zoneReplicationFactors,
                                                                          HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                          RoutingStrategyType.ZONE_STRATEGY);
@@ -234,11 +235,11 @@ public class GrandfatherTest {
         }
         StoreDefinition storeDefRepFactor2 = ServerTestUtils.getStoreDef("test1",
                                                                          4,
+                                                                         4,
+                                                                         4,
+                                                                         4,
                                                                          1,
                                                                          1,
-                                                                         1,
-                                                                         0,
-                                                                         0,
                                                                          zoneReplicationFactors,
                                                                          HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                          RoutingStrategyType.ZONE_STRATEGY);
@@ -258,8 +259,8 @@ public class GrandfatherTest {
                                                                      1,
                                                                      1,
                                                                      1,
-                                                                     0,
-                                                                     0,
+                                                                     1,
+                                                                     1,
                                                                      zoneReplicationFactors,
                                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -273,8 +274,8 @@ public class GrandfatherTest {
                                                                     1,
                                                                     1,
                                                                     1,
-                                                                    0,
-                                                                    0,
+                                                                    1,
+                                                                    1,
                                                                     zoneReplicationFactors,
                                                                     HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                     RoutingStrategyType.ZONE_STRATEGY);
@@ -299,9 +300,9 @@ public class GrandfatherTest {
                                                                      RoutingStrategyType.CONSISTENT_STRATEGY);
         StoreDefinition afterStoreDef = ServerTestUtils.getStoreDef("test1",
                                                                     2,
-                                                                    1,
-                                                                    1,
-                                                                    1,
+                                                                    2,
+                                                                    2,
+                                                                    2,
                                                                     0,
                                                                     0,
                                                                     zoneReplicationFactors,
@@ -325,18 +326,18 @@ public class GrandfatherTest {
         }
         beforeStoreDef = ServerTestUtils.getStoreDef("test1",
                                                      2,
-                                                     1,
-                                                     1,
-                                                     1,
-                                                     1,
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      RoutingStrategyType.CONSISTENT_STRATEGY);
         afterStoreDef = ServerTestUtils.getStoreDef("test1",
+                                                    2,
+                                                    2,
+                                                    2,
+                                                    2,
                                                     1,
                                                     1,
-                                                    1,
-                                                    1,
-                                                    0,
-                                                    0,
                                                     zoneReplicationFactors,
                                                     HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                     RoutingStrategyType.ZONE_STRATEGY);
@@ -372,21 +373,21 @@ public class GrandfatherTest {
                                                                                                                                                               1,
                                                                                                                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
         StoreDefinition afterStoreDef1 = ServerTestUtils.getStoreDef("test1",
+                                                                     2,
+                                                                     2,
+                                                                     2,
+                                                                     2,
                                                                      1,
                                                                      1,
-                                                                     1,
-                                                                     1,
-                                                                     0,
-                                                                     0,
                                                                      zoneReplicationFactors,
                                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                      RoutingStrategyType.ZONE_STRATEGY), afterStoreDef2 = ServerTestUtils.getStoreDef("test2",
+                                                                                                                                                      2,
+                                                                                                                                                      2,
+                                                                                                                                                      2,
+                                                                                                                                                      2,
                                                                                                                                                       1,
                                                                                                                                                       1,
-                                                                                                                                                      1,
-                                                                                                                                                      1,
-                                                                                                                                                      0,
-                                                                                                                                                      0,
                                                                                                                                                       zoneReplicationFactors,
                                                                                                                                                       HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                                                                                                       RoutingStrategyType.ZONE_STRATEGY);
@@ -403,35 +404,35 @@ public class GrandfatherTest {
         }
         beforeStoreDef1 = ServerTestUtils.getStoreDef("test1",
                                                       2,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      2,
+                                                      2,
+                                                      2,
+                                                      2,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         beforeStoreDef2 = ServerTestUtils.getStoreDef("test2",
                                                       2,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      2,
+                                                      2,
+                                                      2,
+                                                      2,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         afterStoreDef1 = ServerTestUtils.getStoreDef("test1",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
         afterStoreDef2 = ServerTestUtils.getStoreDef("test2",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -451,22 +452,22 @@ public class GrandfatherTest {
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         beforeStoreDef2 = ServerTestUtils.getStoreDef("test2",
                                                       2,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      2,
+                                                      2,
+                                                      2,
+                                                      2,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         zoneReplicationFactors = Maps.newHashMap();
         for(int zoneIds = 0; zoneIds < NUM_ZONES; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 1);
         }
         afterStoreDef1 = ServerTestUtils.getStoreDef("test1",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -475,12 +476,12 @@ public class GrandfatherTest {
             zoneReplicationFactors.put(zoneIds, 2);
         }
         afterStoreDef2 = ServerTestUtils.getStoreDef("test2",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -493,29 +494,29 @@ public class GrandfatherTest {
         // 2C + 3C => 4Z + 6Z
         beforeStoreDef1 = ServerTestUtils.getStoreDef("test1",
                                                       2,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      2,
+                                                      2,
+                                                      2,
+                                                      2,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         beforeStoreDef2 = ServerTestUtils.getStoreDef("test2",
                                                       3,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      3,
+                                                      3,
+                                                      3,
+                                                      3,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         zoneReplicationFactors = Maps.newHashMap();
         for(int zoneIds = 0; zoneIds < NUM_ZONES; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 2);
         }
         afterStoreDef1 = ServerTestUtils.getStoreDef("test1",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -524,12 +525,12 @@ public class GrandfatherTest {
             zoneReplicationFactors.put(zoneIds, 3);
         }
         afterStoreDef2 = ServerTestUtils.getStoreDef("test2",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -548,29 +549,29 @@ public class GrandfatherTest {
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         beforeStoreDef2 = ServerTestUtils.getStoreDef("test2",
                                                       2,
-                                                      1,
-                                                      1,
-                                                      1,
-                                                      1,
+                                                      2,
+                                                      2,
+                                                      2,
+                                                      2,
                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         StoreDefinition beforeStoreDef3 = ServerTestUtils.getStoreDef("test3",
                                                                       3,
-                                                                      1,
-                                                                      1,
-                                                                      1,
-                                                                      1,
+                                                                      3,
+                                                                      3,
+                                                                      3,
+                                                                      3,
                                                                       RoutingStrategyType.CONSISTENT_STRATEGY);
         zoneReplicationFactors = Maps.newHashMap();
         for(int zoneIds = 0; zoneIds < NUM_ZONES; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 1);
         }
         afterStoreDef1 = ServerTestUtils.getStoreDef("test1",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -579,12 +580,12 @@ public class GrandfatherTest {
             zoneReplicationFactors.put(zoneIds, 2);
         }
         afterStoreDef2 = ServerTestUtils.getStoreDef("test2",
+                                                     2,
+                                                     2,
+                                                     2,
+                                                     2,
                                                      1,
                                                      1,
-                                                     1,
-                                                     1,
-                                                     0,
-                                                     0,
                                                      zoneReplicationFactors,
                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -594,12 +595,12 @@ public class GrandfatherTest {
             zoneReplicationFactors.put(zoneIds, 3);
         }
         StoreDefinition afterStoreDef3 = ServerTestUtils.getStoreDef("test3",
+                                                                     2,
+                                                                     2,
+                                                                     2,
+                                                                     2,
                                                                      1,
                                                                      1,
-                                                                     1,
-                                                                     1,
-                                                                     0,
-                                                                     0,
                                                                      zoneReplicationFactors,
                                                                      HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                                      RoutingStrategyType.ZONE_STRATEGY);
@@ -814,7 +815,14 @@ public class GrandfatherTest {
                 }
                 for(int storeNo = 1; storeNo <= numStores; storeNo++) {
                     for(int i = 0; i < NUM_KEYS; i++) {
-                        if(storeClients[storeNo - 1].get("key" + i, null) == null) {
+
+                        Versioned<String> value = null;
+                        try {
+                            value = storeClients[storeNo - 1].get("key" + i, null);
+                        } catch(Exception e) {
+                            value = storeClients[storeNo - 1].get("key" + i, null);
+                        }
+                        if(value == null) {
                             Assert.fail("Should not have happened for key"
                                         + i
                                         + " => "
@@ -824,9 +832,7 @@ public class GrandfatherTest {
                                         + afterStrategy[storeNo - 1].getPartitionList(new String("key"
                                                                                                  + i).getBytes()));
                         } else {
-                            Assert.assertEquals(storeClients[storeNo - 1].get("key" + i, null)
-                                                                         .getValue(), "value" + i
-                                                                                      + "_" + 2);
+                            Assert.assertEquals(value.getValue(), "value" + i + "_" + 2);
                         }
                     }
 
