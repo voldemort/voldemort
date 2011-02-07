@@ -24,20 +24,28 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 
 public class EntropyDetection {
 
+    @SuppressWarnings("cast")
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
-        parser.accepts("url", "[REQUIRED] bootstrap URL")
+        parser.accepts("cluster-xml", "[REQUIRED] Path to cluster-xml")
               .withRequiredArg()
-              .describedAs("bootstrap-url")
+              .describedAs("xml")
               .ofType(String.class);
-        parser.accepts("output-dir", "[REQUIRED] The output directory where we'll store the keys")
+        parser.accepts("stores-xml", "[REQUIRED] Path to stores-xml")
+              .withRequiredArg()
+              .describedAs("xml")
+              .ofType(String.class);
+        parser.accepts("output-dir",
+                       "[REQUIRED] The output directory where we'll store / retrieve the keys")
               .withRequiredArg()
               .describedAs("output-dir")
               .ofType(String.class);
@@ -57,7 +65,7 @@ public class EntropyDetection {
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "url", "output-dir");
+        Set<String> missing = CmdUtils.missing(options, "cluster-xml", "stores-xml", "output-dir");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
@@ -65,7 +73,8 @@ public class EntropyDetection {
         }
 
         // compulsory params
-        String url = (String) options.valueOf("url");
+        String clusterXml = (String) options.valueOf("cluster-xml");
+        String storesXml = (String) options.valueOf("stores-xml");
         String outputDirPath = (String) options.valueOf("output-dir");
         int opType = CmdUtils.valueOf(options, "op", 0);
         long numKeys = CmdUtils.valueOf(options, "num-keys", 100L);
@@ -80,13 +89,19 @@ public class EntropyDetection {
             System.exit(1);
         }
 
+        if(!Utils.isReadableFile(clusterXml) || !Utils.isReadableFile(storesXml)) {
+            System.err.println("Cannot read metadata file ");
+            System.exit(1);
+        }
+
         AdminClient adminClient = null;
         try {
-            adminClient = new AdminClient(url, new AdminClientConfig().setMaxThreads(10));
 
-            // Get store definition meta-data from node 0
-            List<StoreDefinition> storeDefs = adminClient.getRemoteStoreDefList(0).getValue();
-            Cluster cluster = adminClient.getAdminClientCluster();
+            // Parse the metadata
+            Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
+            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
+
+            adminClient = new AdminClient(cluster, new AdminClientConfig().setMaxThreads(10));
 
             for(StoreDefinition storeDef: storeDefs) {
                 File storesKeyFile = new File(outputDir, storeDef.getName());
@@ -173,6 +188,7 @@ public class EntropyDetection {
                                     List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
                                                                                        .get(new ByteArray(key),
                                                                                             null);
+
                                     if(value == null || value.size() == 0) {
                                         missingKey = true;
                                     }
@@ -185,8 +201,8 @@ public class EntropyDetection {
                             }
                             System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
                             if(foundKeys > 0 && totalKeys > 0) {
-                                System.out.println("%age found - " + (double) 100
-                                                   * (foundKeys / totalKeys));
+                                System.out.println("%age found - " + 100.0 * (double) foundKeys
+                                                   / totalKeys);
                             }
                         } finally {
                             if(reader != null)
