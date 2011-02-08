@@ -1,3 +1,24 @@
+Release 0.90 on 2/15/2010
+
+Changes made since 0.81
+
+* The client code has been modified to support NIO. In order to do so,
+  an implementation of RoutedStore based on a pipelined architecture
+  has been created.
+ * Topology (i.e., datacenter or rack) awareness has been integrated,
+  with tuneable consistency characteristics. See: 
+  https://github.com/voldemort/voldemort/wiki/Multi-datacenter-capability
+  for more information.
+ * Hinted handoff is now supported as an additional consistency
+  mechanism. It is disabled by default, but it is suggested that it is
+  enabled in situations (e.g., datacenters separated by long range WAN
+  links) where read repair can not be used. See: 
+  < https://github.com/voldemort/voldemort/wiki/Hinted-Handoff > for
+  more information.
+ * The version of BerkeleyDB Java Edition has been updated to 4.0.90
+ * The version of Protocol Buffers has been updated to 2.3.0
+  
+
 Release 0.81 on 6/15/2010
 
 Changes made since 0.80.2:
