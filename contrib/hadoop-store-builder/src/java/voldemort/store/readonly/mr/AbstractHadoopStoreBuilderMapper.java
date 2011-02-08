@@ -58,6 +58,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
     private CompressionStrategy keyCompressor;
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
+    private boolean saveKeys;
 
     public abstract Object makeKey(K key, V value);
 
@@ -68,8 +69,9 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
      * it out for each of the responsible voldemort nodes
      * 
      * The output key is the md5 of the serialized key returned by makeKey().
-     * The output value is the nodeid & partitionid of the responsible node
-     * followed by serialized value returned by makeValue().
+     * The output value is the node_id & partition_id of the responsible node
+     * followed by serialized value returned by makeValue() OR if we have
+     * setKeys flag on the serialized key and serialized value
      */
     public void map(K key,
                     V value,
@@ -87,19 +89,47 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             valBytes = valueCompressor.deflate(valBytes);
         }
 
-        // copy the bytes into an array with 8 additional bytes for the node &
-        // partition id
-        byte[] idsAndValue = new byte[valBytes.length + 4 + 4];
-        System.arraycopy(valBytes, 0, idsAndValue, 8, valBytes.length);
-
-        BytesWritable outputKey = new BytesWritable(md5er.digest(keyBytes));
+        // Generate partition and node list this key is destined for
         List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
         Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
+        byte[] outputValue;
+        BytesWritable outputKey;
+        if(saveKeys) {
+            // 4 ( for node id ) + 4 ( partition id ) + 4 ( value size ) + 4 (
+            // key size )
+            outputValue = new byte[valBytes.length + keyBytes.length + 4 + 4 + 4 + 4];
+
+            // copy key
+            ByteUtils.writeInt(outputValue, keyBytes.length, 4 + 4);
+            System.arraycopy(keyBytes, 0, outputValue, 4 + 4 + 4, keyBytes.length);
+
+            // copy value
+            ByteUtils.writeInt(outputValue, valBytes.length, 4 + 4 + 4 + keyBytes.length);
+            System.arraycopy(valBytes,
+                             0,
+                             outputValue,
+                             4 + 4 + 4 + keyBytes.length + 4,
+                             valBytes.length);
+
+            // generate key - upper 4 bytes of 16 byte md5
+            outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
+                                                         0,
+                                                         ByteUtils.SIZE_OF_INT));
+
+        } else {
+            // 4 ( for node id ) + 4 ( partition id )
+            outputValue = new byte[valBytes.length + 4 + 4];
+            System.arraycopy(valBytes, 0, outputValue, 8, valBytes.length);
+
+            // generate key - 16 byte md5
+            outputKey = new BytesWritable(md5er.digest(keyBytes));
+        }
+
         for(Integer partition: partitionList) {
-            ByteUtils.writeInt(idsAndValue, partitionToNode[partition].getId(), 0);
-            ByteUtils.writeInt(idsAndValue, partition, 4);
-            BytesWritable outputVal = new BytesWritable(idsAndValue);
+            ByteUtils.writeInt(outputValue, partitionToNode[partition].getId(), 0);
+            ByteUtils.writeInt(outputValue, partition, 4);
+            BytesWritable outputVal = new BytesWritable(outputValue);
 
             output.collect(outputKey, outputVal);
         }
@@ -114,6 +144,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         md5er = ByteUtils.getDigest("md5");
         keySerializerDefinition = getStoreDef().getKeySerializer();
         valueSerializerDefinition = getStoreDef().getValueSerializer();
+        saveKeys = conf.getBoolean("save.keys", false);
 
         try {
             SerializerFactory factory = new DefaultSerializerFactory();

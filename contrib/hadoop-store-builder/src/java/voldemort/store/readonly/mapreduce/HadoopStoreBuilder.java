@@ -71,6 +71,7 @@ public class HadoopStoreBuilder {
     private final Path outputDir;
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
+    private boolean saveKeys = false;
 
     /**
      * Create the store builder
@@ -97,7 +98,8 @@ public class HadoopStoreBuilder {
                               Path tempDir,
                               Path outputDir,
                               Path inputPath,
-                              CheckSumType checkSumType) {
+                              CheckSumType checkSumType,
+                              boolean saveKeys) {
         this.config = conf;
         this.mapperClass = Utils.notNull(mapperClass);
         this.inputFormatClass = Utils.notNull(inputFormatClass);
@@ -111,6 +113,7 @@ public class HadoopStoreBuilder {
             throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
                                          + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
         this.checkSumType = checkSumType;
+        this.saveKeys = saveKeys;
     }
 
     /**
@@ -124,6 +127,7 @@ public class HadoopStoreBuilder {
             job.getConfiguration()
                .set("stores.xml",
                     new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+            job.getConfiguration().setBoolean("save.keys", saveKeys);
             job.getConfiguration().set("final.output.dir", outputDir.toString());
             job.getConfiguration().set("checksum.type", CheckSum.toString(checkSumType));
             job.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
@@ -165,8 +169,12 @@ public class HadoopStoreBuilder {
             job.waitForCompletion(true);
 
             ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-            metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+            if(saveKeys)
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V2.getCode());
+            else
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V1.getCode());
 
             // Check if all folder exists and with format file
             for(Node node: cluster.getNodes()) {

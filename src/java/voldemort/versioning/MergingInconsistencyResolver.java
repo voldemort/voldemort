@@ -49,4 +49,21 @@ public class MergingInconsistencyResolver<T> implements InconsistencyResolver<Ve
             return Collections.singletonList(new Versioned<T>(merged, clock));
         }
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(this == o) return true;
+        if(o == null || getClass() != o.getClass()) return false;
+
+        MergingInconsistencyResolver that = (MergingInconsistencyResolver) o;
+
+        if(merger != null ? !merger.equals(that.merger) : that.merger != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return merger != null ? merger.hashCode() : 0;
+    }
 }

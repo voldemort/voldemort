@@ -32,6 +32,29 @@ public abstract class CheckSum {
     public abstract void update(byte[] input, int startIndex, int length);
 
     /**
+     * Get the checkSum of the buffer till now, after which buffer is reset
+     */
+    public abstract byte[] getCheckSum();
+
+    /**
+     * Reset the checksum generator
+     */
+    public abstract void reset();
+
+    /**
+     * Update and get checksum + reset the digest for next use
+     * 
+     * @param input The input byte array
+     * @param startIndex The index to start reading from
+     * @param length The number of bytes to read
+     * @return Returns the checksum byte array
+     */
+    public byte[] updateAndGetCheckSum(byte[] input, int startIndex, int length) {
+        update(input, startIndex, length);
+        return getCheckSum();
+    }
+
+    /**
      * 
      * @param number number to be stored in checksum buffer
      */
@@ -49,11 +72,6 @@ public abstract class CheckSum {
     public void update(byte[] input) {
         update(input, 0, input.length);
     }
-
-    /**
-     * Get the checkSum of the buffer till now, after which buffer is reset
-     */
-    public abstract byte[] getCheckSum();
 
     public enum CheckSumType {
         NONE,

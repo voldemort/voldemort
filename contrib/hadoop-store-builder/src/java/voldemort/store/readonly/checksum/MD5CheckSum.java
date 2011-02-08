@@ -37,4 +37,9 @@ public class MD5CheckSum extends CheckSum {
         checkSumGenerator.update(input, startIndex, length);
     }
 
+    @Override
+    public void reset() {
+        checkSumGenerator.reset();
+    }
+
 }

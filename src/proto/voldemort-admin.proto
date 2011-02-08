@@ -221,6 +221,15 @@ message SwapStoresAndCleanStateResponse {
   optional Error error = 1; 
 }
 
+message UpdateGrandfatherMetadataRequest {
+  repeated InitiateRebalanceNodeRequest plan = 1;
+}
+
+message UpdateGrandfatherMetadataResponse {
+  required Versioned version = 1;
+  optional Error error = 2;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -243,6 +252,7 @@ enum AdminRequestType {
   FETCH_PARTITION_FILES = 18;
   SWAP_STORES_AND_CLEAN_STATE = 19;
   UPDATE_SLOP_ENTRIES = 20;
+  UPDATE_GRANDFATHER_METADATA = 21;
 }
 
 message VoldemortAdminRequest {
@@ -268,4 +278,5 @@ message VoldemortAdminRequest {
   optional FetchPartitionFilesRequest fetch_partition_files = 20;
   optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
   optional UpdateSlopEntriesRequest update_slop_entries = 22;
+  optional UpdateGrandfatherMetadataRequest update_grandfather_metadata = 23;
 }

@@ -18,6 +18,7 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -48,6 +50,7 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
+import voldemort.client.protocol.pb.VAdminProto.UpdateGrandfatherMetadataRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -59,10 +62,13 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
@@ -110,6 +116,10 @@ public class AdminClient {
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
     private final AdminClientConfig adminClientConfig;
+
+    public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
+                                                                                 ReadOnlyStorageConfiguration.TYPE_NAME,
+                                                                                 ViewStorageConfiguration.TYPE_NAME);
 
     private Cluster currentCluster;
 
@@ -528,8 +538,14 @@ public class AdminClient {
             List<StoreDefinition> storeDefList = getRemoteStoreDefList(nodeId).getValue();
             Cluster cluster = getRemoteCluster(nodeId).getValue();
 
-            List<StoreDefinition> writableStores = RebalanceUtils.getWritableStores(storeDefList);
-
+            List<StoreDefinition> writableStores = Lists.newArrayList();
+            for(StoreDefinition def: storeDefList) {
+                if(def.isView() || restoreStoreEngineBlackList.contains(def.getType())) {
+                    logger.info("Ignoring store " + def.getName() + " for restoring");
+                } else {
+                    writableStores.add(def);
+                }
+            }
             for(StoreDefinition def: writableStores) {
                 restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
@@ -545,11 +561,20 @@ public class AdminClient {
         }
     }
 
+    /**
+     * For a particular store and node, runs the replication job
+     * 
+     * @param restoringNodeId The node which we want to restore
+     * @param cluster The cluster metadata
+     * @param storeDef The definition of the store which we want to restore
+     * @param executorService An executor to allow us to run the replication job
+     */
     private void restoreStoreFromReplication(final int restoringNodeId,
                                              final Cluster cluster,
                                              final StoreDefinition storeDef,
                                              final ExecutorService executorService) {
-        logger.info("Restoring data for store:" + storeDef.getName());
+        logger.info("Restoring data for store " + storeDef.getName() + " on node "
+                    + restoringNodeId);
         RoutingStrategyFactory factory = new RoutingStrategyFactory();
         RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
@@ -588,9 +613,18 @@ public class AdminClient {
         }
     }
 
-    private Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
-                                                              int nodeId,
-                                                              RoutingStrategy strategy) {
+    /**
+     * For a particular node and routing strategy, generates a mapping of node
+     * to their corresponding list of replica partitions.
+     * 
+     * @param cluster The cluster metadata
+     * @param nodeId The id of the node
+     * @param strategy The routing strategy used
+     * @return Mapping of node to replica partitions of nodeId
+     */
+    public Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
+                                                             int nodeId,
+                                                             RoutingStrategy strategy) {
         Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
         HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
 
@@ -617,6 +651,23 @@ public class AdminClient {
         return restoreMapping;
     }
 
+    /**
+     * For a particular node id and routing strategy, finds all the partitions
+     * which are replicas to the partitions belonging to this particular node.
+     * This returned list includes the partitions belonging to the particular
+     * node as well. <br>
+     * 
+     * For example, say we have 4 nodes, N_0 => P_3, N_1 => P_0, N_2 => P_1 and
+     * N_3 => P_2 and if zone routing is being used then the replica mapping is
+     * P_3 => P_1, P_0 => P_1, P_1 => P_3 and P_2 => P_3. So if we're moving
+     * node N_0, the replicas of partition P_3 would be P_1 and P_2 ( in other
+     * words we need to read from nodes N_2 and N_3 respectively)
+     * 
+     * @param cluster The cluster metadata
+     * @param nodeId The id of the node
+     * @param strategy Routing strategy used
+     * @return List of replica partitions
+     */
     private List<Integer> getNodePartitions(Cluster cluster, int nodeId, RoutingStrategy strategy) {
         List<Integer> partitionsList = new ArrayList<Integer>(cluster.getNodeById(nodeId)
                                                                      .getPartitionIds());
@@ -1182,12 +1233,13 @@ public class AdminClient {
                                                                                      .setAddStore(addStoreRequest)
                                                                                      .build();
         for(Node node: currentCluster.getNodes()) {
+            logger.info("Adding on node " + node.getHost() + ":" + node.getId());
             VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
                                                                            request,
                                                                            VAdminProto.AddStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
-            logger.info("Added on node " + node.getHost());
+            logger.info("Successfully added on node " + node.getHost() + ":" + node.getId());
         }
     }
 
@@ -1205,12 +1257,13 @@ public class AdminClient {
                                                                                      .setDeleteStore(deleteStoreRequest)
                                                                                      .build();
         for(Node node: currentCluster.getNodes()) {
+            logger.info("Deleting on node " + node.getHost() + ":" + node.getId());
             VAdminProto.DeleteStoreResponse.Builder response = sendAndReceive(node.getId(),
                                                                               request,
                                                                               VAdminProto.DeleteStoreResponse.newBuilder());
             if(response.hasError())
                 throwException(response.getError());
-            logger.info("Deleted on node " + node.getHost());
+            logger.info("Successfully deleted on node " + node.getHost() + ":" + node.getId());
         }
     }
 
@@ -1607,7 +1660,16 @@ public class AdminClient {
             outputStream.flush();
 
             while(true) {
-                int size = inputStream.readInt();
+                int size = 0;
+
+                try {
+                    size = inputStream.readInt();
+                } catch(EOFException e) {
+                    logger.error("Received EOF Exception while fetching files", e);
+                    close(sands.getSocket());
+                    return;
+                }
+
                 if(size == -1) {
                     close(sands.getSocket());
                     break;
@@ -1636,5 +1698,53 @@ public class AdminClient {
             pool.checkin(destination, sands);
         }
 
+    }
+
+    /**
+     * Updates the grandfather metadata on the remote machine and returns the
+     * current
+     * 
+     * @param donorNodeId The node id on which to update the metadata
+     * @param plan The list of all migrating partitions
+     * @return Returns the current state of the server. If we get back a state
+     *         other than rebalancing it means we have a problem
+     */
+    public Versioned<String> updateGrandfatherMetadata(int donorNodeId,
+                                                       List<RebalancePartitionsInfo> plans) {
+        List<VAdminProto.InitiateRebalanceNodeRequest> rebalanceRequests = Lists.newArrayList();
+
+        for(RebalancePartitionsInfo plan: plans) {
+            rebalanceRequests.add(VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
+                                                                          .setAttempt(plan.getAttempt())
+                                                                          .setDonorId(plan.getDonorId())
+                                                                          .setStealerId(plan.getStealerId())
+                                                                          .addAllPartitions(plan.getPartitionList())
+                                                                          .addAllUnbalancedStore(plan.getUnbalancedStoreList())
+                                                                          .addAllDeletePartitions(plan.getDeletePartitionsList())
+                                                                          .addAllStealMasterPartitions(plan.getStealMasterPartitions())
+                                                                          .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(plan.getStealerNodeROStoreToDir()))
+                                                                          .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(plan.getDonorNodeROStoreToDir()))
+                                                                          .build());
+        }
+
+        UpdateGrandfatherMetadataRequest metadataRequest = VAdminProto.UpdateGrandfatherMetadataRequest.newBuilder()
+                                                                                                       .addAllPlan(rebalanceRequests)
+                                                                                                       .build();
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                     .setType(VAdminProto.AdminRequestType.UPDATE_GRANDFATHER_METADATA)
+                                                                                     .setUpdateGrandfatherMetadata(metadataRequest)
+                                                                                     .build();
+
+        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = sendAndReceive(donorNodeId,
+                                                                                        request,
+                                                                                        VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder());
+
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        Versioned<byte[]> value = ProtoUtils.decodeVersioned(response.getVersion());
+        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"),
+                                     value.getVersion());
     }
 }

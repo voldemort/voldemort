@@ -18,6 +18,7 @@ package voldemort.store.bdb;
 
 import java.io.File;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -89,6 +90,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbCleanerMinUtilization()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS,
                                          Integer.toString(config.getBdbCleanerThreads()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LOOK_AHEAD_CACHE_SIZE,
+                                         Integer.toString(config.getBdbCleanerLookAheadCacheSize()));
+        environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
