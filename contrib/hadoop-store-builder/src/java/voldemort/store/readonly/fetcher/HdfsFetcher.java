@@ -174,10 +174,12 @@ public class HdfsFetcher implements FileFetcher {
 
                         // Read checksum
                         String checkSumTypeString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE);
-                        if(checkSumTypeString != null) {
+                        String checkSumString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM);
+
+                        if(checkSumTypeString != null && checkSumString != null) {
 
                             try {
-                                origCheckSum = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
+                                origCheckSum = Hex.decodeHex(checkSumString.toCharArray());
                             } catch(DecoderException e) {
                                 logger.error("Exception reading checksum file. Ignoring checksum ",
                                              e);
