@@ -206,16 +206,21 @@ public class HdfsFetcher implements FileFetcher {
 
                 }
 
+                logger.info("Completed reading all files from " + source.toString() + " to "
+                            + dest.getAbsolutePath());
                 // Check checksum
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
-                    return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+                    boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+                    logger.info("Check-sum verification - " + checkSumComparison);
+                    return checkSumComparison;
                 } else {
-                    logger.info("Completed reading all files. No check-sum verification required");
+                    logger.info("No check-sum verification required");
                     return true;
                 }
             }
         }
+        logger.error("Source " + source.toString() + " should be a directory");
         return false;
 
     }
