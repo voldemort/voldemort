@@ -16,19 +16,22 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/..
+base_dir=$(dirname $0)/../../../
 
 for file in $base_dir/dist/*.jar;
 do
-  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
+  CLASSPATH=$CLASSPATH:$file
 done
 
 for file in $base_dir/lib/*.jar;
 do
-  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
+  CLASSPATH=$CLASSPATH:$file
 done
 
-HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$base_dir/dist/resources
-export HADOOP_CLASSPATH
+CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-$HADOOP_HOME/bin/hadoop voldemort.store.readonly.mr.HadoopStoreJobRunner $@ 
+if [ -z "$VOLD_OPTS" ]; then
+  VOLD_OPTS="-Xmx2G -server"
+fi
+
+java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 
