@@ -393,13 +393,8 @@ public class TestUtils {
                 return;
             } catch(AssertionError e) {
                 if(System.currentTimeMillis() < finishBy) {
-                    try {
-                        Thread.sleep(delay);
-                        delay <<= 1;
-                    } catch(InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw ie;
-                    }
+                    Thread.sleep(delay);
+                    delay *= 2;
                 } else {
                     throw e;
                 }
