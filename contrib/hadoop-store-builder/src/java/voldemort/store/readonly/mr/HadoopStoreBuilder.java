@@ -325,17 +325,23 @@ public class HadoopStoreBuilder {
 
                     if(storeFiles != null && storeFiles.length > 0) {
                         Arrays.sort(storeFiles, new IndexFileLastComparator());
+                        FSDataInputStream input = null;
+
                         for(FileStatus file: storeFiles) {
-                            FSDataInputStream input = outputFs.open(file.getPath());
-                            byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                            input.read(fileCheckSum);
-                            checkSumGenerator.update(fileCheckSum);
+                            try {
+                                input = outputFs.open(file.getPath());
+                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                input.read(fileCheckSum);
+                                checkSumGenerator.update(fileCheckSum);
+                            } finally {
+                                if(input != null)
+                                    input.close();
+                            }
                             outputFs.delete(file.getPath(), true);
                         }
 
                         metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
                                      CheckSum.toString(checkSumType));
-
                         metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
                                      new String(Hex.encodeHex(checkSumGenerator.getCheckSum())));
                     }
