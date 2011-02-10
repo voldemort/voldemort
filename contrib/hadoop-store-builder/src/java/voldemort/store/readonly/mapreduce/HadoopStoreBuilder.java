@@ -216,17 +216,23 @@ public class HadoopStoreBuilder {
                                 byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
                                 input.read(fileCheckSum);
                                 checkSumGenerator.update(fileCheckSum);
+                            } catch(Exception e) {
+                                logger.error("Error while reading checksum file " + e.getMessage(),
+                                             e);
                             } finally {
                                 if(input != null)
                                     input.close();
                             }
-                            outputFs.delete(file.getPath(), true);
+                            outputFs.delete(file.getPath(), false);
                         }
 
                         metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
                                      CheckSum.toString(checkSumType));
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
-                                     new String(Hex.encodeHex(checkSumGenerator.getCheckSum())));
+
+                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
+                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
                     }
                 }
 

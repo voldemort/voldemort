@@ -214,7 +214,12 @@ public class HdfsFetcher implements FileFetcher {
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
                     boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+
+                    logger.info("Checksum generated from streaming - "
+                                + new String(Hex.encodeHex(newCheckSum)));
+                    logger.info("Checksum on file - " + new String(Hex.encodeHex(origCheckSum)));
                     logger.info("Check-sum verification - " + checkSumComparison);
+
                     return checkSumComparison;
                 } else {
                     logger.info("No check-sum verification required");
