@@ -131,6 +131,7 @@ public class HadoopStoreBuilder {
             job.getConfiguration().setBoolean("save.keys", saveKeys);
             job.getConfiguration().set("final.output.dir", outputDir.toString());
             job.getConfiguration().set("checksum.type", CheckSum.toString(checkSumType));
+            job.getConfiguration().setBoolean("mapred.reduce.tasks.speculative.execution", false);
             job.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
             job.setMapperClass(mapperClass);
             job.setMapOutputKeyClass(BytesWritable.class);
@@ -215,6 +216,8 @@ public class HadoopStoreBuilder {
                                 input = outputFs.open(file.getPath());
                                 byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
                                 input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                             + new String(Hex.encodeHex(fileCheckSum)));
                                 checkSumGenerator.update(fileCheckSum);
                             } catch(Exception e) {
                                 logger.error("Error while reading checksum file " + e.getMessage(),

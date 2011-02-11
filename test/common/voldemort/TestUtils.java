@@ -16,37 +16,21 @@
 
 package voldemort;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import junit.framework.AssertionFailedError;
-import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
-import voldemort.routing.RoutingStrategyType;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.json.JsonReader;
 import voldemort.store.Store;
-import voldemort.store.StoreDefinition;
-import voldemort.store.StoreDefinitionBuilder;
-import voldemort.store.readonly.JsonStoreBuilder;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
-import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -267,63 +251,6 @@ public class TestUtils {
      */
     public static String quote(String s) {
         return "\"" + s + "\"";
-    }
-
-    /**
-     * 
-     * @param cluster
-     * @param data
-     * @param baseDir
-     * @return the directory where the index is created
-     * @throws Exception
-     */
-    public static String createReadOnlyIndex(Cluster cluster,
-                                             Map<String, String> data,
-                                             String baseDir) throws Exception {
-        // write data to file
-        File dataFile = File.createTempFile("test", ".txt");
-        dataFile.deleteOnExit();
-        BufferedWriter writer = new BufferedWriter(new FileWriter(dataFile));
-        for(Map.Entry<String, String> entry: data.entrySet())
-            writer.write("\"" + entry.getKey() + "\"\t\"" + entry.getValue() + "\"\n");
-        writer.close();
-        BufferedReader reader = new BufferedReader(new FileReader(dataFile));
-        JsonReader jsonReader = new JsonReader(reader);
-
-        SerializerDefinition serDef = new SerializerDefinition("json", "'string'");
-        StoreDefinition storeDef = new StoreDefinitionBuilder().setName("test")
-                                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
-                                                               .setKeySerializer(serDef)
-                                                               .setValueSerializer(serDef)
-                                                               .setRoutingPolicy(RoutingTier.CLIENT)
-                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                               .setReplicationFactor(1)
-                                                               .setPreferredReads(1)
-                                                               .setRequiredReads(1)
-                                                               .setPreferredWrites(1)
-                                                               .setRequiredWrites(1)
-                                                               .build();
-        RoutingStrategy router = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                    cluster);
-
-        // make a temp dir
-        File dataDir = new File(baseDir + File.separatorChar + "read-only-temp-index-"
-                                + ((int) (Math.random() * 1000)));
-        // build and open store
-        JsonStoreBuilder storeBuilder = new JsonStoreBuilder(jsonReader,
-                                                             cluster,
-                                                             storeDef,
-                                                             router,
-                                                             dataDir,
-                                                             null,
-                                                             100,
-                                                             1,
-                                                             2,
-                                                             10000,
-                                                             false);
-        storeBuilder.build(ReadOnlyStorageFormat.READONLY_V1);
-
-        return dataDir.getAbsolutePath();
     }
 
     public static List<Node> createNodes(int[][] partitionMap) {

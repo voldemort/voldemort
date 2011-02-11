@@ -254,6 +254,7 @@ public class HadoopStoreBuilder {
         conf.setOutputKeyClass(BytesWritable.class);
         conf.setOutputValueClass(BytesWritable.class);
         conf.setJarByClass(getClass());
+        conf.setReduceSpeculativeExecution(false);
         FileInputFormat.setInputPaths(conf, inputPath);
         conf.set("final.output.dir", outputDir.toString());
         conf.set("checksum.type", CheckSum.toString(checkSumType));
@@ -332,6 +333,8 @@ public class HadoopStoreBuilder {
                                 input = outputFs.open(file.getPath());
                                 byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
                                 input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                             + new String(Hex.encodeHex(fileCheckSum)));
                                 checkSumGenerator.update(fileCheckSum);
                             } catch(Exception e) {
                                 logger.error("Error while reading checksum file " + e.getMessage(),
