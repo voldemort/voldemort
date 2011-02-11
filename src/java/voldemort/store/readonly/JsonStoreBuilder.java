@@ -503,7 +503,7 @@ public class JsonStoreBuilder {
 
                 indexes[nodeId][chunk].write(ByteUtils.copy(currentPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT));
+                                                            2 * ByteUtils.SIZE_OF_INT));
                 indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
 
                 int tuples = 0;
@@ -527,10 +527,10 @@ public class JsonStoreBuilder {
                 } while(currentPair != null
                         && ByteUtils.compare(ByteUtils.copy(prevPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT),
+                                                            2 * ByteUtils.SIZE_OF_INT),
                                              ByteUtils.copy(currentPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT)) == 0);
+                                                            2 * ByteUtils.SIZE_OF_INT)) == 0);
 
                 valueStream.flush();
 

@@ -261,7 +261,7 @@ public class ChunkedFileSet {
             case READONLY_V1:
                 return ByteUtils.md5(key);
             case READONLY_V2:
-                return ByteUtils.copy(ByteUtils.md5(key), 0, ByteUtils.SIZE_OF_INT);
+                return ByteUtils.copy(ByteUtils.md5(key), 0, 2 * ByteUtils.SIZE_OF_INT);
             default:
                 throw new VoldemortException("Unknown read-only storage format");
         }
@@ -279,7 +279,7 @@ public class ChunkedFileSet {
             case READONLY_V1:
                 return 16;
             case READONLY_V2:
-                return ByteUtils.SIZE_OF_INT;
+                return 2 * ByteUtils.SIZE_OF_INT;
             default:
                 throw new VoldemortException("Unknown read-only storage format");
         }

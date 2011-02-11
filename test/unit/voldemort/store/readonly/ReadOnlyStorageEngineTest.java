@@ -101,10 +101,12 @@ public class ReadOnlyStorageEngineTest {
         switch(this.storageType) {
             case READONLY_V0:
             case READONLY_V1:
+                // 16 (md5) + 4 (position)
                 this.indexEntrySize = 20;
                 break;
             case READONLY_V2:
-                this.indexEntrySize = 8;
+                // 8 (upper 8 bytes of md5) + 4 (position)
+                this.indexEntrySize = 12;
                 break;
             default:
                 throw new VoldemortException("Unsupported storage format type");
