@@ -37,6 +37,7 @@ public class StoreDefinition implements Serializable {
 
     private final String name;
     private final String type;
+    private final String description;
     private final SerializerDefinition keySerializer;
     private final SerializerDefinition valueSerializer;
     private final SerializerDefinition transformsSerializer;
@@ -60,6 +61,7 @@ public class StoreDefinition implements Serializable {
 
     public StoreDefinition(String name,
                            String type,
+                           String description,
                            SerializerDefinition keySerializer,
                            SerializerDefinition valueSerializer,
                            SerializerDefinition transformsSerializer,
@@ -82,6 +84,7 @@ public class StoreDefinition implements Serializable {
                            Integer hintPrefListSize) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
+        this.description = description;
         this.replicationFactor = replicationFactor;
         this.preferredReads = preferredReads;
         this.requiredReads = requiredReads;
@@ -147,6 +150,10 @@ public class StoreDefinition implements Serializable {
                 throw new IllegalArgumentException("Sum total of zones does not match the total replication factor");
             }
         }
+    }
+
+    public String getDescription() {
+        return this.description;
     }
 
     public String getSerializerFactory() {
@@ -293,6 +300,7 @@ public class StoreDefinition implements Serializable {
         StoreDefinition def = (StoreDefinition) o;
         return getName().equals(def.getName())
                && getType().equals(def.getType())
+               && Objects.equal(getDescription(), def.getDescription())
                && getReplicationFactor() == def.getReplicationFactor()
                && getRequiredReads() == def.getRequiredReads()
                && Objects.equal(getPreferredReads(), def.getPreferredReads())
@@ -330,6 +338,7 @@ public class StoreDefinition implements Serializable {
     public int hashCode() {
         return Objects.hashCode(getName(),
                                 getType(),
+                                getDescription(),
                                 getKeySerializer(),
                                 getValueSerializer(),
                                 getTransformsSerializer(),
@@ -357,18 +366,18 @@ public class StoreDefinition implements Serializable {
 
     @Override
     public String toString() {
-        return "StoreDefinition(name = " + getName() + ", type = " + getType()
-               + ", key-serializer = " + getKeySerializer() + ", value-serializer = "
-               + getValueSerializer() + ", routing = " + getRoutingPolicy()
-               + ", routing-strategy = " + getRoutingStrategyType() + ", replication = "
-               + getReplicationFactor() + ", required-reads = " + getRequiredReads()
-               + ", preferred-reads = " + getPreferredReads() + ", required-writes = "
-               + getRequiredWrites() + ", preferred-writes = " + getPreferredWrites()
-               + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
-               + getValueTransformation() + ", retention-days = " + getRetentionDays()
-               + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
-               + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites()
-               + ", serializer factory = " + getSerializerFactory() + ")"
+        return "StoreDefinition(name = " + getName() + ", type = " + getType() + ", description = "
+               + getDescription() + "key-serializer = " + getKeySerializer()
+               + ", value-serializer = " + getValueSerializer() + ", routing = "
+               + getRoutingPolicy() + ", routing-strategy = " + getRoutingStrategyType()
+               + ", replication = " + getReplicationFactor() + ", required-reads = "
+               + getRequiredReads() + ", preferred-reads = " + getPreferredReads()
+               + ", required-writes = " + getRequiredWrites() + ", preferred-writes = "
+               + getPreferredWrites() + ", view-target = " + getViewTargetStoreName()
+               + ", value-transformation = " + getValueTransformation() + ", retention-days = "
+               + getRetentionDays() + ", throttle-rate = " + getRetentionScanThrottleRate()
+               + ", zone-count-reads = " + getZoneCountReads() + ", zone-count-writes = "
+               + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
                + ", hint-preflist-size = " + getHintPrefListSize() + ")";
     }

@@ -60,6 +60,7 @@ public class StoreDefinitionsMapper {
 
     public final static String STORES_ELMT = "stores";
     public final static String STORE_ELMT = "store";
+    public final static String STORE_DESCRIPTION_ELMT = "description";
     public final static String STORE_NAME_ELMT = "name";
     public final static String STORE_PERSISTENCE_ELMT = "persistence";
     public final static String STORE_KEY_SERIALIZER_ELMT = "key-serializer";
@@ -163,6 +164,7 @@ public class StoreDefinitionsMapper {
     private StoreDefinition readStore(Element store) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);
+        String description = store.getChildText(STORE_DESCRIPTION_ELMT);
         int replicationFactor = Integer.parseInt(store.getChildText(STORE_REPLICATION_FACTOR_ELMT));
         HashMap<Integer, Integer> zoneReplicationFactor = null;
         Element zoneReplicationFactorNode = store.getChild(STORE_ZONE_REPLICATION_FACTOR_ELMT);
@@ -236,6 +238,7 @@ public class StoreDefinitionsMapper {
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
+                                           .setDescription(description)
                                            .setKeySerializer(keySerializer)
                                            .setValueSerializer(valueSerializer)
                                            .setRoutingPolicy(routingTier)
@@ -258,6 +261,7 @@ public class StoreDefinitionsMapper {
     private StoreDefinition readView(Element store, List<StoreDefinition> stores) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String targetName = store.getChildText(VIEW_TARGET_ELMT);
+        String description = store.getChildText(STORE_DESCRIPTION_ELMT);
         StoreDefinition target = StoreUtils.getStoreDef(stores, targetName);
         if(target == null)
             throw new MappingException("View \"" + name + "\" has target store \"" + targetName
@@ -299,6 +303,7 @@ public class StoreDefinitionsMapper {
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
                                            .setType(ViewStorageConfiguration.TYPE_NAME)
+                                           .setDescription(description)
                                            .setRoutingPolicy(policy)
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
@@ -371,6 +376,8 @@ public class StoreDefinitionsMapper {
         Element store = new Element(STORE_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()));
+        if(storeDefinition.getDescription() != null)
+            store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
         store.addContent(new Element(STORE_ROUTING_STRATEGY).setText(storeDefinition.getRoutingStrategyType()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
@@ -423,6 +430,8 @@ public class StoreDefinitionsMapper {
         Element store = new Element(VIEW_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(VIEW_TARGET_ELMT).setText(storeDefinition.getViewTargetStoreName()));
+        if(storeDefinition.getDescription() != null)
+            store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
         if(storeDefinition.getValueTransformation() == null)
             throw new MappingException("View " + storeDefinition.getName()
                                        + " has no defined transformation class.");
