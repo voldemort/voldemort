@@ -2,6 +2,7 @@
   <store>
     <name>test</name>
     <persistence>bdb</persistence>
+    <description>Test store</description>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>
