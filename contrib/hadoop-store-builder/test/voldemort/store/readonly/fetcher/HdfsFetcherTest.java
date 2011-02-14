@@ -136,6 +136,8 @@ public class HdfsFetcherTest extends TestCase {
     }
 
     public void testFetch() throws Exception {
+        // Tests kept for backwards compatibility
+
         File testSourceDirectory = TestUtils.createTempDir();
         File testDestinationDirectory = TestUtils.createTempDir();
 
@@ -157,56 +159,12 @@ public class HdfsFetcherTest extends TestCase {
         assertNotNull(fetchedFile);
         checkSumFile.delete();
 
-        // Test 3: Add checksum file with correct fileName, but empty = wrong
-        // md5
+        // Test 3: Add checksum file with correct fileName, should be ignored
         checkSumFile = new File(testSourceDirectory, "adler32checkSum.txt");
         checkSumFile.createNewFile();
         fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
                                     testDestinationDirectory.getAbsolutePath() + "3");
-        assertNull(fetchedFile);
-
-        // Test 4: Add wrong contents to file i.e. contents of CRC32 instead of
-        // Adler
-        byte[] checkSumBytes = CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
-                                                               CheckSumType.CRC32);
-        FileUtils.writeByteArrayToFile(checkSumFile, checkSumBytes);
-        fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath() + "4");
-        assertNull(fetchedFile);
-        checkSumFile.delete();
-
-        // Test 5: Add correct checksum contents - MD5
-        checkSumFile = new File(testSourceDirectory, "md5checkSum.txt");
-        byte[] checkSumBytes2 = CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
-                                                                CheckSumType.MD5);
-        FileUtils.writeByteArrayToFile(checkSumFile, checkSumBytes2);
-        fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath() + "5");
         assertNotNull(fetchedFile);
-        checkSumFile.delete();
-
-        // Test 6: Add correct checksum contents - ADLER32
-        checkSumFile = new File(testSourceDirectory, "adler32checkSum.txt");
-        byte[] checkSumBytes3 = CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
-                                                                CheckSumType.ADLER32);
-        FileUtils.writeByteArrayToFile(checkSumFile, checkSumBytes3);
-        fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath() + "6");
-        assertNotNull(fetchedFile);
-        assertEquals(fetchedFile.getAbsolutePath(), testDestinationDirectory.getAbsolutePath()
-                                                    + "6");
-        checkSumFile.delete();
-
-        // Test 7: Add correct checksum contents - CRC32
-        checkSumFile = new File(testSourceDirectory, "crc32checkSum.txt");
-        byte[] checkSumBytes4 = CheckSumTests.calculateCheckSum(testSourceDirectory.listFiles(),
-                                                                CheckSumType.CRC32);
-        FileUtils.writeByteArrayToFile(checkSumFile, checkSumBytes4);
-        fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                    testDestinationDirectory.getAbsolutePath() + "7");
-        assertNotNull(fetchedFile);
-        assertEquals(fetchedFile.getAbsolutePath(), testDestinationDirectory.getAbsolutePath()
-                                                    + "7");
         checkSumFile.delete();
 
     }

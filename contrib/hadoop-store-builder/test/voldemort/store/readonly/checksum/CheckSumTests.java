@@ -106,7 +106,7 @@ public class CheckSumTests extends TestCase {
 
         for(File file: files) {
             if(file.isFile() && !file.getName().startsWith(".")
-               && !file.getName().contains("checkSum.txt")) {
+               && !file.getName().contains("checkSum.txt") && !file.getName().contains("metadata")) {
                 DataInputStream is;
                 try {
                     is = new DataInputStream(new FileInputStream(file));

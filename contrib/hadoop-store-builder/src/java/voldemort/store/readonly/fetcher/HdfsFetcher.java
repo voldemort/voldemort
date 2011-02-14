@@ -144,18 +144,7 @@ public class HdfsFetcher implements FileFetcher {
                     // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
-                        // Read checksum
-                        checkSumType = CheckSum.fromString(status.getPath().getName());
-
-                        // Get checksum generators
-                        checkSumGenerator = CheckSum.getInstance(checkSumType);
-                        fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
-
-                        // Store original checksum to compare
-                        FSDataInputStream input = fs.open(status.getPath());
-                        origCheckSum = new byte[CheckSum.checkSumLength(checkSumType)];
-                        input.read(origCheckSum);
-                        input.close();
+                        // Ignore old checksum files 
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 
