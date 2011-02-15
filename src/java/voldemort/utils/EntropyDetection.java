@@ -101,7 +101,8 @@ public class EntropyDetection {
             Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
-            adminClient = new AdminClient(cluster, new AdminClientConfig().setMaxThreads(10));
+            adminClient = new AdminClient(cluster, new AdminClientConfig().setAdminConnectionTimeoutSec(60 * 60 * 2)
+                                                                          .setMaxThreads(10));
 
             for(StoreDefinition storeDef: storeDefs) {
                 File storesKeyFile = new File(outputDir, storeDef.getName());
