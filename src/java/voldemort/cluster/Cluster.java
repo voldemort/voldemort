@@ -153,13 +153,35 @@ public class Cluster implements Serializable {
             return false;
 
         Cluster secondCluster = (Cluster) second;
+        if(this.getZones().size() != secondCluster.getZones().size()) {
+            return false;
+        }
+
         if(this.getNodes().size() != secondCluster.getNodes().size()) {
             return false;
+        }
+
+        for(Zone zoneA: this.getZones()) {
+            Zone zoneB = secondCluster.getZoneById(zoneA.getId());
+
+            if(zoneB == null || zoneB.getProximityList().size() != zoneA.getProximityList().size()) {
+                return false;
+            }
+
+            for(int index = 0; index < zoneA.getProximityList().size(); index++) {
+                if(zoneA.getProximityList().get(index) != zoneB.getProximityList().get(index)) {
+                    return false;
+                }
+            }
         }
         for(Node nodeA: this.getNodes()) {
             Node nodeB = secondCluster.getNodeById(nodeA.getId());
 
             if(nodeA.getNumberOfPartitions() != nodeB.getNumberOfPartitions()) {
+                return false;
+            }
+
+            if(nodeA.getZoneId() != nodeB.getZoneId()) {
                 return false;
             }
 
