@@ -135,19 +135,52 @@ public class StoreDefinition implements Serializable {
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
             throw new IllegalArgumentException("Retention days must be non-negative.");
 
-        if(zoneCountReads != null && zoneCountReads < 0)
-            throw new IllegalArgumentException("Zone Counts reads must be non-negative");
-
-        if(zoneCountWrites != null && zoneCountWrites < 0)
-            throw new IllegalArgumentException("Zone Counts writes must be non-negative");
-
         if(zoneReplicationFactor != null && zoneReplicationFactor.size() != 0) {
+
+            if(zoneCountReads == null || zoneCountReads < 0)
+                throw new IllegalArgumentException("Zone Counts reads must be non-negative / non-null");
+
+            if(zoneCountWrites == null || zoneCountWrites < 0)
+                throw new IllegalArgumentException("Zone Counts writes must be non-negative");
+
             int sumZoneReplicationFactor = 0;
+            int replicatingZones = 0;
             for(Integer zoneId: zoneReplicationFactor.keySet()) {
-                sumZoneReplicationFactor += zoneReplicationFactor.get(zoneId);
+                int currentZoneRepFactor = zoneReplicationFactor.get(zoneId);
+
+                sumZoneReplicationFactor += currentZoneRepFactor;
+                if(currentZoneRepFactor > 0)
+                    replicatingZones++;
             }
+
+            if(replicatingZones <= 0) {
+                throw new IllegalArgumentException("Cannot have no zones to replicate to. "
+                                                   + "Should have some positive zoneReplicationFactor");
+            }
+
+            // Check if sum of individual zones is equal to total replication
+            // factor
             if(sumZoneReplicationFactor != replicationFactor) {
-                throw new IllegalArgumentException("Sum total of zones does not match the total replication factor");
+                throw new IllegalArgumentException("Sum total of zones ("
+                                                   + sumZoneReplicationFactor
+                                                   + ") does not match the total replication factor ("
+                                                   + replicationFactor + ")");
+            }
+
+            // Check if number of zone-count-reads and zone-count-writes are
+            // less than zones replicating to
+            if(zoneCountReads >= replicatingZones) {
+                throw new IllegalArgumentException("Number of zones to block for while reading ("
+                                                   + zoneCountReads
+                                                   + ") should be less then replicating zones ("
+                                                   + replicatingZones + ")");
+            }
+
+            if(zoneCountWrites >= replicatingZones) {
+                throw new IllegalArgumentException("Number of zones to block for while writing ("
+                                                   + zoneCountWrites
+                                                   + ") should be less then replicating zones ("
+                                                   + replicatingZones + ")");
             }
         }
     }
