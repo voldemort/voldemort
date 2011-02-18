@@ -46,6 +46,7 @@ public class MigratePartitions {
     private final HashMap<Integer, Versioned<String>> donorStates;
     private final boolean transitionToNormal;
     private boolean simulation = false;
+    private final int parallelism;
 
     public MigratePartitions(Cluster currentCluster,
                              Cluster targetCluster,
@@ -54,6 +55,7 @@ public class MigratePartitions {
                              AdminClient adminClient,
                              VoldemortConfig voldemortConfig,
                              List<Integer> stealerNodeIds,
+                             int parallelism,
                              boolean transitionToNormal,
                              boolean simulation) {
 
@@ -64,6 +66,7 @@ public class MigratePartitions {
              adminClient,
              voldemortConfig,
              stealerNodeIds,
+             parallelism,
              transitionToNormal);
         this.simulation = simulation;
     }
@@ -88,11 +91,13 @@ public class MigratePartitions {
                              AdminClient adminClient,
                              VoldemortConfig voldemortConfig,
                              List<Integer> stealerNodeIds,
+                             int parallelism,
                              boolean transitionToNormal) {
         this.adminClient = Utils.notNull(adminClient);
         this.stealerNodeIds = stealerNodeIds;
         this.voldemortConfig = Utils.notNull(voldemortConfig);
         this.transitionToNormal = transitionToNormal;
+        this.parallelism = parallelism;
         MigratePartitionsPlan plan = new MigratePartitionsPlan(currentCluster,
                                                                targetCluster,
                                                                currentStoreDefs,
@@ -257,6 +262,10 @@ public class MigratePartitions {
 
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
+        parser.accepts("parallelism", "Parallelism [Default 2]")
+              .withRequiredArg()
+              .describedAs("parallelism")
+              .ofType(Integer.class);
         parser.accepts("target-cluster-xml", "[REQUIRED] target cluster xml file location")
               .withRequiredArg()
               .describedAs("path");
@@ -298,6 +307,7 @@ public class MigratePartitions {
         String currentClusterFile = (String) options.valueOf("cluster-xml");
         String currentStoresFile = (String) options.valueOf("stores-xml");
         String targetStoresFile = currentStoresFile;
+        int parallelism = CmdUtils.valueOf(options, "parallelism", 2);
         boolean transitionToNormal = options.has("transition-to-normal");
         boolean simulation = options.has("simulation");
 
@@ -337,6 +347,7 @@ public class MigratePartitions {
                                                                         adminClient,
                                                                         voldemortConfig,
                                                                         stealerNodeIds,
+                                                                        parallelism,
                                                                         transitionToNormal,
                                                                         simulation);
 
