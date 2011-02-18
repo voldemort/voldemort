@@ -764,7 +764,7 @@ public class GrandfatherTest {
                                                                       adminClient,
                                                                       createTempVoldemortConfig(),
                                                                       null,
-                                                                      2,
+                                                                      1,
                                                                       false);
                     migrate.migrate();
                 }

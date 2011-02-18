@@ -8,6 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
@@ -47,6 +50,7 @@ public class MigratePartitions {
     private final boolean transitionToNormal;
     private boolean simulation = false;
     private final int parallelism;
+    private final ExecutorService executor;
 
     public MigratePartitions(Cluster currentCluster,
                              Cluster targetCluster,
@@ -98,6 +102,7 @@ public class MigratePartitions {
         this.voldemortConfig = Utils.notNull(voldemortConfig);
         this.transitionToNormal = transitionToNormal;
         this.parallelism = parallelism;
+        this.executor = Executors.newFixedThreadPool(parallelism);
         MigratePartitionsPlan plan = new MigratePartitionsPlan(currentCluster,
                                                                targetCluster,
                                                                currentStoreDefs,
@@ -211,42 +216,56 @@ public class MigratePartitions {
              * Do all the stealer nodes sequentially, while each store can be
              * done in parallel for all the respective donor nodes
              */
-            for(int stealerNodeId: stealerNodeIds) {
-                RebalanceNodePlan nodePlan = stealerNodePlans.get(stealerNodeId);
-                if(nodePlan == null) {
-                    logger.info("No plan for stealer node id " + stealerNodeId);
-                    continue;
-                }
-                List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
+            final CountDownLatch latch = new CountDownLatch(stealerNodeIds.size());
+            for(final int stealerNodeId: stealerNodeIds) {
+                executor.submit(new Runnable() {
+                    public void run() {
+                        try {
+                            RebalanceNodePlan nodePlan = stealerNodePlans.get(stealerNodeId);
+                            if(nodePlan == null) {
+                                logger.info("No plan for stealer node id " + stealerNodeId);
+                                return;
+                            }
+                            List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
 
-                logger.info("Working on stealer node id " + stealerNodeId);
-                for(String storeName: this.storeNames) {
-                    logger.info("- Working on store " + storeName);
+                            logger.info("Working on stealer node id " + stealerNodeId);
+                            for(String storeName: storeNames) {
+                                logger.info("- Working on store " + storeName);
 
-                    HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
-                    for(RebalancePartitionsInfo r: partitionInfo) {
-                        logger.info("-- Started migration for donor node id " + r);
-                        if(!simulation)
-                            nodeIdToRequestId.put(r.getDonorId(),
-                                                  adminClient.migratePartitions(r.getDonorId(),
-                                                                                stealerNodeId,
-                                                                                storeName,
-                                                                                r.getPartitionList(),
-                                                                                null));
+                                HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
+                                for(RebalancePartitionsInfo r: partitionInfo) {
+                                    logger.info("-- Started migration for donor node id " + r);
+                                    if(!simulation)
+                                        nodeIdToRequestId.put(r.getDonorId(),
+                                                              adminClient.migratePartitions(r.getDonorId(),
+                                                                                            stealerNodeId,
+                                                                                            storeName,
+                                                                                            r.getPartitionList(),
+                                                                                            null));
 
+                                }
+
+                                // Now that we started parallel migration for one store,
+                                // wait for it to complete
+                                for(int nodeId: nodeIdToRequestId.keySet()) {
+                                    adminClient.waitForCompletion(stealerNodeId,
+                                                                  nodeIdToRequestId.get(nodeId),
+                                                                  voldemortConfig.getRebalancingTimeout(),
+                                                                  TimeUnit.SECONDS);
+                                    logger.info("-- Completed migration for donor node id " + nodeId);
+                                }
+                            }
+                            logger.info("===============================================");
+                        } finally {
+                            latch.countDown();
+                        }
                     }
-
-                    // Now that we started parallel migration for one store,
-                    // wait for it to complete
-                    for(int nodeId: nodeIdToRequestId.keySet()) {
-                        adminClient.waitForCompletion(stealerNodeId,
-                                                      nodeIdToRequestId.get(nodeId),
-                                                      voldemortConfig.getRebalancingTimeout(),
-                                                      TimeUnit.SECONDS);
-                        logger.info("-- Completed migration for donor node id " + nodeId);
-                    }
-                }
-                logger.info("===============================================");
+                });
+            }
+            try {
+                latch.await();
+            } catch(InterruptedException e) {
+                e.printStackTrace();
             }
         } finally {
 
@@ -254,7 +273,7 @@ public class MigratePartitions {
             if(donorStates != null && transitionToNormal) {
                 changeToNormal();
             }
-
+            executor.shutdown();
         }
     }
 
