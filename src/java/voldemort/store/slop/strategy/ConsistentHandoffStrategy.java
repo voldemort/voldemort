@@ -52,15 +52,15 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
             throw new IllegalArgumentException("Preference list size must be less than "
                                                + "number of nodes in the cluster - 1");
 
-        this.routeToMap = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
+        routeToMap = Maps.newHashMapWithExpectedSize(cluster.getNumberOfNodes());
         for(Node node: cluster.getNodes()) {
             List<Node> prefList = Lists.newArrayListWithCapacity(prefListSize);
             int i = node.getId();
             int n = 0;
             while(n < prefListSize) {
                 i = (i + 1) % cluster.getNumberOfNodes();
-                if(i != node.getId()) {
-                    Node peer = cluster.getNodeById(i);
+                Node peer = cluster.getNodeById(i);
+                if(peer.getId() != node.getId()) {
                     if(enableZoneRouting && cluster.getZones().size() > 1) {
                         // don't handoff hints to the same zone
                         int zoneId = node.getZoneId();
@@ -75,8 +75,8 @@ public class ConsistentHandoffStrategy implements HintedHandoffStrategy {
                     prefList.add(peer);
                     n++;
                 }
+                routeToMap.put(node.getId(), prefList);
             }
-            routeToMap.put(i, prefList);
         }
     }
 
