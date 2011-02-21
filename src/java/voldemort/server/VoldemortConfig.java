@@ -74,6 +74,8 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
+    private int bdbLockNLockTables;
+    private boolean bdbFairLatches;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -201,6 +203,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
+        this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
+        this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -590,6 +594,25 @@ public class VoldemortConfig implements Serializable {
         if(bdbLockTimeoutMs < 0)
             throw new IllegalArgumentException("bdbLockTimeoutMs should be greater than 0");
         this.bdbLockTimeoutMs = bdbLockTimeoutMs;
+    }
+
+    public void setBdbLockNLockTables(int bdbLockNLockTables) {
+        if(bdbLockNLockTables < 1 || bdbLockNLockTables > 32767)
+            throw new IllegalArgumentException("bdbLockNLockTables should be greater than 0 and "
+                                               + "less than 32767");
+        this.bdbLockNLockTables = bdbLockNLockTables;
+    }
+
+    public int getBdbLockNLockTables() {
+        return bdbLockNLockTables;
+    }
+
+    public boolean getBdbFairLatches() {
+        return bdbFairLatches;
+    }
+
+    public void setBdbFairLatches(boolean bdbFairLatches) {
+        this.bdbFairLatches = bdbFairLatches;
     }
 
     /**
