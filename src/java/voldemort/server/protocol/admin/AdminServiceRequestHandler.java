@@ -481,9 +481,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
 
         try {
-            for(String storeName: storeToVersionDir.keySet()) {
+            for(Map.Entry<String,String> entry: storeToVersionDir.entrySet()) {
+                String storeName = entry.getKey();
                 logger.debug("Swapping " + storeName);
-                swapStore(storeName, storeToVersionDir.get(storeName));
+                swapStore(storeName, entry.getValue());
             }
 
         } catch(VoldemortException e) {

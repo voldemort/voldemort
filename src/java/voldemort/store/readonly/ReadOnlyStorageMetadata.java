@@ -94,9 +94,9 @@ public class ReadOnlyStorageMetadata {
         else if(thisMap == null || thatMap == null)
             return false;
 
-        for(String key: thisMap.keySet()) {
-            Object thisValue = thisMap.get(key);
-            Object thatValue = thatMap.get(key);
+        for(Map.Entry<String,Object> entry: thisMap.entrySet()) {
+            Object thisValue = entry.getValue();
+            Object thatValue = thatMap.get(entry.getKey());
 
             if(thisValue == null && thatValue == null)
                 continue;

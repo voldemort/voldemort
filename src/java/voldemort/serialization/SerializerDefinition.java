@@ -73,7 +73,8 @@ public class SerializerDefinition {
             this.schemaInfoByVersion.put(0, schema);
         } else {
             int max = -1;
-            for(Integer key: schemaInfos.keySet()) {
+            for(Map.Entry<Integer, String> entry: schemaInfos.entrySet()) {
+                Integer key = entry.getKey();
                 if(key < 0)
                     throw new IllegalArgumentException("Version cannot be less than 0.");
                 else if(key > Byte.MAX_VALUE)
@@ -81,7 +82,7 @@ public class SerializerDefinition {
                                                        + Byte.MAX_VALUE);
                 if(key > max)
                     max = key;
-                this.schemaInfoByVersion.put(key, schemaInfos.get(key));
+                this.schemaInfoByVersion.put(key, entry.getValue());
             }
             this.currentSchemaVersion = max;
         }

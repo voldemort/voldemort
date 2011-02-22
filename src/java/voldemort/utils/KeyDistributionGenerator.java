@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -116,8 +117,8 @@ public class KeyDistributionGenerator {
         int numberOfNodes = distribution.keySet().size();
         double distributionPerNode = 100.0 / numberOfNodes;
 
-        for(Integer nodeId: distribution.keySet()) {
-            offBy.put(nodeId, new Double(distributionPerNode - distribution.get(nodeId)));
+        for(Map.Entry<Integer,Double> entry : distribution.entrySet()) {
+            offBy.put(entry.getKey(), new Double(distributionPerNode - entry.getValue()));
         }
         double sum = 0, squareSum = 0;
         for(double num: offBy.values()) {

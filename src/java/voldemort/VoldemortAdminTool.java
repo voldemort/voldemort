@@ -416,8 +416,8 @@ public class VoldemortAdminTool {
             }
         }
 
-        for(String storeName: storeToVersion.keySet()) {
-            System.out.println(storeName + ":" + storeToVersion.get(storeName));
+        for(Map.Entry<String, Long> entry : storeToVersion.entrySet()) {
+            System.out.println(entry.getKey() + ":" + entry.getValue());
         }
     }
 

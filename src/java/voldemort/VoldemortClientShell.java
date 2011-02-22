@@ -365,10 +365,10 @@ public class VoldemortClientShell {
         } else if(o instanceof Map) {
             Map<String, Object> m = (Map<String, Object>) o;
             System.out.print('{');
-            for(String s: m.keySet()) {
-                printObject(s);
+            for(Map.Entry<String, Object> entry : m.entrySet()) {
+                printObject(entry.getKey());
                 System.out.print(':');
-                printObject(m.get(s));
+                printObject(entry.getValue());
                 System.out.print(", ");
             }
             System.out.print('}');

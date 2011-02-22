@@ -385,10 +385,10 @@ public class StoreDefinitionsMapper {
         HashMap<Integer, Integer> zoneReplicationFactor = storeDefinition.getZoneReplicationFactor();
         if(zoneReplicationFactor != null) {
             Element zoneReplicationFactorNode = new Element(STORE_ZONE_REPLICATION_FACTOR_ELMT);
-            for(Integer zone: zoneReplicationFactor.keySet()) {
-                zoneReplicationFactorNode.addContent(new Element(STORE_REPLICATION_FACTOR_ELMT).setText(Integer.toString(zoneReplicationFactor.get(zone)))
+            for(Map.Entry<Integer, Integer> entry : zoneReplicationFactor.entrySet()) {
+                zoneReplicationFactorNode.addContent(new Element(STORE_REPLICATION_FACTOR_ELMT).setText(Integer.toString(entry.getValue()))
                                                                                                .setAttribute(STORE_ZONE_ID_ELMT,
-                                                                                                             Integer.toString(zone)));
+                                                                                                             Integer.toString(entry.getKey())));
             }
             store.addContent(zoneReplicationFactorNode);
         }
