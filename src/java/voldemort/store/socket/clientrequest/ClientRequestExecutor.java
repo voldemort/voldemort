@@ -80,8 +80,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(logger.isEnabledFor(Level.WARN))
             logger.warn("Client request associated with " + socketChannel.socket() + " timed out");
 
-        completeClientRequest();
-        selectionKey.interestOps(0);
+        close();
 
         return false;
     }

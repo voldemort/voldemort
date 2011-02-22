@@ -12,9 +12,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import krati.cds.array.DataArray;
-import krati.cds.impl.segment.SegmentFactory;
-import krati.cds.impl.store.DynamicDataStore;
+import krati.array.DataArray;
+import krati.core.segment.SegmentFactory;
+import krati.store.DynamicDataStore;
 import krati.util.FnvHashFunction;
 
 import org.apache.log4j.Logger;
@@ -108,7 +108,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         List<Pair<ByteArray, Versioned<byte[]>>> returnedList = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
         DataArray array = datastore.getDataArray();
         for(int index = 0; index < array.length(); index++) {
-            byte[] returnedBytes = array.getData(index);
+            byte[] returnedBytes = array.get(index);
             if(returnedBytes != null) {
                 // Extract the key value pair from this
                 // TODO: Move to DynamicDataStore code

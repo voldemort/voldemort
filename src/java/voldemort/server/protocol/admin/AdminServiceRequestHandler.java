@@ -36,6 +36,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -50,11 +51,13 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
+import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -225,11 +228,52 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case UPDATE_SLOP_ENTRIES:
                 return handleUpdateSlopEntries(request.getUpdateSlopEntries());
+            case UPDATE_GRANDFATHER_METADATA:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleUpdateGrandfatherMetadata(request.getUpdateGrandfatherMetadata()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.UpdateGrandfatherMetadataResponse handleUpdateGrandfatherMetadata(VAdminProto.UpdateGrandfatherMetadataRequest request) {
+        List<RebalancePartitionsInfo> plans = Lists.newArrayList();
+
+        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder();
+        try {
+            for(InitiateRebalanceNodeRequest nodeRequest: request.getPlanList()) {
+                plans.add(new RebalancePartitionsInfo(nodeRequest.getStealerId(),
+                                                      nodeRequest.getDonorId(),
+                                                      nodeRequest.getPartitionsList(),
+                                                      nodeRequest.getDeletePartitionsList(),
+                                                      nodeRequest.getStealMasterPartitionsList(),
+                                                      nodeRequest.getUnbalancedStoreList(),
+                                                      encodeROStoreVersionDirMap(nodeRequest.getStealerRoStoreToDirList()),
+                                                      encodeROStoreVersionDirMap(nodeRequest.getDonorRoStoreToDirList()),
+                                                      nodeRequest.getAttempt()));
+            }
+
+            if(metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+                // If normal, set the state + rebalancer state
+                metadataStore.put(MetadataStore.GRANDFATHERING_INFO, new GrandfatherState(plans));
+                metadataStore.put(MetadataStore.SERVER_STATE_KEY,
+                                  MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+            } else {
+                throw new VoldemortException("Voldemort server was not in normal state");
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleUpdateGrandfatherMetadata failed for request(" + request.toString()
+                         + ")", e);
+        }
+
+        Versioned<byte[]> versioned = metadataStore.get(MetadataStore.SERVER_STATE_KEY, null)
+                                                   .get(0);
+        response.setVersion(ProtoUtils.encodeVersioned(versioned));
+        return response.build();
     }
 
     public VAdminProto.GetROCurrentVersionDirResponse handleGetROCurrentVersionDir(VAdminProto.GetROCurrentVersionDirRequest request) {
@@ -815,10 +859,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.DeleteStoreResponse handleDeleteStore(VAdminProto.DeleteStoreRequest request) {
         VAdminProto.DeleteStoreResponse.Builder response = VAdminProto.DeleteStoreResponse.newBuilder();
 
-        // don't try to delete a store in the middle of rebalancing
+        // don't try to delete a store when not in normal state
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Rebalancing in progress")));
+                                                     new VoldemortException("Voldemort server is not in normal state")));
             return response.build();
         }
 
@@ -828,7 +872,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             synchronized(lock) {
 
                 if(storeRepository.hasLocalStore(storeName)) {
-                    if(storeName.compareTo("slop") == 0) {
+                    if(storeName.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0) {
                         storageService.unregisterEngine(storeName,
                                                         "slop",
                                                         storeRepository.getStorageEngine(storeName));
@@ -881,10 +925,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.AddStoreResponse handleAddStore(VAdminProto.AddStoreRequest request) {
         VAdminProto.AddStoreResponse.Builder response = VAdminProto.AddStoreResponse.newBuilder();
 
-        // don't try to add a store in the middle of rebalancing
+        // don't try to add a store when not in normal state
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Rebalancing in progress")));
+                                                     new VoldemortException("Voldemort server is not in normal state")));
             return response.build();
         }
 

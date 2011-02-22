@@ -43,6 +43,8 @@ import voldemort.versioning.Versioned;
  */
 public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
+    public static final String SLOP_STORE_NAME = "slop";
+
     private final StorageEngine<ByteArray, byte[], byte[]> slopEngine;
     private final SlopSerializer slopSerializer;
     private final SlopStats slopStats;

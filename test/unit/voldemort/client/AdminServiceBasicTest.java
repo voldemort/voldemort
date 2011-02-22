@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import java.util.Properties;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import junit.framework.Assert;
 import junit.framework.TestCase;
 
 import org.junit.After;
@@ -46,29 +48,35 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.slop.Slop;
+import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
+import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  */
@@ -233,6 +241,82 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testReplicationMapping() {
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(2, "localhost", 1, 2, 3, 1, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(3, 7, 11)));
+
+        RoutingStrategyFactory factory = new RoutingStrategyFactory();
+
+        // Test 1 - With consistent routing strategy
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               2,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, newCluster);
+        Map<Integer, List<Integer>> replicationMapping = adminClient.getReplicationMapping(newCluster,
+                                                                                           0,
+                                                                                           strategy);
+        Map<Integer, List<Integer>> expected = Maps.newHashMap();
+        expected.put(1, Lists.newArrayList(1, 5, 9));
+        expected.put(3, Lists.newArrayList(3, 7, 11));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
+        expected = Maps.newHashMap();
+        expected.put(0, Lists.newArrayList(0, 4, 8));
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        assertEquals(replicationMapping, expected);
+
+        // Test 2 - With zone routing strategy
+        List<Zone> zones = ServerTestUtils.getZones(2);
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
+            zoneReplicationFactors.put(zoneIds, 1);
+        }
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        strategy = factory.updateRoutingStrategy(storeDef, newCluster);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 0, strategy);
+        expected = Maps.newHashMap();
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        expected.put(3, Lists.newArrayList(3, 7, 11));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
+        expected = Maps.newHashMap();
+        expected.put(2, Lists.newArrayList(2, 6, 10));
+        assertEquals(replicationMapping, expected);
+
+        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
+        expected = Maps.newHashMap();
+        expected.put(0, Lists.newArrayList(4, 8, 0));
+        expected.put(1, Lists.newArrayList(1, 5, 9));
+        assertEquals(replicationMapping, expected);
+
+    }
+
+    @Test
     public void testDeleteStore() throws Exception {
         AdminClient adminClient = getAdminClient();
 
@@ -335,6 +419,92 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testUpdateGrandfatherMetadata() {
+        AdminClient client = getAdminClient();
+        HashMap<String, String> roToDir = new HashMap<String, String>();
+        roToDir.put("a", "b");
+        roToDir.put("c", "d");
+        roToDir.put("e", "f");
+        List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
+                                                                                                           0,
+                                                                                                           Arrays.asList(1,
+                                                                                                                         2,
+                                                                                                                         3,
+                                                                                                                         4),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1),
+                                                                                                           Arrays.asList(0,
+                                                                                                                         1,
+                                                                                                                         2),
+                                                                                                           Arrays.asList("test1",
+                                                                                                                         "test2"),
+                                                                                                           roToDir,
+                                                                                                           roToDir,
+                                                                                                           0),
+                                                                               new RebalancePartitionsInfo(3,
+                                                                                                           1,
+                                                                                                           Arrays.asList(5,
+                                                                                                                         6,
+                                                                                                                         7,
+                                                                                                                         8),
+                                                                                                           new ArrayList<Integer>(0),
+                                                                                                           new ArrayList<Integer>(0),
+                                                                                                           Arrays.asList("test1",
+                                                                                                                         "test2"),
+                                                                                                           new HashMap<String, String>(),
+                                                                                                           new HashMap<String, String>(),
+                                                                                                           0));
+
+        Versioned<String> currentState = client.getRemoteMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                       .getId(),
+                                                                  MetadataStore.SERVER_STATE_KEY);
+
+        // Check if initially the server is set up correctly
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
+        // Update the metadata
+        Versioned<String> updatedState = client.updateGrandfatherMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                               .getId(),
+                                                                          rebalancePartitionsInfos);
+        assertEquals(updatedState.getValue(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER.toString());
+        assertEquals(updatedState.getVersion().compare(currentState.getVersion()), Occured.AFTER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(rebalancePartitionsInfos));
+
+        // Now try updating since its already in grandfathering state
+        try {
+            client.updateGrandfatherMetadata(getVoldemortServer(0).getIdentityNode().getId(),
+                                             new ArrayList<RebalancePartitionsInfo>());
+            Assert.fail("Should have thrown an exception");
+        } catch(Exception e) {
+
+        }
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+        assertEquals(getVoldemortServer(0).getMetadataStore().getGrandfatherState(),
+                     new GrandfatherState(rebalancePartitionsInfos));
+
+        // Lets set the state of the server back to normal
+        VectorClock updatedVectorClock = ((VectorClock) updatedState.getVersion()).incremented(getVoldemortServer(0).getIdentityNode()
+                                                                                                                    .getId(),
+                                                                                               System.currentTimeMillis());
+        adminClient.updateRemoteMetadata(getVoldemortServer(0).getIdentityNode().getId(),
+                                         MetadataStore.SERVER_STATE_KEY,
+                                         Versioned.value(MetadataStore.VoldemortState.NORMAL_SERVER.toString(),
+                                                         updatedVectorClock));
+        assertEquals(getVoldemortServer(0).getMetadataStore().getServerState(),
+                     MetadataStore.VoldemortState.NORMAL_SERVER);
+
+        Versioned<String> newState = client.getRemoteMetadata(getVoldemortServer(0).getIdentityNode()
+                                                                                   .getId(),
+                                                              MetadataStore.SERVER_STATE_KEY);
+        assertTrue(((VectorClock) newState.getVersion()).equals(updatedVectorClock));
+    }
+
+    @Test
     public void testDeletePartitionEntries() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
@@ -396,7 +566,8 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testFetchPartitionFiles() throws IOException {
-        generateAndFetchFiles(10, 1, 1000, 1000);
+        if(useNio)
+            generateAndFetchFiles(10, 1, 1000, 1000);
     }
 
     private void generateFiles(int numChunks,

@@ -237,6 +237,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return serializedStore;
     }
 
+    protected ClientConfig getConfig() {
+        return config;
+    }
+
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
                                                            final Collection<Node> nodes);
 

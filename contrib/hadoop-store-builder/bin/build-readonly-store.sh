@@ -16,13 +16,7 @@
 #  limitations under the License.
 #
 
-if [ $# -gt 2 ];
-then
-  echo 'USAGE: bin/sort.sh file max_memory_lines num_threads'
-  exit 1
-fi
-
-base_dir=$(dirname $0)/..
+base_dir=$(dirname $0)/../../../
 
 for file in $base_dir/dist/*.jar;
 do
@@ -33,10 +27,11 @@ for file in $base_dir/lib/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
 done
+
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 if [ -z "$VOLD_OPTS" ]; then
-  VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
+  VOLD_OPTS="-Xmx2G -server"
 fi
 
-java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.StringSorter $@
+java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 

@@ -16,7 +16,7 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/..
+base_dir=$(dirname $0)/../../../
 
 for file in $base_dir/dist/*.jar;
 do

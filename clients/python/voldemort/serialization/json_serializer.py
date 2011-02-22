@@ -201,6 +201,14 @@ class JsonTypeSerializer(object):
         Traceback (most recent call last):
         ...
         SerializationException: Schema info has duplicates of version: 0
+
+        JSON with single quotes is NOT valid JSON, even though voldemort doesn't necessarily check for this:
+        >>> xml = minidom.parseString("<serializer><type>json</type>" +
+        ...                     "<schema-info version=\"0\">{ 'foo':'int32' }</schema-info></serializer>")
+        >>> s = JsonTypeSerializer.create_from_xml(xml)
+        Traceback (most recent call last):
+        ...
+        SerializationException: Error decoding schema JSON
         """
 
         typedef = dict()
@@ -228,11 +236,13 @@ class JsonTypeSerializer(object):
         if not has_version and len(typedef) > 1:
             raise SerializationException('Schema info has version="none" and multiple versions')
 
-        if not has_version:
-            return JsonTypeSerializer(typedef[0])
-        else:
-            return JsonTypeSerializer(typedef)
-
+        try:
+            if not has_version:
+                return JsonTypeSerializer(typedef[0])
+            else:
+                return JsonTypeSerializer(typedef)
+        except simplejson.JSONDecodeError:
+            raise SerializationException('Error decoding schema JSON')
 
     def read(self, input):
         r"""

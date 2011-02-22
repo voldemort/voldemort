@@ -17,13 +17,19 @@
 package voldemort;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,13 +41,21 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.json.EndOfFileException;
 import voldemort.serialization.json.JsonReader;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
 
 /**
  * A toy shell to interact with the server via the command line
@@ -88,30 +102,42 @@ public class VoldemortClientShell {
         }
 
         ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapUrl)
+                                                      .setEnableLazy(false)
                                                       .setRequestFormatType(RequestFormatType.VOLDEMORT_V3);
 
         if(options.has("client-zone-id")) {
             clientConfig.setClientZoneId((Integer) options.valueOf("client-zone-id"));
         }
 
-        StoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
+        StoreClientFactory factory = null;
+        AdminClient adminClient = null;
 
         try {
-            client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
-        } catch(Exception e) {
-            Utils.croak("Could not connect to server: " + e.getMessage());
-        }
+            try {
+                factory = new SocketStoreClientFactory(clientConfig);
+                client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
+                adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig());
+            } catch(Exception e) {
+                Utils.croak("Could not connect to server: " + e.getMessage());
+            }
 
-        System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
-        System.out.print(PROMPT);
-        if(fileReader != null) {
-            processCommands(factory, fileReader, true);
-            fileReader.close();
+            System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
+            System.out.print(PROMPT);
+            if(fileReader != null) {
+                processCommands(factory, adminClient, fileReader, true);
+                fileReader.close();
+            }
+            processCommands(factory, adminClient, inputReader, false);
+        } finally {
+            if(adminClient != null)
+                adminClient.stop();
+            if(factory != null)
+                factory.close();
         }
-        processCommands(factory, inputReader, false);
     }
 
     private static void processCommands(StoreClientFactory factory,
+                                        AdminClient adminClient,
                                         BufferedReader reader,
                                         boolean printCommands) throws IOException {
         for(String line = reader.readLine(); line != null; line = reader.readLine()) {
@@ -147,6 +173,19 @@ public class VoldemortClientShell {
                     } else {
                         System.out.println("null");
                     }
+                } else if(line.toLowerCase().startsWith("getmetadata")) {
+                    String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
+                    int remoteNodeId = Integer.valueOf(args[0]);
+                    String key = args[1];
+                    Versioned<String> versioned = adminClient.getRemoteMetadata(remoteNodeId, key);
+                    if(versioned == null) {
+                        System.out.println("null");
+                    } else {
+                        System.out.println(versioned.getVersion());
+                        System.out.print(": ");
+                        System.out.println(versioned.getValue());
+                        System.out.println();
+                    }
                 } else if(line.toLowerCase().startsWith("get")) {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("get".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
@@ -161,6 +200,73 @@ public class VoldemortClientShell {
                     JsonReader jsonReader = new JsonReader(new StringReader(line.substring("preflist".length())));
                     Object key = tightenNumericTypes(jsonReader.read());
                     printNodeList(client.getResponsibleNodes(key), factory.getFailureDetector());
+                } else if(line.toLowerCase().startsWith("fetchkeys")) {
+                    String[] args = line.substring("fetchkeys".length() + 1).split("\\s+");
+                    int remoteNodeId = Integer.valueOf(args[0]);
+                    String storeName = args[1];
+                    List<Integer> partititionList = parseCsv(args[2]);
+                    Iterator<ByteArray> partitionKeys = adminClient.fetchKeys(remoteNodeId,
+                                                                              storeName,
+                                                                              partititionList,
+                                                                              null,
+                                                                              false);
+
+                    BufferedWriter writer = null;
+                    try {
+                        if(args.length > 3) {
+                            writer = new BufferedWriter(new FileWriter(new File(args[3])));
+                        } else
+                            writer = new BufferedWriter(new OutputStreamWriter(System.out));
+                    } catch(IOException e) {
+                        System.err.println("Failed to open the output stream");
+                        e.printStackTrace();
+                    }
+                    if(writer != null) {
+                        while(partitionKeys.hasNext()) {
+                            ByteArray keyByteArray = partitionKeys.next();
+                            StringBuilder lineBuilder = new StringBuilder();
+                            lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
+                            lineBuilder.append("\n");
+                            writer.write(lineBuilder.toString());
+                        }
+                        writer.flush();
+                    }
+                } else if(line.toLowerCase().startsWith("fetch")) {
+                    String[] args = line.substring("fetch".length() + 1).split("\\s+");
+                    int remoteNodeId = Integer.valueOf(args[0]);
+                    String storeName = args[1];
+                    List<Integer> partititionList = parseCsv(args[2]);
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> partitionEntries = adminClient.fetchEntries(remoteNodeId,
+                                                                                                             storeName,
+                                                                                                             partititionList,
+                                                                                                             null,
+                                                                                                             false);
+                    BufferedWriter writer = null;
+                    try {
+                        if(args.length > 3) {
+                            writer = new BufferedWriter(new FileWriter(new File(args[3])));
+                        } else
+                            writer = new BufferedWriter(new OutputStreamWriter(System.out));
+                    } catch(IOException e) {
+                        System.err.println("Failed to open the output stream");
+                        e.printStackTrace();
+                    }
+                    if(writer != null) {
+                        while(partitionEntries.hasNext()) {
+                            Pair<ByteArray, Versioned<byte[]>> pair = partitionEntries.next();
+                            ByteArray keyByteArray = pair.getFirst();
+                            Versioned<byte[]> versioned = pair.getSecond();
+                            StringBuilder lineBuilder = new StringBuilder();
+                            lineBuilder.append(ByteUtils.getString(keyByteArray.get(), "UTF-8"));
+                            lineBuilder.append("\t");
+                            lineBuilder.append(versioned.getVersion());
+                            lineBuilder.append("\t");
+                            lineBuilder.append(ByteUtils.getString(versioned.getValue(), "UTF-8"));
+                            lineBuilder.append("\n");
+                            writer.write(lineBuilder.toString());
+                        }
+                        writer.flush();
+                    }
                 } else if(line.startsWith("help")) {
                     System.out.println("Commands:");
                     System.out.println("put key value -- Associate the given value with the key.");
@@ -168,9 +274,15 @@ public class VoldemortClientShell {
                     System.out.println("getall key -- Retrieve the value(s) associated with the key.");
                     System.out.println("delete key -- Remove all values associated with the key.");
                     System.out.println("preflist key -- Get node preference list for given key.");
+                    System.out.println("getmetadata node_id key -- Get metadata associated with key from node_id.");
+                    System.out.println("fetchkeys node_id store_name partitions <file_name> -- Fetch all keys from given partitions"
+                                       + " (a comma separated list) of store_name on node_id. Optionally, write to file_name.");
+                    System.out.println("fetch node_id store_name partitions <file_name> -- Fetch all entries from given partitions"
+                                       + " (a comma separated list) of store_name on node_id. Optionally, write to file_name.");
                     System.out.println("help -- Print this message.");
                     System.out.println("exit -- Exit from this shell.");
                     System.out.println();
+
                 } else if(line.startsWith("quit") || line.startsWith("exit")) {
                     System.out.println("k k thx bye.");
                     System.exit(0);
@@ -193,6 +305,15 @@ public class VoldemortClientShell {
             }
             System.out.print(PROMPT);
         }
+    }
+
+    private static List<Integer> parseCsv(String csv) {
+        return Lists.transform(Arrays.asList(csv.split(",")), new Function<String, Integer>() {
+
+            public Integer apply(String input) {
+                return Integer.valueOf(input);
+            }
+        });
     }
 
     private static void printNodeList(List<Node> nodes, FailureDetector failureDetector) {

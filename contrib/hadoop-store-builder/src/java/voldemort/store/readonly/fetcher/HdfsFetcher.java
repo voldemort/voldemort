@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -39,6 +41,7 @@ import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
@@ -56,7 +59,7 @@ import voldemort.utils.Utils;
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
-    private static final long REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
+    private static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
@@ -138,26 +141,47 @@ public class HdfsFetcher implements FileFetcher {
 
                 for(FileStatus status: statuses) {
 
+                    // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
-                        // Read checksum
-                        checkSumType = CheckSum.fromString(status.getPath().getName());
-
-                        // Get checksum generators
-                        checkSumGenerator = CheckSum.getInstance(checkSumType);
-                        fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
-
-                        // Store original checksum to compare
-                        FSDataInputStream input = fs.open(status.getPath());
-                        origCheckSum = new byte[CheckSum.checkSumLength(checkSumType)];
-                        input.read(origCheckSum);
-                        input.close();
+                        // Ignore old checksum files 
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 
-                        // Read metadata
+                        logger.debug("Reading .metadata");
+                        // Read metadata into local file
                         File copyLocation = new File(dest, status.getPath().getName());
                         copyFileWithCheckSum(fs, status.getPath(), copyLocation, stats, null);
+
+                        // Open the local file to initialize checksum
+                        ReadOnlyStorageMetadata metadata;
+                        try {
+                            metadata = new ReadOnlyStorageMetadata(copyLocation);
+                        } catch(IOException e) {
+                            logger.error("Error reading metadata file ", e);
+                            throw new VoldemortException(e);
+                        }
+
+                        // Read checksum
+                        String checkSumTypeString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE);
+                        String checkSumString = (String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM);
+
+                        if(checkSumTypeString != null && checkSumString != null) {
+
+                            try {
+                                origCheckSum = Hex.decodeHex(checkSumString.toCharArray());
+                            } catch(DecoderException e) {
+                                logger.error("Exception reading checksum file. Ignoring checksum ",
+                                             e);
+                                continue;
+                            }
+
+                            logger.debug("Checksum from .metadata "
+                                         + new String(Hex.encodeHex(origCheckSum)));
+                            checkSumType = CheckSum.fromString(checkSumTypeString);
+                            checkSumGenerator = CheckSum.getInstance(checkSumType);
+                            fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
+                        }
 
                     } else if(!status.getPath().getName().startsWith(".")) {
 
@@ -170,22 +194,35 @@ public class HdfsFetcher implements FileFetcher {
                                              fileCheckSumGenerator);
 
                         if(fileCheckSumGenerator != null && checkSumGenerator != null) {
-                            checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
+                            byte[] checkSum = fileCheckSumGenerator.getCheckSum();
+                            logger.debug("Checksum for " + status.getPath() + " - "
+                                         + new String(Hex.encodeHex(checkSum)));
+                            checkSumGenerator.update(checkSum);
                         }
                     }
 
                 }
 
+                logger.info("Completed reading all files from " + source.toString() + " to "
+                            + dest.getAbsolutePath());
                 // Check checksum
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
-                    return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+                    boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+
+                    logger.info("Checksum generated from streaming - "
+                                + new String(Hex.encodeHex(newCheckSum)));
+                    logger.info("Checksum on file - " + new String(Hex.encodeHex(origCheckSum)));
+                    logger.info("Check-sum verification - " + checkSumComparison);
+
+                    return checkSumComparison;
                 } else {
-                    // If checkSum file does not exist
+                    logger.info("No check-sum verification required");
                     return true;
                 }
             }
         }
+        logger.error("Source " + source.toString() + " should be a directory");
         return false;
 
     }
@@ -326,10 +363,10 @@ public class HdfsFetcher implements FileFetcher {
 
             String f1 = fs1.getPath().getName(), f2 = fs2.getPath().getName();
 
-            // All checksum files given priority
-            if(f1.endsWith("checkSum.txt"))
+            // All metadata files given priority
+            if(f1.endsWith("metadata"))
                 return -1;
-            if(f2.endsWith("checkSum.txt"))
+            if(f2.endsWith("metadata"))
                 return 1;
 
             // if both same, lexicographically

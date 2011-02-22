@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='voldemort',
-      version='0.1.1',
+      version='0.1.2',
       description='Python Voldemort Client',
       long_description=('Pure python client for accessing Voldemort key/value stores. ' +
                         'Supports both raw and JSON stores. Only supports the tcp protocol ' +

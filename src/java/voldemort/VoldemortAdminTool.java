@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -45,10 +45,14 @@ import org.codehaus.jackson.map.ObjectMapper;
 import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -57,6 +61,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
@@ -124,7 +129,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("input-directory")
               .ofType(String.class);
-        parser.accepts("get-metadata", "retreive metadata information [stores.xml | cluster.xml]")
+        parser.accepts("get-metadata",
+                       "retreive metadata information [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
+                               + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -135,6 +143,23 @@ public class VoldemortAdminTool {
         parser.accepts("truncate", "truncate a store")
               .withRequiredArg()
               .describedAs("store-name")
+              .ofType(String.class);
+        parser.accepts("set-metadata",
+                       "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
+                               + " ], possibly after grandfathering or partial rebalancing")
+              .withRequiredArg()
+              .describedAs("metadata-key")
+              .ofType(String.class);
+        parser.accepts("set-metadata-value",
+                       "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
+                               + MetadataStore.STORES_KEY + " ] - xml file location, [ "
+                               + MetadataStore.SERVER_STATE_KEY + " ] - "
+                               + MetadataStore.VoldemortState.NORMAL_SERVER + ","
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ","
+                               + MetadataStore.VoldemortState.GRANDFATHERING_SERVER)
+              .withRequiredArg()
+              .describedAs("metadata-value")
               .ofType(String.class);
 
         OptionSet options = parser.parse(args);
@@ -148,7 +173,9 @@ public class VoldemortAdminTool {
         if(missing.size() > 0) {
             // Not the most elegant way to do this
             if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
-                                                             || options.has("delete-store") || options.has("ro-version")))) {
+                                                             || options.has("delete-store")
+                                                             || options.has("ro-version")
+                                                             || options.has("set-metadata") || options.has("get-metadata")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -192,8 +219,11 @@ public class VoldemortAdminTool {
         if(options.has("truncate")) {
             ops += "t";
         }
+        if(options.has("set-metadata")) {
+            ops += "m";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata) must be specified");
         }
 
         List<String> storeNames = null;
@@ -275,9 +305,80 @@ public class VoldemortAdminTool {
                 String storeName = (String) options.valueOf("truncate");
                 executeTruncateStore(nodeId, adminClient, storeName);
             }
+            if(ops.contains("m")) {
+                String metadataKey = (String) options.valueOf("set-metadata");
+                if(!options.has("set-metadata-value")) {
+                    throw new VoldemortException("Missing set-metadata-value");
+                } else {
+                    String metadataValue = (String) options.valueOf("set-metadata-value");
+                    if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Cluster xml file path incorrect");
+                        ClusterMapper mapper = new ClusterMapper();
+                        Cluster newCluster = mapper.readCluster(new File(metadataValue));
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.CLUSTER_KEY,
+                                           mapper.writeCluster(newCluster));
+                    } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
+                        VoldemortState newState = VoldemortState.valueOf(metadataValue);
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.SERVER_STATE_KEY,
+                                           newState.toString());
+                    } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Stores definition xml file path incorrect");
+                        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+                        List<StoreDefinition> storeDefs = mapper.readStoreList(new File(metadataValue));
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.STORES_KEY,
+                                           mapper.writeStoreList(storeDefs));
+                    } else {
+                        throw new VoldemortException("Incorrect metadata key");
+                    }
+                }
+
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    private static void executeSetMetadata(Integer nodeId,
+                                           AdminClient adminClient,
+                                           String key,
+                                           Object value) {
+
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
+        } else {
+            nodeIds.add(nodeId);
+        }
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println("Setting "
+                               + key
+                               + " for "
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
+            Versioned<String> currentValue = adminClient.getRemoteMetadata(currentNodeId, key);
+            if(!value.equals(currentValue.getValue())) {
+                VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
+                                                                                                   System.currentTimeMillis());
+                adminClient.updateRemoteMetadata(currentNodeId,
+                                                 key,
+                                                 Versioned.value(value.toString(), updatedVersion));
+            }
         }
     }
 
@@ -310,7 +411,7 @@ public class VoldemortAdminTool {
             } else if(versionType.compareTo("current") == 0) {
                 storeToVersion = adminClient.getROCurrentVersion(nodeId, storeNames);
             } else {
-                System.err.println("Unsupported operation, only max allowed for all nodes");
+                System.err.println("Unsupported operation, only max OR current allowed for individual nodes");
                 return;
             }
         }
@@ -323,14 +424,31 @@ public class VoldemortAdminTool {
     public static void executeGetMetadata(Integer nodeId,
                                           AdminClient adminClient,
                                           String metadataKey) {
-        Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId, metadataKey);
-        if(versioned == null) {
-            System.out.println("null");
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
         } else {
-            System.out.println(versioned.getVersion());
-            System.out.print(": ");
-            System.out.println(versioned.getValue());
-            System.out.println();
+            nodeIds.add(nodeId);
+        }
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println(adminClient.getAdminClientCluster()
+                                          .getNodeById(currentNodeId)
+                                          .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
+            Versioned<String> versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
+            if(versioned == null) {
+                System.out.println("null");
+            } else {
+                System.out.println(versioned.getVersion());
+                System.out.print(": ");
+                System.out.println(versioned.getValue());
+                System.out.println();
+            }
         }
     }
 
@@ -593,7 +711,7 @@ public class VoldemortAdminTool {
                 dos.write(keyBytes);
                 dos.writeInt(versionBytes.length);
                 dos.write(versionBytes);
-                dos.write(valueBytes.length);
+                dos.writeInt(valueBytes.length);
                 dos.write(valueBytes);
             }
         } finally {

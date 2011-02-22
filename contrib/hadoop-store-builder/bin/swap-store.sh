@@ -16,7 +16,7 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/..
+base_dir=$(dirname $0)/../../../
 
 for file in $base_dir/dist/*.jar;
 do
@@ -30,8 +30,4 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-if [ -z "$VOLD_OPTS" ]; then
-  VOLD_OPTS="-Xmx2G -server"
-fi
-
-java $VOLD_OPTS -cp $CLASSPATH voldemort.store.readonly.JsonStoreBuilder $@ 
+java -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@ 

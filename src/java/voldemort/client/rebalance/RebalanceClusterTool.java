@@ -288,12 +288,15 @@ public class RebalanceClusterTool {
     }
 
     /**
-     * When {@link voldemort.routing.ConsistentRoutingStrategy} is used,
-     * replication mapping of partitions (i.e., if a key k is mastered by
-     * partition p, in addition to p, which partitions can have requests for k
-     * routed to them?) is determined by the replication-factor N and the nodes
-     * in the cluster, such that each partition is replicated to N distinct
-     * nodes.
+     * When {@link voldemort.routing.ConsistentRoutingStrategy} ( or
+     * {@link voldemort.routing.ZoneRoutingStrategy} ) is used, replication
+     * mapping of partitions (i.e., if a key k is mastered by partition p, in
+     * addition to p, which partitions can have requests for k routed to them?)
+     * is determined by the replication-factor N and the nodes in the cluster,
+     * such that each partition is replicated to N distinct nodes. <br>
+     * 
+     * Works only if store definitions are constant ( i.e. no change in
+     * replication factor or routing strategy )
      * 
      * @param newCluster Suggested cluster geometry
      * @return <p>
@@ -301,7 +304,7 @@ public class RebalanceClusterTool {
      *         (original replica, new replica). For example target layout
      *         described in
      *         {@link RebalanceClusterTool#getMultipleCopies(voldemort.cluster.Cluster)}
-     *         the return value would be <code>{7: [(7,8), (7,0)]}</code>.
+     *         the return value would be <code>{7=[8,0]}</code>.
      *         </p>
      */
     public Multimap<Integer, Pair<Integer, Integer>> getRemappedReplicas(Cluster newCluster) {
@@ -325,6 +328,50 @@ public class RebalanceClusterTool {
                     remappedReplicas.put(partition, pair);
                 }
             }
+        }
+
+        return remappedReplicas;
+    }
+
+    /**
+     * Same as
+     * {@link voldemort.client.rebalance.RebalanceClusterTool#getRemappedReplicas(Cluster)}
+     * , except that we need to provide the new store definition. This is
+     * required for the scenario where-in we are introducing a change in the
+     * store definitions ( like all of them are changing to Zone routing or the
+     * replication factor for some of them is increasing ) <br>
+     * 
+     * We return only a multimap of master replica to all the new replicas that
+     * need to be added. Unlike
+     * {@link voldemort.client.rebalance.RebalanceClusterTool#getRemappedReplicas(Cluster)}
+     * , it is not possible to get pairs of old replicas to new replicas since
+     * we may have a scenario where-in we're increasing from replication factor
+     * of 1 ( i.e. no replicas except master ).
+     * 
+     * @param newCluster Suggested cluster geometry
+     * @param storeDef Store definition.
+     * @return <p>
+     *         Multimap with key being a master replica, values being new
+     *         replicas. For example target layout described in
+     *         {@link RebalanceClusterTool#getMultipleCopies(voldemort.cluster.Cluster)}
+     *         the return value would be <code>{7=0}</code>.
+     *         </p>
+     */
+    public Multimap<Integer, Integer> getRemappedReplicas(Cluster newCluster,
+                                                          StoreDefinition storeDef) {
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                             newCluster);
+        ListMultimap<Integer, Integer> newMasterToReplicas = createMasterToReplicas(newCluster,
+                                                                                    routingStrategy);
+        Multimap<Integer, Integer> remappedReplicas = ArrayListMultimap.create();
+        for(int partition: ArrayListMultimap.create(newMasterToReplicas).keySet()) {
+            List<Integer> oldReplicas = masterToReplicas.get(partition);
+            List<Integer> newReplicas = newMasterToReplicas.get(partition);
+
+            // newReplicas-oldReplicas = replicas which are to be re-mapped
+            newReplicas.removeAll(oldReplicas);
+            if(newReplicas.size() > 0)
+                remappedReplicas.putAll(partition, newReplicas);
         }
 
         return remappedReplicas;

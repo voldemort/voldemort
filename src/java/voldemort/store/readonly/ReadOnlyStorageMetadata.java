@@ -17,6 +17,8 @@ import com.google.common.collect.Maps;
 public class ReadOnlyStorageMetadata {
 
     public final static String FORMAT = "format";
+    public final static String CHECKSUM_TYPE = "checksum-type";
+    public final static String CHECKSUM = "checksum";
 
     private Map<String, Object> properties;
 

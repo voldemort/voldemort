@@ -17,6 +17,7 @@
 package voldemort.server.scheduler;
 
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -27,12 +28,15 @@ import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
 import voldemort.server.VoldemortService;
 import voldemort.utils.Time;
+
+import com.google.common.collect.Lists;
 
 /**
  * The voldemort scheduler
@@ -97,10 +101,10 @@ public class SchedulerService extends AbstractService {
     }
 
     @JmxOperation(description = "Disable a particular scheduled job", impact = MBeanOperationInfo.ACTION)
-    public void disable(String id, boolean forceDisable) {
+    public void disable(String id) {
         if(allJobs.containsKey(id) && scheduledJobResults.containsKey(id)) {
             ScheduledFuture<?> future = scheduledJobResults.get(id);
-            boolean cancelled = future.cancel(forceDisable);
+            boolean cancelled = future.cancel(false);
             if(cancelled == true) {
                 logger.info("Removed '" + id + "' from list of scheduled jobs");
                 scheduledJobResults.remove(id);
@@ -123,6 +127,11 @@ public class SchedulerService extends AbstractService {
             }
 
         }
+    }
+
+    @JmxGetter(name = "getScheduledJobs", description = "Returns names of jobs in the scheduler")
+    public List<String> getScheduledJobs() {
+        return Lists.newArrayList(scheduledJobResults.keySet());
     }
 
     public void scheduleNow(Runnable runnable) {

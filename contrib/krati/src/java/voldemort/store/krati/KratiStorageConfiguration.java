@@ -2,9 +2,8 @@ package voldemort.store.krati;
 
 import java.io.File;
 
-import krati.cds.impl.segment.MappedSegmentFactory;
-import krati.cds.impl.segment.SegmentFactory;
-
+import krati.core.segment.MappedSegmentFactory;
+import krati.core.segment.SegmentFactory;
 import org.apache.log4j.Logger;
 
 import voldemort.server.VoldemortConfig;

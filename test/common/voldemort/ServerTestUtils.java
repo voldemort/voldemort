@@ -22,8 +22,10 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.ServerSocket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 
@@ -40,6 +42,7 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.AbstractSocketService;
@@ -72,6 +75,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 /**
  * Helper functions for testing with real server implementations
@@ -277,6 +281,90 @@ public class ServerTestUtils {
         return new Cluster("test-cluster", nodes);
     }
 
+    /**
+     * Returns a list of zones with their proximity list being in increasing
+     * order
+     * 
+     * @param numberOfZones The number of zones to return
+     * @return List of zones
+     */
+    public static List<Zone> getZones(int numberOfZones) {
+        List<Zone> zones = Lists.newArrayList();
+        for(int i = 0; i < numberOfZones; i++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList();
+            int zoneId = i + 1;
+            for(int j = 0; j < numberOfZones; j++) {
+                if(zoneId % numberOfZones == i)
+                    break;
+                proximityList.add(zoneId % numberOfZones);
+                zoneId++;
+            }
+            zones.add(new Zone(i, proximityList));
+        }
+        return zones;
+    }
+
+    /**
+     * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
+     * zones. It is important that <b>numberOfNodes</b> be divisible by
+     * <b>numberOfZones</b>
+     * 
+     * @param numberOfNodes Number of nodes in the cluster
+     * @param partitionsPerNode Number of partitions in one node
+     * @param numberOfZones Number of zones
+     * @return Cluster
+     */
+    public static Cluster getLocalCluster(int numberOfNodes,
+                                          int partitionsPerNode,
+                                          int numberOfZones) {
+
+        if(numberOfZones > 0 && numberOfNodes > 0 && numberOfNodes % numberOfZones != 0) {
+            throw new VoldemortException("The number of nodes (" + numberOfNodes
+                                         + ") is not divisible by number of zones ("
+                                         + numberOfZones + ")");
+        }
+
+        int[] ports = findFreePorts(3 * numberOfNodes);
+
+        List<Integer> partitions = Lists.newArrayList();
+
+        for(int i = 0; i < partitionsPerNode * numberOfNodes; i++)
+            partitions.add(i);
+
+        Collections.shuffle(partitions);
+
+        // Generate nodes
+        int numberOfNodesPerZone = numberOfNodes / numberOfZones;
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < numberOfNodes; i++) {
+            nodes.add(new Node(i,
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               i / numberOfNodesPerZone,
+                               partitions.subList(partitionsPerNode * i, partitionsPerNode * i
+                                                                         + partitionsPerNode)));
+        }
+
+        // Generate zones
+        if(numberOfZones > 1) {
+            List<Zone> zones = Lists.newArrayList();
+            for(int i = 0; i < numberOfZones; i++) {
+                LinkedList<Integer> proximityList = Lists.newLinkedList();
+                int zoneId = i + 1;
+                for(int j = 0; j < numberOfZones; j++) {
+                    proximityList.add(zoneId % numberOfZones);
+                    zoneId++;
+                }
+                zones.add(new Zone(i, proximityList));
+            }
+            return new Cluster("cluster", nodes, zones);
+        } else {
+            return new Cluster("cluster", nodes);
+        }
+    }
+
     public static Node getLocalNode(int nodeId, List<Integer> partitions) {
         int[] ports = findFreePorts(3);
         return new Node(nodeId, "localhost", ports[0], ports[1], ports[2], partitions);
@@ -430,7 +518,7 @@ public class ServerTestUtils {
                                                              int nodeId,
                                                              String baseDir,
                                                              Cluster cluster,
-                                                             ArrayList<StoreDefinition> stores,
+                                                             List<StoreDefinition> stores,
                                                              Properties properties)
             throws IOException {
 

@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -73,6 +74,7 @@ public class HadoopStoreBuilder {
     private final Path outputDir;
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
+    private boolean saveKeys = false;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -192,6 +194,47 @@ public class HadoopStoreBuilder {
     }
 
     /**
+     * Create the store builder
+     * 
+     * @param conf A base configuration to start with
+     * @param mapperClass The class to use as the mapper
+     * @param inputFormatClass The input format to use for reading values
+     * @param cluster The voldemort cluster for which the stores are being built
+     * @param storeDef The store definition of the store
+     * @param chunkSizeBytes The size of the chunks used by the read-only store
+     * @param tempDir The temporary directory to use in hadoop for intermediate
+     *        reducer output
+     * @param outputDir The directory in which to place the built stores
+     * @param inputPath The path from which to read input data
+     * @param checkSumType The checksum algorithm to use
+     * @PARAM saveKeys Boolean to signify if we want to save the key as well
+     */
+    @SuppressWarnings("unchecked")
+    public HadoopStoreBuilder(Configuration conf,
+                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class<? extends InputFormat> inputFormatClass,
+                              Cluster cluster,
+                              StoreDefinition storeDef,
+                              long chunkSizeBytes,
+                              Path tempDir,
+                              Path outputDir,
+                              Path inputPath,
+                              CheckSumType checkSumType,
+                              boolean saveKeys) {
+        this(conf,
+             mapperClass,
+             inputFormatClass,
+             cluster,
+             storeDef,
+             chunkSizeBytes,
+             tempDir,
+             outputDir,
+             inputPath,
+             checkSumType);
+        this.saveKeys = saveKeys;
+    }
+
+    /**
      * Run the job
      */
     public void build() {
@@ -200,6 +243,7 @@ public class HadoopStoreBuilder {
         conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
         conf.set("stores.xml",
                  new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+        conf.setBoolean("save.keys", saveKeys);
         conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
         conf.setMapperClass(mapperClass);
         conf.setMapOutputKeyClass(BytesWritable.class);
@@ -210,6 +254,7 @@ public class HadoopStoreBuilder {
         conf.setOutputKeyClass(BytesWritable.class);
         conf.setOutputValueClass(BytesWritable.class);
         conf.setJarByClass(getClass());
+        conf.setReduceSpeculativeExecution(false);
         FileInputFormat.setInputPaths(conf, inputPath);
         conf.set("final.output.dir", outputDir.toString());
         conf.set("checksum.type", CheckSum.toString(checkSumType));
@@ -242,15 +287,73 @@ public class HadoopStoreBuilder {
             logger.info("Building store...");
             JobClient.runJob(conf);
 
-            ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-            metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V1.getCode());
+            // Do a CheckSumOfCheckSum - Similar to HDFS
+            CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
+            if(!this.checkSumType.equals(CheckSumType.NONE) && checkSumGenerator == null) {
+                throw new VoldemortException("Could not generate checksum digest for type "
+                                             + this.checkSumType);
+            }
 
             // Check if all folder exists and with format file
             for(Node node: cluster.getNodes()) {
+
+                ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+
+                if(saveKeys)
+                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                                 ReadOnlyStorageFormat.READONLY_V2.getCode());
+                else
+                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
+
                 Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
                 if(!outputFs.exists(nodePath)) {
                     outputFs.mkdirs(nodePath); // Create empty folder
+                }
+
+                if(checkSumType != CheckSumType.NONE) {
+
+                    FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
+
+                        public boolean accept(Path arg0) {
+                            if(arg0.getName().endsWith("checksum")
+                               && !arg0.getName().startsWith(".")) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+
+                    if(storeFiles != null && storeFiles.length > 0) {
+                        Arrays.sort(storeFiles, new IndexFileLastComparator());
+                        FSDataInputStream input = null;
+
+                        for(FileStatus file: storeFiles) {
+                            try {
+                                input = outputFs.open(file.getPath());
+                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                             + new String(Hex.encodeHex(fileCheckSum)));
+                                checkSumGenerator.update(fileCheckSum);
+                            } catch(Exception e) {
+                                logger.error("Error while reading checksum file " + e.getMessage(),
+                                             e);
+                            } finally {
+                                if(input != null)
+                                    input.close();
+                            }
+                            outputFs.delete(file.getPath(), false);
+                        }
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
+                                     CheckSum.toString(checkSumType));
+
+                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
+                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
+                    }
                 }
 
                 // Write metadata
@@ -258,58 +361,11 @@ public class HadoopStoreBuilder {
                 metadataStream.write(metadata.toJsonString().getBytes());
                 metadataStream.flush();
                 metadataStream.close();
+
             }
 
-            if(checkSumType != CheckSumType.NONE) {
-
-                // Generate checksum for every node
-                FileStatus[] nodes = outputFs.listStatus(outputDir);
-
-                // Do a CheckSumOfCheckSum - Similar to HDFS
-                CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
-                if(checkSumGenerator == null) {
-                    throw new VoldemortException("Could not generate checksum digests");
-                }
-
-                for(FileStatus node: nodes) {
-                    if(node.isDir()) {
-                        // Read all check sum files
-                        FileStatus[] storeFiles = outputFs.listStatus(node.getPath(),
-                                                                      new PathFilter() {
-
-                                                                          public boolean accept(Path arg0) {
-                                                                              if(arg0.getName()
-                                                                                     .endsWith("checksum")
-                                                                                 && !arg0.getName()
-                                                                                         .startsWith(".")) {
-                                                                                  return true;
-                                                                              }
-                                                                              return false;
-                                                                          }
-                                                                      });
-
-                        if(storeFiles != null) {
-                            Arrays.sort(storeFiles, new IndexFileLastComparator());
-                            for(FileStatus file: storeFiles) {
-                                FSDataInputStream input = outputFs.open(file.getPath());
-                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                                input.read(fileCheckSum);
-                                checkSumGenerator.update(fileCheckSum);
-                                outputFs.delete(file.getPath(), true);
-                            }
-                            FSDataOutputStream checkSumStream = outputFs.create(new Path(node.getPath(),
-                                                                                         CheckSum.toString(checkSumType)
-                                                                                                 + "checkSum.txt"));
-                            checkSumStream.write(checkSumGenerator.getCheckSum());
-                            checkSumStream.flush();
-                            checkSumStream.close();
-
-                        }
-                    }
-                }
-            }
         } catch(Exception e) {
-            logger.error("Error = " + e);
+            logger.error("Error in Store builder", e);
             throw new VoldemortException(e);
         }
 

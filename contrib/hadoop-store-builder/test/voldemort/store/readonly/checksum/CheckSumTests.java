@@ -85,9 +85,9 @@ public class CheckSumTests extends TestCase {
                 String f1 = fs1.getName(), f2 = fs2.getName();
 
                 // All checksum files given priority
-                if(f1.endsWith("checkSum.txt"))
+                if(f1.endsWith("metadata"))
                     return -1;
-                if(f2.endsWith("checkSum.txt"))
+                if(f2.endsWith("metadata"))
                     return 1;
 
                 // if both same, lexicographically
@@ -106,7 +106,7 @@ public class CheckSumTests extends TestCase {
 
         for(File file: files) {
             if(file.isFile() && !file.getName().startsWith(".")
-               && !file.getName().contains("checkSum.txt")) {
+               && !file.getName().contains("checkSum.txt") && !file.getName().contains("metadata")) {
                 DataInputStream is;
                 try {
                     is = new DataInputStream(new FileInputStream(file));

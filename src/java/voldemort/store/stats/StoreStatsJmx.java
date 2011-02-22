@@ -112,4 +112,68 @@ public class StoreStatsJmx {
                + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
     }
 
+    @JmxGetter(name = "percentGetReturningEmptyResponse", description = "The percentage of calls to GET for which no value was found.")
+    public double getPercentGetReturningEmptyResponse() {
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET), stats.getCount(Tracked.GET));
+    }
+
+    @JmxGetter(name = "percentGetAllReturningEmptyResponse", description = "The percentage of calls to GET_ALL for which no value was found, taking into account multiple returned key-values.")
+    public double getPercentGetAllReturningEmptyResponse() {
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET_ALL), stats.getGetAllAggregatedCount());
+    }
+
+    private double numEmptyResponses(long numEmpty, long total) {
+        return total == 0 ? 0.0d : numEmpty / (float)total;
+    }
+
+    @JmxGetter(name = "maxPutLatencyInMs", description = "Maximum latency in ms of PUT")
+    public long getMaxPutLatency() {
+        return stats.getMaxLatencyInMs(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "maxGetLatencyInMs", description = "Maximum latency in ms of GET")
+    public long getMaxGetLatency() {
+        return stats.getMaxLatencyInMs(Tracked.GET);
+    }
+
+    @JmxGetter(name = "maxGetAllLatencyInMs", description = "Maximum latency in ms of GET_ALL")
+    public long getMaxGetAllLatency() {
+        return stats.getMaxLatencyInMs(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "maxDeleteLatencyInMs", description = "Maximum latency in ms of DELETE")
+    public long getMaxDeleteLatency() {
+        return stats.getMaxLatencyInMs(Tracked.DELETE);
+    }
+
+    @JmxGetter(name = "maxPutSizeInBytes", description = "Maximum size of value returned in bytes by PUT.")
+    public long getMaxPutSizeInBytes() {
+        return stats.getMaxSizeInBytes(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "maxGetAllSizeInBytes", description = "Maximum size of value returned in bytes by GET_ALL.")
+    public long getMaxGetAllSizeInBytes() {
+        return stats.getMaxSizeInBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "maxGetSizeInBytes", description = "Maximum size of value returned in bytes by GET.")
+    public long getMaxGetSizeInBytes() {
+        return stats.getMaxSizeInBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averageGetValueSizeInBytes", description = "Average size in bytes of GET request")
+    public double getAverageGetSizeInBytes() {
+        return stats.getAvgSizeinBytes(Tracked.GET);
+    }
+
+    @JmxGetter(name = "averageGetAllSizeInBytes", description = "Average size in bytes of GET_ALL request")
+    public double getAverageGetAllSizeInBytes() {
+        return stats.getAvgSizeinBytes(Tracked.GET_ALL);
+    }
+
+    @JmxGetter(name = "averagePutSizeInBytes", description = "Average size in bytes of PUT request")
+    public double getAveragePutSizeInBytes() {
+        return stats.getAvgSizeinBytes(Tracked.PUT);
+    }
+
 }

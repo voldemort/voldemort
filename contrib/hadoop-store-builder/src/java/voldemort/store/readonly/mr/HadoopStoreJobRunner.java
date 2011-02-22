@@ -74,6 +74,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("jar", "mapper class jar if not in $HADOOP_CLASSPATH.").withRequiredArg();
         parser.accepts("checksum", "enable checksum using md5, adler32, crc32").withRequiredArg();
         parser.accepts("force-overwrite", "deletes final output directory if present.");
+        parser.accepts("save-keys", "save the keys in the data file");
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -96,7 +97,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                "cluster",
                                                "storedefinitions",
                                                "storename",
-                                               "chunksize");
+                                               "chunksize",
+                                               "tmpdir");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing)
                                + "\n");
@@ -121,6 +123,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         Path inputPath = new Path((String) options.valueOf("input"));
         Path tempDir = new Path((String) options.valueOf("tmpdir"));
         Path outputDir = new Path((String) options.valueOf("output"));
+        boolean saveKeys = options.has("save-keys");
 
         List<String> addJars = new ArrayList<String>();
 
@@ -173,7 +176,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             tempDir,
                                                             outputDir,
                                                             inputPath,
-                                                            checkSumType);
+                                                            checkSumType,
+                                                            saveKeys);
 
         builder.build();
         return 0;

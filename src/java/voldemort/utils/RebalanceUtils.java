@@ -34,11 +34,16 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
+import voldemort.store.mysql.MysqlStorageConfiguration;
+import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 /**
  * RebalanceUtils provide basic functionality for rebalancing. Some of these
@@ -51,7 +56,8 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public static List<String> rebalancingStoreEngineBlackList = Arrays.asList("mysql", "krati");
+    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
+                                                                                     ViewStorageConfiguration.TYPE_NAME);
 
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
@@ -60,6 +66,81 @@ public class RebalanceUtils {
         } catch(VoldemortException e) {
             return false;
         }
+    }
+
+    /**
+     * Returns a list of unique store definitions given a list of store
+     * definitions, where unique is defined as having a different
+     * "replication-factor" and "routing strategy"
+     * 
+     * @param storeDefs List of store definitions
+     * @return Returns list of unique store definitions
+     */
+    public static List<StoreDefinition> getUniqueStoreDefinitions(List<StoreDefinition> storeDefs) {
+
+        List<StoreDefinition> uniqueStoreDefs = Lists.newArrayList();
+        for(StoreDefinition storeDef: storeDefs) {
+            if(uniqueStoreDefs.isEmpty()) {
+                uniqueStoreDefs.add(storeDef);
+            } else {
+                boolean unique = true;
+                for(StoreDefinition uniqueStoreDef: uniqueStoreDefs) {
+                    if(uniqueStoreDef.getReplicationFactor() == storeDef.getReplicationFactor()
+                       && uniqueStoreDef.getRoutingStrategyType()
+                                        .compareTo(storeDef.getRoutingStrategyType()) == 0) {
+                        unique = false;
+                        // Further check for the zone routing case
+                        if(uniqueStoreDef.getRoutingStrategyType()
+                                         .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+                            boolean zonesSame = true;
+                            for(int zoneId: uniqueStoreDef.getZoneReplicationFactor().keySet()) {
+                                if(storeDef.getZoneReplicationFactor().get(zoneId) == null
+                                   || storeDef.getZoneReplicationFactor().get(zoneId) != uniqueStoreDef.getZoneReplicationFactor()
+                                                                                                       .get(zoneId)) {
+                                    zonesSame = false;
+                                    break;
+                                }
+                            }
+                            if(!zonesSame) {
+                                unique = true;
+                            }
+                        }
+                    }
+                }
+                if(unique) {
+                    uniqueStoreDefs.add(storeDef);
+                }
+            }
+        }
+
+        return uniqueStoreDefs;
+    }
+
+    /**
+     * Checks if two lists of store definitions has the same number of stores
+     * and same stores. This is not same as
+     * {@link voldemort.store.StoreDefinition#equals(Object)} because we expect
+     * some parameters to change ( eg : rep-factor, routing strategy ) during
+     * grandfathering
+     * 
+     * @param storeDefList1
+     * @param storeDefList2
+     * @return Boolean indicating if the store definitions are same or not
+     */
+    public static boolean hasSameStores(List<StoreDefinition> storeDefList1,
+                                        List<StoreDefinition> storeDefList2) {
+        if(storeDefList1.size() != storeDefList2.size())
+            return false;
+
+        List<String> storeNames1 = RebalanceUtils.getStoreNames(storeDefList1);
+        List<String> storeNames2 = RebalanceUtils.getStoreNames(storeDefList2);
+        for(String storeName: storeNames1) {
+            if(!storeNames2.contains(storeName)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -312,7 +393,7 @@ public class RebalanceUtils {
         List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
 
         for(StoreDefinition def: storeDefList) {
-            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getName())) {
+            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getType())) {
                 storeNameList.add(def);
             } else {
                 logger.debug("ignoring store " + def.getName() + " for rebalancing");
@@ -340,6 +421,24 @@ public class RebalanceUtils {
             storeList.add(def.getName());
         }
         return storeList;
+    }
+
+    /**
+     * Returns the store definition from the list with the store name specified,
+     * else returns null
+     * 
+     * @param storeDefs The list of store definitions
+     * @param storeName The name of the store which is required
+     * @return The store definition else null
+     */
+    public static StoreDefinition getStore(List<StoreDefinition> storeDefs, String storeName) {
+
+        for(StoreDefinition storeDef: storeDefs) {
+            if(storeDef.getName().compareTo(storeName) == 0) {
+                return storeDef;
+            }
+        }
+        return null;
     }
 
     public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
