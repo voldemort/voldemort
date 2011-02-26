@@ -26,6 +26,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.MigratePartitions;
 import voldemort.cluster.Cluster;
@@ -34,13 +35,17 @@ import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
+import voldemort.serialization.StringSerializer;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -840,6 +845,48 @@ public class GrandfatherTest {
                 factory.close();
                 factory = null;
             }
+
+            // Do individual checks as well
+            SocketStoreFactory socketStoreFactory = null;
+            try {
+                socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
+                RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(false,
+                                                                                                 false);
+                StringSerializer serializer = new StringSerializer();
+                for(int storeNo = 1; storeNo <= numStores; storeNo++) {
+                    StoreDefinition storeDefToTest = targetStoreDefs.get(storeNo - 1);
+                    RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefToTest,
+                                                                                                  targetCluster);
+
+                    HashMap<Integer, Store<ByteArray, byte[], byte[]>> socketStoresPerNode = Maps.newHashMap();
+                    for(Node node: targetCluster.getNodes()) {
+                        socketStoresPerNode.put(node.getId(),
+                                                socketStoreFactory.create(storeDefToTest.getName(),
+                                                                          node.getHost(),
+                                                                          node.getSocketPort(),
+                                                                          RequestFormatType.VOLDEMORT_V1,
+                                                                          requestRoutingType));
+                    }
+
+                    for(int i = 0; i < NUM_KEYS; i++) {
+                        byte[] keyBytes = serializer.toBytes("key" + i);
+                        List<Node> responsibleNodes = strategy.routeRequest(keyBytes);
+                        for(Node node: responsibleNodes) {
+                            List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
+                                                                               .get(new ByteArray(keyBytes),
+                                                                                    null);
+                            Assert.assertNotNull(value);
+                            Assert.assertNotSame(value.size(), 0);
+                            Assert.assertEquals(serializer.toObject(value.get(0).getValue()),
+                                                "value" + i + "_2");
+                        }
+                    }
+                }
+            } finally {
+                if(socketStoreFactory != null)
+                    socketStoreFactory.close();
+            }
+
         } catch(Exception e) {
             e.printStackTrace();
         } finally {
