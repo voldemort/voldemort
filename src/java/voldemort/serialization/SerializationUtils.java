@@ -26,8 +26,6 @@ public class SerializationUtils {
 
     private static final Logger logger = Logger.getLogger(SerializationUtils.class);
 
-    private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
-
     /**
      * Extracts the java class name from the schema info
      * 
@@ -35,6 +33,8 @@ public class SerializationUtils {
      * @return the name of the class extracted from the schema info
      */
     public static String getJavaClassFromSchemaInfo(String schemaInfo) {
+        final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
+
         if(StringUtils.isEmpty(schemaInfo))
             throw new IllegalArgumentException("This serializer requires a non-empty schema-info.");
 
