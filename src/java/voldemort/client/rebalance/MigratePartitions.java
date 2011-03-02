@@ -212,10 +212,10 @@ public class MigratePartitions {
          */
         logger.info("Changing state of donor nodes " + donorNodePlans.keySet());
         int i = 0;
-        for(Map.Entry<Integer, List<RebalancePartitionsInfo>> entry: donorNodePlans.entrySet()) {
-            i += entry.getValue().size();
+        for(Map.Entry<Integer, RebalanceNodePlan> entry: stealerNodePlans.entrySet()) {
+            i += entry.getValue().getRebalanceTaskList().size();
         }
-        final int total = i;
+        final int total = i * storeNames.size();
         final AtomicInteger completed = new AtomicInteger(0);
         try {
             changeToGrandfather();
