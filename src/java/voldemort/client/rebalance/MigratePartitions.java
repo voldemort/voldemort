@@ -6,13 +6,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.Sets;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -22,6 +24,7 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -208,7 +211,12 @@ public class MigratePartitions {
          * generate all donor node ids and corresponding migration plans
          */
         logger.info("Changing state of donor nodes " + donorNodePlans.keySet());
-
+        int i = 0;
+        for(Map.Entry<Integer, List<RebalancePartitionsInfo>> entry: donorNodePlans.entrySet()) {
+            i += entry.getValue().size();
+        }
+        final int total = i;
+        final AtomicInteger completed = new AtomicInteger(0);
         try {
             changeToGrandfather();
 
@@ -247,14 +255,34 @@ public class MigratePartitions {
 
                                 // Now that we started parallel migration for one store,
                                 // wait for it to complete
-                                for(int nodeId: nodeIdToRequestId.keySet()) {
-                                    adminClient.waitForCompletion(stealerNodeId,
-                                                                  nodeIdToRequestId.get(nodeId),
-                                                                  voldemortConfig.getRebalancingTimeout(),
-                                                                  TimeUnit.SECONDS);
-                                    logger.info("-- Completed migration for donor node id " + nodeId);
+                                Set<Integer> pending = Sets.newHashSet(nodeIdToRequestId.keySet());
+                                while(!pending.isEmpty()) {
+                                    for(int nodeId: nodeIdToRequestId.keySet()) {
+                                        AsyncOperationStatus status = adminClient.getAsyncRequestStatus(stealerNodeId,
+                                                                                                        nodeIdToRequestId.get(nodeId));
+                                        logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
+                                                    + status.getStatus());
+                                        if(status.isComplete()) {
+                                            if(pending.contains(nodeId)) {
+                                                logger.info("-- Completed migration from "
+                                                            + nodeId + " to "+
+                                                            + stealerNodeId);
+                                                pending.remove(nodeId);
+                                                logger.info("Finished " + completed.getAndIncrement() + " out of " + total + " tasks");
+                                            }
+                                            if(pending.isEmpty())
+                                                break;
+                                        }
+                                        try {
+                                            Thread.sleep(30000);
+                                        } catch(InterruptedException e) {
+                                            logger.error(e, e);
+                                            throw new VoldemortException(e);
+                                        }
+                                    }
                                 }
                             }
+                            logger.info("Finished migrating to " + stealerNodeId);
                             logger.info("===============================================");
                         } finally {
                             latch.countDown();
