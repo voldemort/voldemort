@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -21,6 +21,8 @@ import org.apache.avro.ipc.HandshakeRequest;
 import org.apache.avro.ipc.MD5;
 import org.apache.avro.specific.SpecificRecord;
 import org.apache.avro.util.Utf8;
+
+import voldemort.utils.ByteUtils;
 
 /**
  * Tests the serialization using the Avro specific approach.
@@ -49,6 +51,9 @@ public class AvroSpecificSerializerTest extends TestCase {
 
         AvroSpecificSerializer<HandshakeRequest> serializer = new AvroSpecificSerializer<HandshakeRequest>(className);
         byte[] bytes = serializer.toBytes(req);
+        byte[] bytes2 = serializer.toBytes(req);
+        assertEquals(ByteUtils.compare(bytes, bytes2), 0);
         assertTrue(serializer.toObject(bytes).equals(req));
+        assertTrue(serializer.toObject(bytes2).equals(req));
     }
 }
