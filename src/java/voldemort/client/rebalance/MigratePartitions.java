@@ -30,6 +30,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -217,6 +218,7 @@ public class MigratePartitions {
         }
         final int total = i * storeNames.size();
         final AtomicInteger completed = new AtomicInteger(0);
+        final long startTime = System.currentTimeMillis();
         try {
             changeToGrandfather();
 
@@ -268,7 +270,11 @@ public class MigratePartitions {
                                                             + nodeId + " to "+
                                                             + stealerNodeId);
                                                 pending.remove(nodeId);
-                                                logger.info("Finished " + completed.getAndIncrement() + " out of " + total + " tasks");
+                                                logger.info("Finished " + completed.incrementAndGet() + " out of " + total + " tasks");
+                                                long msPerMigration = (System.currentTimeMillis() - startTime) / completed.get();
+                                                long etaSeconds = (total - completed.get()) * msPerMigration / Time.MS_PER_SECOND;
+                                                logger.info("Current velocity " + msPerMigration / Time.MS_PER_SECOND + " seconds for each task");
+                                                logger.info("Time until finished " + etaSeconds + " seconds");
                                             }
                                             if(pending.isEmpty())
                                                 break;
