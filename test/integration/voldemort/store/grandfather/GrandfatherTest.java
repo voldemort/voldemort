@@ -854,6 +854,12 @@ public class GrandfatherTest {
     }
 
     protected void stopServer(List<Node> nodesToStop) throws IOException {
+        try {
+            Thread.sleep(10000);
+        } catch(InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         for(Node node: nodesToStop) {
             try {
                 ServerTestUtils.stopVoldemortServer(serverMap.get(node.getId()));
