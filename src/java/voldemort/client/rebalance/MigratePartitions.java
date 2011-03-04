@@ -29,6 +29,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -244,7 +245,7 @@ public class MigratePartitions {
                                 logger.info("- Working on store " + storeName);
 
                                 HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
-                                Set<Integer> pending = Sets.newHashSet(nodeIdToRequestId.keySet());
+                                Set<Pair<Integer, Integer>> pending = Sets.newHashSet();
                                 for(RebalancePartitionsInfo r: partitionInfo) {
                                     logger.info("-- Started migration for donor node id " + r);
                                     if(!simulation) {
@@ -255,7 +256,7 @@ public class MigratePartitions {
                                                                                   null);
                                         nodeIdToRequestId.put(r.getDonorId(),
                                                               attemptId);
-                                        pending.add(attemptId);
+                                        pending.add(Pair.create(r.getDonorId(), attemptId));
                                     }
 
                                 }
@@ -271,11 +272,11 @@ public class MigratePartitions {
                                         logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
                                                     + status.getStatus());
                                         if(status.isComplete()) {
-                                            if(pending.contains(attemptId)) {
+                                            if(pending.contains(Pair.create(nodeId, attemptId))) {
                                                 logger.info("-- Completed migration from "
                                                             + nodeId + " to "+
                                                             + stealerNodeId);
-                                                pending.remove(attemptId);
+                                                pending.remove(Pair.create(nodeId, attemptId));
                                                 logger.info("Finished " + completed.incrementAndGet() + " out of " + total + " tasks");
                                                 long msPerMigration = (System.currentTimeMillis() - startTime) / completed.get();
                                                 long etaSeconds = (total - completed.get()) * msPerMigration / Time.MS_PER_SECOND;
