@@ -30,7 +30,7 @@ import voldemort.serialization.Serializer;
  * languages is available, a semi-colon separated list will be accepted for the
  * schema-info element (one for each language).
  */
-public class ThriftSerializer<T extends TBase<?>> implements Serializer<T> {
+public class ThriftSerializer<T extends TBase<?, ?>> implements Serializer<T> {
 
     private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=com.xyz.Foo,protocol=binary</schema-info> where com.xyz.Foo is the fully qualified name of the message.";
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,15 +15,13 @@
  */
 package voldemort.serialization.avro;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.avro.file.DataFileStream;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.reflect.ReflectData;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.avro.reflect.ReflectDatumWriter;
 
@@ -49,7 +47,9 @@ import voldemort.serialization.Serializer;
  * <strong>For now we only support the class case.</strong>
  * </p>
  * 
- * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/reflect/package-summary.html
+ * @see http 
+ *      ://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/reflect
+ *      /package-summary.html
  */
 public class AvroReflectiveSerializer<T> implements Serializer<T> {
 
@@ -59,7 +59,7 @@ public class AvroReflectiveSerializer<T> implements Serializer<T> {
      * Constructor accepting a Java class name under the convention
      * java=classname.
      * 
-     * @param schemaInfo information on the schema for the serializer.
+     * @param schemaInfo information on the schema for the serializer
      */
     @SuppressWarnings("unchecked")
     public AvroReflectiveSerializer(String schemaInfo) {
@@ -72,32 +72,28 @@ public class AvroReflectiveSerializer<T> implements Serializer<T> {
 
     public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        DataFileWriter<T> writer = null;
+        Encoder encoder = new BinaryEncoder(output);
+        ReflectDatumWriter<T> datumWriter = null;
         try {
-            DatumWriter<T> datumWriter = new ReflectDatumWriter<T>(clazz);
-
-            writer = new DataFileWriter<T>(datumWriter).create(ReflectData.get().getSchema(clazz),
-                                                               output);
-            writer.append(object);
+            datumWriter = new ReflectDatumWriter<T>(clazz);
+            datumWriter.write(object, encoder);
+            encoder.flush();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            AvroUtils.close(writer);
+            SerializationUtils.close(output);
         }
         return output.toByteArray();
     }
 
     public T toObject(byte[] bytes) {
-        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        DataFileStream<T> reader = null;
+        Decoder decoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes, null);
+        ReflectDatumReader<T> reader = null;
         try {
-            DatumReader<T> datumReader = new ReflectDatumReader<T>(clazz);
-            reader = new DataFileStream<T>(input, datumReader);
-            return reader.next();
+            reader = new ReflectDatumReader<T>(clazz);
+            return reader.read(null, decoder);
         } catch(IOException e) {
             throw new SerializationException(e);
-        } finally {
-            AvroUtils.close(reader);
         }
     }
 }

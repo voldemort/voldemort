@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,19 +15,19 @@
  */
 package voldemort.serialization.avro;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileStream;
-import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
 
 import voldemort.serialization.SerializationException;
+import voldemort.serialization.SerializationUtils;
 import voldemort.serialization.Serializer;
 
 /**
@@ -35,7 +35,9 @@ import voldemort.serialization.Serializer;
  * representation is best for applications which deal with dynamic data, whose
  * schemas are not known until runtime.
  * 
- * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic/package-summary.html
+ * @see http 
+ *      ://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic
+ *      /package-summary.html
  */
 public class AvroGenericSerializer implements Serializer<Object> {
 
@@ -52,31 +54,28 @@ public class AvroGenericSerializer implements Serializer<Object> {
 
     public byte[] toBytes(Object object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        DataFileWriter<Object> writer = null;
+        Encoder encoder = new BinaryEncoder(output);
+        GenericDatumWriter<Object> datumWriter = null;
         try {
-            DatumWriter<Object> datumWriter = new GenericDatumWriter<Object>(typeDef);
-
-            writer = new DataFileWriter<Object>(datumWriter).create(typeDef, output);
-            writer.append(object);
+            datumWriter = new GenericDatumWriter<Object>(typeDef);
+            datumWriter.write(object, encoder);
+            encoder.flush();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            AvroUtils.close(writer);
+            SerializationUtils.close(output);
         }
         return output.toByteArray();
     }
 
     public Object toObject(byte[] bytes) {
-        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        DataFileStream<Object> reader = null;
+        Decoder decoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes, null);
+        GenericDatumReader<Object> reader = null;
         try {
-            DatumReader<Object> datumReader = new GenericDatumReader<Object>(typeDef);
-            reader = new DataFileStream<Object>(input, datumReader);
-            return reader.next();
+            reader = new GenericDatumReader<Object>(typeDef);
+            return reader.read(null, decoder);
         } catch(IOException e) {
             throw new SerializationException(e);
-        } finally {
-            AvroUtils.close(reader);
         }
     }
 }
