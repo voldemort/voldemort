@@ -131,9 +131,11 @@ public class ClusterMapper {
         int zoneId = Integer.parseInt(zone.getChildText(ZONE_ID_ELMT));
         String proximityListTest = zone.getChildText(ZONE_PROXIMITY_LIST_ELMT).trim();
         LinkedList<Integer> proximityList = new LinkedList<Integer>();
-        for(String node: COMMA_SEP.split(proximityListTest))
-            if(node.trim().length() > 0)
-                proximityList.add(Integer.parseInt(node.trim()));
+        for(String node: COMMA_SEP.split(proximityListTest)) {
+            node = node.trim();
+            if(node.length() > 0)
+                proximityList.add(Integer.parseInt(node));
+        }
         return new Zone(zoneId, proximityList);
     }
 
@@ -150,9 +152,11 @@ public class ClusterMapper {
                                                                 : Zone.DEFAULT_ZONE_ID;
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
-        for(String aPartition: COMMA_SEP.split(partitionsText))
-            if(aPartition.trim().length() > 0)
-                partitions.add(Integer.parseInt(aPartition.trim()));
+        for(String aPartition: COMMA_SEP.split(partitionsText)) {
+            aPartition = aPartition.trim();
+            if(aPartition.length() > 0)
+                partitions.add(Integer.parseInt(aPartition));
+        }
 
         return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
     }
