@@ -244,33 +244,38 @@ public class MigratePartitions {
                                 logger.info("- Working on store " + storeName);
 
                                 HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
+                                Set<Integer> pending = Sets.newHashSet(nodeIdToRequestId.keySet());
                                 for(RebalancePartitionsInfo r: partitionInfo) {
                                     logger.info("-- Started migration for donor node id " + r);
-                                    if(!simulation)
+                                    if(!simulation) {
+                                        int attemptId = adminClient.migratePartitions(r.getDonorId(),
+                                                                                  stealerNodeId,
+                                                                                  storeName,
+                                                                                  r.getPartitionList(),
+                                                                                  null);
                                         nodeIdToRequestId.put(r.getDonorId(),
-                                                              adminClient.migratePartitions(r.getDonorId(),
-                                                                                            stealerNodeId,
-                                                                                            storeName,
-                                                                                            r.getPartitionList(),
-                                                                                            null));
+                                                              attemptId);
+                                        pending.add(attemptId);
+                                    }
 
                                 }
 
                                 // Now that we started parallel migration for one store,
                                 // wait for it to complete
-                                Set<Integer> pending = Sets.newHashSet(nodeIdToRequestId.keySet());
+
                                 while(!pending.isEmpty()) {
                                     for(int nodeId: nodeIdToRequestId.keySet()) {
+                                        Integer attemptId = nodeIdToRequestId.get(nodeId);
                                         AsyncOperationStatus status = adminClient.getAsyncRequestStatus(stealerNodeId,
-                                                                                                        nodeIdToRequestId.get(nodeId));
+                                                                                                        attemptId);
                                         logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
                                                     + status.getStatus());
                                         if(status.isComplete()) {
-                                            if(pending.contains(nodeId)) {
+                                            if(pending.contains(attemptId)) {
                                                 logger.info("-- Completed migration from "
                                                             + nodeId + " to "+
                                                             + stealerNodeId);
-                                                pending.remove(nodeId);
+                                                pending.remove(attemptId);
                                                 logger.info("Finished " + completed.incrementAndGet() + " out of " + total + " tasks");
                                                 long msPerMigration = (System.currentTimeMillis() - startTime) / completed.get();
                                                 long etaSeconds = (total - completed.get()) * msPerMigration / Time.MS_PER_SECOND;
