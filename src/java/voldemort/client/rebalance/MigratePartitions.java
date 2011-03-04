@@ -219,6 +219,7 @@ public class MigratePartitions {
         final int total = i * storeNames.size();
         final AtomicInteger completed = new AtomicInteger(0);
         final long startTime = System.currentTimeMillis();
+        logger.info("================ There are " + total + " tasks to do! ============== ");
         try {
             changeToGrandfather();
 
