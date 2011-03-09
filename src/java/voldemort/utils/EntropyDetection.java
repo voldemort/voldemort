@@ -164,8 +164,6 @@ public class EntropyDetection {
 
                         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                       cluster);
-                        RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(false,
-                                                                                                         false);
                         // Cache connections to all nodes for this store
                         // in advance
                         HashMap<Integer, Store<ByteArray, byte[], byte[]>> socketStoresPerNode = Maps.newHashMap();
@@ -174,8 +172,8 @@ public class EntropyDetection {
                                                     socketStoreFactory.create(storeDef.getName(),
                                                                               node.getHost(),
                                                                               node.getSocketPort(),
-                                                                              RequestFormatType.VOLDEMORT_V1,
-                                                                              requestRoutingType));
+                                                                              RequestFormatType.PROTOCOL_BUFFERS,
+                                                                              RequestRoutingType.IGNORE_CHECKS));
                         }
 
                         long foundKeys = 0L;
