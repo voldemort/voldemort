@@ -33,6 +33,8 @@ import joptsimple.OptionSet;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.LineIterator;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -176,14 +178,52 @@ public abstract class VoldemortApp {
     }
 
     protected List<HostNamePair> getHostNamesPairsFromFile(File file) {
-        Map<String, String> properties = getRequiredPropertiesFile(file);
         List<HostNamePair> hostNamePairs = new ArrayList<HostNamePair>();
 
-        for(Map.Entry<String, String> entry: properties.entrySet()) {
-            String externalHostName = entry.getKey();
-            String internalHostName = entry.getValue() != null ? entry.getValue()
-                                                              : externalHostName;
-            hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
+        // This was recently changed from using Properties to performing the
+        // file parsing manually. This is due to the fact that we want to
+        // maintain the ordering in the file. Line N in the host names file
+        // should correspond to node ID N-1. Previously they were in hashed
+        // order, so certain tools that auto-configure a cluster based on
+        // this same hosts file were creating invalid configurations between
+        // the cluster.xml and server.properties (node.id) files.
+        LineIterator li = null;
+        int lineNumber = 0;
+
+        try {
+            li = FileUtils.lineIterator(file);
+
+            while(li.hasNext()) {
+                String rawLine = String.valueOf(li.next()).trim();
+                lineNumber++;
+
+                // Strip comments
+                int hashIndex = rawLine.indexOf("#");
+
+                if(hashIndex != -1)
+                    rawLine = rawLine.substring(0, hashIndex).trim();
+
+                // Whitespace
+                if(rawLine.length() == 0)
+                    continue;
+
+                String[] line = StringUtils.split(rawLine, " \t=:");
+
+                if(line.length < 1 || line.length > 2) {
+                    System.err.println("Invalid entry (line " + lineNumber + ") in "
+                                       + file.getAbsolutePath() + ": " + rawLine);
+                    System.exit(2);
+                }
+
+                String externalHostName = line[0];
+                String internalHostName = line.length > 1 ? line[1] : externalHostName;
+                hostNamePairs.add(new HostNamePair(externalHostName, internalHostName));
+            }
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if(li != null)
+                li.close();
         }
 
         return hostNamePairs;

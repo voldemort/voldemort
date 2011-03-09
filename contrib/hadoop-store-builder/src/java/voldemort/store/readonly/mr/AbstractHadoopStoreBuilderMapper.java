@@ -112,10 +112,10 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
                              4 + 4 + 4 + keyBytes.length + 4,
                              valBytes.length);
 
-            // generate key - upper 4 bytes of 16 byte md5
+            // generate key - upper 8 bytes of 16 byte md5
             outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
                                                          0,
-                                                         ByteUtils.SIZE_OF_INT));
+                                                         2 * ByteUtils.SIZE_OF_INT));
 
         } else {
             // 4 ( for node id ) + 4 ( partition id )

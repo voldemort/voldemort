@@ -131,6 +131,7 @@ public class HadoopStoreBuilder {
             job.getConfiguration().setBoolean("save.keys", saveKeys);
             job.getConfiguration().set("final.output.dir", outputDir.toString());
             job.getConfiguration().set("checksum.type", CheckSum.toString(checkSumType));
+            job.getConfiguration().setBoolean("mapred.reduce.tasks.speculative.execution", false);
             job.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
             job.setMapperClass(mapperClass);
             job.setMapOutputKeyClass(BytesWritable.class);
@@ -208,19 +209,33 @@ public class HadoopStoreBuilder {
 
                     if(storeFiles != null && storeFiles.length > 0) {
                         Arrays.sort(storeFiles, new IndexFileLastComparator());
+                        FSDataInputStream input = null;
 
                         for(FileStatus file: storeFiles) {
-                            FSDataInputStream input = outputFs.open(file.getPath());
-                            byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                            input.read(fileCheckSum);
-                            checkSumGenerator.update(fileCheckSum);
-                            outputFs.delete(file.getPath(), true);
+                            try {
+                                input = outputFs.open(file.getPath());
+                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                             + new String(Hex.encodeHex(fileCheckSum)));
+                                checkSumGenerator.update(fileCheckSum);
+                            } catch(Exception e) {
+                                logger.error("Error while reading checksum file " + e.getMessage(),
+                                             e);
+                            } finally {
+                                if(input != null)
+                                    input.close();
+                            }
+                            outputFs.delete(file.getPath(), false);
                         }
 
                         metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
                                      CheckSum.toString(checkSumType));
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM,
-                                     new String(Hex.encodeHex(checkSumGenerator.getCheckSum())));
+
+                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
+                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
                     }
                 }
 

@@ -72,7 +72,7 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {
-            return new ThriftSerializer<TBase<?>>(serializerDef.getCurrentSchemaInfo());
+            return new ThriftSerializer<TBase<?,?>>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_GENERIC_TYPE_NAME)) {
             return new AvroGenericSerializer(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_SPECIFIC_TYPE_NAME)) {

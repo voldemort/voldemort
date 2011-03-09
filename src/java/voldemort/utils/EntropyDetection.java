@@ -36,6 +36,14 @@ public class EntropyDetection {
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
+        parser.accepts("node", "Node id")
+              .withRequiredArg()
+              .describedAs("node-id")
+              .ofType(Integer.class);
+        parser.accepts("threads", "Number of threads")
+              .withRequiredArg()
+              .describedAs("threads")
+              .ofType(Integer.class);
         parser.accepts("cluster-xml", "[REQUIRED] Path to cluster-xml")
               .withRequiredArg()
               .describedAs("xml")
@@ -78,6 +86,8 @@ public class EntropyDetection {
         String outputDirPath = (String) options.valueOf("output-dir");
         int opType = CmdUtils.valueOf(options, "op", 0);
         long numKeys = CmdUtils.valueOf(options, "num-keys", 100L);
+        int nodeId = CmdUtils.valueOf(options, "node", 0);
+        int numThreads = CmdUtils.valueOf(options, "threads", 10);
 
         File outputDir = new File(outputDirPath);
 
@@ -94,16 +104,17 @@ public class EntropyDetection {
             System.exit(1);
         }
 
-        AdminClient adminClient = null;
-        try {
 
-            // Parse the metadata
-            Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
-            List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
+        // Parse the metadata
+        Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
+        List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
-            adminClient = new AdminClient(cluster, new AdminClientConfig().setMaxThreads(10));
-
-            for(StoreDefinition storeDef: storeDefs) {
+        for(StoreDefinition storeDef: storeDefs) {
+            AdminClient adminClient = null;
+            try {
+                adminClient =  new AdminClient(cluster, new AdminClientConfig().setAdminConnectionTimeoutSec(60 * 60 * 2)
+                                                                                           .setAdminSocketTimeoutSec(60 * 60 *2)
+                                                                                           .setMaxThreads(numThreads));
                 File storesKeyFile = new File(outputDir, storeDef.getName());
                 if(AdminClient.restoreStoreEngineBlackList.contains(storeDef.getType())) {
                     System.out.println("Ignoring store " + storeDef.getName());
@@ -122,12 +133,12 @@ public class EntropyDetection {
                         FileOutputStream writer = null;
                         try {
                             writer = new FileOutputStream(storesKeyFile);
-                            Iterator<ByteArray> keys = adminClient.fetchKeys(0,
+                            Iterator<ByteArray> keys = adminClient.fetchKeys(nodeId,
                                                                              storeDef.getName(),
                                                                              cluster.getNodeById(0)
                                                                                     .getPartitionIds(),
-                                                                             null,
-                                                                             false);
+                                                                         null,
+                                                                         false);
                             for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
                                 ByteArray key = keys.next();
                                 writer.write(key.length());
@@ -182,7 +193,7 @@ public class EntropyDetection {
                                 byte[] key = new byte[size];
                                 reader.read(key);
 
-                                List<Node> responsibleNodes = strategy.routeRequest(key);
+                            List<Node> responsibleNodes = strategy.routeRequest(key);
                                 boolean missingKey = false;
                                 for(Node node: responsibleNodes) {
                                     List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
@@ -202,7 +213,7 @@ public class EntropyDetection {
                             System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
                             if(foundKeys > 0 && totalKeys > 0) {
                                 System.out.println("%age found - " + 100.0 * (double) foundKeys
-                                                   / totalKeys);
+                                                                     / totalKeys);
                             }
                         } finally {
                             if(reader != null)
@@ -215,10 +226,9 @@ public class EntropyDetection {
                         }
                         break;
                 }
-            }
-        } finally {
-            if(adminClient != null)
+            } finally {
                 adminClient.stop();
+            }
         }
     }
 }

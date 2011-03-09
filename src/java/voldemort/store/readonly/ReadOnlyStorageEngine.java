@@ -380,7 +380,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         return new ROEntriesIterator(fileSet);
     }
 
-    private abstract static class ROIterator<T> implements ClosableIterator<T> {
+    private abstract class ROIterator<T> implements ClosableIterator<T> {
 
         protected ChunkedFileSet chunkedFileSet;
         protected int currentChunk;
@@ -395,9 +395,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             this.currentOffsetInChunk = 0;
             this.tupleCount = 0;
             this.chunksFinished = false;
+            fileModificationLock.readLock().lock();
         }
 
-        public void close() {}
+        public void close() {
+            fileModificationLock.readLock().unlock();
+        }
 
         public abstract T next();
 
@@ -450,7 +453,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
-    private static class ROKeyIterator extends ROIterator<ByteArray> {
+    private class ROKeyIterator extends ROIterator<ByteArray> {
 
         public ROKeyIterator(ChunkedFileSet chunkedFileSet) {
             super(chunkedFileSet);
@@ -490,7 +493,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
-    private static class ROEntriesIterator extends ROIterator<Pair<ByteArray, Versioned<byte[]>>> {
+    private class ROEntriesIterator extends ROIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
         public ROEntriesIterator(ChunkedFileSet chunkedFileSet) {
             super(chunkedFileSet);

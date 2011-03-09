@@ -17,6 +17,7 @@ public class StoreDefinitionBuilder {
 
     private String name = null;
     private String type = null;
+    private String description = null;
     private SerializerDefinition keySerializer = null;
     private SerializerDefinition valueSerializer = null;
     private SerializerDefinition transformsSerializer = null;
@@ -53,6 +54,15 @@ public class StoreDefinitionBuilder {
 
     public StoreDefinitionBuilder setType(String type) {
         this.type = Utils.notNull(type);
+        return this;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public StoreDefinitionBuilder setDescription(String description) {
+        this.description = description;
         return this;
     }
 
@@ -255,6 +265,7 @@ public class StoreDefinitionBuilder {
     public StoreDefinition build() {
         return new StoreDefinition(this.getName(),
                                    this.getType(),
+                                   this.getDescription(),
                                    this.getKeySerializer(),
                                    this.getValueSerializer(),
                                    this.getTransformsSerializer(),

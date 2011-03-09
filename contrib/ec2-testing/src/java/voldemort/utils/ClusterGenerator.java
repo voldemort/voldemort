@@ -257,6 +257,9 @@ public class ClusterGenerator {
         for(ClusterNodeDescriptor cnd: clusterNodeDescriptors) {
             String partitions = StringUtils.join(cnd.getPartitions(), ", ");
 
+            if(nodesBuffer.length() > 0)
+                nodesBuffer.append("\n");
+
             nodesBuffer.append("\t<server>\n");
             nodesBuffer.append("\t\t<id>" + cnd.getId() + "</id>\n");
             nodesBuffer.append("\t\t<host>" + cnd.getHostName() + "</host>\n");

@@ -153,7 +153,8 @@ public class JsonStoreBuilder {
         parser.accepts("gzip", "compress intermediate chunk files");
         parser.accepts("format",
                        "read-only store format [" + ReadOnlyStorageFormat.READONLY_V0.getCode()
-                               + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + " (default)]")
+                               + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + ","
+                               + ReadOnlyStorageFormat.READONLY_V2.getCode() + "]")
               .withRequiredArg()
               .ofType(String.class);
         OptionSet options = parser.parse(args);
@@ -208,7 +209,7 @@ public class JsonStoreBuilder {
                 Utils.croak("No store found with name \"" + storeName + "\"");
 
             if(!outputDir.exists())
-                Utils.croak("Directory \"" + outputDir.getAbsolutePath() + " does not exist.");
+                Utils.croak("Directory \"" + outputDir.getAbsolutePath() + "\" does not exist.");
 
             RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                  cluster);
@@ -503,7 +504,7 @@ public class JsonStoreBuilder {
 
                 indexes[nodeId][chunk].write(ByteUtils.copy(currentPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT));
+                                                            2 * ByteUtils.SIZE_OF_INT));
                 indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
 
                 int tuples = 0;
@@ -527,10 +528,10 @@ public class JsonStoreBuilder {
                 } while(currentPair != null
                         && ByteUtils.compare(ByteUtils.copy(prevPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT),
+                                                            2 * ByteUtils.SIZE_OF_INT),
                                              ByteUtils.copy(currentPair.keyMd5,
                                                             0,
-                                                            ByteUtils.SIZE_OF_INT)) == 0);
+                                                            2 * ByteUtils.SIZE_OF_INT)) == 0);
 
                 valueStream.flush();
 

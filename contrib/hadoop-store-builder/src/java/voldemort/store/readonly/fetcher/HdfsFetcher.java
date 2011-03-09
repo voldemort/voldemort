@@ -59,7 +59,7 @@ import voldemort.utils.Utils;
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
-    private static final long REPORTING_INTERVAL_BYTES = 100 * 1024 * 1024;
+    private static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
     private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
@@ -144,21 +144,11 @@ public class HdfsFetcher implements FileFetcher {
                     // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
-                        // Read checksum
-                        checkSumType = CheckSum.fromString(status.getPath().getName());
-
-                        // Get checksum generators
-                        checkSumGenerator = CheckSum.getInstance(checkSumType);
-                        fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
-
-                        // Store original checksum to compare
-                        FSDataInputStream input = fs.open(status.getPath());
-                        origCheckSum = new byte[CheckSum.checkSumLength(checkSumType)];
-                        input.read(origCheckSum);
-                        input.close();
+                        // Ignore old checksum files 
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 
+                        logger.debug("Reading .metadata");
                         // Read metadata into local file
                         File copyLocation = new File(dest, status.getPath().getName());
                         copyFileWithCheckSum(fs, status.getPath(), copyLocation, stats, null);
@@ -186,6 +176,8 @@ public class HdfsFetcher implements FileFetcher {
                                 continue;
                             }
 
+                            logger.debug("Checksum from .metadata "
+                                         + new String(Hex.encodeHex(origCheckSum)));
                             checkSumType = CheckSum.fromString(checkSumTypeString);
                             checkSumGenerator = CheckSum.getInstance(checkSumType);
                             fileCheckSumGenerator = CheckSum.getInstance(checkSumType);
@@ -202,7 +194,10 @@ public class HdfsFetcher implements FileFetcher {
                                              fileCheckSumGenerator);
 
                         if(fileCheckSumGenerator != null && checkSumGenerator != null) {
-                            checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
+                            byte[] checkSum = fileCheckSumGenerator.getCheckSum();
+                            logger.debug("Checksum for " + status.getPath() + " - "
+                                         + new String(Hex.encodeHex(checkSum)));
+                            checkSumGenerator.update(checkSum);
                         }
                     }
 
@@ -214,7 +209,12 @@ public class HdfsFetcher implements FileFetcher {
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
                     boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+
+                    logger.info("Checksum generated from streaming - "
+                                + new String(Hex.encodeHex(newCheckSum)));
+                    logger.info("Checksum on file - " + new String(Hex.encodeHex(origCheckSum)));
                     logger.info("Check-sum verification - " + checkSumComparison);
+
                     return checkSumComparison;
                 } else {
                     logger.info("No check-sum verification required");

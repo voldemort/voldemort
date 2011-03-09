@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -13,16 +13,18 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package voldemort.serialization;
 
-import org.apache.commons.lang.StringUtils;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
-/**
- * A set of Utils methods that are reused in different serializers.
- */
+import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+
 public class SerializationUtils {
 
-    private static final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
+    private static final Logger logger = Logger.getLogger(SerializationUtils.class);
 
     /**
      * Extracts the java class name from the schema info
@@ -31,6 +33,8 @@ public class SerializationUtils {
      * @return the name of the class extracted from the schema info
      */
     public static String getJavaClassFromSchemaInfo(String schemaInfo) {
+        final String ONLY_JAVA_CLIENTS_SUPPORTED = "Only Java clients are supported currently, so the format of the schema-info should be: <schema-info>java=foo.Bar</schema-info> where foo.Bar is the fully qualified name of the message.";
+
         if(StringUtils.isEmpty(schemaInfo))
             throw new IllegalArgumentException("This serializer requires a non-empty schema-info.");
 
@@ -44,4 +48,15 @@ public class SerializationUtils {
 
         return javaPair[1].trim();
     }
+
+    public static void close(ByteArrayOutputStream stream) {
+        if(stream != null) {
+            try {
+                stream.close();
+            } catch(IOException e) {
+                logger.error("Failed to close stream", e);
+            }
+        }
+    }
+
 }
