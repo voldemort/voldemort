@@ -16,21 +16,25 @@
 
 package voldemort.store.readonly.mr;
 
-import java.io.DataInputStream;
 import java.io.File;
-import java.io.FileInputStream;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import junit.framework.TestCase;
-
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.TextInputFormat;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -45,10 +49,13 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.readonly.BinarySearchStrategy;
+import voldemort.store.readonly.InterpolationSearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.SearchStrategy;
+import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
@@ -63,8 +70,24 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
+@RunWith(Parameterized.class)
 @SuppressWarnings("deprecation")
-public class HadoopStoreBuilderTest extends TestCase {
+public class HadoopStoreBuilderTest {
+
+    private SearchStrategy searchStrategy;
+    private boolean saveKeys;
+
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { new BinarySearchStrategy(), true },
+                { new InterpolationSearchStrategy(), true }, { new BinarySearchStrategy(), false },
+                { new InterpolationSearchStrategy(), false } });
+    }
+
+    public HadoopStoreBuilderTest(SearchStrategy searchStrategy, boolean saveKeys) {
+        this.saveKeys = saveKeys;
+        this.searchStrategy = searchStrategy;
+    }
 
     public static class TextStoreMapper extends
             AbstractHadoopStoreBuilderMapper<LongWritable, Text> {
@@ -89,6 +112,7 @@ public class HadoopStoreBuilderTest extends TestCase {
      * 
      * @throws Exception
      */
+    @Test
     public void testRowsLessThanNodes() throws Exception {
         Map<String, String> values = new HashMap<String, String>();
         File testDir = TestUtils.createTempDir();
@@ -128,16 +152,19 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             64 * 1024,
                                                             new Path(tempDir.getAbsolutePath()),
                                                             new Path(outputDir.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
-        assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
+        Assert.assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
         for(File f: outputDir.listFiles()) {
-            assertFalse(f.toString().contains("node--1"));
+            Assert.assertFalse(f.toString().contains("node--1"));
         }
     }
 
+    @Test
     public void testHadoopBuild() throws Exception {
         // create test data
         Map<String, String> values = new HashMap<String, String>();
@@ -181,7 +208,9 @@ public class HadoopStoreBuilderTest extends TestCase {
                                                             64 * 1024,
                                                             new Path(tempDir2.getAbsolutePath()),
                                                             new Path(outputDir2.getAbsolutePath()),
-                                                            new Path(inputFile.getAbsolutePath()));
+                                                            new Path(inputFile.getAbsolutePath()),
+                                                            CheckSumType.MD5,
+                                                            saveKeys);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),
@@ -193,7 +222,8 @@ public class HadoopStoreBuilderTest extends TestCase {
                                          new Path(tempDir.getAbsolutePath()),
                                          new Path(outputDir.getAbsolutePath()),
                                          new Path(inputFile.getAbsolutePath()),
-                                         CheckSumType.MD5);
+                                         CheckSumType.MD5,
+                                         saveKeys);
         builder.build();
 
         // Check if checkSum is generated in outputDir
@@ -201,24 +231,24 @@ public class HadoopStoreBuilderTest extends TestCase {
 
         // Check if metadata file exists
         File metadataFile = new File(nodeFile, ".metadata");
-        assertTrue(metadataFile.exists());
+        Assert.assertTrue(metadataFile.exists());
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(metadataFile);
-        assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
-                     ReadOnlyStorageFormat.READONLY_V1.getCode());
+        if(saveKeys)
+            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+                                ReadOnlyStorageFormat.READONLY_V2.getCode());
+        else
+            Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
+                                ReadOnlyStorageFormat.READONLY_V1.getCode());
 
-        File checkSumFile = new File(nodeFile, "md5checkSum.txt");
-        assertTrue(checkSumFile.exists());
+        Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
+                            CheckSum.toString(CheckSumType.MD5));
 
         // Check contents of checkSum file
-        byte[] md5 = new byte[16];
-        DataInputStream in = new DataInputStream(new FileInputStream(checkSumFile));
-        in.read(md5);
-        in.close();
-
+        byte[] md5 = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
-        assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
+        Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
 
         // check if fetching works
         HdfsFetcher fetcher = new HdfsFetcher();
@@ -226,13 +256,13 @@ public class HadoopStoreBuilderTest extends TestCase {
         // Fetch to version directory
         File versionDir = new File(storeDir, "version-0");
         fetcher.fetch(nodeFile.getAbsolutePath(), versionDir.getAbsolutePath());
-        assertTrue(versionDir.exists());
+        Assert.assertTrue(versionDir.exists());
 
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
         Store<Object, Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
-                                                                                              new BinarySearchStrategy(),
+                                                                                              searchStrategy,
                                                                                               new RoutingStrategyFactory().updateRoutingStrategy(def,
                                                                                                                                                  cluster),
                                                                                               0,
@@ -245,8 +275,8 @@ public class HadoopStoreBuilderTest extends TestCase {
         // check values
         for(Map.Entry<String, String> entry: values.entrySet()) {
             List<Versioned<Object>> found = store.get(entry.getKey(), null);
-            assertEquals("Incorrect number of results", 1, found.size());
-            assertEquals(entry.getValue(), found.get(0).getValue());
+            Assert.assertEquals("Incorrect number of results", 1, found.size());
+            Assert.assertEquals(entry.getValue(), found.get(0).getValue());
         }
     }
 }

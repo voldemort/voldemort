@@ -4,36 +4,56 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.client.ClientConfig;
-import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.StoreClient;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
+import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.RequestRoutingType;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 
 public class EntropyDetection {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("cast")
     public static void main(String args[]) throws IOException {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
-        parser.accepts("url", "[REQUIRED] bootstrap URL")
+        parser.accepts("node", "Node id")
               .withRequiredArg()
-              .describedAs("bootstrap-url")
+              .describedAs("node-id")
+              .ofType(Integer.class);
+        parser.accepts("threads", "Number of threads")
+              .withRequiredArg()
+              .describedAs("threads")
+              .ofType(Integer.class);
+        parser.accepts("cluster-xml", "[REQUIRED] Path to cluster-xml")
+              .withRequiredArg()
+              .describedAs("xml")
               .ofType(String.class);
-        parser.accepts("output-dir", "[REQUIRED] The output directory where we'll store the keys")
+        parser.accepts("stores-xml", "[REQUIRED] Path to stores-xml")
+              .withRequiredArg()
+              .describedAs("xml")
+              .ofType(String.class);
+        parser.accepts("output-dir",
+                       "[REQUIRED] The output directory where we'll store / retrieve the keys")
               .withRequiredArg()
               .describedAs("output-dir")
               .ofType(String.class);
@@ -53,7 +73,7 @@ public class EntropyDetection {
             System.exit(0);
         }
 
-        Set<String> missing = CmdUtils.missing(options, "url", "output-dir");
+        Set<String> missing = CmdUtils.missing(options, "cluster-xml", "stores-xml", "output-dir");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
@@ -61,10 +81,13 @@ public class EntropyDetection {
         }
 
         // compulsory params
-        String url = (String) options.valueOf("url");
+        String clusterXml = (String) options.valueOf("cluster-xml");
+        String storesXml = (String) options.valueOf("stores-xml");
         String outputDirPath = (String) options.valueOf("output-dir");
         int opType = CmdUtils.valueOf(options, "op", 0);
         long numKeys = CmdUtils.valueOf(options, "num-keys", 100L);
+        int nodeId = CmdUtils.valueOf(options, "node", 0);
+        int numThreads = CmdUtils.valueOf(options, "threads", 10);
 
         File outputDir = new File(outputDirPath);
 
@@ -76,15 +99,22 @@ public class EntropyDetection {
             System.exit(1);
         }
 
-        AdminClient adminClient = null;
-        try {
-            adminClient = new AdminClient(url, new AdminClientConfig().setMaxThreads(10));
+        if(!Utils.isReadableFile(clusterXml) || !Utils.isReadableFile(storesXml)) {
+            System.err.println("Cannot read metadata file ");
+            System.exit(1);
+        }
 
-            // Get store definition meta-data from node 0
-            List<StoreDefinition> storeDefs = adminClient.getRemoteStoreDefList(0).getValue();
-            Cluster cluster = adminClient.getAdminClientCluster();
 
-            for(StoreDefinition storeDef: storeDefs) {
+        // Parse the metadata
+        Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
+        List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
+
+        for(StoreDefinition storeDef: storeDefs) {
+            AdminClient adminClient = null;
+            try {
+                adminClient =  new AdminClient(cluster, new AdminClientConfig().setAdminConnectionTimeoutSec(60 * 60 * 2)
+                                                                                           .setAdminSocketTimeoutSec(60 * 60 *2)
+                                                                                           .setMaxThreads(numThreads));
                 File storesKeyFile = new File(outputDir, storeDef.getName());
                 if(AdminClient.restoreStoreEngineBlackList.contains(storeDef.getType())) {
                     System.out.println("Ignoring store " + storeDef.getName());
@@ -103,12 +133,12 @@ public class EntropyDetection {
                         FileOutputStream writer = null;
                         try {
                             writer = new FileOutputStream(storesKeyFile);
-                            Iterator<ByteArray> keys = adminClient.fetchKeys(0,
+                            Iterator<ByteArray> keys = adminClient.fetchKeys(nodeId,
                                                                              storeDef.getName(),
                                                                              cluster.getNodeById(0)
                                                                                     .getPartitionIds(),
-                                                                             null,
-                                                                             false);
+                                                                         null,
+                                                                         false);
                             for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
                                 ByteArray key = keys.next();
                                 writer.write(key.length());
@@ -127,11 +157,27 @@ public class EntropyDetection {
                             continue;
                         }
                         FileInputStream reader = null;
-                        SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(url));
-                        StoreClient storeClient = socketFactory.getStoreClient(storeDef.getName());
+                        SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
+                                                                                              10000,
+                                                                                              100000,
+                                                                                              32 * 1024);
 
-                        DefaultSerializerFactory factory = new DefaultSerializerFactory();
-                        Serializer<?> keySerializer = factory.getSerializer(storeDef.getKeySerializer());
+                        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                      cluster);
+                        RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(false,
+                                                                                                         false);
+                        // Cache connections to all nodes for this store
+                        // in advance
+                        HashMap<Integer, Store<ByteArray, byte[], byte[]>> socketStoresPerNode = Maps.newHashMap();
+                        for(Node node: cluster.getNodes()) {
+                            socketStoresPerNode.put(node.getId(),
+                                                    socketStoreFactory.create(storeDef.getName(),
+                                                                              node.getHost(),
+                                                                              node.getSocketPort(),
+                                                                              RequestFormatType.VOLDEMORT_V1,
+                                                                              requestRoutingType));
+                        }
+
                         long foundKeys = 0L;
                         long totalKeys = 0L;
                         try {
@@ -147,28 +193,42 @@ public class EntropyDetection {
                                 byte[] key = new byte[size];
                                 reader.read(key);
 
-                                Versioned<Object> value = storeClient.get(keySerializer.toObject(key));
-                                if(value != null) {
-                                    foundKeys++;
+                            List<Node> responsibleNodes = strategy.routeRequest(key);
+                                boolean missingKey = false;
+                                for(Node node: responsibleNodes) {
+                                    List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
+                                                                                       .get(new ByteArray(key),
+                                                                                            null);
+
+                                    if(value == null || value.size() == 0) {
+                                        missingKey = true;
+                                    }
                                 }
+                                if(!missingKey)
+                                    foundKeys++;
+
                                 totalKeys++;
 
                             }
                             System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
                             if(foundKeys > 0 && totalKeys > 0) {
-                                System.out.println("%age found - " + (double) 100
-                                                   * (foundKeys / totalKeys));
+                                System.out.println("%age found - " + 100.0 * (double) foundKeys
+                                                                     / totalKeys);
                             }
                         } finally {
                             if(reader != null)
                                 reader.close();
+
+                            // close all socket stores
+                            for(Store<ByteArray, byte[], byte[]> store: socketStoresPerNode.values()) {
+                                store.close();
+                            }
                         }
                         break;
                 }
-            }
-        } finally {
-            if(adminClient != null)
+            } finally {
                 adminClient.stop();
+            }
         }
-   }
+    }
 }

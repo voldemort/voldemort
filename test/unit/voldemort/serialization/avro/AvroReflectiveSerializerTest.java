@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,8 +16,7 @@
 package voldemort.serialization.avro;
 
 import junit.framework.TestCase;
-
-import org.apache.avro.util.Utf8;
+import voldemort.utils.ByteUtils;
 
 /**
  * Tests the serialization using the Avro reflective approach.
@@ -28,7 +27,7 @@ public class AvroReflectiveSerializerTest extends TestCase {
 
         private int point;
         private double distance;
-        private Utf8 name;
+        private String name;
 
         public void setPoint(int point) {
             this.point = point;
@@ -38,7 +37,7 @@ public class AvroReflectiveSerializerTest extends TestCase {
             this.distance = distance;
         }
 
-        public void setName(Utf8 name) {
+        public void setName(String name) {
             this.name = name;
         }
 
@@ -62,11 +61,14 @@ public class AvroReflectiveSerializerTest extends TestCase {
         POJO pojo = new POJO();
         pojo.setDistance(1.2);
         pojo.setPoint(1);
-        pojo.setName(new Utf8("name"));
+        pojo.setName("name");
         AvroReflectiveSerializer<POJO> serializer = new AvroReflectiveSerializer<POJO>("java="
-                                                                                 + AvroReflectiveSerializerTest.class.getCanonicalName()
-                                                                                 + "$POJO");
+                                                                                       + AvroReflectiveSerializerTest.class.getCanonicalName()
+                                                                                       + "$POJO");
         byte[] bytes = serializer.toBytes(pojo);
+        byte[] bytes2 = serializer.toBytes(pojo);
+        assertEquals(ByteUtils.compare(bytes, bytes2), 0);
         assertTrue("A roundtripping should be possible", serializer.toObject(bytes).equals(pojo));
+        assertTrue("A roundtripping should be possible", serializer.toObject(bytes2).equals(pojo));
     }
 }

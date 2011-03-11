@@ -203,45 +203,47 @@ public class StorageService extends AbstractService {
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
 
-            // Now initialize the pusher job after some time
-            GregorianCalendar cal = new GregorianCalendar();
-            cal.add(Calendar.SECOND,
-                    (int) (voldemortConfig.getSlopFrequencyMs() / Time.MS_PER_SECOND));
-            Date nextRun = cal.getTime();
-            logger.info("Initializing slop pusher job type " + voldemortConfig.getPusherType()
-                        + " at " + nextRun);
 
-            scheduler.schedule("slop",
-                               (voldemortConfig.getPusherType()
-                                               .compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) ? new BlockingSlopPusherJob(storeRepository,
-                                                                                                                             metadata,
-                                                                                                                             failureDetector,
-                                                                                                                             voldemortConfig,
-                                                                                                                             scanPermits)
-                                                                                                : new StreamingSlopPusherJob(storeRepository,
-                                                                                                                             metadata,
-                                                                                                                             failureDetector,
-                                                                                                                             voldemortConfig,
-                                                                                                                             scanPermits),
-                               nextRun,
-                               voldemortConfig.getSlopFrequencyMs());
-
-            /*
-             * Register the repairer thread only if slop pusher job is also
-             * enabled
-             */
-            if(voldemortConfig.isRepairEnabled()) {
+            if(voldemortConfig.isSlopPusherJobEnabled()) {
+                // Now initialize the pusher job after some time
+                GregorianCalendar cal = new GregorianCalendar();
                 cal.add(Calendar.SECOND,
-                        (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
-                nextRun = cal.getTime();
-                logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
-                            + nextRun);
-                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                        (int) (voldemortConfig.getSlopFrequencyMs() / Time.MS_PER_SECOND));
+                Date nextRun = cal.getTime();
+                logger.info("Initializing slop pusher job type " + voldemortConfig.getPusherType()
+                            + " at " + nextRun);
 
-                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                scheduler.schedule("repair", job, nextRun, voldemortConfig.getRepairFrequencyMs());
+                scheduler.schedule("slop",
+                                   (voldemortConfig.getPusherType()
+                                                   .compareTo(BlockingSlopPusherJob.TYPE_NAME) == 0) ? new BlockingSlopPusherJob(storeRepository,
+                                                                                                                                 metadata,
+                                                                                                                                 failureDetector,
+                                                                                                                                 voldemortConfig,
+                                                                                                                                 scanPermits)
+                                                                                                     : new StreamingSlopPusherJob(storeRepository,
+                                                                                                                                  metadata,
+                                                                                                                                  failureDetector,
+                                                                                                                                  voldemortConfig,
+                                                                                                                                  scanPermits),
+                                   nextRun,
+                                   voldemortConfig.getSlopFrequencyMs());
+
+                /*
+                 * Register the repairer thread only if slop pusher job is also
+                 * enabled
+                 */
+                if(voldemortConfig.isRepairEnabled()) {
+                    cal.add(Calendar.SECOND,
+                            (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
+                    nextRun = cal.getTime();
+                    logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
+                                + nextRun);
+                    RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+
+                    JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+                    scheduler.schedule("repair", job, nextRun, voldemortConfig.getRepairFrequencyMs());
+                }
             }
-
         }
 
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
@@ -390,7 +392,7 @@ public class StorageService extends AbstractService {
         }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
-            StatTrackingStore<ByteArray, byte[], byte[]> statStore = new StatTrackingStore<ByteArray, byte[], byte[]>(store,
+            StatTrackingStore statStore = new StatTrackingStore(store,
                                                                                                                       this.storeStats);
             store = statStore;
             if(voldemortConfig.isJmxEnabled()) {

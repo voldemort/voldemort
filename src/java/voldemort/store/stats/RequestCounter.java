@@ -2,6 +2,7 @@ package voldemort.store.stats;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
 /**
@@ -14,12 +15,21 @@ public class RequestCounter {
 
     private final AtomicReference<Accumulator> values;
     private final int durationMS;
+    private final Time time;
 
     /**
      * @param durationMS specifies for how long you want to maintain this
      *        counter (in milliseconds).
      */
     public RequestCounter(int durationMS) {
+        this(durationMS, SystemTime.INSTANCE);
+    }
+
+    /**
+     * For testing request expiration via an injected time provider
+     */
+    RequestCounter(int durationMS, Time time) {
+        this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMS = durationMS;
     }
@@ -34,7 +44,7 @@ public class RequestCounter {
 
     public float getThroughput() {
         Accumulator oldv = getValidAccumulator();
-        double elapsed = (System.currentTimeMillis() - oldv.startTimeMS)
+        double elapsed = (time.getMilliseconds() - oldv.startTimeMS)
                          / (double) Time.MS_PER_SECOND;
         if(elapsed > 0f) {
             return (float) (oldv.count / elapsed);
@@ -59,10 +69,14 @@ public class RequestCounter {
         return durationMS;
     }
 
+    public long getMaxLatencyInMs() {
+        return getValidAccumulator().maxLatencyNS / Time.NS_PER_MS;
+    }
+
     private Accumulator getValidAccumulator() {
 
         Accumulator accum = values.get();
-        long now = System.currentTimeMillis();
+        long now = time.getMilliseconds();
 
         /*
          * if still in the window, just return it
@@ -94,45 +108,100 @@ public class RequestCounter {
      * @param timeNS time of operation, in nanoseconds
      */
     public void addRequest(long timeNS) {
+        addRequest(timeNS, 0, 0, 0);
+    }
 
+    /**
+     * @see #addRequest(long)
+     * Detailed request to track additionald data about PUT, GET and GET_ALL
+     *
+     * @param numEmptyResponses For GET and GET_ALL, how many keys were no values found
+     * @param bytes Total number of bytes across all versions of values' bytes
+     * @param getAllAggregatedCount Total number of keys returned for getAll calls
+     */
+    public void addRequest(long timeNS, long numEmptyResponses, long bytes, long getAllAggregatedCount) {
         for(int i = 0; i < 3; i++) {
             Accumulator oldv = getValidAccumulator();
-
-            long startTimeMS = oldv.startTimeMS;
-            long count = oldv.count + 1;
-            long totalTimeNS = oldv.totalTimeNS + timeNS;
-            long total = oldv.total + 1;
-
-            if(values.compareAndSet(oldv, new Accumulator(startTimeMS, count, totalTimeNS, total))) {
+            Accumulator newv = new Accumulator(oldv.startTimeMS,
+                                               oldv.count + 1,
+                                               oldv.totalTimeNS + timeNS,
+                                               oldv.total + 1,
+                                               oldv.numEmptyResponses + numEmptyResponses,
+                                               Math.max(timeNS, oldv.maxLatencyNS),
+                                               oldv.totalBytes + bytes,
+                                               Math.max(oldv.maxBytes, bytes),
+                                               oldv.getAllAggregatedCount + getAllAggregatedCount);
+            if(values.compareAndSet(oldv, newv))
                 return;
-            }
         }
     }
 
-    private static class Accumulator {
+    /**
+     * Return the number of requests that have returned returned no value for the requested key.  Tracked only for GET.
+     */
+    public long getNumEmptyResponses() {
+        return getValidAccumulator().numEmptyResponses;
+    }
+
+    /**
+     * Return the size of the largest response or request in bytes returned.  Tracked only for GET, GET_ALL and PUT.
+     */
+    public long getMaxSizeInBytes() {
+        return getValidAccumulator().maxBytes;
+    }
+
+    /**
+     * Return the average size of all the versioned values returned. Tracked only for GET, GET_ALL and PUT.
+     */
+    public double getAverageSizeInBytes() {
+        return getValidAccumulator().getAverageBytes();
+    }
+
+    /**
+     * Return the aggergated number of keys returned across all getAll calls, taking into account multiple values returned per call.
+     */
+    public long getGetAllAggregatedCount() {
+        return getValidAccumulator().getAllAggregatedCount;
+    }
+
+    private class Accumulator {
 
         final long startTimeMS;
         final long count;
         final long totalTimeNS;
         final long total;
+        final long numEmptyResponses; // GET and GET_ALL: number of empty responses that have been returned
+        final long getAllAggregatedCount; // GET_ALL: a single call to GET_ALL can return multiple k-v pairs. Track total returned.
+        final long maxLatencyNS;
+        final long maxBytes;     // Maximum single value
+        final long totalBytes;   // Sum of all the values
 
         public Accumulator() {
-            this(System.currentTimeMillis(), 0, 0, 0);
+            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public Accumulator newWithTotal() {
-            return new Accumulator(System.currentTimeMillis(), 0, 0, total);
+            return new Accumulator(RequestCounter.this.time.getMilliseconds(), 0, 0, total, 0, 0, 0, 0, 0);
         }
 
-        public Accumulator(long startTimeMS, long count, long totalTimeNS, long total) {
+        public Accumulator(long startTimeMS, long count, long totalTimeNS, long total, long numEmptyResponses, long maxLatencyNS, long totalBytes,  long maxBytes, long getAllAggregatedCount) {
             this.startTimeMS = startTimeMS;
             this.count = count;
             this.totalTimeNS = totalTimeNS;
             this.total = total;
+            this.numEmptyResponses = numEmptyResponses;
+            this.maxLatencyNS = maxLatencyNS;
+            this.totalBytes = totalBytes;
+            this.maxBytes = maxBytes;
+            this.getAllAggregatedCount = getAllAggregatedCount;
         }
 
         public double getAverageTimeNS() {
             return count > 0 ? 1f * totalTimeNS / count : 0f;
+        }
+
+        public double getAverageBytes() {
+            return count > 0 ? 1f * totalBytes / count : -0f;
         }
     }
 }

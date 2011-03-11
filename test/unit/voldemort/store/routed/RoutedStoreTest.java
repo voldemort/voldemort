@@ -1036,10 +1036,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         Map<Integer, Store<ByteArray, byte[], byte[]>> subStores = Maps.newHashMap();
 
         /* We just need to keep a store from one node */
-        StatTrackingStore<ByteArray, byte[], byte[]> statTrackingStore = null;
+        StatTrackingStore statTrackingStore = null;
         for(int i = 0; i < 3; ++i) {
             int id = Iterables.get(cluster.getNodes(), i).getId();
-            statTrackingStore = new StatTrackingStore<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
+            statTrackingStore = new StatTrackingStore(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
                                                                                  null);
             subStores.put(id, statTrackingStore);
 

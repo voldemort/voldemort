@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -21,6 +21,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.util.Utf8;
 
+import voldemort.utils.ByteUtils;
+
 /**
  * Tests the serialization using the Avro generic approach.
  */
@@ -29,14 +31,19 @@ public class AvroGenericSerializerTest extends TestCase {
     public void testRoundtripAvroWithEnum() throws Exception {
         String jsonSchema = "{\"name\": \"Kind\", \"type\": \"enum\", \"symbols\": [\"FOO\",\"BAR\",\"BAZ\"]}";
         AvroGenericSerializer serializer = new AvroGenericSerializer(jsonSchema);
+        byte[] bytes2 = serializer.toBytes("BAR");
         byte[] bytes = serializer.toBytes("BAR");
-        assertTrue(serializer.toObject(bytes).equals("BAR"));
+        assertEquals(ByteUtils.compare(bytes, bytes2), 0);
+        assertTrue(serializer.toObject(bytes2).toString().equals("BAR"));
+        assertTrue(serializer.toObject(bytes).toString().equals("BAR"));
     }
 
     public void testRoundtripAvroWithString() throws Exception {
         String jsonSchema = "{\"name\": \"Str\", \"type\": \"string\"}";
         AvroGenericSerializer serializer = new AvroGenericSerializer(jsonSchema);
         byte[] bytes = serializer.toBytes(new Utf8("BAR"));
+        byte[] bytes2 = serializer.toBytes(new Utf8("BAR"));
+        assertEquals(ByteUtils.compare(bytes, bytes2), 0);
         assertTrue(serializer.toObject(bytes).equals(new Utf8("BAR")));
     }
 
@@ -53,4 +60,5 @@ public class AvroGenericSerializerTest extends TestCase {
         byte[] bytes = serializer.toBytes(record);
         assertTrue(serializer.toObject(bytes).equals(record));
     }
+
 }

@@ -37,6 +37,7 @@ public class StoreDefinition implements Serializable {
 
     private final String name;
     private final String type;
+    private final String description;
     private final SerializerDefinition keySerializer;
     private final SerializerDefinition valueSerializer;
     private final SerializerDefinition transformsSerializer;
@@ -60,6 +61,7 @@ public class StoreDefinition implements Serializable {
 
     public StoreDefinition(String name,
                            String type,
+                           String description,
                            SerializerDefinition keySerializer,
                            SerializerDefinition valueSerializer,
                            SerializerDefinition transformsSerializer,
@@ -82,6 +84,7 @@ public class StoreDefinition implements Serializable {
                            Integer hintPrefListSize) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
+        this.description = description;
         this.replicationFactor = replicationFactor;
         this.preferredReads = preferredReads;
         this.requiredReads = requiredReads;
@@ -132,21 +135,58 @@ public class StoreDefinition implements Serializable {
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
             throw new IllegalArgumentException("Retention days must be non-negative.");
 
-        if(zoneCountReads != null && zoneCountReads < 0)
-            throw new IllegalArgumentException("Zone Counts reads must be non-negative");
-
-        if(zoneCountWrites != null && zoneCountWrites < 0)
-            throw new IllegalArgumentException("Zone Counts writes must be non-negative");
-
         if(zoneReplicationFactor != null && zoneReplicationFactor.size() != 0) {
+
+            if(zoneCountReads == null || zoneCountReads < 0)
+                throw new IllegalArgumentException("Zone Counts reads must be non-negative / non-null");
+
+            if(zoneCountWrites == null || zoneCountWrites < 0)
+                throw new IllegalArgumentException("Zone Counts writes must be non-negative");
+
             int sumZoneReplicationFactor = 0;
+            int replicatingZones = 0;
             for(Integer zoneId: zoneReplicationFactor.keySet()) {
-                sumZoneReplicationFactor += zoneReplicationFactor.get(zoneId);
+                int currentZoneRepFactor = zoneReplicationFactor.get(zoneId);
+
+                sumZoneReplicationFactor += currentZoneRepFactor;
+                if(currentZoneRepFactor > 0)
+                    replicatingZones++;
             }
+
+            if(replicatingZones <= 0) {
+                throw new IllegalArgumentException("Cannot have no zones to replicate to. "
+                                                   + "Should have some positive zoneReplicationFactor");
+            }
+
+            // Check if sum of individual zones is equal to total replication
+            // factor
             if(sumZoneReplicationFactor != replicationFactor) {
-                throw new IllegalArgumentException("Sum total of zones does not match the total replication factor");
+                throw new IllegalArgumentException("Sum total of zones ("
+                                                   + sumZoneReplicationFactor
+                                                   + ") does not match the total replication factor ("
+                                                   + replicationFactor + ")");
+            }
+
+            // Check if number of zone-count-reads and zone-count-writes are
+            // less than zones replicating to
+            if(zoneCountReads >= replicatingZones) {
+                throw new IllegalArgumentException("Number of zones to block for while reading ("
+                                                   + zoneCountReads
+                                                   + ") should be less then replicating zones ("
+                                                   + replicatingZones + ")");
+            }
+
+            if(zoneCountWrites >= replicatingZones) {
+                throw new IllegalArgumentException("Number of zones to block for while writing ("
+                                                   + zoneCountWrites
+                                                   + ") should be less then replicating zones ("
+                                                   + replicatingZones + ")");
             }
         }
+    }
+
+    public String getDescription() {
+        return this.description;
     }
 
     public String getSerializerFactory() {
@@ -293,6 +333,7 @@ public class StoreDefinition implements Serializable {
         StoreDefinition def = (StoreDefinition) o;
         return getName().equals(def.getName())
                && getType().equals(def.getType())
+               && Objects.equal(getDescription(), def.getDescription())
                && getReplicationFactor() == def.getReplicationFactor()
                && getRequiredReads() == def.getRequiredReads()
                && Objects.equal(getPreferredReads(), def.getPreferredReads())
@@ -330,6 +371,7 @@ public class StoreDefinition implements Serializable {
     public int hashCode() {
         return Objects.hashCode(getName(),
                                 getType(),
+                                getDescription(),
                                 getKeySerializer(),
                                 getValueSerializer(),
                                 getTransformsSerializer(),
@@ -357,18 +399,18 @@ public class StoreDefinition implements Serializable {
 
     @Override
     public String toString() {
-        return "StoreDefinition(name = " + getName() + ", type = " + getType()
-               + ", key-serializer = " + getKeySerializer() + ", value-serializer = "
-               + getValueSerializer() + ", routing = " + getRoutingPolicy()
-               + ", routing-strategy = " + getRoutingStrategyType() + ", replication = "
-               + getReplicationFactor() + ", required-reads = " + getRequiredReads()
-               + ", preferred-reads = " + getPreferredReads() + ", required-writes = "
-               + getRequiredWrites() + ", preferred-writes = " + getPreferredWrites()
-               + ", view-target = " + getViewTargetStoreName() + ", value-transformation = "
-               + getValueTransformation() + ", retention-days = " + getRetentionDays()
-               + ", throttle-rate = " + getRetentionScanThrottleRate() + ", zone-count-reads = "
-               + getZoneCountReads() + ", zone-count-writes = " + getZoneCountWrites()
-               + ", serializer factory = " + getSerializerFactory() + ")"
+        return "StoreDefinition(name = " + getName() + ", type = " + getType() + ", description = "
+               + getDescription() + "key-serializer = " + getKeySerializer()
+               + ", value-serializer = " + getValueSerializer() + ", routing = "
+               + getRoutingPolicy() + ", routing-strategy = " + getRoutingStrategyType()
+               + ", replication = " + getReplicationFactor() + ", required-reads = "
+               + getRequiredReads() + ", preferred-reads = " + getPreferredReads()
+               + ", required-writes = " + getRequiredWrites() + ", preferred-writes = "
+               + getPreferredWrites() + ", view-target = " + getViewTargetStoreName()
+               + ", value-transformation = " + getValueTransformation() + ", retention-days = "
+               + getRetentionDays() + ", throttle-rate = " + getRetentionScanThrottleRate()
+               + ", zone-count-reads = " + getZoneCountReads() + ", zone-count-writes = "
+               + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
                + ", hint-preflist-size = " + getHintPrefListSize() + ")";
     }

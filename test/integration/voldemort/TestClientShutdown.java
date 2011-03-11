@@ -37,7 +37,8 @@ public class TestClientShutdown {
         String storeName = args[0];
         String bootstrapUrl = args[1];
 
-        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+        StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setEnableLazy(false)
+                                                                                    .setBootstrapUrls(bootstrapUrl));
         DefaultStoreClient<Object, Object> client = null;
         try {
             client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);

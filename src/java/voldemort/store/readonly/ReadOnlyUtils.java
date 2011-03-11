@@ -15,9 +15,7 @@ import voldemort.utils.Utils;
 
 public class ReadOnlyUtils {
 
-    public static final int KEY_HASH_SIZE = 16;
     public static final int POSITION_SIZE = 4;
-    public static final int INDEX_ENTRY_SIZE = KEY_HASH_SIZE + POSITION_SIZE;
 
     private static Logger logger = Logger.getLogger(ReadOnlyUtils.class);
 

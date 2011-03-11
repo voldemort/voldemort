@@ -16,6 +16,7 @@
 
 package voldemort.store.readonly.mapreduce;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
@@ -64,54 +65,113 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
     private CheckSumType checkSumType;
     private CheckSum checkSumDigestIndex;
     private CheckSum checkSumDigestValue;
+    private boolean saveKeys;
+
+    protected static enum CollisionCounter {
+        NUM_COLLISIONS,
+        MAX_COLLISIONS;
+    }
 
     /**
-     * Reduce should get sorted MD5 keys here with a single value (appended in
-     * beginning with 4 bits of nodeId)
+     * Reduce should get sorted MD5 of Voldemort key ( either 16 bytes if saving
+     * keys is disabled, else 4 bytes ) as key and for value (a) node-id,
+     * partition-id, value - if saving keys is disabled (b) node-id,
+     * partition-id, [key-size, key, value-size, value]* if saving keys is
+     * enabled
      */
     @Override
     public void reduce(BytesWritable key, Iterable<BytesWritable> values, Context context)
             throws IOException, InterruptedException {
         Iterator<BytesWritable> iterator = values.iterator();
-        BytesWritable writable = iterator.next();
-        byte[] valueBytes = writable.getBytes();
-
-        if(this.nodeId == -1)
-            this.nodeId = ByteUtils.readInt(valueBytes, 0);
-        if(this.partitionId == -1)
-            this.partitionId = ByteUtils.readInt(valueBytes, 4);
-        if(this.chunkId == -1)
-            this.chunkId = ReadOnlyUtils.chunk(key.getBytes(), this.numChunks);
 
         // Write key and position
         this.indexFileStream.write(key.getBytes(), 0, key.getLength());
         this.indexFileStream.writeInt(this.position);
+
+        // Run key through checksum digest
         if(this.checkSumDigestIndex != null) {
             this.checkSumDigestIndex.update(key.getBytes(), 0, key.getLength());
             this.checkSumDigestIndex.update(this.position);
         }
 
-        // Write length and value
-        int valueLength = writable.getLength() - 8;
-        this.valueFileStream.writeInt(valueLength);
-        this.valueFileStream.write(valueBytes, 8, valueLength);
-        if(this.checkSumDigestValue != null) {
-            this.checkSumDigestValue.update(valueLength);
-            this.checkSumDigestValue.update(valueBytes, 8, valueLength);
+        int numKeyValues = 0;
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        DataOutputStream valueStream = new DataOutputStream(stream);
+
+        while(iterator.hasNext()) {
+            BytesWritable writable = iterator.next();
+            byte[] valueBytes = writable.getBytes();
+
+            if(this.nodeId == -1)
+                this.nodeId = ByteUtils.readInt(valueBytes, 0);
+            if(this.partitionId == -1)
+                this.partitionId = ByteUtils.readInt(valueBytes, 4);
+            if(this.chunkId == -1)
+                this.chunkId = ReadOnlyUtils.chunk(key.getBytes(), this.numChunks);
+
+            int valueLength = writable.getLength() - 8;
+            if(saveKeys) {
+                // Write (key_length + key + value_length + value)
+                valueStream.write(valueBytes, 8, valueLength);
+            } else {
+                // Write (value_length + value)
+                valueStream.writeInt(valueLength);
+                valueStream.write(valueBytes, 8, valueLength);
+            }
+
+            numKeyValues++;
+
+            // if we have multiple values for this md5 that is a collision,
+            // throw an exception--either the data itself has duplicates, there
+            // are trillions of keys, or someone is attempting something
+            // malicious ( We don't expect collisions when saveKeys = false )
+            if(!saveKeys && numKeyValues > 1)
+                throw new VoldemortException("Duplicate keys detected for md5 sum "
+                                             + ByteUtils.toHexString(ByteUtils.copy(key.getBytes(),
+                                                                                    0,
+                                                                                    key.getLength())));
+
         }
-        this.position += 4 + valueLength;
+
+        // Update number of collisions + max keys per collision
+        if(numKeyValues > 1) {
+            context.getCounter(CollisionCounter.NUM_COLLISIONS).increment(1);
+
+            long numCollisions = context.getCounter(CollisionCounter.MAX_COLLISIONS).getValue();
+            if(numKeyValues > numCollisions) {
+                context.getCounter(CollisionCounter.MAX_COLLISIONS).increment(numKeyValues
+                                                                              - numCollisions);
+            }
+        }
+
+        if(saveKeys) {
+            // Write the number of k/vs as a single byte
+            byte[] numBuf = new byte[1];
+            numBuf[0] = (byte) numKeyValues;
+
+            this.valueFileStream.write(numBuf);
+            this.position += 1;
+
+            if(this.checkSumDigestValue != null) {
+                this.checkSumDigestValue.update(numBuf);
+            }
+        }
+
+        // Write the value out
+        valueStream.flush();
+
+        byte[] value = stream.toByteArray();
+        this.valueFileStream.write(value);
+        this.position += value.length;
+
+        if(this.checkSumDigestValue != null) {
+            this.checkSumDigestValue.update(value);
+        }
+
         if(this.position < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
                                          + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
-        // if we have multiple values for this md5 that is a collision, throw an
-        // exception--either the data itself has duplicates, there are trillions
-        // of keys, or someone is attempting something malicious
-        if(iterator.hasNext())
-            throw new VoldemortException("Duplicate keys detected for md5 sum "
-                                         + ByteUtils.toHexString(ByteUtils.copy(key.getBytes(),
-                                                                                0,
-                                                                                key.getLength())));
     }
 
     @Override
@@ -125,6 +185,7 @@ public class HadoopStoreBuilderReducer extends Reducer<BytesWritable, BytesWrita
             this.checkSumType = CheckSum.fromString(conf.get("checksum.type"));
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
+            this.saveKeys = conf.getBoolean("save.keys", false);
 
             List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(conf.get("stores.xml")));
             if(storeDefs.size() != 1)

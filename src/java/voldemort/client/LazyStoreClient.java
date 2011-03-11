@@ -41,7 +41,7 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
         this.storeClientThunk = storeClientThunk;
     }
 
-    protected synchronized StoreClient<K, V> getStoreClient() {
+    public synchronized StoreClient<K, V> getStoreClient() {
         if(storeClient == null)
             storeClient = initStoreClient();
 

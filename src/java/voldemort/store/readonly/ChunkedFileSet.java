@@ -8,6 +8,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,10 +73,11 @@ public class ChunkedFileSet {
 
         switch(storageFormat) {
             case READONLY_V0:
-                initV0();
+                initVersion0();
                 break;
             case READONLY_V1:
-                initV1();
+            case READONLY_V2:
+                initVersion12();
                 break;
             default:
                 throw new VoldemortException("Invalid chunked storage format type " + storageFormat);
@@ -86,7 +88,11 @@ public class ChunkedFileSet {
                      + " chunks.");
     }
 
-    public void initV0() {
+    public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
+        return this.storageFormat;
+    }
+
+    public void initVersion0() {
         // if the directory is empty create empty files
         if(baseDir.list() != null && baseDir.list().length <= 1) {
             try {
@@ -125,7 +131,7 @@ public class ChunkedFileSet {
             throw new VoldemortException("No data chunks found in directory " + baseDir.toString());
     }
 
-    public void initV1() {
+    public void initVersion12() {
         int globalChunkId = 0;
         if(this.partitionIds != null) {
             for(Integer partitionId: this.partitionIds) {
@@ -198,12 +204,12 @@ public class ChunkedFileSet {
         if(indexLength > Integer.MAX_VALUE || dataLength > Integer.MAX_VALUE)
             throw new VoldemortException("Index or data file exceeds " + Integer.MAX_VALUE
                                          + " bytes.");
-        if(indexLength % ReadOnlyUtils.INDEX_ENTRY_SIZE != 0L)
+        if(indexLength % (getKeyHashSize() + ReadOnlyUtils.POSITION_SIZE) != 0L)
             throw new VoldemortException("Invalid index file, file length must be a multiple of "
-                                         + (ReadOnlyUtils.KEY_HASH_SIZE + ReadOnlyUtils.POSITION_SIZE)
+                                         + (getKeyHashSize() + ReadOnlyUtils.POSITION_SIZE)
                                          + " but is only " + indexLength + " bytes.");
 
-        if(dataLength < 4 * indexLength / ReadOnlyUtils.INDEX_ENTRY_SIZE)
+        if(dataLength < 4 * indexLength / (getKeyHashSize() + ReadOnlyUtils.POSITION_SIZE))
             throw new VoldemortException("Invalid data file, file length must not be less than num_index_entries * 4 bytes, but data file is only "
                                          + dataLength + " bytes.");
     }
@@ -242,18 +248,63 @@ public class ChunkedFileSet {
         return this.numChunks;
     }
 
+    /**
+     * Converts the key to the format in which it is stored for searching
+     * 
+     * @param key Byte array of the key
+     * @return The format stored in the index file
+     */
+    public byte[] keyToStorageFormat(byte[] key) {
+
+        switch(getReadOnlyStorageFormat()) {
+            case READONLY_V0:
+            case READONLY_V1:
+                return ByteUtils.md5(key);
+            case READONLY_V2:
+                return ByteUtils.copy(ByteUtils.md5(key), 0, 2 * ByteUtils.SIZE_OF_INT);
+            default:
+                throw new VoldemortException("Unknown read-only storage format");
+        }
+    }
+
+    /**
+     * Depending on the storage format gives the size of the key stored in the
+     * index file
+     * 
+     * @return Size of key in bytes
+     */
+    private int getKeyHashSize() {
+        switch(getReadOnlyStorageFormat()) {
+            case READONLY_V0:
+            case READONLY_V1:
+                return 16;
+            case READONLY_V2:
+                return 2 * ByteUtils.SIZE_OF_INT;
+            default:
+                throw new VoldemortException("Unknown read-only storage format");
+        }
+    }
+
+    /**
+     * Given a particular key, first converts its to the storage format and then
+     * determines which chunk it belongs to
+     * 
+     * @param key Byte array of keys
+     * @return Chunk id
+     */
     public int getChunkForKey(byte[] key) {
         switch(storageFormat) {
             case READONLY_V0: {
-                return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
+                return ReadOnlyUtils.chunk(keyToStorageFormat(key), numChunks);
             }
-            case READONLY_V1: {
+            case READONLY_V1:
+            case READONLY_V2: {
                 List<Integer> partitionList = routingStrategy.getPartitionList(key);
                 partitionList.retainAll(partitionIds);
                 if(partitionList.size() != 1)
                     return -1;
 
-                Integer chunkId = ReadOnlyUtils.chunk(ByteUtils.md5(key),
+                Integer chunkId = ReadOnlyUtils.chunk(keyToStorageFormat(key),
                                                       partitionToNumChunks.get(partitionList.get(0)));
                 return partitionToChunkStart.get(partitionList.get(0)) + chunkId;
             }
@@ -262,6 +313,86 @@ public class ChunkedFileSet {
             }
         }
 
+    }
+
+    public byte[] readValue(byte[] key, int chunk, int valueLocation) {
+        FileChannel dataFile = dataFileFor(chunk);
+        try {
+            switch(storageFormat) {
+                case READONLY_V0:
+                case READONLY_V1: {
+                    // Read value size
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                    dataFile.read(sizeBuffer, valueLocation);
+                    int valueSize = sizeBuffer.getInt(0);
+
+                    // Read value
+                    ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                    dataFile.read(valueBuffer, valueLocation + 4);
+                    return valueBuffer.array();
+                }
+                case READONLY_V2: {
+                    // Read a byte which holds the number of key/values
+                    ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(1);
+                    dataFile.read(numKeyValsBuffer, valueLocation);
+                    int numKeyVal = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
+
+                    if(numKeyVal == 1) {
+                        // Avoid the overhead of reading the key and a
+                        // comparison
+
+                        // Read key size
+                        ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                        dataFile.read(sizeBuffer, valueLocation + 1);
+                        int keySize = sizeBuffer.getInt(0);
+                        sizeBuffer.clear();
+
+                        // Read value size
+                        dataFile.read(sizeBuffer, valueLocation + 1 + 4 + keySize);
+                        int valueSize = sizeBuffer.getInt(0);
+
+                        // Read value
+                        ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                        dataFile.read(valueBuffer, valueLocation + 1 + 4 + 4 + keySize);
+                        return valueBuffer.array();
+
+                    } else {
+                        int currentPosition = valueLocation + 1;
+                        for(int keyId = 0; keyId < numKeyVal; keyId++) {
+                            // Read key size
+                            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                            dataFile.read(sizeBuffer, currentPosition);
+                            int keySize = sizeBuffer.getInt(0);
+                            sizeBuffer.clear();
+
+                            // Read value size
+                            dataFile.read(sizeBuffer, currentPosition + 4 + keySize);
+                            int valueSize = sizeBuffer.getInt(0);
+
+                            // Read key
+                            ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                            dataFile.read(keyBuffer, currentPosition + 4);
+
+                            if(ByteUtils.compare(keyBuffer.array(), key) == 0) {
+                                // Read value
+                                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                                dataFile.read(valueBuffer, currentPosition + 4 + 4 + keySize);
+                                return valueBuffer.array();
+                            } else {
+                                currentPosition += 4 + 4 + keySize + valueSize;
+                            }
+                        }
+                        throw new VoldemortException("Could not find key " + Arrays.toString(key));
+                    }
+
+                }
+                default: {
+                    throw new VoldemortException("Storage format not supported ");
+                }
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
     }
 
     public ByteBuffer indexFileFor(int chunk) {
@@ -277,7 +408,7 @@ public class ChunkedFileSet {
     }
 
     public int getDataFileSize(int chunk) {
-        return this.indexFileSizes.get(chunk);
+        return this.dataFileSizes.get(chunk);
     }
 
 }

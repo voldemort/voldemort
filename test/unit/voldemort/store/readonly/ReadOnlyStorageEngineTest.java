@@ -14,11 +14,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,13 +36,22 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
+import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.SerializerFactory;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
@@ -53,7 +64,9 @@ public class ReadOnlyStorageEngineTest {
                 { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
                 { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V0 },
                 { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
-                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 } });
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V1 },
+                { new BinarySearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 },
+                { new InterpolationSearchStrategy(), ReadOnlyStorageFormat.READONLY_V2 } });
     }
 
     private File dir;
@@ -64,6 +77,7 @@ public class ReadOnlyStorageEngineTest {
     private Node node;
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageType;
+    private int indexEntrySize;
 
     public ReadOnlyStorageEngineTest(SearchStrategy strategy, ReadOnlyStorageFormat storageType) {
         this.strategy = strategy;
@@ -83,6 +97,21 @@ public class ReadOnlyStorageEngineTest {
         Cluster cluster = ServerTestUtils.getLocalCluster(1);
         this.node = cluster.getNodeById(0);
         this.storageType = storageType;
+
+        switch(this.storageType) {
+            case READONLY_V0:
+            case READONLY_V1:
+                // 16 (md5) + 4 (position)
+                this.indexEntrySize = 20;
+                break;
+            case READONLY_V2:
+                // 8 (upper 8 bytes of md5) + 4 (position)
+                this.indexEntrySize = 12;
+                break;
+            default:
+                throw new VoldemortException("Unsupported storage format type");
+
+        }
         this.routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
     }
 
@@ -245,17 +274,15 @@ public class ReadOnlyStorageEngineTest {
         // empty is okay
         testOpenInvalidStoreFails(0, 0, true);
         // two entries with 1 byte each of data
-        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE * 2,
-                                  ReadOnlyUtils.INDEX_ENTRY_SIZE * +2,
-                                  true);
+        testOpenInvalidStoreFails(this.indexEntrySize * 2, this.indexEntrySize * +2, true);
 
         // okay these are corrupt:
         // invalid index size
         testOpenInvalidStoreFails(73, 1024, false);
         // too little data for index (1 byte short for all empty values)
-        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE * 10, 10 * 4 - 1, false);
+        testOpenInvalidStoreFails(this.indexEntrySize * 10, 10 * 4 - 1, false);
         // empty index implies no data
-        testOpenInvalidStoreFails(ReadOnlyUtils.INDEX_ENTRY_SIZE, 0, false);
+        testOpenInvalidStoreFails(this.indexEntrySize, 0, false);
     }
 
     public void testOpenInvalidStoreFails(int indexBytes, int dataBytes, boolean shouldWork)
@@ -277,7 +304,7 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testSwap() throws Exception {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, this.node, 2);
+        createStoreFiles(versionDir, this.indexEntrySize * 5, 4 * 5 * 10, this.node, 2);
 
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,
@@ -370,7 +397,7 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testBadSwapNameThrows() throws IOException {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(versionDir, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,
                                                                  routingStrategy,
@@ -399,7 +426,7 @@ public class ReadOnlyStorageEngineTest {
     @Test
     public void testBackupLogic() throws Exception {
         File dirv0 = new File(dir, "version-0");
-        createStoreFiles(dirv0, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(dirv0, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,
                                                                  routingStrategy,
@@ -411,11 +438,11 @@ public class ReadOnlyStorageEngineTest {
         // create directory to imitate a fetch state happening concurrently
         // with swap
         File dirv2 = new File(dir, "version-2");
-        createStoreFiles(dirv2, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(dirv2, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
 
         // swap in directory 1
         File dirv1 = new File(dir, "version-1");
-        createStoreFiles(dirv1, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(dirv1, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         engine.swapFiles(dirv1.getAbsolutePath());
 
         // check latest symbolic link exists
@@ -439,7 +466,7 @@ public class ReadOnlyStorageEngineTest {
     @Test(expected = VoldemortException.class)
     public void testBadSwapDataThrows() throws IOException {
         File versionDir = new File(dir, "version-0");
-        createStoreFiles(versionDir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(versionDir, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,
                                                                  routingStrategy,
@@ -456,7 +483,7 @@ public class ReadOnlyStorageEngineTest {
 
     @Test
     public void testTruncate() throws IOException {
-        createStoreFiles(dir, ReadOnlyUtils.INDEX_ENTRY_SIZE * 5, 4 * 5 * 10, node, 2);
+        createStoreFiles(dir, this.indexEntrySize * 5, 4 * 5 * 10, node, 2);
         ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine("test",
                                                                  strategy,
                                                                  routingStrategy,
@@ -467,6 +494,73 @@ public class ReadOnlyStorageEngineTest {
 
         engine.truncate();
         assertEquals(dir.exists(), false);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testIteration() throws Exception {
+        ReadOnlyStorageEngineTestInstance testData = ReadOnlyStorageEngineTestInstance.create(strategy,
+                                                                                              dir,
+                                                                                              TEST_SIZE,
+                                                                                              10,
+                                                                                              3,
+                                                                                              serDef,
+                                                                                              serDef,
+                                                                                              storageType);
+        ListMultimap<Integer, Pair<String, String>> nodeToEntries = ArrayListMultimap.create();
+        for(Map.Entry<String, String> entry: testData.getData().entrySet()) {
+            for(Node node: testData.routeRequest(entry.getKey())) {
+                nodeToEntries.put(node.getId(), Pair.create(entry.getKey(), entry.getValue()));
+            }
+        }
+        SerializerFactory factory = new DefaultSerializerFactory();
+        Serializer<String> serializer = (Serializer<String>) factory.getSerializer(serDef);
+        for(Map.Entry<Integer, ReadOnlyStorageEngine> storeEntry: testData.getReadOnlyStores()
+                                                                          .entrySet()) {
+            List<Pair<String, String>> entries = Lists.newArrayList(nodeToEntries.get(storeEntry.getKey()));
+            ClosableIterator<ByteArray> keyIterator = null;
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = null;
+            try {
+                keyIterator = storeEntry.getValue().keys();
+                entryIterator = storeEntry.getValue().entries();
+            } catch(Exception e) {
+                if(storageType.compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0) {
+                    fail("Should not have thrown exception since this version supports iteration");
+                } else {
+                    return;
+                }
+            }
+
+            // Generate keys from entries
+            List<String> keys = Lists.newArrayList();
+            Iterator<Pair<String, String>> pairIterator = entries.iterator();
+            while(pairIterator.hasNext()) {
+                keys.add(pairIterator.next().getFirst());
+            }
+
+            // Test keys
+            int keyCount = 0;
+            while(keyIterator.hasNext()) {
+                String key = serializer.toObject(keyIterator.next().get());
+                Assert.assertEquals(keys.contains(key), true);
+                keyCount++;
+            }
+            Assert.assertEquals(keyCount, entries.size());
+
+            // Test entries
+            int entriesCount = 0;
+            while(entryIterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
+
+                Pair<String, String> stringEntry = Pair.create(serializer.toObject(entry.getFirst()
+                                                                                        .get()),
+                                                               serializer.toObject(entry.getSecond()
+                                                                                        .getValue()));
+                Assert.assertEquals(entries.contains(stringEntry), true);
+                entriesCount++;
+            }
+            Assert.assertEquals(entriesCount, entries.size());
+        }
     }
 
     private void assertVersionsExist(File dir, int... versions) throws IOException {
@@ -516,7 +610,8 @@ public class ReadOnlyStorageEngineTest {
                 }
             }
                 break;
-            case READONLY_V1: {
+            case READONLY_V1:
+            case READONLY_V2: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_"
@@ -537,7 +632,7 @@ public class ReadOnlyStorageEngineTest {
             }
                 break;
             default:
-                return;
+                throw new VoldemortException("Do not support storage type " + storageType);
         }
 
     }

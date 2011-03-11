@@ -16,18 +16,19 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/..
+base_dir=$(dirname $0)/../../../
 
 for file in $base_dir/dist/*.jar;
 do
-  CLASSPATH=$CLASSPATH:$file
+  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
 done
 
 for file in $base_dir/lib/*.jar;
 do
-  CLASSPATH=$CLASSPATH:$file
+  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
 done
 
-CLASSPATH=$CLASSPATH:$base_dir/dist/resources
+HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$base_dir/dist/resources
+export HADOOP_CLASSPATH
 
-java -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@ 
+$HADOOP_HOME/bin/hadoop voldemort.store.readonly.mr.HadoopStoreJobRunner $@ 

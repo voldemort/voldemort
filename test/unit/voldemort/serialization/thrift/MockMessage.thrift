@@ -1,7 +1,5 @@
-#!/bin/bash
-
 #
-#   Copyright 2008-2009 LinkedIn, Inc
+#   Copyright 2011 LinkedIn, Inc
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -16,19 +14,15 @@
 #  limitations under the License.
 #
 
-base_dir=$(dirname $0)/..
+# To generate the java -
+# > thrift --gen java MockMessage.thrift
+#
+namespace java voldemort.serialization.thrift
 
-for file in $base_dir/dist/*.jar;
-do
-  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
-done
-
-for file in $base_dir/lib/*.jar;
-do
-  HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$file
-done
-
-HADOOP_CLASSPATH=$HADOOP_CLASSPATH:$base_dir/dist/resources
-export HADOOP_CLASSPATH
-
-$HADOOP_HOME/bin/hadoop voldemort.store.readonly.mr.HadoopStoreJobRunner $@ 
+struct MockMessage 
+{ 
+1: string name, 
+2: map<i64, map<string, i32>> mappings,
+3: list<i16> intList, 
+4: set<string> strSet
+}

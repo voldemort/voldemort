@@ -45,7 +45,7 @@ import voldemort.utils.Utils;
  */
 public class ClientConfig {
 
-    private volatile int maxConnectionsPerNode = 50;
+    private volatile int maxConnectionsPerNode = 10;
     private volatile int maxTotalConnections = 500;
     private volatile int maxThreads = 5;
     private volatile int maxQueuedRequests = 50;

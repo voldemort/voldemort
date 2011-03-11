@@ -112,6 +112,12 @@ public class ReadOnlyStorePerformanceTest {
               .describedAs("dir");
         parser.accepts("gzip", "Compress the intermediate temp files used in building the store");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
+        parser.accepts("version",
+                       "Version of read-only store [" + ReadOnlyStorageFormat.READONLY_V0 + ","
+                               + ReadOnlyStorageFormat.READONLY_V1 + ","
+                               + ReadOnlyStorageFormat.READONLY_V2 + " (default)]")
+              .withRequiredArg()
+              .describedAs("version");
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -135,7 +141,9 @@ public class ReadOnlyStorePerformanceTest {
                                                           "working-dir",
                                                           System.getProperty("java.io.tmpdir")));
         String storeDir = (String) options.valueOf("store-dir");
-
+        ReadOnlyStorageFormat format = ReadOnlyStorageFormat.fromCode(CmdUtils.valueOf(options,
+                                                                                       "version",
+                                                                                       ReadOnlyStorageFormat.READONLY_V2.toString()));
         Cluster cluster = null;
         int nodeId = 0;
 
@@ -199,7 +207,7 @@ public class ReadOnlyStorePerformanceTest {
                                                             numChunks,
                                                             64 * 1024,
                                                             gzipIntermediate);
-            builder.build(ReadOnlyStorageFormat.READONLY_V1);
+            builder.build(format);
 
             // copy to store dir
             File dir = new File(storeDir);
