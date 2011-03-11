@@ -299,6 +299,8 @@ public class MigratePartitions {
                               }
                           } catch(Exception e) {
                               logger.error(e, e);
+                              while(latch.getCount() > 0)
+                                  latch.countDown();
                               executor.shutdownNow();
                               throw new VoldemortException(e);
                           } finally {
@@ -317,7 +319,7 @@ public class MigratePartitions {
                     latch.await();
                 } catch(InterruptedException e)  {
                     logger.error(e, e);
-                    Thread.currentThread().interrupt();
+                    throw new VoldemortException(e);
                 } finally {
                     // Move all nodes in grandfathered state back to normal
                     if(donorStates != null && transitionToNormal) {
