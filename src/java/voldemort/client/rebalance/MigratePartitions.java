@@ -1,20 +1,25 @@
 package voldemort.client.rebalance;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -25,15 +30,23 @@ import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.utils.*;
+import voldemort.utils.CmdUtils;
+import voldemort.utils.DaemonThreadFactory;
+import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 public class MigratePartitions {
 
@@ -41,14 +54,13 @@ public class MigratePartitions {
     private final AdminClient adminClient;
     private final List<String> storeNames;
     private List<Integer> stealerNodeIds;
-    private final VoldemortConfig voldemortConfig;
     private final HashMap<Integer, RebalanceNodePlan> stealerNodePlans;
     private final HashMap<Integer, List<RebalancePartitionsInfo>> donorNodePlans;
     private final HashMap<Integer, Versioned<String>> donorStates;
     private final boolean transitionToNormal;
     private boolean simulation = false;
-    private final int parallelism;
     private final ExecutorService executor;
+    private String checkpointFolder = "/tmp/checkpointFolder";
 
     public MigratePartitions(Cluster currentCluster,
                              Cluster targetCluster,
@@ -59,7 +71,8 @@ public class MigratePartitions {
                              List<Integer> stealerNodeIds,
                              int parallelism,
                              boolean transitionToNormal,
-                             boolean simulation) {
+                             boolean simulation,
+                             String checkpointFolder) {
 
         this(currentCluster,
              targetCluster,
@@ -70,6 +83,7 @@ public class MigratePartitions {
              stealerNodeIds,
              parallelism,
              transitionToNormal);
+        this.checkpointFolder = checkpointFolder;
         this.simulation = simulation;
     }
 
@@ -98,9 +112,7 @@ public class MigratePartitions {
                              boolean transitionToNormal) {
         this.adminClient = Utils.notNull(adminClient);
         this.stealerNodeIds = stealerNodeIds;
-        this.voldemortConfig = Utils.notNull(voldemortConfig);
         this.transitionToNormal = transitionToNormal;
-        this.parallelism = parallelism;
         this.executor = Executors.newFixedThreadPool(parallelism,
                                                      new DaemonThreadFactory("migrate"));
         MigratePartitionsPlan plan = new MigratePartitionsPlan(currentCluster,
@@ -108,7 +120,8 @@ public class MigratePartitions {
                                                                currentStoreDefs,
                                                                targetStoreDefs);
 
-        logger.info("Rebalance cluster plan => " + plan);
+        logger.info(" ====== Migrate partitions cluster plan by stealer node id ======= ");
+        logger.info(plan);
 
         this.stealerNodePlans = plan.getRebalancingTaskQueuePerNode();
         if(this.stealerNodeIds == null) {
@@ -136,14 +149,15 @@ public class MigratePartitions {
         }
         this.donorStates = Maps.newHashMap();
 
+        logger.info(" ====== Migrate partitions cluster plan by donor node id ======= ");
         for(int donorNodeId: donorNodePlans.keySet()) {
             logger.info("Plan for donor node id " + donorNodeId + " => ");
             List<RebalancePartitionsInfo> list = donorNodePlans.get(donorNodeId);
             for(RebalancePartitionsInfo stealInfo: list) {
                 logger.info(stealInfo);
             }
-            logger.info("===============================================");
         }
+        logger.info(" ============================================== ");
     }
 
     /**
@@ -173,7 +187,9 @@ public class MigratePartitions {
                 donorStates.put(donorNodeId, serverState);
             }
             logger.info("Successfully transitioned " + donorNodeId + " to grandfathering state");
+
         }
+        logger.info(" ============================================== ");
     }
 
     /**
@@ -197,8 +213,54 @@ public class MigratePartitions {
         }
     }
 
-
     public void migrate() {
+
+        final HashMultimap<String, RebalancePartitionsInfo> completedTasks = HashMultimap.create();
+        final AtomicInteger completed = new AtomicInteger(0);
+
+        // Parse the check point file and check if any tasks are done
+        if(new File(checkpointFolder).exists()) {
+
+            if(!Utils.isReadableDir(checkpointFolder)) {
+                logger.error("The checkpoint folder " + checkpointFolder + " cannot be read");
+                return;
+            }
+            // Check point folder exists, lets parse the individual
+            // completedTasks
+            logger.info("Check point file exists, parsing it...");
+            for(String storeName: storeNames) {
+                if(!new File(checkpointFolder, storeName).exists()) {
+                    logger.info("No check point file for store " + storeName);
+                    completedTasks.putAll(storeName, new ArrayList<RebalancePartitionsInfo>());
+                } else {
+                    // Some tasks for this store got over
+                    List<String> completedTasksLines = null;
+
+                    // Check if any previous tasks for
+                    try {
+                        completedTasksLines = FileUtils.readLines(new File(checkpointFolder,
+                                                                           storeName));
+                    } catch(IOException e) {
+                        logger.error("Could not read the check point file for store name "
+                                     + storeName, e);
+                        return;
+                    }
+
+                    for(String completedTaskLine: completedTasksLines) {
+                        completedTasks.put(storeName,
+                                           RebalancePartitionsInfo.create(completedTaskLine));
+                    }
+                    logger.info("Completed tasks for " + storeName + " = "
+                                + completedTasks.get(storeName).size());
+                    completed.addAndGet(completedTasks.get(storeName).size());
+                }
+            }
+        } else {
+            logger.info("Check point folder does not exist. Starting a new one at "
+                        + checkpointFolder);
+            Utils.mkdirs(new File(checkpointFolder));
+        }
+        logger.info(" ============================================== ");
 
         if(donorNodePlans.size() == 0) {
             logger.info("Nothing to move around");
@@ -209,7 +271,6 @@ public class MigratePartitions {
         for(List<RebalancePartitionsInfo> rebalancePartitionsInfos: donorNodePlans.values())
             t += rebalancePartitionsInfos.size();
         final int total = t * storeNames.size();
-        final AtomicInteger completed = new AtomicInteger(0);
 
         final long startedAt = System.currentTimeMillis();
 
@@ -227,107 +288,133 @@ public class MigratePartitions {
              * done in parallel for all the respective donor nodes
              */
 
+            final AtomicInteger numStealersCompleted = new AtomicInteger(0);
             for(final int stealerNodeId: stealerNodeIds) {
                 executor.submit(new Runnable() {
+
                     public void run() {
-                          try {
-                              RebalanceNodePlan nodePlan = stealerNodePlans.get(stealerNodeId);
-                              if(nodePlan == null) {
-                                  logger.info("No plan for stealer node id " + stealerNodeId);
-                                  return;
-                              }
-                              List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
+                        try {
+                            RebalanceNodePlan nodePlan = stealerNodePlans.get(stealerNodeId);
+                            if(nodePlan == null) {
+                                logger.info("No plan for stealer node id " + stealerNodeId);
+                                return;
+                            }
+                            List<RebalancePartitionsInfo> partitionInfo = nodePlan.getRebalanceTaskList();
 
-                              logger.info("Working on stealer node id " + stealerNodeId);
-                              for(String storeName: storeNames) {
-                                  logger.info("- Working on store " + storeName);
+                            logger.info("Working on stealer node id " + stealerNodeId);
+                            for(String storeName: storeNames) {
 
-                                  HashMap<Integer, Integer> nodeIdToRequestId = Maps.newHashMap();
-                                  Set<Pair<Integer, Integer>> pending = Sets.newHashSet();
-                                  for(RebalancePartitionsInfo r: partitionInfo) {
-                                      logger.info("-- Started migration from donorId "
-                                                  + r.getDonorId()
-                                                  + " to "
-                                                  + stealerNodeId);
-                                      logger.info(r);
-                                      if(!simulation) {
-                                          int attemptId = adminClient.migratePartitions(r.getDonorId(),
-                                                                                        stealerNodeId,
-                                                                                        storeName,
-                                                                                        r.getPartitionList(),
-                                                                                        null);
-                                          nodeIdToRequestId.put(r.getDonorId(), attemptId);
-                                          pending.add(Pair.create(r.getDonorId(), attemptId));
-                                      }
-                                  }
+                                Set<Pair<Integer, Integer>> pending = Sets.newHashSet();
+                                HashMap<Pair<Integer, Integer>, RebalancePartitionsInfo> pendingTasks = Maps.newHashMap();
 
-                                  while(!pending.isEmpty()) {
-                                      long delay = 1000;
-                                      Set<Pair<Integer, Integer>> currentPending = ImmutableSet.copyOf(pending);
-                                      for(Pair<Integer, Integer> pair: currentPending) {
-                                          AsyncOperationStatus status = adminClient.getAsyncRequestStatus(stealerNodeId,
-                                                                                                          pair.getSecond());
-                                          logger.info("Status of move from " +
-                                                      pair.getFirst()
-                                                      + " to "
-                                                      + stealerNodeId
-                                                      + ": " +
-                                                      status.getStatus());
-                                          if(status.hasException()) {
-                                              throw new VoldemortException(status.getException());
-                                          }
-                                          if(status.isComplete()) {
-                                              logger.info("-- Completed migration from donorId "
-                                                          + pair.getFirst()
-                                                          + " to "
-                                                          + stealerNodeId);
-                                              logger.info("-- " + completed.incrementAndGet() + " out of " + total + " tasks completed");
-                                              pending.remove(pair);
-                                              long velocity = (System.currentTimeMillis() - startedAt) / completed.get();
-                                              long eta = (total - completed.get()) * velocity / Time.MS_PER_SECOND;
-                                              logger.info("-- Estimated " + eta + " seconds until completion");
-                                          }
-                                      }
-                                      try {
-                                          Thread.sleep(delay);
-                                          if(delay < 30000)
-                                              delay *= 2;
-                                      } catch(InterruptedException e) {
-                                          throw new VoldemortException(e);
-                                      }
-                                  }
-                              }
-                          } catch(Exception e) {
-                              logger.error(e, e);
-                              while(latch.getCount() > 0)
-                                  latch.countDown();
-                              executor.shutdownNow();
-                              throw new VoldemortException(e);
-                          } finally {
-                              latch.countDown();
-                          }
+                                for(RebalancePartitionsInfo r: partitionInfo) {
+                                    if(completedTasks.get(storeName).contains(r)) {
+                                        logger.info("-- Not doing task from donorId "
+                                                    + r.getDonorId() + " to " + r.getStealerId()
+                                                    + " with store " + storeName
+                                                    + " since it is already done");
+                                        continue;
+                                    }
+                                    logger.info("-- Started migration from donorId "
+                                                + r.getDonorId() + " to " + stealerNodeId
+                                                + " for store " + storeName);
+                                    if(!simulation) {
+                                        int attemptId = adminClient.migratePartitions(r.getDonorId(),
+                                                                                      stealerNodeId,
+                                                                                      storeName,
+                                                                                      r.getPartitionList(),
+                                                                                      null);
+                                        pending.add(Pair.create(r.getDonorId(), attemptId));
+                                        pendingTasks.put(Pair.create(r.getDonorId(), attemptId), r);
+                                    }
+                                }
+
+                                while(!pending.isEmpty()) {
+                                    long delay = 1000;
+                                    Set<Pair<Integer, Integer>> currentPending = ImmutableSet.copyOf(pending);
+                                    for(Pair<Integer, Integer> pair: currentPending) {
+                                        AsyncOperationStatus status = adminClient.getAsyncRequestStatus(stealerNodeId,
+                                                                                                        pair.getSecond());
+                                        logger.info("Status of move from " + pair.getFirst()
+                                                    + " to " + stealerNodeId + ": "
+                                                    + status.getStatus());
+                                        if(status.hasException()) {
+                                            throw new VoldemortException(status.getException());
+                                        }
+                                        if(status.isComplete()) {
+                                            logger.info("-- Completed migration from donorId "
+                                                        + pair.getFirst() + " to " + stealerNodeId
+                                                        + " for store " + storeName);
+                                            logger.info("-- " + completed.incrementAndGet()
+                                                        + " out of " + total + " tasks completed");
+                                            pending.remove(pair);
+
+                                            // Write the task to file
+                                            // immediately
+                                            BufferedWriter out = null;
+                                            try {
+                                                out = new BufferedWriter(new FileWriter(new File(checkpointFolder,
+                                                                                                 storeName),
+                                                                                        true));
+                                                out.write(pendingTasks.get(pair).toJsonString()
+                                                          + "\n");
+                                            } catch(Exception e) {
+                                                logger.error("Failure while writing check point for store "
+                                                             + storeName + ". Emitting it here ");
+                                                logger.error("Checkpoint failure ("
+                                                             + storeName
+                                                             + "):"
+                                                             + pendingTasks.get(pair)
+                                                                           .toJsonString());
+                                            } finally {
+                                                if(out != null) {
+                                                    out.flush();
+                                                    out.close();
+                                                }
+                                            }
+
+                                            long velocity = (System.currentTimeMillis() - startedAt)
+                                                            / completed.get();
+                                            long eta = (total - completed.get()) * velocity
+                                                       / Time.MS_PER_SECOND;
+                                            logger.info("-- Estimated " + eta
+                                                        + " seconds until completion");
+                                        }
+                                    }
+                                    try {
+                                        Thread.sleep(delay);
+                                        if(delay < 30000)
+                                            delay *= 2;
+                                    } catch(InterruptedException e) {
+                                        throw new VoldemortException(e);
+                                    }
+                                }
+                            }
+                        } catch(Exception e) {
+                            logger.error("Exception for stealer node " + stealerNodeId, e);
+                            while(latch.getCount() > 0)
+                                latch.countDown();
+                            executor.shutdownNow();
+                            throw new VoldemortException(e);
+                        } finally {
+                            latch.countDown();
+                            logger.info("Number of stealers completed - "
+                                        + numStealersCompleted.incrementAndGet());
+                        }
                     }
                 });
-                logger.info("===============================================");
             }
+            latch.await();
         } catch(Exception e) {
-            logger.error(e, e);
+            logger.error("Exception in full process", e);
             executor.shutdownNow();
         } finally {
-            if(!(executor.isShutdown() || executor.isTerminated())) {
-                try {
-                    latch.await();
-                } catch(InterruptedException e)  {
-                    logger.error(e, e);
-                    throw new VoldemortException(e);
-                } finally {
-                    // Move all nodes in grandfathered state back to normal
-                    if(donorStates != null && transitionToNormal) {
-                        changeToNormal();
-                    }
-                    executor.shutdown();
-                }
+            // Move all nodes in grandfathered state back to normal
+            if(donorStates != null && transitionToNormal) {
+                changeToNormal();
             }
+            executor.shutdown();
+
         }
     }
 
@@ -358,6 +445,11 @@ public class MigratePartitions {
         parser.accepts("transition-to-normal",
                        "At the end of migration do we want to transition back to normal state? [Default-false]");
         parser.accepts("simulation", "Run the full process as simulation");
+        parser.accepts("checkpoint-folder",
+                       "Give a folder of completed tasks [ Or if running for first time, empty folder to dump checkpoints ]. "
+                               + "If non-empty, these tasks won't be executed")
+              .withRequiredArg()
+              .describedAs("file-name");
 
         OptionSet options = parser.parse(args);
 
@@ -369,7 +461,8 @@ public class MigratePartitions {
         Set<String> missing = CmdUtils.missing(options,
                                                "cluster-xml",
                                                "stores-xml",
-                                               "target-cluster-xml");
+                                               "target-cluster-xml",
+                                               "checkpoint-folder");
         if(missing.size() > 0) {
             System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
             parser.printHelpOn(System.err);
@@ -380,6 +473,7 @@ public class MigratePartitions {
         String currentClusterFile = (String) options.valueOf("cluster-xml");
         String currentStoresFile = (String) options.valueOf("stores-xml");
         String targetStoresFile = currentStoresFile;
+        final String checkpointFolder = (String) options.valueOf("checkpoint-folder");
         int parallelism = CmdUtils.valueOf(options, "parallelism", 2);
         boolean transitionToNormal = options.has("transition-to-normal");
         boolean simulation = options.has("simulation");
@@ -413,24 +507,27 @@ public class MigratePartitions {
             List<StoreDefinition> currentStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(currentStoresFile)));
             List<StoreDefinition> targetStoreDefs = new StoreDefinitionsMapper().readStoreList(new BufferedReader(new FileReader(targetStoresFile)));
 
-            MigratePartitions migratePartitions = new MigratePartitions(currentCluster,
-                                                                        targetCluster,
-                                                                        currentStoreDefs,
-                                                                        targetStoreDefs,
-                                                                        adminClient,
-                                                                        voldemortConfig,
-                                                                        stealerNodeIds,
-                                                                        parallelism,
-                                                                        transitionToNormal,
-                                                                        simulation);
+            final MigratePartitions migratePartitions = new MigratePartitions(currentCluster,
+                                                                              targetCluster,
+                                                                              currentStoreDefs,
+                                                                              targetStoreDefs,
+                                                                              adminClient,
+                                                                              voldemortConfig,
+                                                                              stealerNodeIds,
+                                                                              parallelism,
+                                                                              transitionToNormal,
+                                                                              simulation,
+                                                                              checkpointFolder);
 
             migratePartitions.migrate();
+
         } catch(Exception e) {
             logger.error("Error in migrate partitions", e);
         } finally {
             if(adminClient != null)
                 adminClient.stop();
         }
+
     }
 
     public static VoldemortConfig createTempVoldemortConfig() {
