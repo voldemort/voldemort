@@ -151,7 +151,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
             Response<ByteArray, Object> response = responseEntry.getValue();
-            logger.info("leigao: " + response);
             if(response.getValue() instanceof Exception) {
                 if(response.getValue() instanceof ObsoleteVersionException) {
                     // ignore this completely here
@@ -188,7 +187,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
                 for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
                     Response<ByteArray, Object> response = responseEntry.getValue();
-                    logger.info("leigao2: " + response);
                     if(response.getValue() instanceof Exception) {
                         if(response.getValue() instanceof ObsoleteVersionException) {
                             // ignore this completely here
