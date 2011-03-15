@@ -123,9 +123,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            result,
                                                                                            requestTime);
                     responses.put(node.getId(), response);
-                    if(Pipeline.Operation.DELETE == pipeline.getOperation()) {
-                        throw new RuntimeException("Delete is performed by get request");
-                    }
                     latch.countDown();
 
                     // Note errors that come in after the pipeline has finished.
