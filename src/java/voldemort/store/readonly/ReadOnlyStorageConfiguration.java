@@ -43,6 +43,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
     private final SearchStrategy searcher;
     private final int nodeId;
     private RoutingStrategy routingStrategy = null;
+    private final int deleteBackupMs;
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
@@ -51,6 +52,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(config.getReadOnlySearchStrategy()
                                                                                                    .trim()));
         this.nodeId = config.getNodeId();
+        this.deleteBackupMs = config.getReadOnlyDeleteBackupMs();
     }
 
     public void close() {
@@ -69,7 +71,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
                                                                 this.routingStrategy,
                                                                 this.nodeId,
                                                                 new File(storageDir, name),
-                                                                numBackups);
+                                                                numBackups,
+                                                                deleteBackupMs);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                        name + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),

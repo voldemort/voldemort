@@ -66,12 +66,38 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
+    private int deleteBackupMs = 0;
 
     /**
      * Create an instance of the store
      * 
      * @param name The name of the store
      * @param searchStrategy The algorithm to use for searching for keys
+     * @param routingStrategy The routing strategy used to route keys
+     * @param nodeId Node id
+     * @param storeDir The directory in which the .data and .index files reside
+     * @param numBackups The number of backups of these files to retain
+     * @param deleteBackupMs The time in ms for which we'll wait before we
+     *        delete a backup
+     */
+    public ReadOnlyStorageEngine(String name,
+                                 SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
+                                 File storeDir,
+                                 int numBackups,
+                                 int deleteBackupMs) {
+        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups);
+        this.deleteBackupMs = deleteBackupMs;
+    }
+
+    /**
+     * Create an instance of the store
+     * 
+     * @param name The name of the store
+     * @param searchStrategy The algorithm to use for searching for keys
+     * @param routingStrategy The routing strategy used to route keys
+     * @param nodeId Node id
      * @param storeDir The directory in which the .data and .index files reside
      * @param numBackups The number of backups of these files to retain
      */
@@ -333,9 +359,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
             public void run() {
                 try {
-                    logger.info("Deleting file " + file);
+                    try {
+                        logger.info("Waiting for " + deleteBackupMs
+                                    + " milliseconds before deleting " + file.getAbsolutePath());
+                        Thread.sleep(deleteBackupMs);
+                    } catch(InterruptedException e) {
+                        logger.warn("Did not sleep enough before deleting backups");
+                    }
+                    logger.info("Deleting file " + file.getAbsolutePath());
                     Utils.rm(file);
-                    logger.info("Delete completed successfully.");
+                    logger.info("Deleting of " + file.getAbsolutePath()
+                                + " completed successfully.");
                 } catch(Exception e) {
                     logger.error(e);
                 }
