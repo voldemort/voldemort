@@ -28,6 +28,9 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.versioning.Occured;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -118,5 +121,72 @@ public class EndToEndTest {
 
         storeClient.delete("Ukraine");
         assertNull("delete works as expected", storeClient.get("Ukraine"));
+    }
+
+    /**
+     * Test the new put that returns the new version
+     */
+    @Test
+    public void testPutReturnVersion() {
+        Version baseVersion = new VectorClock();
+        Version oldVersion = null;
+        Version newVersion = null;
+        Versioned<String> getVersioned = null;
+        String oldValue = null;
+        String newValue = null;
+
+        for(int i = 0; i < 5; i++) {
+            oldValue = "value" + i;
+            newValue = "value" + (i + 1);
+            oldVersion = storeClient.put("key1", Versioned.value(oldValue, baseVersion));
+            newVersion = storeClient.put("key1",
+                                         Versioned.value(newValue,
+                                                         ((VectorClock) oldVersion).clone()));
+            getVersioned = storeClient.get("key1");
+            baseVersion = newVersion;
+
+            verifyResults(oldVersion, newVersion, getVersioned, newValue);
+        }
+    }
+
+    @Test
+    public void testUnversionedPutReturnVersion() {
+        Version oldVersion = null;
+        Version newVersion = null;
+        Versioned<String> getVersioned = null;
+        String oldValue = null;
+        String newValue = null;
+
+        for(int i = 0; i < 5; i++) {
+            oldValue = "value" + i;
+            newValue = "value" + i + 1;
+            oldVersion = storeClient.put("key1", oldValue);
+            newVersion = storeClient.put("key1", newValue);
+            assertEquals("Version did not advance", Occured.AFTER, newVersion.compare(oldVersion));
+            getVersioned = storeClient.get("key1");
+
+            verifyResults(oldVersion, newVersion, getVersioned, newValue);
+        }
+    }
+
+    private void verifyResults(Version oldVersion,
+                               Version newVersion,
+                               Versioned<String> getVersioned,
+                               String newValue) {
+        // make sure version advances between two puts
+        assertEquals("Versions of put did not advance",
+                     Occured.AFTER,
+                     newVersion.compare(oldVersion));
+
+        // make sure version of last put equals version of the get
+        assertEquals("Version of put is larger than version of get",
+                     Occured.BEFORE /* before can mean equal, funny! */,
+                     newVersion.compare(getVersioned.getVersion()));
+        assertEquals("Version of put is smaller than version of get",
+                     Occured.BEFORE /* before can mean equal, funny! */,
+                     getVersioned.getVersion().compare(newVersion));
+
+        // make sure we get what we just put in
+        assertEquals("Value of put does not match value of get", newValue, getVersioned.getValue());
     }
 }

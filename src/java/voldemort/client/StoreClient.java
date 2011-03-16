@@ -120,8 +120,9 @@ public interface StoreClient<K, V> {
      * 
      * @param key The key
      * @param value The value
+     * @return version The version of the object
      */
-    public void put(K key, V value);
+    public Version put(K key, V value);
 
     /**
      * Like {@link voldemort.store.StoreClient#put(K, V) put}, except that the
@@ -130,6 +131,7 @@ public interface StoreClient<K, V> {
      * @param key the key
      * @param value the value
      * @param transforms the transforms to be applied on the value
+     * @return version The version of the object
      */
     public void put(K key, V value, Object transforms);
 
@@ -141,8 +143,9 @@ public interface StoreClient<K, V> {
      * @param key The key
      * @param versioned The value and its versioned
      * @throws ObsoleteVersionException
+     * @version version The version of the object
      */
-    public void put(K key, Versioned<V> versioned) throws ObsoleteVersionException;
+    public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException;
 
     /**
      * Put the versioned value to the key, ignoring any ObsoleteVersionException

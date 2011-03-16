@@ -39,6 +39,7 @@ import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
 import voldemort.store.routed.action.IncrementClock;
 import voldemort.store.routed.action.PerformDeleteHintedHandoff;
+import voldemort.store.routed.action.PerformParallelDeleteRequests;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
 import voldemort.store.routed.action.PerformParallelRequests;
@@ -387,41 +388,17 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                         key,
                                                                                         clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
-                                new PerformParallelRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                                 isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
-                                                                                                                         : Event.COMPLETED,
-                                                                                                 key,
-                                                                                                 null,
-                                                                                                 failureDetector,
-                                                                                                 storeDef.getPreferredWrites(),
-                                                                                                 storeDef.getRequiredWrites(),
-                                                                                                 timeoutMs,
-                                                                                                 nonblockingStores,
-                                                                                                 hintedHandoff,
-                                                                                                 version,
-                                                                                                 Event.INSUFFICIENT_SUCCESSES,
-                                                                                                 Event.INSUFFICIENT_ZONES));
-        pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
-                                new PerformSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
-                                                                                               isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
-                                                                                                                       : Event.COMPLETED,
-                                                                                               key,
-                                                                                               failureDetector,
-                                                                                               innerStores,
-                                                                                               storeDef.getPreferredWrites(),
-                                                                                               storeDef.getRequiredWrites(),
-                                                                                               blockingDelete,
-                                                                                               null));
-
-        if(zoneRoutingEnabled)
-            pipeline.addEventAction(Event.INSUFFICIENT_ZONES,
-                                    new PerformZoneSerialRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
+                                new PerformParallelDeleteRequests<Boolean, BasicPipelineData<Boolean>>(pipelineData,
                                                                                                        isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
                                                                                                                                : Event.COMPLETED,
                                                                                                        key,
                                                                                                        failureDetector,
-                                                                                                       innerStores,
-                                                                                                       blockingDelete));
+                                                                                                       storeDef.getPreferredWrites(),
+                                                                                                       storeDef.getRequiredWrites(),
+                                                                                                       timeoutMs,
+                                                                                                       nonblockingStores,
+                                                                                                       hintedHandoff,
+                                                                                                       version));
 
         if(isHintedHandoffEnabled()) {
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
@@ -435,6 +412,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                   key,
                                                                                   version,
                                                                                   hintedHandoff));
+
         }
 
         pipeline.addEvent(Event.STARTED);
