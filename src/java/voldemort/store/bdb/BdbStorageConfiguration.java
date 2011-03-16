@@ -31,15 +31,17 @@ import voldemort.store.StorageInitializationException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
-import com.google.common.collect.Maps;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
+import com.sleepycat.je.LockMode;
 import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
+
+import com.google.common.collect.Maps;
 
 /**
  * The configuration that is shared between berkeley db instances. This includes
@@ -116,6 +118,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
             try {
+                LockMode readLockMode = getLockMode();
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 if(voldemortConfig.getBdbCursorPreload()) {
@@ -126,12 +129,17 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 BdbStorageEngine engine = new BdbStorageEngine(storeName,
                                                                environment,
                                                                db,
+                                                               readLockMode,
                                                                voldemortConfig.getBdbCursorPreload());
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
             }
         }
+    }
+
+    private LockMode getLockMode() {
+       return voldemortConfig.getBdbReadUncommitted() ? LockMode.READ_UNCOMMITTED : LockMode.DEFAULT;
     }
 
     private Environment getEnvironment(String storeName) throws DatabaseException {

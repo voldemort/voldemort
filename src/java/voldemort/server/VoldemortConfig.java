@@ -72,7 +72,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerLookAheadCacheSize;
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
-
+    private boolean bdbReadUncommitted;
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
@@ -209,6 +209,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
+        this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -655,6 +656,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbFairLatches(boolean bdbFairLatches) {
         this.bdbFairLatches = bdbFairLatches;
+    }
+
+    public boolean getBdbReadUncommitted() {
+        return bdbReadUncommitted;
+    }
+
+    public void setBdbReadUncommitted(boolean bdbReadUncommitted) {
+        this.bdbReadUncommitted = bdbReadUncommitted;
     }
 
     /**

@@ -34,6 +34,7 @@ import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
 
 public class CatBdbStore {
 
@@ -60,7 +61,8 @@ public class CatBdbStore {
         Database database = environment.openDatabase(null, storeName, databaseConfig);
         StorageEngine<ByteArray, byte[], byte[]> store = new BdbStorageEngine(storeName,
                                                                               environment,
-                                                                              database);
+                                                                              database,
+                                                                              LockMode.READ_UNCOMMITTED);
         StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
                                                                                           new StringSerializer(),
                                                                                           new StringSerializer(),
