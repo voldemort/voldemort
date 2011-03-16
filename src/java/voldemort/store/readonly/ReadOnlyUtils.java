@@ -68,15 +68,24 @@ public class ReadOnlyUtils {
     /**
      * Extracts the version id from the directory
      * 
-     * @param versionDir The directory
+     * @param versionDir The directory path
      * @return Returns the version id of the directory, else -1
      */
     public static long getVersionId(File versionDir) {
+        return getVersionId(versionDir.getName());
+    }
+
+    /**
+     * Extracts the version id from a string
+     * 
+     * @param versionDir The string
+     * @return Returns the version id of the directory, else -1
+     */
+    private static long getVersionId(String versionDir) {
         try {
-            return Long.parseLong(versionDir.getName().replace("version-", ""));
+            return Long.parseLong(versionDir.replace("version-", ""));
         } catch(NumberFormatException e) {
-            logger.trace("Cannot parse version directory to obtain id "
-                         + versionDir.getAbsolutePath());
+            logger.trace("Cannot parse version directory to obtain id " + versionDir);
             return -1;
         }
     }

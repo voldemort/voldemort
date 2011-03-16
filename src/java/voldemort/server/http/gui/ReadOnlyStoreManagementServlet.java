@@ -35,6 +35,7 @@ import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.storage.StorageService;
 import voldemort.store.StorageEngine;
+import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
@@ -70,6 +71,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
     private volatile List<ReadOnlyStorageEngine> stores;
     private VelocityEngine velocityEngine;
     private FileFetcher fileFetcher;
+    private MetadataStore metadataStore;
 
     public ReadOnlyStoreManagementServlet() {}
 
@@ -85,9 +87,14 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         VoldemortServer server = (VoldemortServer) config.getServletContext()
                                                          .getAttribute(VoldemortServletContextListener.SERVER_KEY);
 
+        initMetadataStore(server);
         initStores(server);
         initVelocity(config);
         setFetcherClass(server);
+    }
+
+    public void initMetadataStore(VoldemortServer server) {
+        this.metadataStore = Utils.notNull(server).getMetadataStore();
     }
 
     public void initStores(VoldemortServer server) {
@@ -149,6 +156,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                 doFetch(req, resp);
             } else if("rollback".equals(operation)) {
                 doRollback(req);
+            } else if("failed-fetch".equals(operation)) {
+                doFailedFetch(req);
             } else {
                 throw new IllegalArgumentException("Unknown operation parameter: "
                                                    + req.getParameter("operation"));
@@ -159,10 +168,38 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         }
     }
 
+    private void doFailedFetch(HttpServletRequest req) throws ServletException {
+        String dir = getRequired(req, "dir");
+        String storeName = getRequired(req, "store");
+
+        try {
+
+            if(!Utils.isReadableDir(dir))
+                throw new ServletException("Could not read folder " + dir
+                                           + " correctly to delete it");
+
+            ReadOnlyStorageEngine store = this.getStore(storeName);
+            if(store.getCurrentVersionId() == ReadOnlyUtils.getVersionId(new File(dir))) {
+                logger.warn("Cannot delete " + dir + " for " + storeName
+                            + " since it is the current dir");
+                return;
+            }
+
+            Utils.rm(new File(dir));
+        } catch(Exception e) {
+            throw new ServletException(e);
+        }
+    }
+
     private void doSwap(HttpServletRequest req, HttpServletResponse resp) throws IOException,
             ServletException {
         String dir = getRequired(req, "dir");
         String storeName = getRequired(req, "store");
+
+        if(metadataStore != null
+           && !metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
+            throw new ServletException("Voldemort server not in normal state");
+        }
 
         ReadOnlyStorageEngine store = this.getStore(storeName);
         if(store == null)
@@ -171,8 +208,14 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
         if(!Utils.isReadableDir(dir))
             throw new ServletException("Store directory '" + dir + "' is not a readable directory.");
 
+        // Retrieve the current directory before swapping it
+        String currentDirPath = store.getCurrentDirPath();
+
+        // Swap with the new directory
         store.swapFiles(dir);
-        resp.getWriter().write("Swap completed.");
+
+        // Send back the previous directory
+        resp.getWriter().write(currentDirPath);
     }
 
     private void doFetch(HttpServletRequest req, HttpServletResponse resp) throws IOException,
@@ -213,10 +256,15 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
             logger.warn("File fetcher class has not instantiated correctly. Assuming local file");
 
             if(!Utils.isReadableDir(fetchUrl)) {
-                throw new VoldemortException("Fetch url " + fetchUrl + " is not readable");
+                throw new ServletException("Fetch url " + fetchUrl + " is not readable");
             }
 
             fetchDir = new File(store.getStoreDirPath(), "version-" + Long.toString(pushVersion));
+
+            if(fetchDir.exists())
+                throw new ServletException("Version directory " + fetchDir.getAbsolutePath()
+                                           + " already exists");
+
             Utils.move(new File(fetchUrl), fetchDir);
 
         } else {
@@ -255,7 +303,7 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
 
             store.rollback(rollbackVersionDir);
         } catch(Exception e) {
-            throw new ServletException("Exception in Fetcher = " + e.getMessage());
+            throw new ServletException("Exception in rollback = " + e.getMessage());
         }
     }
 

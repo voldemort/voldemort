@@ -232,11 +232,46 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleUpdateGrandfatherMetadata(request.getUpdateGrandfatherMetadata()));
                 break;
+            case FAILED_FETCH_STORE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleFailedFetch(request.getFailedFetchStore()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.FailedFetchStoreResponse handleFailedFetch(VAdminProto.FailedFetchStoreRequest request) {
+        final String storeDir = request.getStoreDir();
+        final String storeName = request.getStoreName();
+        VAdminProto.FailedFetchStoreResponse.Builder response = VAdminProto.FailedFetchStoreResponse.newBuilder();
+
+        try {
+
+            if(!Utils.isReadableDir(storeDir))
+                throw new VoldemortException("Could not read folder " + storeDir
+                                             + " correctly to delete it");
+
+            final ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                         storeRepository,
+                                                                         storeName);
+
+            if(store.getCurrentVersionId() == ReadOnlyUtils.getVersionId(new File(storeDir))) {
+                logger.warn("Cannot delete " + storeDir + " for " + storeName
+                            + " since it is the current dir");
+                return response.build();
+            }
+
+            // Lets delete the folder
+            Utils.rm(new File(storeDir));
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleFailedFetch failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
     }
 
     private VAdminProto.UpdateGrandfatherMetadataResponse handleUpdateGrandfatherMetadata(VAdminProto.UpdateGrandfatherMetadataRequest request) {
@@ -501,7 +536,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     }
 
-    private void swapStore(String storeName, String directory) throws VoldemortException {
+    /**
+     * Given a read-only store name and a directory, swaps it in while returning
+     * the directory path being swapped out
+     * 
+     * @param storeName The name of the read-only store
+     * @param directory The directory being swapped in
+     * @return The directory path which was swapped out
+     * @throws VoldemortException
+     */
+    private String swapStore(String storeName, String directory) throws VoldemortException {
 
         ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
                                                                storeRepository,
@@ -511,7 +555,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
             throw new VoldemortException("Store directory '" + directory
                                          + "' is not a readable directory.");
 
+        String currentDirPath = store.getCurrentDirPath();
+
         store.swapFiles(directory);
+
+        return currentDirPath;
     }
 
     public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
@@ -519,20 +567,20 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
 
-        if(metadataStore.getServerState()
-                        .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+        if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Rebalancing in progress")));
+                                                     new VoldemortException("Voldemort server not in normal state")));
             return response.build();
         }
 
         try {
-            swapStore(storeName, dir);
+            response.setPreviousStoreDir(swapStore(storeName, dir));
+            return response.build();
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleSwapStore failed for request(" + request.toString() + ")", e);
+            return response.build();
         }
-        return response.build();
     }
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchStore(VAdminProto.FetchStoreRequest request) {
@@ -597,6 +645,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                         fetchDir = new File(store.getStoreDirPath(), "version-"
                                                                      + Long.toString(pushVersion));
+
+                        if(fetchDir.exists())
+                            throw new VoldemortException("Version directory "
+                                                         + fetchDir.getAbsolutePath()
+                                                         + " already exists");
+
                         Utils.move(new File(fetchUrl), fetchDir);
 
                     } else {

@@ -1351,14 +1351,41 @@ public class AdminClient {
     }
 
     /**
+     * When a fetch store fails, we don't need to keep the pushed data around.
+     * This function deletes its...
+     * 
+     * @param nodeId The node id on which to delete the data
+     * @param storeName The name of the store
+     * @param storeDir The directory to delete
+     */
+    public void failedFetchStore(int nodeId, String storeName, String storeDir) {
+        VAdminProto.FailedFetchStoreRequest.Builder failedFetchStoreRequest = VAdminProto.FailedFetchStoreRequest.newBuilder()
+                                                                                                                 .setStoreDir(storeDir)
+                                                                                                                 .setStoreName(storeName);
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setFailedFetchStore(failedFetchStoreRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.FAILED_FETCH_STORE)
+                                                                                          .build();
+        VAdminProto.FailedFetchStoreResponse.Builder response = sendAndReceive(nodeId,
+                                                                               adminRequest,
+                                                                               VAdminProto.FailedFetchStoreResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+        return;
+    }
+
+    /**
      * Swap store data atomically on a single node
      * <p>
      * 
      * @param nodeId The node id where we would want to swap the data
      * @param storeName Name of the store
      * @param storeDir The directory where the data is present
+     * @return Returns the location of the previous directory
      */
-    public void swapStore(int nodeId, String storeName, String storeDir) {
+    public String swapStore(int nodeId, String storeName, String storeDir) {
         VAdminProto.SwapStoreRequest.Builder swapStoreRequest = VAdminProto.SwapStoreRequest.newBuilder()
                                                                                             .setStoreDir(storeDir)
                                                                                             .setStoreName(storeName);
@@ -1372,7 +1399,7 @@ public class AdminClient {
         if(response.hasError()) {
             throwException(response.getError());
         }
-        return;
+        return response.getPreviousStoreDir();
     }
 
     /**

@@ -850,8 +850,6 @@ public class GrandfatherTest {
             SocketStoreFactory socketStoreFactory = null;
             try {
                 socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
-                RequestRoutingType requestRoutingType = RequestRoutingType.getRequestRoutingType(false,
-                                                                                                 false);
                 StringSerializer serializer = new StringSerializer();
                 for(int storeNo = 1; storeNo <= numStores; storeNo++) {
                     StoreDefinition storeDefToTest = targetStoreDefs.get(storeNo - 1);
@@ -864,8 +862,8 @@ public class GrandfatherTest {
                                                 socketStoreFactory.create(storeDefToTest.getName(),
                                                                           node.getHost(),
                                                                           node.getSocketPort(),
-                                                                          RequestFormatType.VOLDEMORT_V1,
-                                                                          requestRoutingType));
+                                                                          RequestFormatType.PROTOCOL_BUFFERS,
+                                                                          RequestRoutingType.IGNORE_CHECKS));
                     }
 
                     for(int i = 0; i < NUM_KEYS; i++) {

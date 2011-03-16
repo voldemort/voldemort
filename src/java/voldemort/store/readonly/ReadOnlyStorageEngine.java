@@ -174,17 +174,41 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
+    /**
+     * Retrieve the absolute path of the current version
+     * 
+     * @return Returns the absolute path of the current dir
+     */
     public String getCurrentDirPath() {
         return storeDir.getAbsolutePath() + File.separator + "version-"
                + Long.toString(currentVersionId);
     }
 
+    /**
+     * Retrieve the version id of the current directory
+     * 
+     * @return Returns a long indicating the version number
+     */
     public long getCurrentVersionId() {
         return currentVersionId;
     }
 
+    /**
+     * Retrieves the path of the store
+     * 
+     * @return The absolute path of the store
+     */
     public String getStoreDirPath() {
         return storeDir.getAbsolutePath();
+    }
+
+    /**
+     * Retrieve the storage format of RO
+     * 
+     * @return The type of the storage format
+     */
+    public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
+        return fileSet.getReadOnlyStorageFormat();
     }
 
     /**
@@ -329,8 +353,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         logger.info("Rolling back store '" + getName() + "'");
         fileModificationLock.writeLock().lock();
         try {
-            if(rollbackToDir == null || !rollbackToDir.exists())
-                throw new VoldemortException("Version directory specified to rollback to does not exist or is null");
+            if(rollbackToDir == null)
+                throw new VoldemortException("Version directory specified to rollback is null");
+
+            if(!rollbackToDir.exists())
+                throw new VoldemortException("Version directory " + rollbackToDir.getAbsolutePath()
+                                             + " specified to rollback does not exist");
 
             long versionId = ReadOnlyUtils.getVersionId(rollbackToDir);
             if(versionId == -1)
