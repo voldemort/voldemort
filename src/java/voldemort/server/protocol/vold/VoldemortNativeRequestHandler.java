@@ -134,14 +134,35 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             inputStream.readUTF();
 
             // Read the 'is routed' flag in, but just to skip the byte.
-            if(protocolVersion > 0)
-                inputStream.readBoolean();
+            if(protocolVersion > 0) {
+                boolean routed = inputStream.readBoolean();
+                if(logger.isDebugEnabled()) {
+                    logger.debug("isRouted=" + routed);
+                }
+            }
+
+            // Read routing type
+            if(protocolVersion > 1) {
+                int routingTypeCode = inputStream.readByte();
+                if(logger.isDebugEnabled()) {
+                    logger.debug("routingTypeCode=" + routingTypeCode);
+                }
+            }
 
             switch(opCode) {
-                case VoldemortOpCode.GET_OP_CODE:
                 case VoldemortOpCode.GET_VERSION_OP_CODE:
                     // Read the key just to skip the bytes.
                     readKey(inputStream);
+                    break;
+                case VoldemortOpCode.GET_OP_CODE:
+                    // Read the key just to skip the bytes.
+                    readKey(inputStream);
+                    if(protocolVersion > 2) {
+                        boolean hasTransform = inputStream.readBoolean();
+                        if(hasTransform) {
+                            readTransforms(inputStream);
+                        }
+                    }
                     break;
                 case VoldemortOpCode.GET_ALL_OP_CODE:
                     int numKeys = inputStream.readInt();
@@ -150,6 +171,15 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                     for(int i = 0; i < numKeys; i++)
                         readKey(inputStream);
 
+                    if(protocolVersion > 2) {
+                        boolean hasTransform = inputStream.readBoolean();
+                        if(hasTransform) {
+                            int numTrans = inputStream.readInt();
+                            for(int i = 0; i < numTrans; i++) {
+                                readTransforms(inputStream);
+                            }
+                        }
+                    }
                     break;
                 case VoldemortOpCode.PUT_OP_CODE: {
                     readKey(inputStream);
@@ -165,6 +195,12 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                     // Here we skip over the data (without reading it in) and
                     // move our position to just past it.
                     buffer.position(newPosition);
+                    if(protocolVersion > 2) {
+                        boolean hasTransform = inputStream.readBoolean();
+                        if(hasTransform) {
+                            readTransforms(inputStream);
+                        }
+                    }
                     break;
                 }
                 case VoldemortOpCode.DELETE_OP_CODE: {
@@ -206,6 +242,11 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         int keySize = inputStream.readInt();
         byte[] key = new byte[keySize];
         inputStream.readFully(key);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug(new String(key));
+        }
+
         return new ByteArray(key);
     }
 
@@ -215,6 +256,11 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return null;
         byte[] transforms = new byte[size];
         inputStream.readFully(transforms);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug(new String(transforms));
+        }
+
         return transforms;
     }
 
