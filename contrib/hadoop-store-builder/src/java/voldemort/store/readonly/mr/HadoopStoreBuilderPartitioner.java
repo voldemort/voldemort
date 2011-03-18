@@ -20,7 +20,6 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
 
-import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -32,13 +31,15 @@ public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigura
         Partitioner<BytesWritable, BytesWritable> {
 
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
-        int partitionId = ByteUtils.readInt(value.get(), 4);
-        int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
+        int partitionId = ByteUtils.readInt(value.get(), ByteUtils.SIZE_OF_INT);
         if(getSaveKeys()) {
-            return ((partitionId * getNumChunks() * getStoreDef().getReplicationFactor()) + chunkId)
+            int replicaType = (int) ByteUtils.readBytes(value.get(),
+                                                        2 * ByteUtils.SIZE_OF_INT,
+                                                        ByteUtils.SIZE_OF_BYTE);
+            return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
                    % numReduceTasks;
         } else {
-            return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            return partitionId % numReduceTasks;
         }
     }
 

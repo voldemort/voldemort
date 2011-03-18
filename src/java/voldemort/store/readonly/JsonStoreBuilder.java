@@ -500,7 +500,6 @@ public class JsonStoreBuilder {
                 int globalChunkId = partitionIdToChunkOffset[partitionId]
                                     + (replicaType * numChunks) + localChunkId;
 
-                logger.info("global - " + globalChunkId + " - " + partitionId);
                 Pair<Integer, Integer> key = Pair.create(nodeId, globalChunkId);
                 if(!previousElements.containsKey(key)) {
 

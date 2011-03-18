@@ -282,12 +282,11 @@ public class HadoopStoreBuilder {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions()
                                             / storeDef.getReplicationFactor() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
-                              * numChunks;
+                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
             } else {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions() * numChunks;
+                numReducers = cluster.getNumberOfPartitions();
             }
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
