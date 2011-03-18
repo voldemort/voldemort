@@ -10,7 +10,6 @@ import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -30,14 +29,16 @@ public class ChunkedFileSet {
 
     private static Logger logger = Logger.getLogger(ChunkedFileSet.class);
 
-    private final int numChunks, nodeId;
+    private final int numChunks;
+    private final int nodeId;
     private final File baseDir;
     private final List<Integer> indexFileSizes;
     private final List<Integer> dataFileSizes;
     private final List<MappedByteBuffer> indexFiles;
     private final List<FileChannel> dataFiles;
-    private final HashMap<Integer, Integer> partitionToChunkStart, partitionToNumChunks;
-    private HashSet<Integer> partitionIds;
+    private final HashMap<Integer, Integer> chunkIdToChunkStart;
+    private final HashMap<Integer, Integer> chunkIdToNumChunks;
+    private ArrayList<Integer> partitionIds;
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
 
@@ -66,8 +67,8 @@ public class ChunkedFileSet {
         this.dataFileSizes = new ArrayList<Integer>();
         this.indexFiles = new ArrayList<MappedByteBuffer>();
         this.dataFiles = new ArrayList<FileChannel>();
-        this.partitionToChunkStart = new HashMap<Integer, Integer>();
-        this.partitionToNumChunks = new HashMap<Integer, Integer>();
+        this.chunkIdToChunkStart = new HashMap<Integer, Integer>();
+        this.chunkIdToNumChunks = new HashMap<Integer, Integer>();
         this.nodeId = nodeId;
         setRoutingStrategy(routingStrategy);
 
@@ -76,8 +77,10 @@ public class ChunkedFileSet {
                 initVersion0();
                 break;
             case READONLY_V1:
+                initVersion1();
+                break;
             case READONLY_V2:
-                initVersion12();
+                initVersion2();
                 break;
             default:
                 throw new VoldemortException("Invalid chunked storage format type " + storageFormat);
@@ -131,7 +134,7 @@ public class ChunkedFileSet {
             throw new VoldemortException("No data chunks found in directory " + baseDir.toString());
     }
 
-    public void initVersion12() {
+    public void initVersion1() {
         int globalChunkId = 0;
         if(this.partitionIds != null) {
             for(Integer partitionId: this.partitionIds) {
@@ -141,27 +144,31 @@ public class ChunkedFileSet {
                                       + Integer.toString(chunkId);
                     File index = new File(baseDir, fileName + ".index");
                     File data = new File(baseDir, fileName + ".data");
+
                     if(!index.exists() && !data.exists()) {
                         if(chunkId == 0) {
                             // create empty files for this partition
                             try {
                                 new File(baseDir, fileName + ".index").createNewFile();
                                 new File(baseDir, fileName + ".data").createNewFile();
-                                logger.info("No index or data files found, creating empty files for partition "
+                                logger.info("No index or data files found, creating empty chunk files for partition "
                                             + partitionId);
                             } catch(IOException e) {
-                                throw new VoldemortException("Error creating empty read-only files.",
+                                throw new VoldemortException("Error creating empty read-only files for partition "
+                                                                     + partitionId,
                                                              e);
                             }
                         } else {
                             break;
                         }
-                    } else if(index.exists() ^ data.exists())
+                    } else if(index.exists() ^ data.exists()) {
                         throw new VoldemortException("One of the following does not exist: "
-                                                     + index.toString() + " and " + data.toString()
+                                                     + index.toString() + " or " + data.toString()
                                                      + ".");
+                    }
+
                     if(chunkId == 0)
-                        partitionToChunkStart.put(partitionId, globalChunkId);
+                        chunkIdToChunkStart.put(partitionId, globalChunkId);
 
                     /* Deal with file sizes */
                     long indexLength = index.length();
@@ -176,11 +183,79 @@ public class ChunkedFileSet {
                     chunkId++;
                     globalChunkId++;
                 }
-                partitionToNumChunks.put(partitionId, chunkId);
+                chunkIdToNumChunks.put(partitionId, chunkId);
             }
 
             if(indexFileSizes.size() == 0)
-                throw new VoldemortException("No data chunks found in directory "
+                throw new VoldemortException("No chunk files found in directory "
+                                             + baseDir.toString());
+        }
+    }
+
+    public void initVersion2() {
+        int globalChunkId = 0;
+        if(this.partitionIds != null) {
+            for(int partitionIdsIndex = 0; partitionIdsIndex < partitionIds.size(); partitionIdsIndex++) {
+                int partitionId = partitionIds.get(partitionIdsIndex);
+                for(int replicaType = 0; replicaType < routingStrategy.getNumReplicas(); replicaType++) {
+                    int chunkId = 0;
+                    while(true) {
+                        String fileName = Integer.toString(partitionId) + "_"
+                                          + Integer.toString(replicaType) + "_"
+                                          + Integer.toString(chunkId);
+                        File index = new File(baseDir, fileName + ".index");
+                        File data = new File(baseDir, fileName + ".data");
+
+                        if(!index.exists() && !data.exists()) {
+                            if(chunkId == 0) {
+                                // create empty files for this partition
+                                try {
+                                    new File(baseDir, fileName + ".index").createNewFile();
+                                    new File(baseDir, fileName + ".data").createNewFile();
+                                    logger.info("No index or data files found, creating empty files for partition "
+                                                + partitionId + " and replica type " + replicaType);
+                                } catch(IOException e) {
+                                    throw new VoldemortException("Error creating empty read-only files for partition "
+                                                                         + partitionId
+                                                                         + " and replica type "
+                                                                         + replicaType,
+                                                                 e);
+                                }
+                            } else {
+                                break;
+                            }
+                        } else if(index.exists() ^ data.exists()) {
+                            throw new VoldemortException("One of the following does not exist: "
+                                                         + index.toString() + " or "
+                                                         + data.toString() + ".");
+                        }
+
+                        if(chunkId == 0) {
+                            chunkIdToChunkStart.put(partitionIdsIndex
+                                                    * routingStrategy.getNumReplicas()
+                                                    + replicaType, globalChunkId);
+                        }
+
+                        /* Deal with file sizes */
+                        long indexLength = index.length();
+                        long dataLength = data.length();
+                        validateFileSizes(indexLength, dataLength);
+                        indexFileSizes.add((int) indexLength);
+                        dataFileSizes.add((int) dataLength);
+
+                        /* Add the file channel for data */
+                        dataFiles.add(openChannel(data));
+                        indexFiles.add(mapFile(index));
+                        chunkId++;
+                        globalChunkId++;
+                    }
+                    chunkIdToNumChunks.put(partitionIdsIndex * routingStrategy.getNumReplicas()
+                                           + replicaType, chunkId);
+                }
+            }
+
+            if(indexFileSizes.size() == 0)
+                throw new VoldemortException("No chunk files found in directory "
                                              + baseDir.toString());
         }
     }
@@ -192,7 +267,7 @@ public class ChunkedFileSet {
         this.partitionIds = null;
         for(Node node: routingStrategy.getNodes()) {
             if(node.getId() == this.nodeId) {
-                this.partitionIds = new HashSet<Integer>();
+                this.partitionIds = new ArrayList<Integer>();
                 this.partitionIds.addAll(node.getPartitionIds());
                 break;
             }
@@ -297,16 +372,44 @@ public class ChunkedFileSet {
             case READONLY_V0: {
                 return ReadOnlyUtils.chunk(keyToStorageFormat(key), numChunks);
             }
-            case READONLY_V1:
+            case READONLY_V1: {
+                List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
+                routingPartitionList.retainAll(partitionIds);
+
+                if(routingPartitionList.size() != 1) {
+                    return -1;
+                }
+
+                return chunkIdToChunkStart.get(routingPartitionList.get(0))
+                       + ReadOnlyUtils.chunk(keyToStorageFormat(key),
+                                             chunkIdToNumChunks.get(routingPartitionList.get(0)));
+            }
             case READONLY_V2: {
-                List<Integer> partitionList = routingStrategy.getPartitionList(key);
-                partitionList.retainAll(partitionIds);
-                if(partitionList.size() != 1)
+                List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
+
+                int replicaType = -1, currentPartition = -1, partitionIdsIndex = -1;
+                for(int index = 0; index < routingPartitionList.size(); index++) {
+                    int partition = routingPartitionList.get(index);
+                    if(partitionIds.contains(partition)) {
+                        if(replicaType == -1) {
+                            partitionIdsIndex = partitionIds.indexOf(partition);
+                            replicaType = index;
+                            currentPartition = partition;
+                        } else {
+                            return -1;
+                        }
+                    }
+                }
+
+                if(replicaType == -1 || currentPartition == -1)
                     return -1;
 
-                Integer chunkId = ReadOnlyUtils.chunk(keyToStorageFormat(key),
-                                                      partitionToNumChunks.get(partitionList.get(0)));
-                return partitionToChunkStart.get(partitionList.get(0)) + chunkId;
+                return chunkIdToChunkStart.get(partitionIdsIndex * routingStrategy.getNumReplicas()
+                                               + replicaType)
+                       + ReadOnlyUtils.chunk(keyToStorageFormat(key),
+                                             chunkIdToNumChunks.get(partitionIdsIndex
+                                                                    * routingStrategy.getNumReplicas()
+                                                                    + replicaType));
             }
             default: {
                 return -1;

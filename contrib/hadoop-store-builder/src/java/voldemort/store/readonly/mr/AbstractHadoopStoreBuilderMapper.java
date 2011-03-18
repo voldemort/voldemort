@@ -58,7 +58,6 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
     private CompressionStrategy keyCompressor;
     private SerializerDefinition keySerializerDefinition;
     private SerializerDefinition valueSerializerDefinition;
-    private boolean saveKeys;
 
     public abstract Object makeKey(K key, V value);
 
@@ -80,7 +79,7 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         byte[] keyBytes = keySerializer.toBytes(makeKey(key, value));
         byte[] valBytes = valueSerializer.toBytes(makeValue(key, value));
 
-        // compress key and values if required
+        // Compress key and values if required
         if(keySerializerDefinition.hasCompression()) {
             keyBytes = keyCompressor.deflate(keyBytes);
         }
@@ -93,45 +92,73 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
         Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
+        // Get the output byte arrays ready to populate
         byte[] outputValue;
         BytesWritable outputKey;
-        if(saveKeys) {
-            // 4 ( for node id ) + 4 ( partition id ) + 4 ( value size ) + 4 (
-            // key size )
-            outputValue = new byte[valBytes.length + keyBytes.length + 4 + 4 + 4 + 4];
 
-            // copy key
-            ByteUtils.writeInt(outputValue, keyBytes.length, 4 + 4);
-            System.arraycopy(keyBytes, 0, outputValue, 4 + 4 + 4, keyBytes.length);
+        // Leave initial offset for (a) node id (b) partition id
+        // since they are written later
+        int offsetTillNow = 2 * ByteUtils.SIZE_OF_INT;
 
-            // copy value
-            ByteUtils.writeInt(outputValue, valBytes.length, 4 + 4 + 4 + keyBytes.length);
-            System.arraycopy(valBytes,
-                             0,
-                             outputValue,
-                             4 + 4 + 4 + keyBytes.length + 4,
-                             valBytes.length);
+        if(getSaveKeys()) {
 
-            // generate key - upper 8 bytes of 16 byte md5
+            // In order - 4 ( for node id ) + 4 ( partition id ) + 1 ( replica
+            // type - primary | secondary | tertiary... ] + 4 ( key size ) + key
+            // + 4 ( value size ) + value
+            outputValue = new byte[valBytes.length + keyBytes.length + ByteUtils.SIZE_OF_BYTE + 4
+                                   * ByteUtils.SIZE_OF_INT];
+
+            // Write key length - leave byte for replica type
+            offsetTillNow += ByteUtils.SIZE_OF_BYTE;
+            ByteUtils.writeInt(outputValue, keyBytes.length, offsetTillNow);
+
+            // Write key
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            System.arraycopy(keyBytes, 0, outputValue, offsetTillNow, keyBytes.length);
+
+            // Write value length
+            offsetTillNow += keyBytes.length;
+            ByteUtils.writeInt(outputValue, valBytes.length, offsetTillNow);
+
+            // Write value
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
+
+            // Generate MR key - upper 8 bytes of 16 byte md5
             outputKey = new BytesWritable(ByteUtils.copy(md5er.digest(keyBytes),
                                                          0,
                                                          2 * ByteUtils.SIZE_OF_INT));
 
         } else {
-            // 4 ( for node id ) + 4 ( partition id )
-            outputValue = new byte[valBytes.length + 4 + 4];
-            System.arraycopy(valBytes, 0, outputValue, 8, valBytes.length);
 
-            // generate key - 16 byte md5
+            // In order - 4 ( for node id ) + 4 ( partition id ) + value
+            outputValue = new byte[valBytes.length + 2 * ByteUtils.SIZE_OF_INT];
+
+            // Write value
+            System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
+
+            // Generate MR key - 16 byte md5
             outputKey = new BytesWritable(md5er.digest(keyBytes));
+
         }
 
+        int replicaType = 0;
         for(Integer partition: partitionList) {
+
             ByteUtils.writeInt(outputValue, partitionToNode[partition].getId(), 0);
-            ByteUtils.writeInt(outputValue, partition, 4);
+            ByteUtils.writeInt(outputValue, partition, ByteUtils.SIZE_OF_INT);
+
+            if(getSaveKeys()) {
+                ByteUtils.writeBytes(outputValue,
+                                     replicaType,
+                                     2 * ByteUtils.SIZE_OF_INT,
+                                     ByteUtils.SIZE_OF_BYTE);
+            }
             BytesWritable outputVal = new BytesWritable(outputValue);
 
             output.collect(outputKey, outputVal);
+            replicaType++;
+
         }
         md5er.reset();
     }
@@ -144,7 +171,6 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         md5er = ByteUtils.getDigest("md5");
         keySerializerDefinition = getStoreDef().getKeySerializer();
         valueSerializerDefinition = getStoreDef().getValueSerializer();
-        saveKeys = conf.getBoolean("save.keys", false);
 
         try {
             SerializerFactory factory = new DefaultSerializerFactory();

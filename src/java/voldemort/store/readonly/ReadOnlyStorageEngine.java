@@ -141,7 +141,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
             // Find version directory from symbolic link or max version id
             if(versionDir == null) {
-                versionDir = getCurrentVersion();
+                versionDir = ReadOnlyUtils.getCurrentVersion(storeDir);
 
                 if(versionDir == null)
                     versionDir = new File(storeDir, "version-0");
@@ -177,27 +177,6 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             throw new VoldemortException("File set should not be null");
 
         this.routingStrategy = routingStrategy;
-    }
-
-    /**
-     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
-     * version dir
-     * 
-     * @return Current version directory, else null
-     */
-    private File getCurrentVersion() {
-        File latestDir = ReadOnlyUtils.getLatestDir(storeDir);
-        if(latestDir != null)
-            return latestDir;
-
-        File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDir);
-        if(versionDirs == null || versionDirs.length == 0) {
-            return null;
-        } else {
-            return ReadOnlyUtils.findKthVersionedDir(versionDirs,
-                                                     versionDirs.length - 1,
-                                                     versionDirs.length - 1)[0];
-        }
     }
 
     /**
@@ -278,7 +257,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
         // retrieve previous version for (a) check if last write is winning
         // (b) if failure, rollback use
-        File previousVersionDir = getCurrentVersion();
+        File previousVersionDir = ReadOnlyUtils.getCurrentVersion(storeDir);
         if(previousVersionDir == null)
             throw new VoldemortException("Could not find any latest directory to swap with in store '"
                                          + getName() + "'");

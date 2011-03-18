@@ -31,6 +31,25 @@ public class ReadOnlyUtils {
     }
 
     /**
+     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
+     * version dir
+     * 
+     * @return Current version directory, else null
+     */
+    public static File getCurrentVersion(File storeDirectory) {
+        File latestDir = getLatestDir(storeDirectory);
+        if(latestDir != null)
+            return latestDir;
+
+        File[] versionDirs = getVersionDirs(storeDirectory);
+        if(versionDirs == null || versionDirs.length == 0) {
+            return null;
+        } else {
+            return findKthVersionedDir(versionDirs, versionDirs.length - 1, versionDirs.length - 1)[0];
+        }
+    }
+
+    /**
      * Retrieve the directory pointed by latest symbolic link
      * 
      * @param parentDir The root directory
@@ -47,8 +66,7 @@ public class ReadOnlyUtils {
                 return null;
             }
 
-            if(canonicalLatestVersion != null
-               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
+            if(canonicalLatestVersion != null && checkVersionDirName(canonicalLatestVersion))
                 return canonicalLatestVersion;
         }
         return null;

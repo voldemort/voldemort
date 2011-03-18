@@ -54,10 +54,12 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private DataOutputStream valueFileStream = null;
     private int position = 0;
     private String taskId = null;
-    private int numChunks = -1;
+
     private int nodeId = -1;
     private int chunkId = -1;
     private int partitionId = -1;
+    private int replicaType = -1;
+
     private Path taskIndexFileName;
     private Path taskValueFileName;
     private String outputDir;
@@ -65,7 +67,6 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private CheckSumType checkSumType;
     private CheckSum checkSumDigestIndex;
     private CheckSum checkSumDigestValue;
-    private boolean saveKeys;
 
     protected static enum CollisionCounter {
         NUM_COLLISIONS,
@@ -74,7 +75,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
     /**
      * Reduce should get sorted MD5 of Voldemort key ( either 16 bytes if saving
-     * keys is disabled, else 4 bytes ) as key and for value (a) node-id,
+     * keys is disabled, else 8 bytes ) as key and for value (a) node-id,
      * partition-id, value - if saving keys is disabled (b) node-id,
      * partition-id, [key-size, key, value-size, value]* if saving keys is
      * enabled
@@ -101,31 +102,48 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         while(iterator.hasNext()) {
             BytesWritable writable = iterator.next();
             byte[] valueBytes = writable.get();
+            int offsetTillNow = 0;
 
+            // Read node Id
             if(this.nodeId == -1)
-                this.nodeId = ByteUtils.readInt(valueBytes, 0);
-            if(this.partitionId == -1)
-                this.partitionId = ByteUtils.readInt(valueBytes, 4);
-            if(this.chunkId == -1)
-                this.chunkId = ReadOnlyUtils.chunk(key.get(), this.numChunks);
+                this.nodeId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
 
-            int valueLength = writable.getSize() - 8;
-            if(saveKeys) {
+            // Read partition id
+            if(this.partitionId == -1)
+                this.partitionId = ByteUtils.readInt(valueBytes, offsetTillNow);
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+
+            // Read replica type
+            if(getSaveKeys()) {
+                if(this.replicaType == -1)
+                    this.replicaType = (int) ByteUtils.readBytes(valueBytes,
+                                                                 offsetTillNow,
+                                                                 ByteUtils.SIZE_OF_BYTE);
+                offsetTillNow += ByteUtils.SIZE_OF_BYTE;
+            }
+
+            // Read chunk id
+            if(this.chunkId == -1)
+                this.chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
+
+            int valueLength = writable.getSize() - offsetTillNow;
+            if(getSaveKeys()) {
                 // Write (key_length + key + value_length + value)
-                valueStream.write(valueBytes, 8, valueLength);
+                valueStream.write(valueBytes, offsetTillNow, valueLength);
             } else {
                 // Write (value_length + value)
                 valueStream.writeInt(valueLength);
-                valueStream.write(valueBytes, 8, valueLength);
+                valueStream.write(valueBytes, offsetTillNow, valueLength);
             }
 
             numKeyValues++;
 
-            // if we have multiple values for this md5 that is a collision,
+            // If we have multiple values for this md5 that is a collision,
             // throw an exception--either the data itself has duplicates, there
             // are trillions of keys, or someone is attempting something
-            // malicious ( We don't expect collisions when saveKeys = false )
-            if(!saveKeys && numKeyValues > 1)
+            // malicious ( We obviously expect collisions when we save keys )
+            if(!getSaveKeys() && numKeyValues > 1)
                 throw new VoldemortException("Duplicate keys detected for md5 sum "
                                              + ByteUtils.toHexString(ByteUtils.copy(key.get(),
                                                                                     0,
@@ -143,20 +161,23 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             }
         }
 
-        if(saveKeys) {
-            // Write the number of k/vs as a single byte
-            byte[] numBuf = new byte[1];
-            numBuf[0] = (byte) numKeyValues;
+        // Start writing to file now
+        // First, if save keys then write number of keys
+
+        if(getSaveKeys()) {
+            // Write the number of KVs as a single byte
+            byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
+            ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
 
             this.valueFileStream.write(numBuf);
-            this.position += 1;
+            this.position += ByteUtils.SIZE_OF_BYTE;
 
             if(this.checkSumDigestValue != null) {
                 this.checkSumDigestValue.update(numBuf);
             }
         }
 
-        // Write the value out
+        // Now, write the actual value to the file
         valueStream.flush();
 
         byte[] value = stream.toByteArray();
@@ -179,13 +200,11 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         try {
             this.conf = job;
             this.position = 0;
-            this.numChunks = job.getInt("num.chunks", -1);
             this.outputDir = job.get("final.output.dir");
             this.taskId = job.get("mapred.task.id");
             this.checkSumType = CheckSum.fromString(job.get("checksum.type"));
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
-            this.saveKeys = job.getBoolean("save.keys", false);
 
             this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
                                                                                    + "."
@@ -212,24 +231,41 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         this.valueFileStream.close();
 
         if(this.nodeId == -1 || this.chunkId == -1 || this.partitionId == -1) {
-            // No data was read in the reduce phase, do not create any output
-            // directory (Also Issue 258)
+            // Issue 258 - No data was read in the reduce phase, do not create
+            // any output
             return;
         }
-        Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
-        Path indexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".index");
-        Path valueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId + ".data");
 
-        // create output directory
+        // If the replica type read was not valid, shout out
+        if(getSaveKeys() && this.replicaType == -1) {
+            throw new RuntimeException("Could not read the replica type correctly for node "
+                                       + nodeId + " ( partition - " + this.partitionId
+                                       + ", chunk - " + this.chunkId + " )");
+        }
+
+        String fileName = null;
+        if(getSaveKeys()) {
+            fileName = new String(Integer.toString(this.partitionId) + "_"
+                                  + Integer.toString(this.replicaType) + "_"
+                                  + Integer.toString(this.chunkId));
+        } else {
+            fileName = new String(Integer.toString(this.partitionId) + "_"
+                                  + Integer.toString(this.chunkId));
+        }
+
+        // Initialize the final files
+        Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
+        Path indexFile = new Path(nodeDir, fileName + ".index");
+        Path valueFile = new Path(nodeDir, fileName + ".data");
+
+        // Create output directory [ if it doesn't exist ]
         FileSystem fs = indexFile.getFileSystem(this.conf);
         fs.mkdirs(nodeDir);
 
         if(this.checkSumType != CheckSumType.NONE) {
             if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
-                Path checkSumIndexFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
-                                                           + ".index.checksum");
-                Path checkSumValueFile = new Path(nodeDir, this.partitionId + "_" + this.chunkId
-                                                           + ".data.checksum");
+                Path checkSumIndexFile = new Path(nodeDir, fileName + ".index.checksum");
+                Path checkSumValueFile = new Path(nodeDir, fileName + ".data.checksum");
 
                 FSDataOutputStream output = fs.create(checkSumIndexFile);
                 output.write(this.checkSumDigestIndex.getCheckSum());
@@ -239,7 +275,8 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                 output.write(this.checkSumDigestValue.getCheckSum());
                 output.close();
             } else {
-                throw new VoldemortException("Failed to open CheckSum digest");
+                throw new RuntimeException("Failed to open checksum digest for node " + nodeId
+                                           + " ( partition - " + this.partitionId + " )");
             }
         }
 

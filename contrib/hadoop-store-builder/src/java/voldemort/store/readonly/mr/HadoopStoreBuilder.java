@@ -272,19 +272,29 @@ public class HadoopStoreBuilder {
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-            int numChunksPerPartition = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                        / cluster.getNumberOfPartitions() / chunkSizeBytes),
-                                                 1);
             logger.info("Data size = " + size + ", replication factor = "
                         + storeDef.getReplicationFactor() + ", numNodes = "
-                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
-                        + ",  num.chunks per partition = " + numChunksPerPartition);
-            conf.setInt("num.chunks", numChunksPerPartition);
-            int numReduces = cluster.getNumberOfPartitions() * numChunksPerPartition;
-            conf.setNumReduceTasks(numReduces);
-            logger.info("Number of reduces: " + numReduces);
+                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
 
+            // Derive number of chunks and reducers
+            int numChunks, numReducers;
+            if(saveKeys) {
+                numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfPartitions()
+                                            / storeDef.getReplicationFactor() / chunkSizeBytes), 1);
+                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
+                              * numChunks;
+            } else {
+                numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfPartitions() / chunkSizeBytes), 1);
+                numReducers = cluster.getNumberOfPartitions() * numChunks;
+            }
+            conf.setInt("num.chunks", numChunks);
+            conf.setNumReduceTasks(numReducers);
+
+            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers);
             logger.info("Building store...");
+
             JobClient.runJob(conf);
 
             // Do a CheckSumOfCheckSum - Similar to HDFS
@@ -299,15 +309,19 @@ public class HadoopStoreBuilder {
 
                 ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
 
-                if(saveKeys)
+                if(saveKeys) {
                     metadata.add(ReadOnlyStorageMetadata.FORMAT,
                                  ReadOnlyStorageFormat.READONLY_V2.getCode());
-                else
+                } else {
                     metadata.add(ReadOnlyStorageMetadata.FORMAT,
                                  ReadOnlyStorageFormat.READONLY_V1.getCode());
+                }
 
                 Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
+
                 if(!outputFs.exists(nodePath)) {
+                    logger.info("No data generated for node " + node.getId()
+                                + ". Generating empty folder");
                     outputFs.mkdirs(nodePath); // Create empty folder
                 }
 

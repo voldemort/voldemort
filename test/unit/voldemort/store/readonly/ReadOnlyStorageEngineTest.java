@@ -56,7 +56,7 @@ import com.google.common.collect.Lists;
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
 
-    private static int TEST_SIZE = 10;
+    private static int TEST_SIZE = 1;
 
     @Parameters
     public static Collection<Object[]> configs() {
@@ -584,7 +584,16 @@ public class ReadOnlyStorageEngineTest {
     }
 
     private void createStoreFiles(File dir, int indexBytes, int dataBytes, Node node, int numChunks)
-            throws IOException, FileNotFoundException {
+            throws FileNotFoundException, IOException {
+        createStoreFiles(dir, indexBytes, dataBytes, node, numChunks, 1);
+    }
+
+    private void createStoreFiles(File dir,
+                                  int indexBytes,
+                                  int dataBytes,
+                                  Node node,
+                                  int numChunks,
+                                  int numReplicas) throws IOException, FileNotFoundException {
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
         metadata.add(ReadOnlyStorageMetadata.FORMAT, storageType.getCode());
 
@@ -610,8 +619,7 @@ public class ReadOnlyStorageEngineTest {
                 }
             }
                 break;
-            case READONLY_V1:
-            case READONLY_V2: {
+            case READONLY_V1: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_"
@@ -627,6 +635,30 @@ public class ReadOnlyStorageEngineTest {
                         for(int i = 0; i < indexBytes; i++)
                             indexOs.write(i);
                         indexOs.close();
+                    }
+                }
+            }
+                break;
+            case READONLY_V2: {
+                for(Integer partitionId: node.getPartitionIds()) {
+                    for(int replicaType = 0; replicaType < numReplicas; replicaType++) {
+                        for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                            File index = createFile(dir, Integer.toString(partitionId) + "_"
+                                                         + Integer.toString(replicaType) + "_"
+                                                         + Integer.toString(chunkId) + ".index");
+                            File data = createFile(dir, Integer.toString(partitionId) + "_"
+                                                        + Integer.toString(replicaType) + "_"
+                                                        + Integer.toString(chunkId) + ".data");
+                            // write some random crap for index and data
+                            FileOutputStream dataOs = new FileOutputStream(data);
+                            for(int i = 0; i < dataBytes; i++)
+                                dataOs.write(i);
+                            dataOs.close();
+                            FileOutputStream indexOs = new FileOutputStream(index);
+                            for(int i = 0; i < indexBytes; i++)
+                                indexOs.write(i);
+                            indexOs.close();
+                        }
                     }
                 }
             }

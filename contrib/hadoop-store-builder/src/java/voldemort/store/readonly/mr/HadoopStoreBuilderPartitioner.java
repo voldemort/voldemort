@@ -17,6 +17,7 @@
 package voldemort.store.readonly.mr;
 
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
 
 import voldemort.store.readonly.ReadOnlyUtils;
@@ -25,8 +26,6 @@ import voldemort.utils.ByteUtils;
 /**
  * A Partitioner that splits data so that all data for the same nodeId, chunkId
  * combination ends up in the same reduce (and hence in the same store chunk)
- * 
- * 
  */
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigurable implements
@@ -35,7 +34,16 @@ public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigura
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
         int partitionId = ByteUtils.readInt(value.get(), 4);
         int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
-        return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+        if(getSaveKeys()) {
+            return ((partitionId * getNumChunks() * getStoreDef().getReplicationFactor()) + chunkId)
+                   % numReduceTasks;
+        } else {
+            return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+        }
     }
 
+    @Override
+    public void configure(JobConf conf) {
+        super.configure(conf);
+    }
 }
