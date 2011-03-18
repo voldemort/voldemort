@@ -130,9 +130,7 @@ public class ReadOnlyStorageEngineTestInstance {
                                                              router,
                                                              outputDir,
                                                              null,
-                                                             // REVERT BACK
-                                                             // testSize / 5,
-                                                             testSize,
+                                                             testSize / 5,
                                                              1,
                                                              2,
                                                              10000,

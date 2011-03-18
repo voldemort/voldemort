@@ -56,7 +56,7 @@ import com.google.common.collect.Lists;
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
 
-    private static int TEST_SIZE = 1;
+    private static int TEST_SIZE = 100;
 
     @Parameters
     public static Collection<Object[]> configs() {
