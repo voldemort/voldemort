@@ -44,6 +44,7 @@ import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.Utils;
@@ -75,6 +76,7 @@ public class HadoopStoreBuilder {
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
     private boolean saveKeys = false;
+    private Path previousDir = null;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -220,7 +222,8 @@ public class HadoopStoreBuilder {
                               Path outputDir,
                               Path inputPath,
                               CheckSumType checkSumType,
-                              boolean saveKeys) {
+                              boolean saveKeys,
+                              Path previousDir) {
         this(conf,
              mapperClass,
              inputFormatClass,
@@ -231,6 +234,7 @@ public class HadoopStoreBuilder {
              outputDir,
              inputPath,
              checkSumType);
+        this.previousDir = previousDir;
         this.saveKeys = saveKeys;
     }
 
@@ -238,29 +242,28 @@ public class HadoopStoreBuilder {
      * Run the job
      */
     public void build() {
-        JobConf conf = new JobConf(config);
-        conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
-        conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
-        conf.set("stores.xml",
-                 new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-        conf.setBoolean("save.keys", saveKeys);
-        conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-        conf.setMapperClass(mapperClass);
-        conf.setMapOutputKeyClass(BytesWritable.class);
-        conf.setMapOutputValueClass(BytesWritable.class);
-        conf.setReducerClass(HadoopStoreBuilderReducer.class);
-        conf.setInputFormat(inputFormatClass);
-        conf.setOutputFormat(SequenceFileOutputFormat.class);
-        conf.setOutputKeyClass(BytesWritable.class);
-        conf.setOutputValueClass(BytesWritable.class);
-        conf.setJarByClass(getClass());
-        conf.setReduceSpeculativeExecution(false);
-        FileInputFormat.setInputPaths(conf, inputPath);
-        conf.set("final.output.dir", outputDir.toString());
-        conf.set("checksum.type", CheckSum.toString(checkSumType));
-        FileOutputFormat.setOutputPath(conf, tempDir);
-
         try {
+            JobConf conf = new JobConf(config);
+            conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+            conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
+            conf.set("stores.xml",
+                     new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+            conf.setBoolean("save.keys", saveKeys);
+            conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+            conf.setMapperClass(mapperClass);
+            conf.setMapOutputKeyClass(BytesWritable.class);
+            conf.setMapOutputValueClass(BytesWritable.class);
+            conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            conf.setInputFormat(inputFormatClass);
+            conf.setOutputFormat(SequenceFileOutputFormat.class);
+            conf.setOutputKeyClass(BytesWritable.class);
+            conf.setOutputValueClass(BytesWritable.class);
+            conf.setJarByClass(getClass());
+            conf.setReduceSpeculativeExecution(false);
+            FileInputFormat.setInputPaths(conf, inputPath);
+            conf.set("final.output.dir", outputDir.toString());
+            conf.set("checksum.type", CheckSum.toString(checkSumType));
+            FileOutputFormat.setOutputPath(conf, tempDir);
 
             FileSystem outputFs = outputDir.getFileSystem(conf);
             if(outputFs.exists(outputDir)) {
@@ -291,9 +294,68 @@ public class HadoopStoreBuilder {
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
 
-            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers);
-            logger.info("Building store...");
+            if(previousDir != null) {
+                // Sanity check to make sure previous directory has been run
+                // using same configuration as current build
 
+                if(!saveKeys) {
+                    logger.error("Cannot run incremental builds with this version of RO Store. Set the save-keys flag");
+                    throw new VoldemortException("Cannot run incremental builds with this version of RO Store. Set the save-keys flag");
+                }
+
+                for(Node node: cluster.getNodes()) {
+
+                    // Check if node exists
+                    Path nodePath = new Path(previousDir, "node-" + Integer.toString(node.getId()));
+                    FileSystem nodePathFs = nodePath.getFileSystem(conf);
+                    if(!nodePathFs.exists(nodePath)) {
+                        logger.error("No data for node " + node.getId() + " exists in "
+                                     + previousDir);
+                        throw new VoldemortException("No data for node " + node.getId()
+                                                     + " exists in " + previousDir);
+                    }
+
+                    // If it exists, start by checking the metadata...
+                    String jsonString = ReadOnlyUtils.readFileContents(nodePathFs,
+                                                                       new Path(nodePath,
+                                                                                ".metadata"),
+                                                                       1024);
+                    ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(jsonString);
+                    String readOnlyFormatString = (String) metadata.get(ReadOnlyStorageMetadata.FORMAT);
+
+                    if(readOnlyFormatString == null
+                       || readOnlyFormatString.compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
+                        logger.error("The read-only format for node " + node.getId()
+                                     + " is not correct ");
+                        throw new VoldemortException("The read-only format for node "
+                                                     + node.getId() + " is not correct ");
+                    }
+
+                    // ...and check its partitions and chunks
+                    int totalChunkFiles = 1; // metadata
+                    for(Integer partitionId: node.getPartitionIds()) {
+                        FileStatus[] filesInPartition = ReadOnlyUtils.getPartitionFiles(nodePathFs,
+                                                                                        nodePath,
+                                                                                        partitionId);
+                        int[] replicaCounts = ReadOnlyUtils.getReplicaCount(filesInPartition,
+                                                                            storeDef.getReplicationFactor());
+                        for(int index = 0; index < replicaCounts.length; index++) {
+                            totalChunkFiles += replicaCounts[index];
+                        }
+                    }
+
+                    if(totalChunkFiles != nodePathFs.listStatus(nodePath).length) {
+                        logger.error("The number of chunk files is inconsistent with number expected");
+                        throw new VoldemortException("The number of chunk files is inconsistent with number expected");
+                    }
+                }
+
+                conf.set("previous.output.dir", previousDir.toString());
+            }
+
+            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
+                        + ", save keys: " + saveKeys);
+            logger.info("Building store...");
             JobClient.runJob(conf);
 
             // Do a CheckSumOfCheckSum - Similar to HDFS

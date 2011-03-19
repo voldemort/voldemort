@@ -17,6 +17,7 @@
 package voldemort.store.readonly.mr;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.Map;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -54,6 +56,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.SearchStrategy;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSumTests;
@@ -154,7 +157,8 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            null);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
@@ -210,7 +214,8 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir2.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            null);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),
@@ -223,7 +228,8 @@ public class HadoopStoreBuilderTest {
                                          new Path(outputDir.getAbsolutePath()),
                                          new Path(inputFile.getAbsolutePath()),
                                          CheckSumType.MD5,
-                                         saveKeys);
+                                         saveKeys,
+                                         null);
         builder.build();
 
         // Check if checkSum is generated in outputDir
@@ -278,5 +284,47 @@ public class HadoopStoreBuilderTest {
             Assert.assertEquals("Incorrect number of results", 1, found.size());
             Assert.assertEquals(entry.getValue(), found.get(0).getValue());
         }
+    }
+
+    @Test
+    public void testReadFileContents() throws Exception {
+
+        Path testPath = new Path(TestUtils.createTempDir().getAbsolutePath(), "tempFile");
+        FileSystem fs = testPath.getFileSystem(new Configuration());
+        fs.create(testPath);
+
+        // 1) Read back empty file
+        String emptyString = ReadOnlyUtils.readFileContents(fs, testPath, 1024);
+        Assert.assertEquals(emptyString.length(), 0);
+
+        // 2) Read back random bytes
+        byte[] randomBytes = TestUtils.randomBytes(10);
+
+        // Write file contents
+        FileOutputStream stream = new FileOutputStream(testPath.toString());
+        stream.write(randomBytes);
+        stream.close();
+
+        // Read back empty file
+        Assert.assertEquals(ReadOnlyUtils.readFileContents(fs, testPath, 1024),
+                            new String(randomBytes));
+
+        // 3) Write a json string
+        fs.delete(testPath, true);
+        fs.create(testPath);
+
+        ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
+
+        // Write file contents
+        stream = new FileOutputStream(testPath.toString());
+        stream.write(metadata.toJsonString().getBytes());
+        stream.close();
+
+        ReadOnlyStorageMetadata readMetadata = new ReadOnlyStorageMetadata(ReadOnlyUtils.readFileContents(fs,
+                                                                                                          testPath,
+                                                                                                          1024));
+        Assert.assertEquals(readMetadata.get(ReadOnlyStorageMetadata.FORMAT),
+                            ReadOnlyStorageFormat.READONLY_V2.getCode());
     }
 }
