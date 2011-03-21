@@ -532,8 +532,8 @@ public class JsonStoreBuilder {
                                                          1,
                                                          previousElement.getSecond().length));
                         valueStream.writeInt(currentElement.getKey().length);
-                        valueStream.write(currentElement.getKey());
                         valueStream.writeInt(currentElement.getValue().length);
+                        valueStream.write(currentElement.getKey());
                         valueStream.write(currentElement.getValue());
 
                         valueStream.flush();
@@ -594,8 +594,8 @@ public class JsonStoreBuilder {
 
         valueStream.writeByte(1);
         valueStream.writeInt(currentPair.getKey().length);
-        valueStream.write(currentPair.getKey());
         valueStream.writeInt(currentPair.getValue().length);
+        valueStream.write(currentPair.getKey());
         valueStream.write(currentPair.getValue());
 
         valueStream.flush();

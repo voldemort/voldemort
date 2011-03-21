@@ -17,8 +17,6 @@
 package voldemort.store.readonly;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -409,7 +407,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                     + getClass().getName()
                                                     + " with storage format "
                                                     + fileSet.getReadOnlyStorageFormat());
-        return new ROKeyIterator(fileSet);
+        return new ChunkedFileSet.ROKeyIterator(fileSet, fileModificationLock);
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -418,165 +416,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                     + getClass().getName()
                                                     + " with storage format "
                                                     + fileSet.getReadOnlyStorageFormat());
-        return new ROEntriesIterator(fileSet);
-    }
-
-    private abstract class ROIterator<T> implements ClosableIterator<T> {
-
-        protected ChunkedFileSet chunkedFileSet;
-        protected int currentChunk;
-        protected long currentOffsetInChunk;
-        private boolean chunksFinished;
-        // Number of k-v pairs which have collided and are in one bucket
-        private int tupleCount;
-
-        public ROIterator(ChunkedFileSet chunkedFileSet) {
-            this.chunkedFileSet = chunkedFileSet;
-            this.currentChunk = 0;
-            this.currentOffsetInChunk = 0;
-            this.tupleCount = 0;
-            this.chunksFinished = false;
-            fileModificationLock.readLock().lock();
-        }
-
-        public void close() {
-            fileModificationLock.readLock().unlock();
-        }
-
-        public abstract T next();
-
-        public boolean hasNext() {
-            if(chunksFinished)
-                return false;
-
-            // Jump till you reach the first non-zero data size file or end
-            if(currentOffsetInChunk >= chunkedFileSet.getDataFileSize(currentChunk)) {
-                // Time to jump to another chunk with a non-zero size data file
-                currentChunk++;
-                currentOffsetInChunk = 0;
-
-                // Jump over all zero size data files
-                while(currentChunk < chunkedFileSet.getNumChunks()
-                      && chunkedFileSet.getDataFileSize(currentChunk) == 0) {
-                    currentChunk++;
-                }
-
-                if(currentChunk == chunkedFileSet.getNumChunks()) {
-                    chunksFinished = true;
-                    return false;
-                }
-            }
-
-            if(tupleCount == 0) {
-                // Update the tuple count
-                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(1);
-                try {
-                    chunkedFileSet.dataFileFor(currentChunk).read(numKeyValsBuffer,
-                                                                  currentOffsetInChunk);
-                } catch(IOException e) {
-                    logger.error("Error while reading tuple count in iterator", e);
-                    return false;
-                }
-                tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
-                currentOffsetInChunk += 1;
-            }
-            return true;
-        }
-
-        public void updateOffset(long updatedOffset) {
-            tupleCount--;
-            currentOffsetInChunk = updatedOffset;
-            hasNext();
-        }
-
-        public void remove() {
-            throw new UnsupportedOperationException("Cannot remove from read-only store");
-        }
-    }
-
-    private class ROKeyIterator extends ROIterator<ByteArray> {
-
-        public ROKeyIterator(ChunkedFileSet chunkedFileSet) {
-            super(chunkedFileSet);
-        }
-
-        @Override
-        public ByteArray next() {
-            if(!hasNext())
-                throw new VoldemortException("Reached the end");
-
-            try {
-                // Read key size
-                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
-                int keySize = sizeBuffer.getInt(0);
-                sizeBuffer.clear();
-
-                // Read value size
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
-                                                              currentOffsetInChunk + 4 + keySize);
-                int valueSize = sizeBuffer.getInt(0);
-
-                // Read the key contents
-                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
-
-                // Update the offset
-                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
-
-                // Return the key
-                return new ByteArray(keyBuffer.array());
-            } catch(IOException e) {
-                logger.error(e);
-                throw new VoldemortException(e);
-            }
-
-        }
-    }
-
-    private class ROEntriesIterator extends ROIterator<Pair<ByteArray, Versioned<byte[]>>> {
-
-        public ROEntriesIterator(ChunkedFileSet chunkedFileSet) {
-            super(chunkedFileSet);
-        }
-
-        @Override
-        public Pair<ByteArray, Versioned<byte[]>> next() {
-            if(!hasNext())
-                throw new VoldemortException("Reached the end");
-
-            try {
-                // Read key size
-                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
-                int keySize = sizeBuffer.getInt(0);
-                sizeBuffer.clear();
-
-                // Read value size
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
-                                                              currentOffsetInChunk + 4 + keySize);
-                int valueSize = sizeBuffer.getInt(0);
-
-                // Read the key contents
-                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
-
-                // Read the value contents
-                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                chunkedFileSet.dataFileFor(currentChunk).read(valueBuffer,
-                                                              currentOffsetInChunk + 4 + keySize
-                                                                      + 4);
-
-                // Update the offset
-                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
-
-                return Pair.create(new ByteArray(keyBuffer.array()),
-                                   Versioned.value(valueBuffer.array()));
-            } catch(IOException e) {
-                logger.error(e);
-                throw new VoldemortException(e);
-            }
-        }
+        return new ChunkedFileSet.ROEntriesIterator(fileSet, fileModificationLock);
     }
 
     public void truncate() {
@@ -600,7 +440,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                   fileSet.getIndexFileSize(chunk));
             if(location >= 0) {
                 byte[] value = fileSet.readValue(key.get(), chunk, location);
-                return Collections.singletonList(Versioned.value(value));
+                if(value.length == 0) {
+                    return Collections.emptyList();
+                } else {
+                    return Collections.singletonList(Versioned.value(value));
+                }
             } else {
                 return Collections.emptyList();
             }
@@ -631,7 +475,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                 byte[] value = fileSet.readValue(keyVal.getKey().get(),
                                                  keyVal.getChunk(),
                                                  keyVal.getValueLocation());
-                results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
+                if(value.length > 0)
+                    results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
             }
             return results;
         } finally {

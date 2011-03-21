@@ -103,8 +103,8 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         if(getSaveKeys()) {
 
             // In order - 4 ( for node id ) + 4 ( partition id ) + 1 ( replica
-            // type - primary | secondary | tertiary... ] + 4 ( key size ) + key
-            // + 4 ( value size ) + value
+            // type - primary | secondary | tertiary... ] + 4 ( key size )
+            // size ) + 4 ( value size ) + key + value
             outputValue = new byte[valBytes.length + keyBytes.length + ByteUtils.SIZE_OF_BYTE + 4
                                    * ByteUtils.SIZE_OF_INT];
 
@@ -112,16 +112,16 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             offsetTillNow += ByteUtils.SIZE_OF_BYTE;
             ByteUtils.writeInt(outputValue, keyBytes.length, offsetTillNow);
 
+            // Write value length
+            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            ByteUtils.writeInt(outputValue, valBytes.length, offsetTillNow);
+
             // Write key
             offsetTillNow += ByteUtils.SIZE_OF_INT;
             System.arraycopy(keyBytes, 0, outputValue, offsetTillNow, keyBytes.length);
 
-            // Write value length
-            offsetTillNow += keyBytes.length;
-            ByteUtils.writeInt(outputValue, valBytes.length, offsetTillNow);
-
             // Write value
-            offsetTillNow += ByteUtils.SIZE_OF_INT;
+            offsetTillNow += keyBytes.length;
             System.arraycopy(valBytes, 0, outputValue, offsetTillNow, valBytes.length);
 
             // Generate MR key - upper 8 bytes of 16 byte md5

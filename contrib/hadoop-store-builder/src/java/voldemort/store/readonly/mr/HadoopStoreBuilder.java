@@ -44,7 +44,6 @@ import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
-import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.Utils;
@@ -316,10 +315,10 @@ public class HadoopStoreBuilder {
                     }
 
                     // If it exists, start by checking the metadata...
-                    String jsonString = ReadOnlyUtils.readFileContents(nodePathFs,
-                                                                       new Path(nodePath,
-                                                                                ".metadata"),
-                                                                       1024);
+                    String jsonString = HadoopStoreBuilderUtils.readFileContents(nodePathFs,
+                                                                                 new Path(nodePath,
+                                                                                          ".metadata"),
+                                                                                 1024);
                     ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(jsonString);
                     String readOnlyFormatString = (String) metadata.get(ReadOnlyStorageMetadata.FORMAT);
 
@@ -334,13 +333,11 @@ public class HadoopStoreBuilder {
                     // ...and check its partitions and chunks
                     int totalChunkFiles = 1; // metadata
                     for(Integer partitionId: node.getPartitionIds()) {
-                        FileStatus[] filesInPartition = ReadOnlyUtils.getPartitionFiles(nodePathFs,
-                                                                                        nodePath,
-                                                                                        partitionId);
-                        int[] replicaCounts = ReadOnlyUtils.getReplicaCount(filesInPartition,
-                                                                            storeDef.getReplicationFactor());
-                        for(int index = 0; index < replicaCounts.length; index++) {
-                            totalChunkFiles += replicaCounts[index];
+                        for(int replicaType = 0; replicaType < storeDef.getReplicationFactor(); replicaType++) {
+                            totalChunkFiles += HadoopStoreBuilderUtils.getChunkFiles(nodePathFs,
+                                                                                     nodePath,
+                                                                                     partitionId,
+                                                                                     replicaType).length;
                         }
                     }
 
@@ -351,6 +348,8 @@ public class HadoopStoreBuilder {
                 }
 
                 conf.set("previous.output.dir", previousDir.toString());
+            } else {
+                conf.set("previous.output.dir", "");
             }
 
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
@@ -489,4 +488,5 @@ public class HadoopStoreBuilder {
         }
         return size;
     }
+
 }

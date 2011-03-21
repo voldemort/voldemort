@@ -125,7 +125,8 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
             int valueLength = writable.getSize() - offsetTillNow;
             if(getSaveKeys()) {
-                // Write (key_length + key + value_length + value)
+                // Write ( key_length, value_length, key,
+                // value )
                 valueStream.write(valueBytes, offsetTillNow, valueLength);
             } else {
                 // Write (value_length + value)

@@ -21,7 +21,7 @@ package voldemort.store.readonly;
 public enum ReadOnlyStorageFormat {
     READONLY_V0("ro0", "node-chunks-v0"),
     READONLY_V1("ro1", "partition-chunks-v1"),
-    READONLY_V2("ro2", "partition-chunks-with-keys-v2");
+    READONLY_V2("ro2", "replica-chunks-with-keys-v2");
 
     private final String code;
     private final String displayName;

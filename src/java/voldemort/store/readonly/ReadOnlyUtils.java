@@ -1,6 +1,5 @@
 package voldemort.store.readonly;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -9,14 +8,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.log4j.Logger;
 
-import voldemort.VoldemortException;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 
@@ -195,86 +188,5 @@ public class ReadOnlyUtils {
             returnedFiles[index2] = versionDirs[index];
         }
         return returnedFiles;
-    }
-
-    /**
-     * Given a set of partition files returns the number of files per replica
-     * type
-     * 
-     * @param partitionFiles List of partition files
-     * @param replicationFactor The maximum replication factor
-     * @return Returns an array of counts per replica type
-     */
-    public static int[] getReplicaCount(FileStatus[] partitionFiles, int replicationFactor) {
-        int[] counts = new int[replicationFactor];
-
-        for(FileStatus file: partitionFiles) {
-            int replicaType = Integer.getInteger(file.getPath().getName().substring(2, 3));
-            if(replicaType < replicationFactor) {
-                counts[replicaType]++;
-            } else {
-                throw new VoldemortException("Found a chunk with replica type (" + replicaType
-                                             + ") which doesn't match ");
-            }
-        }
-        return counts;
-
-    }
-
-    /**
-     * Given a filesystem and path to a node, gets all the files which belong to
-     * a partition
-     * 
-     * @param fs Underlying filesystem
-     * @param path The node directory path
-     * @param partitionId The partition id for which we get the files
-     * @return Returns list of files of this partition
-     * @throws IOException
-     */
-    public static FileStatus[] getPartitionFiles(FileSystem fs, Path path, final int partitionId)
-            throws IOException {
-        return fs.listStatus(path, new PathFilter() {
-
-            public boolean accept(Path input) {
-                if(input.getName().startsWith(Integer.toString(partitionId) + "_")) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        });
-    }
-
-    /**
-     * Given a filesystem, path and buffer-size, read the file contents and
-     * presents it as a string
-     * 
-     * @param fs Underlying filesystem
-     * @param path The file to read
-     * @param bufferSize The buffer size to use for reading
-     * @return The contents of the file as a string
-     * @throws IOException
-     */
-    public static String readFileContents(FileSystem fs, Path path, int bufferSize)
-            throws IOException {
-        if(bufferSize <= 0)
-            return new String();
-
-        FSDataInputStream input = fs.open(path);
-        byte[] buffer = new byte[bufferSize];
-
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-
-        while(true) {
-            int read = input.read(buffer);
-            if(read < 0) {
-                break;
-            } else {
-                buffer = ByteUtils.copy(buffer, 0, read);
-            }
-            stream.write(buffer);
-        }
-
-        return new String(stream.toByteArray());
     }
 }

@@ -8,17 +8,20 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.locks.ReadWriteLock;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
+import voldemort.versioning.Versioned;
 
 /**
  * A set of chunked data and index files for a read-only store
@@ -89,6 +92,10 @@ public class ChunkedFileSet {
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
                      + " chunks.");
+    }
+
+    public DataFileChunkSet toDataFileChunkSet() {
+        return new DataFileChunkSet(this.dataFiles, this.dataFileSizes);
     }
 
     public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
@@ -425,76 +432,133 @@ public class ChunkedFileSet {
                 case READONLY_V0:
                 case READONLY_V1: {
                     // Read value size
-                    ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_INT);
                     dataFile.read(sizeBuffer, valueLocation);
                     int valueSize = sizeBuffer.getInt(0);
 
                     // Read value
                     ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                    dataFile.read(valueBuffer, valueLocation + 4);
+                    dataFile.read(valueBuffer, valueLocation + ByteUtils.SIZE_OF_INT);
                     return valueBuffer.array();
                 }
                 case READONLY_V2: {
                     // Read a byte which holds the number of key/values
-                    ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(1);
+                    ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
                     dataFile.read(numKeyValsBuffer, valueLocation);
                     int numKeyVal = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
+                    int currentPosition = valueLocation + ByteUtils.SIZE_OF_BYTE;
 
-                    if(numKeyVal == 1) {
-                        // Avoid the overhead of reading the key and a
-                        // comparison
-
-                        // Read key size
-                        ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                        dataFile.read(sizeBuffer, valueLocation + 1);
+                    for(int keyId = 0; keyId < numKeyVal; keyId++) {
+                        // Read key size and value size
+                        ByteBuffer sizeBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
+                        dataFile.read(sizeBuffer, currentPosition);
                         int keySize = sizeBuffer.getInt(0);
-                        sizeBuffer.clear();
+                        int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
 
-                        // Read value size
-                        dataFile.read(sizeBuffer, valueLocation + 1 + 4 + keySize);
-                        int valueSize = sizeBuffer.getInt(0);
+                        // Read key
+                        ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                        dataFile.read(keyBuffer, currentPosition + (2 * ByteUtils.SIZE_OF_INT));
 
-                        // Read value
-                        ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                        dataFile.read(valueBuffer, valueLocation + 1 + 4 + 4 + keySize);
-                        return valueBuffer.array();
-
-                    } else {
-                        int currentPosition = valueLocation + 1;
-                        for(int keyId = 0; keyId < numKeyVal; keyId++) {
-                            // Read key size
-                            ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                            dataFile.read(sizeBuffer, currentPosition);
-                            int keySize = sizeBuffer.getInt(0);
-                            sizeBuffer.clear();
-
-                            // Read value size
-                            dataFile.read(sizeBuffer, currentPosition + 4 + keySize);
-                            int valueSize = sizeBuffer.getInt(0);
-
-                            // Read key
-                            ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                            dataFile.read(keyBuffer, currentPosition + 4);
-
-                            if(ByteUtils.compare(keyBuffer.array(), key) == 0) {
-                                // Read value
-                                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                                dataFile.read(valueBuffer, currentPosition + 4 + 4 + keySize);
-                                return valueBuffer.array();
-                            } else {
-                                currentPosition += 4 + 4 + keySize + valueSize;
-                            }
+                        if(ByteUtils.compare(keyBuffer.array(), key) == 0) {
+                            // Read value
+                            ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                            dataFile.read(valueBuffer, currentPosition
+                                                       + (2 * ByteUtils.SIZE_OF_INT) + keySize);
+                            return valueBuffer.array();
+                        } else {
+                            currentPosition += (2 * ByteUtils.SIZE_OF_INT) + keySize + valueSize;
                         }
-                        throw new VoldemortException("Could not find key " + Arrays.toString(key));
                     }
-
+                    // Could not find key, return value of no size
+                    return new byte[0];
                 }
+
                 default: {
                     throw new VoldemortException("Storage format not supported ");
                 }
             }
         } catch(IOException e) {
             throw new VoldemortException(e);
+        }
+    }
+
+    public static class ROKeyIterator extends DataFileChunkSetIterator<ByteArray> {
+
+        public ROKeyIterator(ChunkedFileSet chunkedFileSet, ReadWriteLock modificationLock) {
+            super(chunkedFileSet.toDataFileChunkSet(), false, modificationLock);
+        }
+
+        @Override
+        public ByteArray next() {
+            if(!hasNext())
+                throw new VoldemortException("Reached the end");
+
+            try {
+                // Read key size and value size
+                ByteBuffer sizeBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
+                getCurrentChunk().read(sizeBuffer, getCurrentOffsetInChunk());
+                int keySize = sizeBuffer.getInt(0);
+                int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+
+                // Read the key contents
+                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                getCurrentChunk().read(keyBuffer,
+                                       getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT));
+
+                // Update the offset
+                updateOffset(getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT) + keySize
+                             + valueSize);
+
+                // Return the key
+                return new ByteArray(keyBuffer.array());
+            } catch(IOException e) {
+                logger.error(e);
+                throw new VoldemortException(e);
+            }
+
+        }
+    }
+
+    public static class ROEntriesIterator extends
+            DataFileChunkSetIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        public ROEntriesIterator(ChunkedFileSet chunkedFileSet, ReadWriteLock modificationLock) {
+            super(chunkedFileSet.toDataFileChunkSet(), false, modificationLock);
+        }
+
+        @Override
+        public Pair<ByteArray, Versioned<byte[]>> next() {
+            if(!hasNext())
+                throw new VoldemortException("Reached the end");
+
+            try {
+                // Read key size and value size
+                ByteBuffer sizeBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
+                getCurrentChunk().read(sizeBuffer, getCurrentOffsetInChunk());
+                int keySize = sizeBuffer.getInt(0);
+                int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+
+                // Read the key contents
+                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
+                getCurrentChunk().read(keyBuffer,
+                                       getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT));
+
+                // Read the value contents
+                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
+                getCurrentChunk().read(valueBuffer,
+                                       getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT)
+                                               + keySize);
+
+                // Update the offset
+                updateOffset(getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT) + keySize
+                             + valueSize);
+
+                return Pair.create(new ByteArray(keyBuffer.array()),
+                                   Versioned.value(valueBuffer.array()));
+            } catch(IOException e) {
+                logger.error(e);
+                throw new VoldemortException(e);
+            }
         }
     }
 
