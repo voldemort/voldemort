@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.log4j.Logger;
+
 import voldemort.TestUtils;
 import voldemort.performance.benchmark.generator.CounterGenerator;
 import voldemort.performance.benchmark.generator.DiscreteGenerator;
@@ -38,6 +40,8 @@ import voldemort.utils.Props;
 import voldemort.utils.UndefinedPropertyException;
 
 public class Workload {
+
+    private static Logger logger = Logger.getLogger(Workload.class);
 
     public interface KeyProvider<T> {
 
@@ -106,7 +110,7 @@ public class Workload {
 
         @Override
         public String next(int maxNumber) {
-            return "" + super.nextLessThan(maxNumber);
+            return Integer.toString(super.nextLessThan(maxNumber));
         }
 
     }
@@ -245,7 +249,6 @@ public class Workload {
     private DiscreteGenerator operationChooser;
     private DiscreteGenerator transformsChooser;
     private KeyProvider<?> warmUpKeyProvider;
-    private KeyProvider<?> insertKeyProvider;
     private KeyProvider<?> keyProvider;
     private String value;
 
@@ -336,7 +339,6 @@ public class Workload {
             insertKeySequence = new CounterGenerator(randomizer.nextInt(Integer.MAX_VALUE));
 
         }
-        this.insertKeyProvider = getKeyProvider(keyTypeClass, insertKeySequence, 0);
 
         IntegerGenerator keyGenerator = null;
         if(recordSelection.compareTo(Benchmark.UNIFORM_RECORD_SELECTION) == 0) {
@@ -355,7 +357,7 @@ public class Workload {
 
         } else if(recordSelection.compareTo(Benchmark.FILE_RECORD_SELECTION) == 0) {
 
-            keyGenerator = new FileIntegerGenerator(insertStart, keysFromFile);
+            keyGenerator = new FileIntegerGenerator(0, keysFromFile);
 
         }
         this.keyProvider = getKeyProvider(keyTypeClass, keyGenerator, cachedPercent);
@@ -382,18 +384,16 @@ public class Workload {
         if(plugin != null) {
             return plugin.doTransaction(op, transform);
         }
+
+        Object key = keyProvider.next();
         if(op.compareTo(Benchmark.WRITES) == 0) {
-            Object key = insertKeyProvider.next();
             db.write(key, this.value, transform);
-        } else {
-            Object key = keyProvider.next(insertKeyProvider.lastInt());
-            if(op.compareTo(Benchmark.MIXED) == 0) {
-                db.mixed(key, this.value, transform);
-            } else if(op.compareTo(Benchmark.DELETES) == 0) {
-                db.delete(key);
-            } else if(op.compareTo(Benchmark.READS) == 0) {
-                db.read(key, this.value, transform);
-            }
+        } else if(op.compareTo(Benchmark.MIXED) == 0) {
+            db.mixed(key, this.value, transform);
+        } else if(op.compareTo(Benchmark.DELETES) == 0) {
+            db.delete(key);
+        } else if(op.compareTo(Benchmark.READS) == 0) {
+            db.read(key, this.value, transform);
         }
         return true;
 

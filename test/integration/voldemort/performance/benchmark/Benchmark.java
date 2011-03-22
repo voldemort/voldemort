@@ -16,14 +16,12 @@
 
 package voldemort.performance.benchmark;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -69,42 +67,45 @@ public class Benchmark {
     public static final String ITERATIONS = "iterations";
     public static final String STORAGE_CONFIGURATION_CLASS = "storage-configuration-class";
     public static final String INTERVAL = "interval";
+
     public static final String KEY_TYPE = "keyType";
     public static final String STRING_KEY_TYPE = "string";
     public static final String JSONINT_KEY_TYPE = "json-int";
     public static final String JSONSTRING_KEY_TYPE = "json-string";
     public static final String IDENTITY_KEY_TYPE = "identity";
-    public static final String HANDSHAKE = "handshake";
+
     public static final String URL = "url";
     public static final String PERCENT_CACHED = "percent-cached";
     public static final String VALUE_SIZE = "value-size";
     public static final String IGNORE_NULLS = "ignore-nulls";
     public static final String REQUEST_FILE = "request-file";
     public static final String START_KEY_INDEX = "start-key-index";
+
     public static final String READS = "r";
     public static final String WRITES = "w";
     public static final String DELETES = "d";
     public static final String MIXED = "m";
+
     public static final String RECORD_SELECTION = "record-selection";
     public static final String ZIPFIAN_RECORD_SELECTION = "zipfian";
     public static final String LATEST_RECORD_SELECTION = "latest";
     public static final String FILE_RECORD_SELECTION = "file";
     public static final String UNIFORM_RECORD_SELECTION = "uniform";
+
     public static final String TARGET_THROUGHPUT = "target-throughput";
     public static final String HELP = "help";
     public static final String STORE_NAME = "store-name";
     public static final String RECORD_COUNT = "record-count";
     public static final String PLUGIN_CLASS = "plugin-class";
     public static final String OPS_COUNT = "ops-count";
+
     public static final String METRIC_TYPE = "metric-type";
     public static final String HISTOGRAM_METRIC_TYPE = "histogram";
     public static final String SUMMARY_METRIC_TYPE = "summary";
+
     public static final String VERBOSE = "v";
     public static final String VERIFY = "verify";
-    public static final String PIPELINE_ROUTED_STORE = "enable-pipeline-routed";
     public static final String CLIENT_ZONE_ID = "client-zoneid";
-    public static final String SELECTORS = "selectors";
-    public static final String SOCKET_BUFFER_SIZE = "socket-buffer-size";
     private static final String DUMMY_DB = "benchmark_db";
     public static final String STORE_TYPE = "view";
     public static final String VIEW_CLASS = "voldemort.store.views.UpperCaseView";
@@ -178,14 +179,14 @@ public class Benchmark {
 
         public ClientThread(VoldemortWrapper db,
                             boolean runBenchmark,
-                            Workload w,
+                            Workload workLoad,
                             int operationsCount,
                             double targetThroughputPerMs,
                             boolean isVerbose,
                             WorkloadPlugin plugin) {
             this.db = db;
             this.runBenchmark = runBenchmark;
-            this.clientWorkLoad = w;
+            this.clientWorkLoad = workLoad;
             this.operationsCount = operationsCount;
             this.opsDone = 0;
             this.targetThroughputPerMs = targetThroughputPerMs;
@@ -240,18 +241,6 @@ public class Benchmark {
             }
         }
         return storeDef;
-    }
-
-    private Object getTempKey(String keyType) {
-        if(keyType.compareTo(STRING_KEY_TYPE) == 0 || keyType.compareTo(JSONSTRING_KEY_TYPE) == 0) {
-            return "" + 0;
-        } else if(keyType.compareTo(JSONINT_KEY_TYPE) == 0) {
-            return 0;
-        } else {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            bos.write(0);
-            return bos.toByteArray();
-        }
     }
 
     public String findKeyType(StoreDefinition storeDefinition) throws Exception {
@@ -328,10 +317,7 @@ public class Benchmark {
         this.verbose = benchmarkProps.getBoolean(VERBOSE, false);
         this.verifyRead = benchmarkProps.getBoolean(VERIFY, false);
         this.ignoreNulls = benchmarkProps.getBoolean(IGNORE_NULLS, false);
-        boolean enablePipelineRouted = benchmarkProps.getBoolean(PIPELINE_ROUTED_STORE, false);
         int clientZoneId = benchmarkProps.getInt(CLIENT_ZONE_ID, -1);
-        int numSelectors = benchmarkProps.getInt(SELECTORS, 4);
-        int socketBufferSize = benchmarkProps.getInt(SOCKET_BUFFER_SIZE, 4 * 1024);
 
         if(benchmarkProps.containsKey(URL)) {
 
@@ -346,14 +332,7 @@ public class Benchmark {
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
                                                           .setMaxTotalConnections(numThreads)
                                                           .setMaxConnectionsPerNode(numThreads)
-                                                          .setBootstrapUrls(socketUrl)
-                                                          .setConnectionTimeout(60,
-                                                                                TimeUnit.SECONDS)
-                                                          .setSocketTimeout(60, TimeUnit.SECONDS)
-                                                          .setFailureDetectorRequestLengthThreshold(TimeUnit.SECONDS.toMillis(60))
-                                                          .setSocketBufferSize(socketBufferSize)
-                                                          .setSelectors(numSelectors)
-                                                          .setEnablePipelineRoutedStore(enablePipelineRouted);
+                                                          .setBootstrapUrls(socketUrl);
 
             if(clientZoneId >= 0) {
                 clientConfig.setClientZoneId(clientZoneId);
@@ -364,14 +343,6 @@ public class Benchmark {
             this.keyType = findKeyType(storeDef);
             benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
             this.factory = socketFactory;
-
-            // Send the store a value and then delete it
-            if(benchmarkProps.getBoolean(HANDSHAKE, false)) {
-                final Object key = getTempKey(this.keyType);
-                this.storeClient.delete(key);
-                this.storeClient.put(key, "123");
-                this.storeClient.delete(key);
-            }
 
         } else {
 
@@ -417,6 +388,7 @@ public class Benchmark {
 
     public void warmUpAndRun() throws Exception {
         if(this.recordCount > 0) {
+            System.out.println("Running warmup");
             runTests(false);
             this.warmUpCompleted = true;
             Metrics.getInstance().reset();
@@ -464,14 +436,13 @@ public class Benchmark {
                 plugin.setDb(db);
             }
 
-            Thread clientThread = new ClientThread(db,
-                                                   runBenchmark,
-                                                   this.workLoad,
-                                                   localOpsCounts / this.numThreads,
-                                                   this.perThreadThroughputPerMs,
-                                                   this.verbose,
-                                                   plugin);
-            threads.add(clientThread);
+            threads.add(new ClientThread(db,
+                                         runBenchmark,
+                                         this.workLoad,
+                                         localOpsCounts / this.numThreads,
+                                         this.perThreadThroughputPerMs,
+                                         this.verbose,
+                                         plugin));
         }
 
         long startRunBenchmark = System.currentTimeMillis();
@@ -498,6 +469,8 @@ public class Benchmark {
         if(this.statusIntervalSec > 0) {
             statusThread.interrupt();
         }
+
+        // Print the output
         NumberFormat nf = NumberFormat.getInstance();
         nf.setMaximumFractionDigits(4);
         nf.setGroupingUsed(false);
@@ -599,7 +572,6 @@ public class Benchmark {
         parser.accepts(STORE_NAME, "for remote tests; store name on the remote " + URL)
               .withRequiredArg()
               .describedAs("name");
-        parser.accepts(HANDSHAKE, "for remote tests; basic handshake operations with " + URL);
         parser.accepts(METRIC_TYPE,
                        "type of result metric [ " + HISTOGRAM_METRIC_TYPE + " | "
                                + SUMMARY_METRIC_TYPE + " <default> ]").withRequiredArg();
@@ -607,18 +579,9 @@ public class Benchmark {
                        "classname of implementation of WorkloadPlugin; used to run customized operations ")
               .withRequiredArg()
               .describedAs("class-name");
-        parser.accepts(PIPELINE_ROUTED_STORE, "enable pipeline routed store");
         parser.accepts(CLIENT_ZONE_ID, "zone id for client; enables zone routing")
               .withRequiredArg()
               .describedAs("zone-id")
-              .ofType(Integer.class);
-        parser.accepts(SELECTORS, "number of selectors for NIO client")
-              .withRequiredArg()
-              .describedAs("selectors")
-              .ofType(Integer.class);
-        parser.accepts(SOCKET_BUFFER_SIZE, "socket buffer size")
-              .withRequiredArg()
-              .describedAs("socket-buffer-size")
               .ofType(Integer.class);
         parser.accepts(HELP);
 
@@ -652,12 +615,12 @@ public class Benchmark {
                 mainProps.put(RECORD_SELECTION, CmdUtils.valueOf(options,
                                                                  RECORD_SELECTION,
                                                                  UNIFORM_RECORD_SELECTION));
+            }
 
-                if(options.has(RECORD_COUNT)) {
-                    mainProps.put(RECORD_COUNT, (Integer) options.valueOf(RECORD_COUNT));
-                } else {
-                    mainProps.put(RECORD_COUNT, 0);
-                }
+            if(options.has(RECORD_COUNT)) {
+                mainProps.put(RECORD_COUNT, (Integer) options.valueOf(RECORD_COUNT));
+            } else {
+                mainProps.put(RECORD_COUNT, 0);
             }
 
             if(!options.has(OPS_COUNT)) {
@@ -667,7 +630,6 @@ public class Benchmark {
 
             if(options.has(URL)) {
                 mainProps.put(URL, (String) options.valueOf(URL));
-                mainProps.put(HANDSHAKE, getCmdBoolean(options, HANDSHAKE));
                 if(options.has(STORE_NAME)) {
                     mainProps.put(STORE_NAME, (String) options.valueOf(STORE_NAME));
                 } else {
@@ -684,12 +646,7 @@ public class Benchmark {
             mainProps.put(VERBOSE, getCmdBoolean(options, VERBOSE));
             mainProps.put(VERIFY, getCmdBoolean(options, VERIFY));
             mainProps.put(IGNORE_NULLS, getCmdBoolean(options, IGNORE_NULLS));
-            mainProps.put(PIPELINE_ROUTED_STORE, getCmdBoolean(options, PIPELINE_ROUTED_STORE));
             mainProps.put(CLIENT_ZONE_ID, CmdUtils.valueOf(options, CLIENT_ZONE_ID, -1));
-            mainProps.put(SELECTORS, CmdUtils.valueOf(options, SELECTORS, 4));
-            mainProps.put(SOCKET_BUFFER_SIZE, CmdUtils.valueOf(options,
-                                                               SOCKET_BUFFER_SIZE,
-                                                               4 * 1024));
             mainProps.put(START_KEY_INDEX, CmdUtils.valueOf(options, START_KEY_INDEX, 0));
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));
