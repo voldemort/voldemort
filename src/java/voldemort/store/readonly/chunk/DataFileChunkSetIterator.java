@@ -1,8 +1,23 @@
-package voldemort.store.readonly;
+/*
+ * Copyright 2011 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package voldemort.store.readonly.chunk;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.concurrent.locks.ReadWriteLock;
 
 import org.apache.log4j.Logger;
@@ -18,27 +33,27 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
     private int currentChunk;
     private long currentOffsetInChunk;
     private boolean chunksFinished;
-    protected boolean ignoreCollisions;
+    protected boolean coalesceCollided;
 
     // Number of k-v pairs which have collided and are in one bucket
     private int tupleCount;
 
     private ReadWriteLock fileModificationLock;
 
-    public DataFileChunkSetIterator(DataFileChunkSet dataFileChunkSet, boolean ignoreCollisions) {
-        this(dataFileChunkSet, ignoreCollisions, null);
+    public DataFileChunkSetIterator(DataFileChunkSet dataFileChunkSet, boolean coalesceCollided) {
+        this(dataFileChunkSet, coalesceCollided, null);
     }
 
     /**
      * Iterator over the data file chunks
      * 
      * @param dataFileChunkSet Set of data chunk files
-     * @param ignoreCollisions Whether we want to consider collided entries as
+     * @param coalesceCollided Whether we want to consider collided entries as
      *        one?
      * @param fileModificationLock RW lock to lock before starting the iterator
      */
     public DataFileChunkSetIterator(DataFileChunkSet dataFileChunkSet,
-                                    boolean ignoreCollisions,
+                                    boolean coalesceCollided,
                                     ReadWriteLock fileModificationLock) {
         this.dataFileChunkSet = dataFileChunkSet;
         this.currentChunk = 0;
@@ -46,7 +61,7 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
         this.tupleCount = 0;
         this.chunksFinished = false;
         this.fileModificationLock = fileModificationLock;
-        this.ignoreCollisions = ignoreCollisions;
+        this.coalesceCollided = coalesceCollided;
         if(this.fileModificationLock != null)
             this.fileModificationLock.readLock().lock();
     }
@@ -58,7 +73,7 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
 
     public abstract T next();
 
-    protected FileChannel getCurrentChunk() {
+    protected DataFileChunk getCurrentChunk() {
         return this.dataFileChunkSet.dataFileFor(currentChunk);
     }
 
@@ -88,7 +103,7 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
             }
         }
 
-        if(!ignoreCollisions && tupleCount == 0) {
+        if(!coalesceCollided && tupleCount == 0) {
             // Update the tuple count
             ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
             try {
@@ -104,7 +119,7 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
     }
 
     public void updateOffset(long updatedOffset) {
-        if(!ignoreCollisions)
+        if(!coalesceCollided)
             tupleCount--;
         currentOffsetInChunk = updatedOffset;
         hasNext();

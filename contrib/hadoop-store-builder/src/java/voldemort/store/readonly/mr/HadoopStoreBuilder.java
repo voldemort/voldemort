@@ -284,11 +284,12 @@ public class HadoopStoreBuilder {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions()
                                             / storeDef.getReplicationFactor() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
+                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
+                              * numChunks;
             } else {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions();
+                numReducers = cluster.getNumberOfPartitions() * numChunks;
             }
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
@@ -334,7 +335,7 @@ public class HadoopStoreBuilder {
                     int totalChunkFiles = 1; // metadata
                     for(Integer partitionId: node.getPartitionIds()) {
                         for(int replicaType = 0; replicaType < storeDef.getReplicationFactor(); replicaType++) {
-                            totalChunkFiles += HadoopStoreBuilderUtils.getChunkFiles(nodePathFs,
+                            totalChunkFiles += HadoopStoreBuilderUtils.getDataChunkFiles(nodePathFs,
                                                                                      nodePath,
                                                                                      partitionId,
                                                                                      replicaType).length;
@@ -348,10 +349,7 @@ public class HadoopStoreBuilder {
                 }
 
                 conf.set("previous.output.dir", previousDir.toString());
-            } else {
-                conf.set("previous.output.dir", "");
             }
-
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys);
             logger.info("Building store...");

@@ -1,4 +1,4 @@
-package voldemort.store.readonly;
+package voldemort.store.readonly.chunk;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -7,21 +7,28 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 /**
  * A set of chunked data and index files for a read-only store
@@ -95,7 +102,14 @@ public class ChunkedFileSet {
     }
 
     public DataFileChunkSet toDataFileChunkSet() {
-        return new DataFileChunkSet(this.dataFiles, this.dataFileSizes);
+
+        // Convert the index file into chunk set
+        List<DataFileChunk> dataFileChunks = Lists.newArrayList();
+        for(FileChannel dataFile: dataFiles) {
+            dataFileChunks.add(new LocalDataFileChunk(dataFile));
+        }
+
+        return new DataFileChunkSet(dataFileChunks, this.dataFileSizes);
     }
 
     public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
@@ -482,6 +496,9 @@ public class ChunkedFileSet {
         }
     }
 
+    /**
+     * Iterator for RO keys - Works only for ReadOnlyStorageFormat.READONLY_V2
+     */
     public static class ROKeyIterator extends DataFileChunkSetIterator<ByteArray> {
 
         public ROKeyIterator(ChunkedFileSet chunkedFileSet, ReadWriteLock modificationLock) {
@@ -519,6 +536,10 @@ public class ChunkedFileSet {
         }
     }
 
+    /**
+     * Iterator for RO entries - Works only for
+     * ReadOnlyStorageFormat.READONLY_V2
+     */
     public static class ROEntriesIterator extends
             DataFileChunkSetIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
@@ -558,6 +579,79 @@ public class ChunkedFileSet {
             } catch(IOException e) {
                 logger.error(e);
                 throw new VoldemortException(e);
+            }
+        }
+    }
+
+    /**
+     * Iterator over top 8 bytes of md5(key) and all collided entries [ both in
+     * byte buffers ] - Works only for ReadOnlyStorageFormat.READONLY_V2
+     */
+    public static class ROCollidedEntriesIterator extends
+            DataFileChunkSetIterator<Pair<ByteBuffer, ByteBuffer>> {
+
+        private MessageDigest md5er = ByteUtils.getDigest("md5");
+
+        public ROCollidedEntriesIterator(DataFileChunkSet dataFileChunkSet) {
+            this(dataFileChunkSet, new ReentrantReadWriteLock());
+        }
+
+        public ROCollidedEntriesIterator(DataFileChunkSet dataFileChunkSet,
+                                         ReadWriteLock modificationLock) {
+            super(dataFileChunkSet, true, modificationLock);
+        }
+
+        @Override
+        public Pair<ByteBuffer, ByteBuffer> next() {
+            if(!hasNext())
+                throw new VoldemortException("Reached the end");
+
+            try {
+                // Initialize buffer for key
+                ByteBuffer keyBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
+
+                // Update the tuple count
+                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
+                getCurrentChunk().read(numKeyValsBuffer, getCurrentOffsetInChunk());
+                int tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
+
+                int offsetMoved = 0;
+                ByteBuffer keyValueLength = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
+                for(int tupleId = 0; tupleId < tupleCount; tupleId++) {
+                    // Reads key length, value length
+                    getCurrentChunk().read(keyValueLength,
+                                           getCurrentOffsetInChunk() + offsetMoved
+                                                   + ByteUtils.SIZE_OF_BYTE);
+                    int keyLength = keyValueLength.getInt(0);
+                    int valueLength = keyValueLength.getInt(ByteUtils.SIZE_OF_INT);
+
+                    if(keyBuffer.hasRemaining()) {
+                        // We are filling the keyBuffer for the first time
+                        ByteBuffer tempKeyBuffer = ByteBuffer.allocate(keyLength);
+                        getCurrentChunk().read(keyBuffer,
+                                               getCurrentOffsetInChunk() + keyLength + valueLength
+                                                       + ByteUtils.SIZE_OF_BYTE);
+                        keyBuffer.put(ByteUtils.copy(md5er.digest(tempKeyBuffer.array()),
+                                                     0,
+                                                     2 * ByteUtils.SIZE_OF_INT));
+                    }
+                    offsetMoved += (2 * ByteUtils.SIZE_OF_INT) + keyLength + valueLength;
+                    keyValueLength.clear();
+                }
+
+                ByteBuffer finalValue = ByteBuffer.allocate(offsetMoved);
+                getCurrentChunk().read(finalValue,
+                                       getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_BYTE);
+
+                // Update the offset
+                updateOffset(getCurrentOffsetInChunk() + offsetMoved + ByteUtils.SIZE_OF_BYTE);
+
+                return Pair.create(keyBuffer, finalValue);
+            } catch(IOException e) {
+                logger.error(e);
+                throw new VoldemortException(e);
+            } finally {
+                md5er.reset();
             }
         }
     }

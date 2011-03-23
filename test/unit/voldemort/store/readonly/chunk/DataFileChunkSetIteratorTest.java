@@ -1,4 +1,4 @@
-package voldemort.store.readonly;
+package voldemort.store.readonly.chunk;
 
 import static org.junit.Assert.assertEquals;
 
@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.List;
 
@@ -25,8 +24,8 @@ public class DataFileChunkSetIteratorTest {
     public class SimpleDataFileChunkSetIterator extends DataFileChunkSetIterator<ByteBuffer> {
 
         public SimpleDataFileChunkSetIterator(DataFileChunkSet dataFileChunkSet,
-                                              boolean ignoreCollisions) {
-            super(dataFileChunkSet, ignoreCollisions);
+                                              boolean coalesceCollided) {
+            super(dataFileChunkSet, coalesceCollided);
         }
 
         @Override
@@ -35,7 +34,7 @@ public class DataFileChunkSetIteratorTest {
                 throw new VoldemortException("Reached the end");
 
             try {
-                if(ignoreCollisions) {
+                if(coalesceCollided) {
 
                     // Read a byte
                     ByteBuffer numKeysBytes = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
@@ -75,7 +74,7 @@ public class DataFileChunkSetIteratorTest {
             throws IOException {
         Assert.assertEquals(numberOfEntriesPerChunk % numberOfEntriesPerCollision, 0);
 
-        List<FileChannel> dataFiles = Lists.newArrayList();
+        List<DataFileChunk> dataFiles = Lists.newArrayList();
         List<Integer> dataFileSizes = Lists.newArrayList();
 
         File tempFolder = TestUtils.createTempDir();
@@ -119,7 +118,7 @@ public class DataFileChunkSetIteratorTest {
                 stream.close();
             }
 
-            dataFiles.add(new FileInputStream(chunkFile).getChannel());
+            dataFiles.add(new LocalDataFileChunk(new FileInputStream(chunkFile).getChannel()));
             dataFileSizes.add((int) chunkFile.length());
         }
 

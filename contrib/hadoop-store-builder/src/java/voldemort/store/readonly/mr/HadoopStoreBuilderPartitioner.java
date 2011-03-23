@@ -17,9 +17,9 @@
 package voldemort.store.readonly.mr;
 
 import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Partitioner;
 
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -32,19 +32,16 @@ public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigura
 
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
         int partitionId = ByteUtils.readInt(value.get(), ByteUtils.SIZE_OF_INT);
+        int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
         if(getSaveKeys()) {
             int replicaType = (int) ByteUtils.readBytes(value.get(),
                                                         2 * ByteUtils.SIZE_OF_INT,
                                                         ByteUtils.SIZE_OF_BYTE);
-            return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
+            return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
+                    + (replicaType * getNumChunks()) + chunkId)
                    % numReduceTasks;
         } else {
-            return partitionId % numReduceTasks;
+            return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
         }
-    }
-
-    @Override
-    public void configure(JobConf conf) {
-        super.configure(conf);
     }
 }

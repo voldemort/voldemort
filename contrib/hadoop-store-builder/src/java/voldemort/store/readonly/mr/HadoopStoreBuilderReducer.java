@@ -37,6 +37,9 @@ import voldemort.VoldemortException;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.chunk.ChunkedFileSet;
+import voldemort.store.readonly.chunk.DataFileChunkSet;
+import voldemort.store.readonly.chunk.ChunkedFileSet.ROCollidedEntriesIterator;
 import voldemort.utils.ByteUtils;
 
 /**
@@ -48,22 +51,31 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilderReducer.class);
 
-    private DataOutputStream[] indexFileStream = null;
-    private DataOutputStream[] valueFileStream = null;
-    private int[] position;
+    private DataOutputStream indexFileStream = null;
+    private DataOutputStream valueFileStream = null;
+    private int position;
     private String taskId = null;
 
     private int nodeId = -1;
     private int partitionId = -1;
+    private int chunkId = -1;
     private int replicaType = -1;
 
-    private Path[] taskIndexFileName;
-    private Path[] taskValueFileName;
-    private String outputDir;
+    private Path taskIndexFileName;
+    private Path taskValueFileName;
+
     private JobConf conf;
     private CheckSumType checkSumType;
-    private CheckSum[] checkSumDigestIndex;
-    private CheckSum[] checkSumDigestValue;
+    private CheckSum checkSumDigestIndex;
+    private CheckSum checkSumDigestValue;
+
+    private String outputDir;
+    private String previousDir;
+    private String dataFileSuffix;
+
+    private FileSystem fs;
+
+    private ChunkedFileSet.ROCollidedEntriesIterator entriesIterator = null;
 
     protected static enum CollisionCounter {
         NUM_COLLISIONS,
@@ -74,7 +86,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
      * Reduce should get sorted MD5 of Voldemort key ( either 16 bytes if saving
      * keys is disabled, else 8 bytes ) as key and for value (a) node-id,
      * partition-id, value - if saving keys is disabled (b) node-id,
-     * partition-id, [key-size, key, value-size, value]* if saving keys is
+     * partition-id, [key-size, value-size, key, value]* if saving keys is
      * enabled
      */
     public void reduce(BytesWritable key,
@@ -82,17 +94,14 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                        OutputCollector<Text, Text> output,
                        Reporter reporter) throws IOException {
 
-        // Read chunk id
-        int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
-
         // Write key and position
-        this.indexFileStream[chunkId].write(key.get(), 0, key.getSize());
-        this.indexFileStream[chunkId].writeInt(this.position[chunkId]);
+        this.indexFileStream.write(key.get(), 0, key.getSize());
+        this.indexFileStream.writeInt(this.position);
 
         // Run key through checksum digest
-        if(this.checkSumDigestIndex[chunkId] != null) {
-            this.checkSumDigestIndex[chunkId].update(key.get(), 0, key.getSize());
-            this.checkSumDigestIndex[chunkId].update(this.position[chunkId]);
+        if(this.checkSumDigestIndex != null) {
+            this.checkSumDigestIndex.update(key.get(), 0, key.getSize());
+            this.checkSumDigestIndex.update(this.position);
         }
 
         int numKeyValues = 0;
@@ -114,6 +123,10 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                 this.partitionId = ByteUtils.readInt(valueBytes, offsetTillNow);
             offsetTillNow += ByteUtils.SIZE_OF_INT;
 
+            // Read chunk id
+            if(this.chunkId == -1)
+                this.chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
+
             // Read replica type
             if(getSaveKeys()) {
                 if(this.replicaType == -1)
@@ -121,6 +134,18 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                                                  offsetTillNow,
                                                                  ByteUtils.SIZE_OF_BYTE);
                 offsetTillNow += ByteUtils.SIZE_OF_BYTE;
+
+                if(this.previousDir.length() != 0 && entriesIterator == null) {
+
+                    // Get data files
+                    DataFileChunkSet dataFileChunkSet = HadoopStoreBuilderUtils.getDataFileChunkSet(this.fs,
+                                                                                                    HadoopStoreBuilderUtils.getDataChunkFiles(this.fs,
+                                                                                                                                              new Path(previousDir),
+                                                                                                                                              this.partitionId,
+                                                                                                                                              this.replicaType,
+                                                                                                                                              this.chunkId));
+                    entriesIterator = new ROCollidedEntriesIterator(dataFileChunkSet);
+                }
             }
 
             int valueLength = writable.getSize() - offsetTillNow;
@@ -158,34 +183,46 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             }
         }
 
+        // Flush the value
+        valueStream.flush();
+        byte[] value = stream.toByteArray();
+
         // Start writing to file now
-        // First, if save keys then write number of keys
+        if(this.previousDir.length() != 0 && getSaveKeys()) {
 
-        if(getSaveKeys()) {
-            // Write the number of KVs as a single byte
-            byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
-            ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
+            // Logic which decides whether to write or not
 
-            this.valueFileStream[chunkId].write(numBuf);
-            this.position[chunkId] += ByteUtils.SIZE_OF_BYTE;
+            if(!entriesIterator.hasNext()) {
+                // All elements following this need to be in patch file
+            } else {
+                // Iterate through entries till either == or >
+                // If ==, ignore . If > , then missing, so add
+            }
+        } else {
+            // First, if save keys flag set then write number of keys
+            if(getSaveKeys()) {
 
-            if(this.checkSumDigestValue[chunkId] != null) {
-                this.checkSumDigestValue[chunkId].update(numBuf);
+                // Write the number of KVs as a single byte
+                byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
+                ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
+
+                this.valueFileStream.write(numBuf);
+                this.position += ByteUtils.SIZE_OF_BYTE;
+
+                if(this.checkSumDigestValue != null) {
+                    this.checkSumDigestValue.update(numBuf);
+                }
+            }
+
+            this.valueFileStream.write(value);
+            this.position += value.length;
+
+            if(this.checkSumDigestValue != null) {
+                this.checkSumDigestValue.update(value);
             }
         }
 
-        // Now, write the actual value to the file
-        valueStream.flush();
-
-        byte[] value = stream.toByteArray();
-        this.valueFileStream[chunkId].write(value);
-        this.position[chunkId] += value.length;
-
-        if(this.checkSumDigestValue[chunkId] != null) {
-            this.checkSumDigestValue[chunkId].update(value);
-        }
-
-        if(this.position[chunkId] < 0)
+        if(this.position < 0)
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
                                          + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
@@ -196,44 +233,34 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         super.configure(job);
         try {
             this.conf = job;
-
+            this.position = 0;
             this.outputDir = job.get("final.output.dir");
+            this.previousDir = job.get("previous.output.dir", "");
+            if(this.previousDir.length() == 0) {
+                this.dataFileSuffix = "data";
+            } else {
+                this.dataFileSuffix = "patch";
+            }
             this.taskId = job.get("mapred.task.id");
             this.checkSumType = CheckSum.fromString(job.get("checksum.type"));
+            this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
+            this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
 
-            this.checkSumDigestIndex = new CheckSum[getNumChunks()];
-            this.checkSumDigestValue = new CheckSum[getNumChunks()];
-            this.position = new int[getNumChunks()];
-            this.taskIndexFileName = new Path[getNumChunks()];
-            this.taskValueFileName = new Path[getNumChunks()];
-            this.indexFileStream = new DataOutputStream[getNumChunks()];
-            this.valueFileStream = new DataOutputStream[getNumChunks()];
+            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job),
+                                              getStoreName() + "." + Integer.toString(chunkId)
+                                                      + "_" + this.taskId + ".index");
+            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job),
+                                              getStoreName() + "." + Integer.toString(chunkId)
+                                                      + "_" + this.taskId + "." + dataFileSuffix);
 
-            FileSystem fs = null;
-            for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
+            if(this.fs == null)
+                this.fs = this.taskIndexFileName.getFileSystem(job);
 
-                this.checkSumDigestIndex[chunkId] = CheckSum.getInstance(checkSumType);
-                this.checkSumDigestValue[chunkId] = CheckSum.getInstance(checkSumType);
-                this.position[chunkId] = 0;
+            this.indexFileStream = fs.create(this.taskIndexFileName);
+            this.valueFileStream = fs.create(this.taskValueFileName);
 
-                this.taskIndexFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(job),
-                                                           getStoreName() + "."
-                                                                   + Integer.toString(chunkId)
-                                                                   + "_" + this.taskId + ".index");
-                this.taskValueFileName[chunkId] = new Path(FileOutputFormat.getOutputPath(job),
-                                                           getStoreName() + "."
-                                                                   + Integer.toString(chunkId)
-                                                                   + "_" + this.taskId + ".data");
-
-                if(fs == null)
-                    fs = this.taskIndexFileName[chunkId].getFileSystem(job);
-
-                this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
-                this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
-
-                logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
-                            + this.taskValueFileName[chunkId] + " for writing.");
-            }
+            logger.info("Opening " + this.taskIndexFileName + " and " + this.taskValueFileName
+                        + " for writing.");
 
         } catch(IOException e) {
             throw new RuntimeException("Failed to open Input/OutputStream", e);
@@ -243,12 +270,10 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     @Override
     public void close() throws IOException {
 
-        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
-            this.indexFileStream[chunkId].close();
-            this.valueFileStream[chunkId].close();
-        }
+        this.indexFileStream.close();
+        this.valueFileStream.close();
 
-        if(this.nodeId == -1 || this.partitionId == -1) {
+        if(this.nodeId == -1 || this.chunkId == -1 || this.partitionId == -1) {
             // Issue 258 - No data was read in the reduce phase, do not create
             // any output
             return;
@@ -263,53 +288,50 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         String fileNamePrefix = null;
         if(getSaveKeys()) {
             fileNamePrefix = new String(Integer.toString(this.partitionId) + "_"
-                                        + Integer.toString(this.replicaType) + "_");
+                                        + Integer.toString(this.replicaType) + "_"
+                                        + Integer.toString(this.chunkId));
         } else {
-            fileNamePrefix = new String(Integer.toString(this.partitionId) + "_");
+            fileNamePrefix = new String(Integer.toString(this.partitionId) + "_"
+                                        + Integer.toString(this.chunkId));
         }
 
         // Initialize the node directory
         Path nodeDir = new Path(this.outputDir, "node-" + this.nodeId);
 
         // Create output directory, if it doesn't exist
-        FileSystem fs = nodeDir.getFileSystem(this.conf);
-        fs.mkdirs(nodeDir);
+        FileSystem outputFs = nodeDir.getFileSystem(this.conf);
+        outputFs.mkdirs(nodeDir);
 
         // Write the checksum and output files
+        if(this.checkSumType != CheckSumType.NONE) {
 
-        for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
+            if(this.checkSumDigestIndex != null && this.checkSumDigestValue != null) {
+                Path checkSumIndexFile = new Path(nodeDir, fileNamePrefix + ".index.checksum");
+                Path checkSumValueFile = new Path(nodeDir, fileNamePrefix + "." + dataFileSuffix
+                                                           + ".checksum");
 
-            String chunkFileName = fileNamePrefix + Integer.toString(chunkId);
-            if(this.checkSumType != CheckSumType.NONE) {
+                FSDataOutputStream output = outputFs.create(checkSumIndexFile);
+                output.write(this.checkSumDigestIndex.getCheckSum());
+                output.close();
 
-                if(this.checkSumDigestIndex[chunkId] != null
-                   && this.checkSumDigestValue[chunkId] != null) {
-                    Path checkSumIndexFile = new Path(nodeDir, chunkFileName + ".index.checksum");
-                    Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
-
-                    FSDataOutputStream output = fs.create(checkSumIndexFile);
-                    output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
-                    output.close();
-
-                    output = fs.create(checkSumValueFile);
-                    output.write(this.checkSumDigestValue[chunkId].getCheckSum());
-                    output.close();
-                } else {
-                    throw new RuntimeException("Failed to open checksum digest for node " + nodeId
-                                               + " ( partition - " + this.partitionId
-                                               + ", chunk - " + chunkId + " )");
-                }
+                output = outputFs.create(checkSumValueFile);
+                output.write(this.checkSumDigestValue.getCheckSum());
+                output.close();
+            } else {
+                throw new RuntimeException("Failed to open checksum digest for node " + nodeId
+                                           + " ( partition - " + this.partitionId + ", chunk - "
+                                           + chunkId + " )");
             }
-
-            // Generate the final chunk files
-            Path indexFile = new Path(nodeDir, chunkFileName + ".index");
-            Path valueFile = new Path(nodeDir, chunkFileName + ".data");
-
-            logger.info("Moving " + this.taskIndexFileName[chunkId] + " to " + indexFile);
-            fs.rename(taskIndexFileName[chunkId], indexFile);
-            logger.info("Moving " + this.taskValueFileName[chunkId] + " to " + valueFile);
-            fs.rename(this.taskValueFileName[chunkId], valueFile);
-
         }
+
+        // Generate the final chunk files
+        Path indexFile = new Path(nodeDir, fileNamePrefix + ".index");
+        Path valueFile = new Path(nodeDir, fileNamePrefix + "." + dataFileSuffix);
+
+        logger.info("Moving " + this.taskIndexFileName + " to " + indexFile);
+        outputFs.rename(taskIndexFileName, indexFile);
+        logger.info("Moving " + this.taskValueFileName + " to " + valueFile);
+        outputFs.rename(this.taskValueFileName, valueFile);
+
     }
 }
