@@ -70,6 +70,8 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
     private int bdbCleanerLookAheadCacheSize;
+    private boolean bdbCheckpointerHighPriority;
+    private int bdbCleanerMaxBatchFiles;
 
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
@@ -206,6 +208,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
         this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
+        this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
+        this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -543,6 +547,44 @@ public class VoldemortConfig implements Serializable {
         if(minFileUtilization < 0 || minFileUtilization > 50)
             throw new IllegalArgumentException("minFileUtilization should be between 0 and 50 (both inclusive)");
         this.bdbCleanerMinFileUtilization = minFileUtilization;
+    }
+
+    /**
+     * If true, the checkpointer uses more resources in order to complete the
+     * checkpoint in a shorter time interval.
+     * 
+     * <ul>
+     * <li>property: "bdb.checkpointer.high.priority"</li>
+     * <li>default: false</li>
+     * </ul>
+     */
+    public boolean getBdbCheckpointerHighPriority() {
+        return bdbCheckpointerHighPriority;
+    }
+
+    public final void setBdbCheckpointerHighPriority(boolean bdbCheckpointerHighPriority) {
+        this.bdbCheckpointerHighPriority = bdbCheckpointerHighPriority;
+    }
+
+    /**
+     * The maximum number of log files in the cleaner's backlog, or zero if
+     * there is no limit
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.max.batch.files"</li>
+     * <li>default: 0</li>
+     * <li>minimum: 0</li>
+     * <li>maximum: 100000</li>
+     * </ul>
+     */
+    public int getBdbCleanerMaxBatchFiles() {
+        return bdbCleanerMaxBatchFiles;
+    }
+
+    public final void setBdbCleanerMaxBatchFiles(int bdbCleanerMaxBatchFiles) {
+        if(bdbCleanerMaxBatchFiles < 0 || bdbCleanerMaxBatchFiles > 100000)
+            throw new IllegalArgumentException("bdbCleanerMaxBatchFiles should be between 0 and 100000 (both inclusive)");
+        this.bdbCleanerMaxBatchFiles = bdbCleanerMaxBatchFiles;
     }
 
     /**
