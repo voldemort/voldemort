@@ -559,23 +559,21 @@ public class ChunkedFileSet {
                 int keySize = sizeBuffer.getInt(0);
                 int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
 
-                // Read the key contents
-                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                getCurrentChunk().read(keyBuffer,
+                // Read the key and value contents at once
+                ByteBuffer keyAndValueBuffer = ByteBuffer.allocate(keySize + valueSize);
+                getCurrentChunk().read(keyAndValueBuffer,
                                        getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT));
-
-                // Read the value contents
-                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                getCurrentChunk().read(valueBuffer,
-                                       getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT)
-                                               + keySize);
 
                 // Update the offset
                 updateOffset(getCurrentOffsetInChunk() + (2 * ByteUtils.SIZE_OF_INT) + keySize
                              + valueSize);
 
-                return Pair.create(new ByteArray(keyBuffer.array()),
-                                   Versioned.value(valueBuffer.array()));
+                return Pair.create(new ByteArray(ByteUtils.copy(keyAndValueBuffer.array(),
+                                                                0,
+                                                                keySize)),
+                                   Versioned.value(ByteUtils.copy(keyAndValueBuffer.array(),
+                                                                  keySize,
+                                                                  keySize + valueSize)));
             } catch(IOException e) {
                 logger.error(e);
                 throw new VoldemortException(e);
@@ -584,8 +582,10 @@ public class ChunkedFileSet {
     }
 
     /**
-     * Iterator over top 8 bytes of md5(key) and all collided entries [ both in
-     * byte buffers ] - Works only for ReadOnlyStorageFormat.READONLY_V2
+     * Iterator over top 8 bytes of md5(key) and all collided entries (
+     * including the number of entries )
+     * 
+     * Works only for ReadOnlyStorageFormat.READONLY_V2
      */
     public static class ROCollidedEntriesIterator extends
             DataFileChunkSetIterator<Pair<ByteBuffer, ByteBuffer>> {
@@ -615,13 +615,11 @@ public class ChunkedFileSet {
                 getCurrentChunk().read(numKeyValsBuffer, getCurrentOffsetInChunk());
                 int tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
 
-                int offsetMoved = 0;
+                int offsetMoved = ByteUtils.SIZE_OF_BYTE;
                 ByteBuffer keyValueLength = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
                 for(int tupleId = 0; tupleId < tupleCount; tupleId++) {
                     // Reads key length, value length
-                    getCurrentChunk().read(keyValueLength,
-                                           getCurrentOffsetInChunk() + offsetMoved
-                                                   + ByteUtils.SIZE_OF_BYTE);
+                    getCurrentChunk().read(keyValueLength, getCurrentOffsetInChunk() + offsetMoved);
                     int keyLength = keyValueLength.getInt(0);
                     int valueLength = keyValueLength.getInt(ByteUtils.SIZE_OF_INT);
 
@@ -629,8 +627,7 @@ public class ChunkedFileSet {
                         // We are filling the keyBuffer for the first time
                         ByteBuffer tempKeyBuffer = ByteBuffer.allocate(keyLength);
                         getCurrentChunk().read(keyBuffer,
-                                               getCurrentOffsetInChunk() + keyLength + valueLength
-                                                       + ByteUtils.SIZE_OF_BYTE);
+                                               getCurrentOffsetInChunk() + keyLength + valueLength);
                         keyBuffer.put(ByteUtils.copy(md5er.digest(tempKeyBuffer.array()),
                                                      0,
                                                      2 * ByteUtils.SIZE_OF_INT));
@@ -640,11 +637,10 @@ public class ChunkedFileSet {
                 }
 
                 ByteBuffer finalValue = ByteBuffer.allocate(offsetMoved);
-                getCurrentChunk().read(finalValue,
-                                       getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_BYTE);
+                getCurrentChunk().read(finalValue, getCurrentOffsetInChunk());
 
                 // Update the offset
-                updateOffset(getCurrentOffsetInChunk() + offsetMoved + ByteUtils.SIZE_OF_BYTE);
+                updateOffset(getCurrentOffsetInChunk() + offsetMoved);
 
                 return Pair.create(keyBuffer, finalValue);
             } catch(IOException e) {

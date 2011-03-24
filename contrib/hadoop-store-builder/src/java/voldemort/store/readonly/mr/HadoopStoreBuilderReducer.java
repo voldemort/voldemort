@@ -19,6 +19,7 @@ package voldemort.store.readonly.mr;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -41,6 +42,7 @@ import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.store.readonly.chunk.DataFileChunkSet;
 import voldemort.store.readonly.chunk.ChunkedFileSet.ROCollidedEntriesIterator;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 
 /**
  * Take key md5s and value bytes and build a read-only store from these values
@@ -73,9 +75,11 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     private String previousDir;
     private String dataFileSuffix;
 
+    private Pair<ByteBuffer, ByteBuffer> previousElement;
+
     private FileSystem fs;
 
-    private ChunkedFileSet.ROCollidedEntriesIterator entriesIterator = null;
+    private ChunkedFileSet.ROCollidedEntriesIterator previousIterator = null;
 
     protected static enum CollisionCounter {
         NUM_COLLISIONS,
@@ -135,7 +139,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                                                  ByteUtils.SIZE_OF_BYTE);
                 offsetTillNow += ByteUtils.SIZE_OF_BYTE;
 
-                if(this.previousDir.length() != 0 && entriesIterator == null) {
+                if(this.previousDir.length() != 0 && previousIterator == null) {
 
                     // Get data files
                     DataFileChunkSet dataFileChunkSet = HadoopStoreBuilderUtils.getDataFileChunkSet(this.fs,
@@ -144,7 +148,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                                                                                                                               this.partitionId,
                                                                                                                                               this.replicaType,
                                                                                                                                               this.chunkId));
-                    entriesIterator = new ROCollidedEntriesIterator(dataFileChunkSet);
+                    previousIterator = new ROCollidedEntriesIterator(dataFileChunkSet);
                 }
             }
 
@@ -189,16 +193,47 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
         // Start writing to file now
         if(this.previousDir.length() != 0 && getSaveKeys()) {
+            // Patch file
+
+            byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
+            ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
 
             // Logic which decides whether to write or not
-
-            if(!entriesIterator.hasNext()) {
+            if(!previousIterator.hasNext()) {
                 // All elements following this need to be in patch file
+                patch(ByteUtils.cat(numBuf, value), 0);
             } else {
-                // Iterate through entries till either == or >
-                // If ==, ignore . If > , then missing, so add
+                if(previousElement == null)
+                    previousElement = previousIterator.next();
+
+                switch(ByteUtils.compare(previousElement.getFirst().array(), key.get())) {
+                    case -1:
+                        patch(previousElement.getSecond().array(), 1);
+                        if(previousIterator.hasNext())
+                            previousElement = previousIterator.next();
+                        break;
+                    case 1:
+                        patch(ByteUtils.cat(numBuf, value), 0);
+                        break;
+                    case 0:
+                        // Now that they are same, compare if the values are
+                        // same as well. If they are not same, delete the old
+                        // value and update it
+                        if(ByteUtils.compare(previousElement.getSecond().array(),
+                                             ByteUtils.cat(numBuf, value)) != 0) {
+                            patch(previousElement.getSecond().array(), 1);
+                            patch(ByteUtils.cat(numBuf, value), 0);
+                        }
+                        if(previousIterator.hasNext())
+                            previousElement = previousIterator.next();
+                        break;
+                    default:
+                        throw new VoldemortException("Comparison of key throw an exception");
+                }
             }
         } else {
+            // Normal data file
+
             // First, if save keys flag set then write number of keys
             if(getSaveKeys()) {
 
@@ -226,6 +261,38 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             throw new VoldemortException("Chunk overflow exception: chunk " + chunkId
                                          + " has exceeded " + Integer.MAX_VALUE + " bytes.");
 
+    }
+
+    /**
+     * 
+     * @param currentValue Current value includes both the number of entries and
+     *        the actual entries
+     * @param operationType The operation type to write
+     * @throws IOException
+     */
+    void patch(byte[] currentValue, int operationType) throws IOException {
+        // Write the operation - 0 ( for + ), 1 ( for - )
+        byte[] operation = new byte[ByteUtils.SIZE_OF_BYTE];
+        ByteUtils.writeBytes(operation, 0, operationType, ByteUtils.SIZE_OF_BYTE);
+        this.valueFileStream.write(operation);
+
+        // Write the position
+        this.valueFileStream.write(this.position);
+
+        // Write the length
+        this.valueFileStream.write(currentValue.length);
+
+        // Write the entry
+        this.valueFileStream.write(currentValue);
+
+        if(this.checkSumDigestValue != null) {
+            this.checkSumDigestValue.update(operation);
+            this.checkSumDigestValue.update(this.position);
+            this.checkSumDigestValue.update(currentValue.length);
+            this.checkSumDigestValue.update(currentValue);
+        }
+
+        this.position += currentValue.length + ByteUtils.SIZE_OF_BYTE;
     }
 
     @Override
@@ -270,6 +337,13 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     @Override
     public void close() throws IOException {
 
+        // If iterator still not done...
+        if(this.previousDir.length() != 0 && getSaveKeys() && this.previousIterator != null
+           && this.previousIterator.hasNext()) {
+            do {
+                patch(this.previousIterator.next().getSecond().array(), 1);
+            } while(this.previousIterator.hasNext());
+        }
         this.indexFileStream.close();
         this.valueFileStream.close();
 
