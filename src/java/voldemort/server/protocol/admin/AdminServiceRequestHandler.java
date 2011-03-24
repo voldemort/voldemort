@@ -68,6 +68,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
+import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -691,6 +692,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                             destinationDir);
 
                         } else {
+                            long startTime = System.currentTimeMillis();
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                     storeName,
                                                                                                                     partitions,
@@ -711,7 +713,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
                                 if((i % 1000) == 0) {
-                                    updateStatus(i + " entries processed");
+                                    long elapsedSecs = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
+                                    long rate = elapsedSecs == 0 ? 0 : i / elapsedSecs;
+                                    updateStatus(i + " entries processed, rate "
+                                                 + rate
+                                                 + " entries per second");
                                 }
                             }
                         }
