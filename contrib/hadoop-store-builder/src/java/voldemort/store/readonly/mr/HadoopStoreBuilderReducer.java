@@ -198,39 +198,51 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
             ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
 
-            // Logic which decides whether to write or not
-            if(!previousIterator.hasNext()) {
-                // All elements following this need to be in patch file
-                patch(ByteUtils.cat(numBuf, value), 0);
-            } else {
-                if(previousElement == null)
-                    previousElement = previousIterator.next();
+            boolean retry = false;
+            do {
+                retry = false;
+                // Logic which decides whether to write or not
+                if(previousElement == null && !previousIterator.hasNext()) {
+                    // All elements following this need to be in patch file
+                    patch(ByteUtils.cat(numBuf, value), 0);
+                } else {
+                    if(previousElement == null)
+                        previousElement = previousIterator.next();
 
-                switch(ByteUtils.compare(previousElement.getFirst().array(), key.get())) {
-                    case -1:
-                        patch(previousElement.getSecond().array(), 1);
-                        if(previousIterator.hasNext())
-                            previousElement = previousIterator.next();
-                        break;
-                    case 1:
-                        patch(ByteUtils.cat(numBuf, value), 0);
-                        break;
-                    case 0:
-                        // Now that they are same, compare if the values are
-                        // same as well. If they are not same, delete the old
-                        // value and update it
-                        if(ByteUtils.compare(previousElement.getSecond().array(),
-                                             ByteUtils.cat(numBuf, value)) != 0) {
+                    switch(ByteUtils.compare(previousElement.getFirst().array(), key.get())) {
+                        case -1:
                             patch(previousElement.getSecond().array(), 1);
+                            if(previousIterator.hasNext()) {
+                                previousElement = previousIterator.next();
+                            } else {
+                                previousElement = null;
+                            }
+                            retry = true;
+                            break;
+                        case 1:
                             patch(ByteUtils.cat(numBuf, value), 0);
-                        }
-                        if(previousIterator.hasNext())
-                            previousElement = previousIterator.next();
-                        break;
-                    default:
-                        throw new VoldemortException("Comparison of key throw an exception");
+                            break;
+                        case 0:
+                            // Now that they are same, compare if the values are
+                            // same as well. If they are not same, delete the
+                            // old value and update it
+                            if(ByteUtils.compare(previousElement.getSecond().array(),
+                                                 ByteUtils.cat(numBuf, value)) != 0) {
+                                patch(previousElement.getSecond().array(), 1);
+                                patch(ByteUtils.cat(numBuf, value), 0);
+                            }
+                            if(previousIterator.hasNext())
+                                previousElement = previousIterator.next();
+                            else
+                                previousElement = null;
+                            break;
+                        default:
+                            throw new VoldemortException("Comparison of key throw an exception");
+                    }
                 }
-            }
+            } while(retry);
+
+            this.position += value.length + ByteUtils.SIZE_OF_BYTE;
         } else {
             // Normal data file
 
@@ -291,8 +303,6 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             this.checkSumDigestValue.update(currentValue.length);
             this.checkSumDigestValue.update(currentValue);
         }
-
-        this.position += currentValue.length + ByteUtils.SIZE_OF_BYTE;
     }
 
     @Override
@@ -338,11 +348,16 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     public void close() throws IOException {
 
         // If iterator still not done...
-        if(this.previousDir.length() != 0 && getSaveKeys() && this.previousIterator != null
-           && this.previousIterator.hasNext()) {
+        if(this.previousDir.length() != 0 && getSaveKeys() && this.previousElement != null
+           && this.previousIterator != null) {
             do {
-                patch(this.previousIterator.next().getSecond().array(), 1);
-            } while(this.previousIterator.hasNext());
+                patch(this.previousElement.getSecond().array(), 1);
+                if(this.previousIterator.hasNext()) {
+                    this.previousElement = previousIterator.next();
+                } else {
+                    this.previousElement = null;
+                }
+            } while(this.previousIterator != null);
         }
         this.indexFileStream.close();
         this.valueFileStream.close();
