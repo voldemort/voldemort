@@ -16,7 +16,6 @@
 
 package voldemort.store.routed.action;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,7 +28,6 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
-import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
@@ -38,7 +36,6 @@ import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.slop.HintedHandoff;
-import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
@@ -126,18 +123,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            result,
                                                                                            requestTime);
                     responses.put(node.getId(), response);
-                    if(Pipeline.Operation.DELETE == pipeline.getOperation() && pipeline.isFinished()) {
-                        if(isHintedHandoffEnabled() && response.getValue() instanceof UnreachableStoreException) {
-                            Slop slop = new Slop(pipelineData.getStoreName(),
-                                                 Slop.Operation.DELETE,
-                                                 key,
-                                                 null,
-                                                 null,
-                                                 node.getId(),
-                                                 new Date());
-                            pipelineData.addFailedNode(node);
-                            hintedHandoff.sendHintSerial(node, version, slop);
-                        }
+                    if(Pipeline.Operation.DELETE == pipeline.getOperation()) {
+                        throw new RuntimeException("Delete is performed by get request");
                     }
                     latch.countDown();
 
@@ -156,9 +143,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
             NonblockingStore store = nonblockingStores.get(node.getId());
 
-            if(pipeline.getOperation() == Operation.DELETE)
-                store.submitDeleteRequest(key, version, callback, timeoutMs);
-            else if(pipeline.getOperation() == Operation.GET)
+            if(pipeline.getOperation() == Operation.GET)
                 store.submitGetRequest(key, transforms, callback, timeoutMs);
             else if(pipeline.getOperation() == Operation.GET_VERSIONS)
                 store.submitGetVersionsRequest(key, callback, timeoutMs);
@@ -175,14 +160,13 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 logger.warn(e, e);
         }
 
-
         for(Response<ByteArray, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
                 if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
-                Response<ByteArray,  V> rCast = Utils.uncheckedCast(response);
+                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
