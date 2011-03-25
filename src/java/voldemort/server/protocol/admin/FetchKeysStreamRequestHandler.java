@@ -11,6 +11,8 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
 
@@ -23,13 +25,16 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                                          ErrorCodeMapper errorCodeMapper,
                                          VoldemortConfig voldemortConfig,
                                          StoreRepository storeRepository,
-                                         NetworkClassLoader networkClassLoader) {
+                                         NetworkClassLoader networkClassLoader,
+                                         StreamStats stats) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
-              networkClassLoader);
+              networkClassLoader,
+              stats,
+              Operation.FETCH_KEYS);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -46,6 +51,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             response.setKey(ProtoUtils.encodeBytes(key));
 
             fetched++;
+            handle.incrementEntriesScanned();
             Message message = response.build();
             ProtoUtils.writeMessage(outputStream, message);
         }
@@ -64,8 +70,11 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
 
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
-        else
+        else {
+            handle.setFinished(true);
+            stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
+        }
     }
 
 }

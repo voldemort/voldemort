@@ -12,6 +12,10 @@ import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStatsJmx;
+import voldemort.utils.JmxUtils;
 
 /**
  * A factory that gets the appropriate request handler for a given
@@ -27,6 +31,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
+    private final StreamStats stats;
 
     public SocketRequestHandlerFactory(StorageService storageService,
                                        StoreRepository repository,
@@ -40,6 +45,9 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.voldemortConfig = voldemortConfig;
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
+        this.stats = new StreamStats();
+        if(voldemortConfig.isJmxEnabled())
+            JmxUtils.registerMbean("admin-streaming", new StreamStatsJmx(stats));
     }
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
@@ -61,7 +69,8 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                                       metadata,
                                                       voldemortConfig,
                                                       asyncService,
-                                                      rebalancer);
+                                                      rebalancer,
+                                                      stats);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }

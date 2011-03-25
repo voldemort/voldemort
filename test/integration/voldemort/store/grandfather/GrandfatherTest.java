@@ -877,6 +877,7 @@ public class GrandfatherTest {
         config.setGrandfather(true);
         config.setSlopFrequencyMs(10000);
         config.setBdbFairLatches(true);
+        config.setEnableJmx(true);
         VoldemortServer server = new VoldemortServer(config);
         server.start();
         serverMap.put(nodeId, server);
