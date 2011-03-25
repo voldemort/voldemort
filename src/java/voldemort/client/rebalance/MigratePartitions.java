@@ -313,18 +313,19 @@ public class MigratePartitions {
         } catch(Exception e) {
             logger.error(e, e);
             executor.shutdownNow();
+            throw new VoldemortException(e);
         } finally {
+            // Move all nodes in grandfathered state back to normal
+            if(donorStates != null && transitionToNormal) {
+                changeToNormal();
+            }
             if(!(executor.isShutdown() || executor.isTerminated())) {
                 try {
                     latch.await();
                 } catch(InterruptedException e)  {
                     logger.error(e, e);
-                    throw new VoldemortException(e);
                 } finally {
-                    // Move all nodes in grandfathered state back to normal
-                    if(donorStates != null && transitionToNormal) {
-                        changeToNormal();
-                    }
+
                     executor.shutdown();
                 }
             }
