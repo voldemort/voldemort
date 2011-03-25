@@ -184,6 +184,7 @@ public class MigratePartitionsTest {
                                                        adminClient,
                                                        voldemortConfig,
                                                        null,
+                                                       2,
                                                        true);
         try {
             tool.migrate();
@@ -224,6 +225,7 @@ public class MigratePartitionsTest {
                                      adminClient,
                                      voldemortConfig,
                                      null,
+                                     2,
                                      true);
         tool.migrate();
 
@@ -256,6 +258,7 @@ public class MigratePartitionsTest {
                                                        adminClient,
                                                        voldemortConfig,
                                                        Lists.newArrayList(0),
+                                                       2,
                                                        true);
         HashMap<Integer, List<RebalancePartitionsInfo>> donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
@@ -269,6 +272,7 @@ public class MigratePartitionsTest {
                                      adminClient,
                                      voldemortConfig,
                                      Lists.newArrayList(1),
+                                     2,
                                      true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
@@ -282,6 +286,7 @@ public class MigratePartitionsTest {
                                      adminClient,
                                      voldemortConfig,
                                      Lists.newArrayList(0, -1),
+                                     2,
                                      true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 1);
@@ -295,6 +300,7 @@ public class MigratePartitionsTest {
                                      adminClient,
                                      voldemortConfig,
                                      null,
+                                     2,
                                      true);
         donorNodePlans = tool.getDonorNodePlan();
         Assert.assertEquals(donorNodePlans.size(), 2);
