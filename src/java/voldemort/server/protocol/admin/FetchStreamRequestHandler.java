@@ -7,8 +7,6 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.admin.filter.MasterOnlyVoldemortFilter;
@@ -25,9 +23,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.Time;
 
-@JmxManaged(description = "Stream operations on the server")
 public abstract class FetchStreamRequestHandler implements StreamRequestHandler {
 
     protected final VAdminProto.FetchPartitionEntriesRequest request;
@@ -122,22 +118,6 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         }
 
         return false;
-    }
-
-    @JmxGetter(name = "Counter", description = "Entries read from disk")
-    public long getCounter() {
-        return counter;
-    }
-
-    @JmxGetter(name = "StartTime", description = "Time (epoch) when operation was started")
-    public long getStartTime() {
-        return startTime;
-    }
-
-    @JmxGetter(name = "EntriesPerSecond", description = "Entries read from disk per second")
-    public long getEntriesPerSec() {
-        long elapsedSecs = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
-        return elapsedSecs == 0 ? 0 : counter / elapsedSecs;
     }
 
 }
