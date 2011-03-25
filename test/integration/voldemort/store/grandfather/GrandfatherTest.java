@@ -766,7 +766,7 @@ public class GrandfatherTest {
                                                                       adminClient,
                                                                       createTempVoldemortConfig(),
                                                                       null,
-                                                                      2,
+                                                                      1,
                                                                       false);
                     migrate.migrate();
                 }
@@ -893,8 +893,6 @@ public class GrandfatherTest {
         config.setSlopFrequencyMs(10000);
         config.setBdbLockTimeoutMs(1500);
         config.setBdbFairLatches(true);
-        config.setBdbLockNLockTables(53);
-        config.setMaxThreads(50);
         VoldemortServer server = new VoldemortServer(config);
         server.start();
         serverMap.put(nodeId, server);
