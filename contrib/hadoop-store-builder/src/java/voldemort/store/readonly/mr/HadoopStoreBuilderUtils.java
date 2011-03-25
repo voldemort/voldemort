@@ -58,6 +58,30 @@ public class HadoopStoreBuilderUtils {
     }
 
     /**
+     * Given a filesystem and path to a node, gets all the data files (
+     * irrespective of partition, replica, etc )
+     * 
+     * Works only for {@link ReadOnlyStorageFormat.READONLY_V2}
+     * 
+     * @param fs Underlying filesystem
+     * @param path The node directory path
+     * @return Returns list of files of this partition, replicaType
+     * @throws IOException
+     */
+    public static FileStatus[] getDataChunkFiles(FileSystem fs, Path path) throws IOException {
+        return fs.listStatus(path, new PathFilter() {
+
+            public boolean accept(Path input) {
+                if(input.getName().matches("^[\\d]+_[\\d]+_[\\d]+\\.data")) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        });
+    }
+
+    /**
      * Given a filesystem and path to a node, gets all the files which belong to
      * a partition and replica type
      * 

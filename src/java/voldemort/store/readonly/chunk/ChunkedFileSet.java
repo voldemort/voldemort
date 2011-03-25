@@ -626,7 +626,7 @@ public class ChunkedFileSet {
                     if(keyBuffer.hasRemaining()) {
                         // We are filling the keyBuffer for the first time
                         ByteBuffer tempKeyBuffer = ByteBuffer.allocate(keyLength);
-                        getCurrentChunk().read(keyBuffer,
+                        getCurrentChunk().read(tempKeyBuffer,
                                                getCurrentOffsetInChunk() + keyLength + valueLength);
                         keyBuffer.put(ByteUtils.copy(md5er.digest(tempKeyBuffer.array()),
                                                      0,

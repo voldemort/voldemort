@@ -16,6 +16,8 @@
 
 package voldemort.store.readonly.mr;
 
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,7 +62,10 @@ import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 /**
@@ -163,6 +168,13 @@ public class HadoopStoreBuilderTest {
         for(File f: outputDir.listFiles()) {
             Assert.assertFalse(f.toString().contains("node--1"));
         }
+
+        // Check if individual nodes exist, along with their metadata file
+        for(int nodeId = 0; nodeId < 10; nodeId++) {
+            File nodeFile = new File(outputDir, "node-" + Integer.toString(nodeId));
+            Assert.assertTrue(nodeFile.exists());
+            Assert.assertTrue(new File(nodeFile, ".metadata").exists());
+        }
     }
 
     @Test
@@ -264,13 +276,14 @@ public class HadoopStoreBuilderTest {
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Store<Object, Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
-                                                                                              searchStrategy,
-                                                                                              new RoutingStrategyFactory().updateRoutingStrategy(def,
-                                                                                                                                                 cluster),
-                                                                                              0,
-                                                                                              storeDir,
-                                                                                              1),
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine(storeName,
+                                                                 searchStrategy,
+                                                                 new RoutingStrategyFactory().updateRoutingStrategy(def,
+                                                                                                                    cluster),
+                                                                 0,
+                                                                 storeDir,
+                                                                 1);
+        Store<Object, Object, Object> store = SerializingStore.wrap(engine,
                                                                     serializer,
                                                                     serializer,
                                                                     serializer);
@@ -281,6 +294,45 @@ public class HadoopStoreBuilderTest {
             Assert.assertEquals("Incorrect number of results", 1, found.size());
             Assert.assertEquals(entry.getValue(), found.get(0).getValue());
         }
-    }
 
+        // also check the iterator - first key iterator...
+        try {
+            ClosableIterator<ByteArray> keyIterator = engine.keys();
+            if(!saveKeys) {
+                fail("Should have thrown an exception since this RO format does not support iterators");
+            }
+            int numElements = 0;
+            while(keyIterator.hasNext()) {
+                Assert.assertTrue(values.containsKey(serializer.toObject(keyIterator.next().get())));
+                numElements++;
+            }
+
+            Assert.assertEquals(numElements, values.size());
+        } catch(UnsupportedOperationException e) {
+            if(saveKeys) {
+                fail("Should not have thrown an exception since this RO format does support iterators");
+            }
+        }
+
+        // ... and entry iterator
+        try {
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = engine.entries();
+            if(!saveKeys) {
+                fail("Should have thrown an exception since this RO format does not support iterators");
+            }
+            int numElements = 0;
+            while(entryIterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
+                Assert.assertEquals(values.get(serializer.toObject(entry.getFirst().get())),
+                                    serializer.toObject(entry.getSecond().getValue()));
+                numElements++;
+            }
+
+            Assert.assertEquals(numElements, values.size());
+        } catch(UnsupportedOperationException e) {
+            if(saveKeys) {
+                fail("Should not have thrown an exception since this RO format does support iterators");
+            }
+        }
+    }
 }

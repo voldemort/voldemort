@@ -144,7 +144,9 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                     // Get data files
                     DataFileChunkSet dataFileChunkSet = HadoopStoreBuilderUtils.getDataFileChunkSet(this.fs,
                                                                                                     HadoopStoreBuilderUtils.getDataChunkFiles(this.fs,
-                                                                                                                                              new Path(previousDir),
+                                                                                                                                              new Path(previousDir,
+                                                                                                                                                       "node-"
+                                                                                                                                                               + Integer.toString(nodeId)),
                                                                                                                                               this.partitionId,
                                                                                                                                               this.replicaType,
                                                                                                                                               this.chunkId));
@@ -201,13 +203,14 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             boolean retry = false;
             do {
                 retry = false;
-                // Logic which decides whether to write or not
-                if(previousElement == null && !previousIterator.hasNext()) {
+
+                if(previousElement == null && previousIterator.hasNext()) {
+                    // First element
+                    previousElement = previousIterator.next();
+                } else if(previousElement == null && !previousIterator.hasNext()) {
                     // All elements following this need to be in patch file
                     patch(ByteUtils.cat(numBuf, value), 0);
                 } else {
-                    if(previousElement == null)
-                        previousElement = previousIterator.next();
 
                     switch(ByteUtils.compare(previousElement.getFirst().array(), key.get())) {
                         case -1:
@@ -231,10 +234,11 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                                 patch(previousElement.getSecond().array(), 1);
                                 patch(ByteUtils.cat(numBuf, value), 0);
                             }
-                            if(previousIterator.hasNext())
+                            if(previousIterator.hasNext()) {
                                 previousElement = previousIterator.next();
-                            else
+                            } else {
                                 previousElement = null;
+                            }
                             break;
                         default:
                             throw new VoldemortException("Comparison of key throw an exception");
@@ -285,7 +289,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
     void patch(byte[] currentValue, int operationType) throws IOException {
         // Write the operation - 0 ( for + ), 1 ( for - )
         byte[] operation = new byte[ByteUtils.SIZE_OF_BYTE];
-        ByteUtils.writeBytes(operation, 0, operationType, ByteUtils.SIZE_OF_BYTE);
+        ByteUtils.writeBytes(operation, operationType, 0, ByteUtils.SIZE_OF_BYTE);
         this.valueFileStream.write(operation);
 
         // Write the position
@@ -323,12 +327,15 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             this.checkSumDigestIndex = CheckSum.getInstance(checkSumType);
             this.checkSumDigestValue = CheckSum.getInstance(checkSumType);
 
-            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job),
-                                              getStoreName() + "." + Integer.toString(chunkId)
-                                                      + "_" + this.taskId + ".index");
-            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job),
-                                              getStoreName() + "." + Integer.toString(chunkId)
-                                                      + "_" + this.taskId + "." + dataFileSuffix);
+            this.taskIndexFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
+                                                                                   + "."
+                                                                                   + this.taskId
+                                                                                   + ".index");
+            this.taskValueFileName = new Path(FileOutputFormat.getOutputPath(job), getStoreName()
+                                                                                   + "."
+                                                                                   + this.taskId
+                                                                                   + "."
+                                                                                   + dataFileSuffix);
 
             if(this.fs == null)
                 this.fs = this.taskIndexFileName.getFileSystem(job);
@@ -357,7 +364,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                 } else {
                     this.previousElement = null;
                 }
-            } while(this.previousIterator != null);
+            } while(this.previousElement != null);
         }
         this.indexFileStream.close();
         this.valueFileStream.close();

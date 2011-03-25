@@ -144,7 +144,7 @@ public class HdfsFetcher implements FileFetcher {
                     // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
-                        // Ignore old checksum files 
+                        // Ignore old checksum files
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 
@@ -371,7 +371,8 @@ public class HdfsFetcher implements FileFetcher {
 
             // if both same, lexicographically
             if((f1.endsWith(".index") && f2.endsWith(".index"))
-               || (f1.endsWith(".data") && f2.endsWith(".data"))) {
+               || (f1.endsWith(".data") && f2.endsWith(".data"))
+               || (f1.endsWith(".patch") && f2.endsWith(".patch"))) {
                 return f1.compareToIgnoreCase(f2);
             }
 

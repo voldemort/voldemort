@@ -371,14 +371,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                               pipelineData.getFailedNodes(),
                                               timeoutMs);
 
-        StoreRequest<Boolean> blockingDelete = new StoreRequest<Boolean>() {
-
-            public Boolean request(Store<ByteArray, byte[], byte[]> store) {
-                return store.delete(key, version);
-            }
-
-        };
-
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Boolean, BasicPipelineData<Boolean>>(pipelineData,
                                                                                         Event.CONFIGURED,
