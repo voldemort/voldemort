@@ -742,8 +742,9 @@ public class GrandfatherTest {
                                                                                       .getSocketPort())
                                                     .setFailureDetectorBannagePeriod(1)
                                                     .setMaxBootstrapRetries(10)
-                                                    .setConnectionTimeout(3000,
-                                                                          TimeUnit.MILLISECONDS)
+                                                    .setConnectionTimeout(5000, TimeUnit.MILLISECONDS)
+                                                    .setSocketTimeout(5000, TimeUnit.MILLISECONDS)
+                                                    .setRoutingTimeout(5000, TimeUnit.MILLISECONDS)
                                                     .setMaxConnectionsPerNode(10)
                                                     .setSelectors(8);
             factory = new SocketStoreClientFactory(config);
@@ -770,6 +771,7 @@ public class GrandfatherTest {
                                                                       adminClient,
                                                                       createTempVoldemortConfig(),
                                                                       null,
+                                                                      1,
                                                                       false);
                     migrate.migrate();
                 }
@@ -811,7 +813,9 @@ public class GrandfatherTest {
                                            .setMaxBootstrapRetries(10)
                                            .setMaxConnectionsPerNode(10)
                                            .setSelectors(8)
-                                           .setConnectionTimeout(3000, TimeUnit.MILLISECONDS)
+                                           .setConnectionTimeout(5000, TimeUnit.MILLISECONDS)
+                                           .setSocketTimeout(5000, TimeUnit.MILLISECONDS)
+                                           .setRoutingTimeout(5000, TimeUnit.MILLISECONDS)
                                            .setClientZoneId(zoneId);
                 factory = new SocketStoreClientFactory(config);
 
@@ -897,6 +901,12 @@ public class GrandfatherTest {
     }
 
     protected void stopServer(List<Node> nodesToStop) throws IOException {
+        try {
+            Thread.sleep(10000);
+        } catch(InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         for(Node node: nodesToStop) {
             try {
                 ServerTestUtils.stopVoldemortServer(serverMap.get(node.getId()));
@@ -928,6 +938,7 @@ public class GrandfatherTest {
                                                                             new Properties());
         config.setGrandfather(true);
         config.setSlopFrequencyMs(10000);
+        config.setBdbLockTimeoutMs(1500);
         config.setBdbFairLatches(true);
         VoldemortServer server = new VoldemortServer(config);
         server.start();
