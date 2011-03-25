@@ -71,9 +71,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
     public void execute(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
-        for(Node n: nodes) {
-            logger.info(n);
-        }
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         int attempts = nodes.size();
         int blocks = Math.min(preferred, attempts);
@@ -93,9 +90,10 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
-                    // if(logger.isTraceEnabled())
-                    logger.info(pipeline.getOperation().getSimpleName() + " response received ("
-                                + requestTime + " ms.) from node " + node.getId());
+                    if(logger.isTraceEnabled())
+                        logger.info(pipeline.getOperation().getSimpleName()
+                                    + " response received (" + requestTime + " ms.) from node "
+                                    + node.getId());
 
                     Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
                                                                                            key,
@@ -132,9 +130,9 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 }
             };
 
-            // if(logger.isTraceEnabled())
-            logger.info("Submitting " + pipeline.getOperation().getSimpleName()
-                        + " request on node " + node.getId());
+            if(logger.isTraceEnabled())
+                logger.info("Submitting " + pipeline.getOperation().getSimpleName()
+                            + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
             store.submitDeleteRequest(key, version, callback, timeoutMs);
