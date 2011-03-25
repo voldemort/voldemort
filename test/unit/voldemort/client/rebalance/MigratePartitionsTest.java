@@ -184,7 +184,7 @@ public class MigratePartitionsTest {
                                                        adminClient,
                                                        voldemortConfig,
                                                        null,
-                                                       2,
+                                                       1,
                                                        true);
         try {
             tool.migrate();
@@ -225,7 +225,7 @@ public class MigratePartitionsTest {
                                      adminClient,
                                      voldemortConfig,
                                      null,
-                                     2,
+                                     1,
                                      true);
         tool.migrate();
 

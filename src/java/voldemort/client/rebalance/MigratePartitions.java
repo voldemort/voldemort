@@ -408,11 +408,12 @@ public class MigratePartitions {
         } catch(Exception e) {
             logger.error("Exception in full process", e);
             executor.shutdownNow();
+            throw new VoldemortException(e);
         } finally {
             // Move all nodes in grandfathered state back to normal
             if(donorStates != null && transitionToNormal) {
                 changeToNormal();
-            }
+           }
             executor.shutdown();
 
         }
