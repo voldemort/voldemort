@@ -239,8 +239,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
      * 
      * @param newStoreDirectory The path to the new version directory
      */
-    @JmxOperation(description = "swapFiles(newStoreDirectory) changes this store "
-                                + " to use the new data directory.")
+    @JmxOperation(description = "swapFiles changes this store to use the new data directory")
     public void swapFiles(String newStoreDirectory) {
         logger.info("Swapping files for store '" + getName() + "' to " + newStoreDirectory);
         File newVersionDir = new File(newStoreDirectory);
@@ -358,9 +357,19 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     /**
      * Rollback to the specified push version
      * 
+     * @param rollbackToDir The full path of the version directory to rollback
+     *        to
+     */
+    @JmxOperation(description = "Rollback to a previous version directory ( full path ) ")
+    public void rollback(String rollbackToDir) {
+        rollback(new File(rollbackToDir));
+    }
+
+    /**
+     * Rollback to the specified push version
+     * 
      * @param rollbackToDir The version directory to rollback to
      */
-    @JmxOperation(description = "Rollback to a previous version")
     public void rollback(File rollbackToDir) {
         logger.info("Rolling back store '" + getName() + "'");
         fileModificationLock.writeLock().lock();
