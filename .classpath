@@ -41,6 +41,8 @@
 	<classpathentry kind="lib" path="lib/commons-pool-1.5.2.jar"/>
 	<classpathentry kind="lib" path="lib/protobuf-java-2.3.0.jar"/>
 	<classpathentry kind="lib" path="contrib/ec2-testing/lib/typica.jar"/>
+	<classpathentry kind="lib" path="lib/google-collect-1.0.jar"/>
+	<classpathentry kind="lib" path="lib/je-4.1.7.jar"/>
 	<classpathentry kind="lib" path="lib/paranamer-2.1.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-mapper-asl-1.4.0.jar"/>
 	<classpathentry kind="lib" path="lib/jackson-core-asl-1.4.0.jar"/>

@@ -121,7 +121,7 @@ public interface StoreClient<K, V> {
      * @param key The key
      * @param value The value
      */
-    public void put(K key, V value);
+    public Version put(K key, V value);
 
     /**
      * Like {@link voldemort.store.StoreClient#put(K, V) put}, except that the
@@ -142,7 +142,7 @@ public interface StoreClient<K, V> {
      * @param versioned The value and its versioned
      * @throws ObsoleteVersionException
      */
-    public void put(K key, Versioned<V> versioned) throws ObsoleteVersionException;
+    public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException;
 
     /**
      * Put the versioned value to the key, ignoring any ObsoleteVersionException
