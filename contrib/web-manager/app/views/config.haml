@@ -1,0 +1,15 @@
+%form{:id=>"config_form", :method=>"post", :action => (url_for "/config")}
+  %h4 Change the Voldemort instance to connect to
+  
+  %p
+    %label Host:
+    %br
+    %input{:id=>"bootstrap_host", :name=>"bootstrap_host", :type=>"text", :value=>"#{@bootstrap_host}"}
+
+  %p
+    %label Port:
+    %br
+    %input{:id=>"bootstrap_port", :name=>"bootstrap_port", :type=>"text", :value=>"#{@bootstrap_port}"}
+
+  %p
+    %input{:type=>"submit", :value=>"Update"}

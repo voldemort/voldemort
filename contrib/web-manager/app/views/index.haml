@@ -1,0 +1,9 @@
+%div
+  %a{:href => (url_for "/stores/new")} Create new store
+
+%h3 List of stores
+
+%div
+  - @stores.each do |store|
+    %a{:href => (url_for "/store/#{store.name}")}= store.name
+    %br

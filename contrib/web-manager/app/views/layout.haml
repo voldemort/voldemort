@@ -1,0 +1,18 @@
+%html
+  %head
+    %title Voldemort Cluster Management
+    %link{:rel => "stylesheet", :href => (url_for "/css/common.css"), :type => "text/css"}
+    %script{:src => "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"}
+    %script{:src => (url_for "/script/common.js")}
+  %body  
+    #header
+      #title
+        %h1 
+          %a{:href => (url_for "/stores")} Voldemort Cluster Management  
+        %p
+          Bootstrap URL:
+          = @bootstrap_url
+          %a{:href => (url_for "/config")} Change
+    #outer
+      #main
+        = yield
