@@ -1,0 +1,82 @@
+body
+{
+	background: #999999;
+	font-size: 12px;
+	font-family:Verdana, Arial, Helvetica, sans-serif;
+}
+
+#header
+{
+	width: 80%;
+	background: #777777;
+	height: 80px;
+  margin-left: auto;
+  margin-right: auto;
+  border: thin solid black;
+  border-bottom: none;
+}
+
+#title
+{
+	margin: 10px;
+}
+
+#title h1 a:visited, #title h1 a:link
+{
+  color: black;
+  text-decoration: none;
+}
+
+#outer
+{
+  width: 80%;
+	background: #ffffff;
+	top: 50px;
+	margin-bottom: 50px;
+	margin-left: auto;
+	margin-right: auto;
+	border: thin solid black;
+}
+
+#main
+{
+	padding: 10px;
+}
+
+.store_table, .entry_table
+{
+	border-collapse: collapse;
+	table-layout: fixed;
+	width: 100%;
+}
+
+.store_table #store_table_serializer,
+.store_table #store_table_name,
+.entry_table #entry_table_key
+{
+	width:200px;
+}
+
+.store_table th, .entry_table th
+{
+	text-align: left;
+	padding: 10px;
+}
+
+.store_table td, .entry_table td
+{
+	border: 1px solid black;
+	padding: 10px;
+	overflow:hidden;
+}
+
+#store_form input#store_value_schema
+{
+	width: 400px;
+}
+
+#config_form input#bootstrap_host,
+#config_form input#bootstrap_port
+{
+  width: 200px;
+}
