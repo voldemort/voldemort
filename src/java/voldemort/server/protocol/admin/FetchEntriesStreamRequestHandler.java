@@ -3,6 +3,7 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -53,10 +54,15 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         if(validPartition(key.get()) && counter % skipRecords == 0) {
-            for(Versioned<byte[]> value: storageEngine.get(key, null)) {
+            startNs = System.nanoTime();
+            List<Versioned<byte[]>> values = storageEngine.get(key, null);
+            stats.recordDiskTime(handle, System.nanoTime() - startNs);
+            for(Versioned<byte[]> value: values) {
                 throttler.maybeThrottle(key.length());
                 if(filter.accept(key, value)) {
                     fetched++;
@@ -70,7 +76,10 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                     response.setPartitionEntry(partitionEntry);
 
                     Message message = response.build();
+
+                    startNs = System.nanoTime();
                     ProtoUtils.writeMessage(outputStream, message);
+                    stats.recordNetworkTime(handle, System.nanoTime() - startNs);
 
                     throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }

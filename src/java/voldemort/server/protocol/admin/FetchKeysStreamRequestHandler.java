@@ -43,7 +43,9 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         throttler.maybeThrottle(key.length());
         if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
@@ -53,7 +55,10 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             fetched++;
             handle.incrementEntriesScanned();
             Message message = response.build();
+
+            startNs = System.nanoTime();
             ProtoUtils.writeMessage(outputStream, message);
+            stats.recordNetworkTime(handle, System.nanoTime() - startNs);
         }
 
         // log progress
