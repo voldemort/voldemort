@@ -1,0 +1,24 @@
+%h2 Create new store
+
+%form{:id=>"store_form", :method=>"post", :action => (url_for "/stores/new")}
+  %p
+    %label Name:
+    %br
+    %input{:id=>"store_name", :name=>"store_name", :type=>"text", :value=>""}
+    
+  %p
+    %label Key serializer:
+    %br
+    %select{:id=>"store_key_name", :name=>"store_key_name", :value=>"json"}
+      %option json
+    %input{:id=>"store_key_schema", :name=>"store_key_schema", :type=>"text", :value=>""}
+  
+  %p
+  %label Value serializer:
+  %br
+  %select{:id=>"store_value_name", :name=>"store_value_name", :value=>"json"}
+    %option json
+  %input{:id=>"store_value_schema", :name=>"store_value_schema", :type=>"text", :value=>""}
+  
+  %p
+    %input{:type=>"submit", :value=>"Create"}
