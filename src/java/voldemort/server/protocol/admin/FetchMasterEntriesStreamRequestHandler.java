@@ -3,6 +3,7 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -54,12 +55,18 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         // Since Master-Only filter does not need value, we can save some disk
         // seeks by getting back only Master replica values
         if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
-            for(Versioned<byte[]> value: storageEngine.get(key, null)) {
+            startNs = System.nanoTime();
+            List<Versioned<byte[]>> values = storageEngine.get(key, null);
+            stats.recordDiskTime(handle, System.nanoTime() - startNs);
+
+            for(Versioned<byte[]> value: values) {
                 throttler.maybeThrottle(key.length());
                 handle.incrementEntriesScanned();
                 fetched++;
@@ -72,7 +79,9 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
                 response.setPartitionEntry(partitionEntry);
 
                 Message message = response.build();
+                startNs = System.nanoTime();
                 ProtoUtils.writeMessage(outputStream, message);
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
 
                 throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
             }
