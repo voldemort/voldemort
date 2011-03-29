@@ -339,7 +339,7 @@ public class ReadOnlyStorageEngineTest {
 
         // try to rollback nothing
         try {
-            engine.rollback(null);
+            engine.rollback((File) null);
             fail("Should have thrown an exception since null is passed");
         } catch(VoldemortException e) {}
 
