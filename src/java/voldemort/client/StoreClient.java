@@ -133,7 +133,7 @@ public interface StoreClient<K, V> {
      * @param transforms the transforms to be applied on the value
      * @return version The version of the object
      */
-    public void put(K key, V value, Object transforms);
+    public Version put(K key, V value, Object transforms);
 
     /**
      * Put the given Versioned value into the store for the given key if the
