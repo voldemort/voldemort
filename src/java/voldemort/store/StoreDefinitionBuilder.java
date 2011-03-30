@@ -1,6 +1,7 @@
 package voldemort.store;
 
 import java.util.HashMap;
+import java.util.List;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
@@ -38,6 +39,7 @@ public class StoreDefinitionBuilder {
     private String serializerFactory = null;
     private HintedHandoffStrategyType hintedHandoffStrategy = null;
     private Integer hintPrefListSize = null;
+    private List<String> owners = null;
 
     public String getName() {
         return Utils.notNull(name);
@@ -262,6 +264,15 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public List<String> getOwners() {
+        return owners;
+    }
+
+    public StoreDefinitionBuilder setOwners(List<String> owners) {
+        this.owners = owners;
+        return this;
+    }
+
     public StoreDefinition build() {
         return new StoreDefinition(this.getName(),
                                    this.getType(),
@@ -285,6 +296,7 @@ public class StoreDefinitionBuilder {
                                    this.getRetentionScanThrottleRate(),
                                    this.getSerializerFactory(),
                                    this.getHintedHandoffStrategy(),
-                                   this.getHintPrefListSize());
+                                   this.getHintPrefListSize(),
+                                   this.getOwners());
     }
 }

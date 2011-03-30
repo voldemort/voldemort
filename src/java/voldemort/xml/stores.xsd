@@ -21,6 +21,7 @@
 			<xs:element name="name" type="xs:token" />
 			<xs:element name="persistence" type="xs:token" />
 			<xs:element name="description" type="xs:token" minOccurs="0" maxOccurs="1" />
+			<xs:element name="owners" type="xs:token" minOccurs="0" maxOccurs="1" />
 			<xs:element name="routing" type="xs:token" />
 			<xs:element name="routing-strategy" type="xs:token"
 				minOccurs="0" maxOccurs="1" />
@@ -67,6 +68,7 @@
 			<xs:element name="name" type="xs:token" minOccurs="1" maxOccurs="1"/>
 			<xs:element name="view-of" type="xs:token" minOccurs="1" maxOccurs="1"/>
 			<xs:element name="description" type="xs:token" minOccurs="0" maxOccurs="1" />
+			<xs:element name="owners" type="xs:token" minOccurs="0" maxOccurs="1" />
 			<xs:element name="routing" type="xs:token" minOccurs="0" maxOccurs="1"/>
 			<xs:element name="routing-strategy" type="xs:token" minOccurs="0" maxOccurs="1"/>
 			<xs:element name="preferred-reads" type="xs:positiveInteger" minOccurs="0" maxOccurs="1"/>
