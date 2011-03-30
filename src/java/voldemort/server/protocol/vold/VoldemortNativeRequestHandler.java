@@ -242,11 +242,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         int keySize = inputStream.readInt();
         byte[] key = new byte[keySize];
         inputStream.readFully(key);
-
-        if(logger.isDebugEnabled()) {
-            logger.debug(new String(key));
-        }
-
         return new ByteArray(key);
     }
 
@@ -256,11 +251,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return null;
         byte[] transforms = new byte[size];
         inputStream.readFully(transforms);
-
-        if(logger.isDebugEnabled()) {
-            logger.debug(new String(transforms));
-        }
-
         return transforms;
     }
 
