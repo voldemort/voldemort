@@ -91,8 +91,8 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
         return getStoreClient().put(key, value);
     }
 
-    public void put(K key, V value, Object transforms) {
-        getStoreClient().put(key, value, transforms);
+    public Version put(K key, V value, Object transforms) {
+        return getStoreClient().put(key, value, transforms);
     }
 
     public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
