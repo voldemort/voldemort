@@ -3,6 +3,7 @@
     <name>test</name>
     <persistence>bdb</persistence>
     <description>Test store</description>
+    <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>
@@ -17,6 +18,7 @@
   <view>
     <name>test-view</name>
     <view-of>test</view-of>
+    <owners> ron@hogwarts.edu </owners>
     <view-class>
       voldemort.store.views.UpperCaseView
     </view-class>

@@ -18,6 +18,7 @@ package voldemort.store;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
@@ -58,6 +59,7 @@ public class StoreDefinition implements Serializable {
     private final String serializerFactory;
     private final HintedHandoffStrategyType hintedHandoffStrategyType;
     private final Integer hintPrefListSize;
+    private final List<String> owners;
 
     public StoreDefinition(String name,
                            String type,
@@ -81,7 +83,8 @@ public class StoreDefinition implements Serializable {
                            Integer retentionThrottleRate,
                            String factory,
                            HintedHandoffStrategyType hintedHandoffStrategyType,
-                           Integer hintPrefListSize) {
+                           Integer hintPrefListSize,
+                           List<String> owners) {
         this.name = Utils.notNull(name);
         this.type = Utils.notNull(type);
         this.description = description;
@@ -105,6 +108,7 @@ public class StoreDefinition implements Serializable {
         this.serializerFactory = factory;
         this.hintedHandoffStrategyType = hintedHandoffStrategyType;
         this.hintPrefListSize = hintPrefListSize;
+        this.owners = owners;
         checkParameterLegality();
     }
 
@@ -321,6 +325,10 @@ public class StoreDefinition implements Serializable {
         return hintPrefListSize != null;
     }
 
+    public List<String> getOwners() {
+        return this.owners;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(this == o)
@@ -334,6 +342,7 @@ public class StoreDefinition implements Serializable {
         return getName().equals(def.getName())
                && getType().equals(def.getType())
                && Objects.equal(getDescription(), def.getDescription())
+               && Objects.equal(getOwners(), def.getOwners())
                && getReplicationFactor() == def.getReplicationFactor()
                && getRequiredReads() == def.getRequiredReads()
                && Objects.equal(getPreferredReads(), def.getPreferredReads())
@@ -394,7 +403,8 @@ public class StoreDefinition implements Serializable {
                                 getSerializerFactory(),
                                 hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType()
                                                               : null,
-                                hasHintPreflistSize() ? getHintPrefListSize() : null);
+                                hasHintPreflistSize() ? getHintPrefListSize() : null,
+                                getOwners());
     }
 
     @Override
@@ -412,6 +422,7 @@ public class StoreDefinition implements Serializable {
                + ", zone-count-reads = " + getZoneCountReads() + ", zone-count-writes = "
                + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
-               + ", hint-preflist-size = " + getHintPrefListSize() + ")";
+               + ", hint-preflist-size = " + getHintPrefListSize() + ", owners = " + getOwners()
+               + ")";
     }
 }
