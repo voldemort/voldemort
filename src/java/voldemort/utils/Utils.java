@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import voldemort.VoldemortException;
 
@@ -39,6 +40,11 @@ import com.sun.jna.Native;
 public class Utils {
 
     public static final String NEWLINE = System.getProperty("line.separator");
+
+    /**
+     * Pattern for splitting a string based on commas
+     */
+    public static final Pattern COMMA_SEP = Pattern.compile("\\s*,\\s*");
 
     /**
      * Print an error and exit with error code 1

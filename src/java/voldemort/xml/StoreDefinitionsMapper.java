@@ -32,6 +32,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
+import org.apache.commons.lang.StringUtils;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -50,6 +51,9 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.utils.Utils;
+
+import com.google.common.collect.Lists;
 
 /**
  * Parses a stores.xml file
@@ -61,6 +65,7 @@ public class StoreDefinitionsMapper {
     public final static String STORES_ELMT = "stores";
     public final static String STORE_ELMT = "store";
     public final static String STORE_DESCRIPTION_ELMT = "description";
+    public final static String STORE_OWNERS_ELMT = "owners";
     public final static String STORE_NAME_ELMT = "name";
     public final static String STORE_PERSISTENCE_ELMT = "persistence";
     public final static String STORE_KEY_SERIALIZER_ELMT = "key-serializer";
@@ -165,6 +170,13 @@ public class StoreDefinitionsMapper {
         String name = store.getChildText(STORE_NAME_ELMT);
         String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);
         String description = store.getChildText(STORE_DESCRIPTION_ELMT);
+        String ownerText = store.getChildText(STORE_OWNERS_ELMT);
+        List<String> owners = Lists.newArrayList();
+        if(ownerText != null) {
+            for(String owner: Utils.COMMA_SEP.split(ownerText.trim()))
+                if(owner.trim().length() > 0)
+                    owners.add(owner);
+        }
         int replicationFactor = Integer.parseInt(store.getChildText(STORE_REPLICATION_FACTOR_ELMT));
         HashMap<Integer, Integer> zoneReplicationFactor = null;
         Element zoneReplicationFactorNode = store.getChild(STORE_ZONE_REPLICATION_FACTOR_ELMT);
@@ -239,6 +251,7 @@ public class StoreDefinitionsMapper {
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setDescription(description)
+                                           .setOwners(owners)
                                            .setKeySerializer(keySerializer)
                                            .setValueSerializer(valueSerializer)
                                            .setRoutingPolicy(routingTier)
@@ -262,6 +275,13 @@ public class StoreDefinitionsMapper {
         String name = store.getChildText(STORE_NAME_ELMT);
         String targetName = store.getChildText(VIEW_TARGET_ELMT);
         String description = store.getChildText(STORE_DESCRIPTION_ELMT);
+        String ownerText = store.getChildText(STORE_OWNERS_ELMT);
+        List<String> owners = Lists.newArrayList();
+        if(ownerText != null) {
+            for(String owner: Utils.COMMA_SEP.split(ownerText.trim()))
+                if(owner.trim().length() > 0)
+                    owners.add(owner);
+        }
         StoreDefinition target = StoreUtils.getStoreDef(stores, targetName);
         if(target == null)
             throw new MappingException("View \"" + name + "\" has target store \"" + targetName
@@ -313,6 +333,7 @@ public class StoreDefinitionsMapper {
                                            .setViewOf(targetName)
                                            .setType(ViewStorageConfiguration.TYPE_NAME)
                                            .setDescription(description)
+                                           .setOwners(owners)
                                            .setRoutingPolicy(routingTier)
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
@@ -390,6 +411,10 @@ public class StoreDefinitionsMapper {
         store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()));
         if(storeDefinition.getDescription() != null)
             store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
+        if(storeDefinition.getOwners() != null && storeDefinition.getOwners().size() > 0) {
+            String ownersText = StringUtils.join(storeDefinition.getOwners().toArray(), ", ");
+            store.addContent(new Element(STORE_OWNERS_ELMT).setText(ownersText));
+        }
         store.addContent(new Element(STORE_ROUTING_STRATEGY).setText(storeDefinition.getRoutingStrategyType()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
@@ -444,6 +469,10 @@ public class StoreDefinitionsMapper {
         store.addContent(new Element(VIEW_TARGET_ELMT).setText(storeDefinition.getViewTargetStoreName()));
         if(storeDefinition.getDescription() != null)
             store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
+        if(storeDefinition.getOwners() != null && storeDefinition.getOwners().size() > 0) {
+            String ownersText = StringUtils.join(storeDefinition.getOwners().toArray(), ", ");
+            store.addContent(new Element(STORE_OWNERS_ELMT).setText(ownersText));
+        }
         if(storeDefinition.getValueTransformation() == null)
             throw new MappingException("View " + storeDefinition.getName()
                                        + " has no defined transformation class.");
