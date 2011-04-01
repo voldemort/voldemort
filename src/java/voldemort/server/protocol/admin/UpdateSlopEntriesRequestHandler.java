@@ -92,7 +92,6 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
                 stats.recordNetworkTime(handle, System.nanoTime() - startNs);
-                handle.setFinished(true);
                 stats.closeHandle(handle);
                 return StreamRequestHandlerState.COMPLETE;
             }
