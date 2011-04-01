@@ -4,20 +4,25 @@ import com.google.common.collect.ImmutableList;
 import voldemort.utils.Time;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class StreamStats {
 
-    private final ConcurrentMap<Long, Handle> handles;
+    private static final int MAX_ENTRIES = 64;
+
+    private final Map<Long, Handle> handles;
     private final AtomicLong handleIdGenerator;
     private final ConcurrentMap<Operation, RequestCounter> networkCounter;
     private final ConcurrentMap<Operation, RequestCounter> diskCounter;
 
     public StreamStats () {
-        this.handles = new ConcurrentHashMap<Long, Handle>();
+        this.handles = Collections.synchronizedMap(new Cache(MAX_ENTRIES));
         this.handleIdGenerator = new AtomicLong(0L);
         this.networkCounter = new ConcurrentHashMap<Operation, RequestCounter>();
         this.diskCounter = new ConcurrentHashMap<Operation, RequestCounter>();
@@ -86,6 +91,20 @@ public class StreamStats {
         UPDATE,
         SLOP,
         DELETE,
+    }
+
+    private static class Cache extends LinkedHashMap<Long, Handle> {
+        private final int maxEntries;
+
+        public Cache(int maxEntries) {
+            super();
+            this.maxEntries = maxEntries;
+        }
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, Handle> eldest) {
+            return eldest.getValue().isFinished() && size() > maxEntries;
+        }
     }
 
     public static class Handle {
