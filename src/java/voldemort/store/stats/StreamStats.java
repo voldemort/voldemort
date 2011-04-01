@@ -43,7 +43,7 @@ public class StreamStats {
     }
 
     public void closeHandle(Handle handle) {
-        // Empty for now
+        handle.setFinished(true);
     }
 
     public void clearFinished() {

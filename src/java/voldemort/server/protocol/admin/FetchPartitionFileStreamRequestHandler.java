@@ -116,7 +116,6 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             }
         }
 
-        handle.setFinished(true);
         stats.closeHandle(handle);
         return StreamRequestHandlerState.COMPLETE;
     }

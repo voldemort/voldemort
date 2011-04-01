@@ -102,7 +102,6 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
         else {
-            handle.setFinished(true);
             stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
         }
