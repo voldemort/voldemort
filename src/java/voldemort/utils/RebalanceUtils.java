@@ -216,6 +216,7 @@ public class RebalanceUtils {
                         node.getHttpPort(),
                         node.getSocketPort(),
                         node.getAdminPort(),
+                        node.getZoneId(),
                         partitionsList);
     }
 
