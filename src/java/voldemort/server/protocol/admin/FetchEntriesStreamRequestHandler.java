@@ -56,10 +56,8 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
-        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         if(validPartition(key.get()) && counter % skipRecords == 0) {
-            startNs = System.nanoTime();
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             stats.recordDiskTime(handle, System.nanoTime() - startNs);
             for(Versioned<byte[]> value: values) {
@@ -84,6 +82,8 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                     throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
             }
+        } else {
+            stats.recordDiskTime(handle, System.nanoTime() - startNs);
         }
 
         // log progress
