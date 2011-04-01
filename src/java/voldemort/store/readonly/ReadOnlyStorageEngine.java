@@ -67,6 +67,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
+    private long lastSwapped;
 
     /**
      * Create an instance of the store
@@ -137,7 +138,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
-            isOpen = true;
+            this.lastSwapped = System.currentTimeMillis();
+            this.isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();
         }
@@ -186,6 +188,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
     public String getStoreDirPath() {
         return storeDir.getAbsolutePath();
+    }
+
+    /**
+     * Time since last time the store was swapped
+     * 
+     * @return Time in milliseconds since the store was swapped
+     */
+    @JmxGetter(name = "lastSwapped", description = "Time in milliseconds since the store was swapped")
+    public long getLastSwapped() {
+        long timeSinceLastSwap = System.currentTimeMillis() - lastSwapped;
+        return timeSinceLastSwap > 0 ? timeSinceLastSwap : 0;
     }
 
     /**
