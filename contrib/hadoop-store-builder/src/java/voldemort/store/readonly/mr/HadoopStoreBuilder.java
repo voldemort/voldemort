@@ -75,7 +75,6 @@ public class HadoopStoreBuilder {
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
     private boolean saveKeys = false;
-    private Path previousDir = null;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -221,8 +220,7 @@ public class HadoopStoreBuilder {
                               Path outputDir,
                               Path inputPath,
                               CheckSumType checkSumType,
-                              boolean saveKeys,
-                              Path previousDir) {
+                              boolean saveKeys) {
         this(conf,
              mapperClass,
              inputFormatClass,
@@ -233,7 +231,6 @@ public class HadoopStoreBuilder {
              outputDir,
              inputPath,
              checkSumType);
-        this.previousDir = previousDir;
         this.saveKeys = saveKeys;
     }
 
@@ -294,83 +291,6 @@ public class HadoopStoreBuilder {
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
 
-            if(previousDir != null) {
-                // Sanity check to make sure previous directory has been run
-                // using same configuration as current build
-
-                if(!saveKeys) {
-                    logger.error("Cannot run incremental builds with this version of RO Store. Set the save-keys flag");
-                    throw new VoldemortException("Cannot run incremental builds with this version of RO Store. Set the save-keys flag");
-                }
-
-                boolean usePrevious = true;
-                for(Node node: cluster.getNodes()) {
-
-                    // Check if node exists
-                    Path nodePath = new Path(previousDir, "node-" + Integer.toString(node.getId()));
-                    Path metadataPath = new Path(nodePath, ".metadata");
-                    FileSystem nodePathFs = nodePath.getFileSystem(conf);
-
-                    // Check if node path exists
-                    if(!nodePathFs.exists(nodePath)) {
-                        logger.error("No data for node " + node.getId() + " exists in "
-                                     + previousDir);
-                        throw new VoldemortException("No data for node " + node.getId()
-                                                     + " exists in " + previousDir);
-                    }
-
-                    // Check if metadata exists
-                    if(!nodePathFs.exists(metadataPath)) {
-                        logger.error("Metadata for node " + node.getId() + " does not exist");
-                        throw new VoldemortException("Metadata information for node "
-                                                     + node.getId() + " does not exist");
-                    }
-
-                    // If everything exists, start by checking the metadata...
-                    String jsonString = HadoopStoreBuilderUtils.readFileContents(nodePathFs,
-                                                                                 metadataPath,
-                                                                                 1024);
-                    ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata(jsonString);
-                    String readOnlyFormatString = (String) metadata.get(ReadOnlyStorageMetadata.FORMAT);
-
-                    if(readOnlyFormatString == null
-                       || readOnlyFormatString.compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
-                        logger.error("The read-only format for node " + node.getId()
-                                     + " is not correct ");
-                        throw new VoldemortException("The read-only format for node "
-                                                     + node.getId() + " is not correct ");
-                    }
-
-                    // ...and check its partitions and chunks
-                    int totalChunkFiles = 0;
-                    for(Integer partitionId: node.getPartitionIds()) {
-                        for(int replicaType = 0; replicaType < storeDef.getReplicationFactor(); replicaType++) {
-                            totalChunkFiles += HadoopStoreBuilderUtils.getDataChunkFiles(nodePathFs,
-                                                                                         nodePath,
-                                                                                         partitionId,
-                                                                                         replicaType).length;
-                        }
-                    }
-
-                    // Check if any partitions exist
-                    if(totalChunkFiles <= 0) {
-                        logger.warn("Cannot generate patch files since node "
-                                    + node.getId()
-                                    + " previously didn't contain any data. Falling back to normal full data generation");
-                        usePrevious = false;
-                        break;
-                    }
-
-                    if(totalChunkFiles != HadoopStoreBuilderUtils.getDataChunkFiles(nodePathFs,
-                                                                                    nodePath).length) {
-                        logger.error("The number of chunk files is inconsistent with number expected");
-                        throw new VoldemortException("The number of chunk files is inconsistent with number expected");
-                    }
-                }
-
-                if(usePrevious)
-                    conf.set("previous.output.dir", previousDir.toString());
-            }
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys);
             logger.info("Building store...");

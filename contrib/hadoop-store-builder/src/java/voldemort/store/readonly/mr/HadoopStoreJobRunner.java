@@ -75,8 +75,6 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("checksum", "enable checksum using md5, adler32, crc32").withRequiredArg();
         parser.accepts("force-overwrite", "deletes final output directory if present.");
         parser.accepts("save-keys", "save the keys in the data file");
-        parser.accepts("previous", "give previous output directory for this store")
-              .withRequiredArg();
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -167,11 +165,6 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         Class[] deps = new Class[] { ImmutableCollection.class, JDOMException.class,
                 VoldemortConfig.class, HadoopStoreJobRunner.class, mapperClass };
 
-        Path previousDir = null;
-        if(options.has("previous")) {
-            previousDir = new Path((String) options.valueOf("previous"));
-        }
-
         addDepJars(conf, deps, addJars);
 
         HadoopStoreBuilder builder = new HadoopStoreBuilder(conf,
@@ -184,8 +177,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             outputDir,
                                                             inputPath,
                                                             checkSumType,
-                                                            saveKeys,
-                                                            previousDir);
+                                                            saveKeys);
 
         builder.build();
         return 0;
