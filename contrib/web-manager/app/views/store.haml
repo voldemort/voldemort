@@ -1,0 +1,67 @@
+%h2= @name
+%div
+  %h4 Serializers
+  %div
+    %table.store_table
+      %colgroup
+        %col#store_table_serializer
+        %col#store_table_name
+        %col#store_table_schema
+      %thead
+        %tr
+          %th Serializer
+          %th Name
+          %th Schema
+      %tbody
+        %tr
+          %td Key
+          %td= @store.key_info.name
+          %td= @store.key_info.schema
+        %tr
+          %td Value
+          %td= @store.value_info.name
+          %td= @store.value_info.schema
+%div
+  %h4 Fetch
+  %label Key:
+  %br
+  %input{:id=>"store_key", :name=>"store_key", :type=>"text", :value=>""}  
+  %input{:type=>"submit", :value=>"Get", :id => "store_key_submit"}
+  :javascript
+    $(document).ready(function() {
+      $("#store_key_submit").click(function() {
+        $("#store_value").text("");
+        var key = $("#store_key").attr('value');
+        $.get('#{url_for ("/store/" + @name + "/")}'+ key, function(data) {
+          $("#store_value").text(data);
+        })
+      })
+    });
+  %br
+  %label Value:
+  %br
+  %div{:id=>"store_value"}
+%div
+  %h4 Entries
+  - if (@entries)
+    - if (@entries.length > 0)
+      %table.entry_table
+        %colgroup
+          %col#entry_table_key
+          %col#entry_table_value
+        %thead
+          %tr
+            %th Key
+            %th Value
+        %tbody
+          - @entries.each do |entry|
+            %tr
+              %td= "#{entry[0]}"
+              %td= "#{entry[1]}"
+          - if @has_more
+            %td
+            %td= "Limited to #{@limit} results"
+    - else
+      %div No entries were found.  If this is a read-only store then listing entries is not supported.
+  - else
+    %div Entries could not be fetched

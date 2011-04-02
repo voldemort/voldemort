@@ -66,6 +66,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
+    private long lastSwapped;
 
     /**
      * Create an instance of the store
@@ -136,7 +137,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
-            isOpen = true;
+            this.lastSwapped = System.currentTimeMillis();
+            this.isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();
         }
@@ -188,6 +190,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     }
 
     /**
+     * Time since last time the store was swapped
+     * 
+     * @return Time in milliseconds since the store was swapped
+     */
+    @JmxGetter(name = "lastSwapped", description = "Time in milliseconds since the store was swapped")
+    public long getLastSwapped() {
+        long timeSinceLastSwap = System.currentTimeMillis() - lastSwapped;
+        return timeSinceLastSwap > 0 ? timeSinceLastSwap : 0;
+    }
+
+    /**
      * Close the store.
      */
     public void close() throws VoldemortException {
@@ -211,8 +224,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
      * 
      * @param newStoreDirectory The path to the new version directory
      */
-    @JmxOperation(description = "swapFiles(newStoreDirectory) changes this store "
-                                + " to use the new data directory.")
+    @JmxOperation(description = "swapFiles changes this store to use the new data directory")
     public void swapFiles(String newStoreDirectory) {
         logger.info("Swapping files for store '" + getName() + "' to " + newStoreDirectory);
         File newVersionDir = new File(newStoreDirectory);
@@ -322,9 +334,19 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     /**
      * Rollback to the specified push version
      * 
+     * @param rollbackToDir The full path of the version directory to rollback
+     *        to
+     */
+    @JmxOperation(description = "Rollback to a previous version directory ( full path ) ")
+    public void rollback(String rollbackToDir) {
+        rollback(new File(rollbackToDir));
+    }
+
+    /**
+     * Rollback to the specified push version
+     * 
      * @param rollbackToDir The version directory to rollback to
      */
-    @JmxOperation(description = "Rollback to a previous version")
     public void rollback(File rollbackToDir) {
         logger.info("Rolling back store '" + getName() + "'");
         fileModificationLock.writeLock().lock();

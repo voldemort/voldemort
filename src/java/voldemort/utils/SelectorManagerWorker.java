@@ -110,6 +110,9 @@ public abstract class SelectorManagerWorker implements Runnable {
             close();
         } catch(EOFException e) {
             close();
+        } catch(IOException e) {
+            logger.info(e.getMessage());
+            close();
         } catch(Throwable t) {
             if(logger.isEnabledFor(Level.ERROR))
                 logger.error(t.getMessage(), t);

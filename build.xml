@@ -387,38 +387,6 @@
     </junitreport>
   </target>
 
-  <taskdef name="cobertura-instrument" classname="net.sourceforge.cobertura.ant.InstrumentTask" classpathref="main-classpath" />
-  <taskdef name="cobertura-report" classname="net.sourceforge.cobertura.ant.ReportTask" classpathref="main-classpath" />
-
-  <target name="coverage-instrumentation" depends="build" description="Instrument the code to measure code coverage.">
-    <cobertura-instrument todir="${coverage.instrumented.dir}" datafile="${coverage.datafile}">
-      <fileset dir="${classes.dir}">
-        <include name="**/*.class" />
-        <exclude name="**/*Test.class" />
-      </fileset>
-    </cobertura-instrument>
-  </target>
-
-  <target name="coverage" depends="coverage-instrumentation, buildtest" description="Measure code coverage of unit tests.">
-    <replace-dir dir="${testreport.dir}" />
-    <junit fork="yes" printsummary="yes" showoutput="true" maxmemory="1024m">
-      <jvmarg value="-Dnet.sourceforge.cobertura.datafile=${coverage.datafile}"/>
-      <classpath>
-        <pathelement location="${coverage.instrumented.dir}" />
-        <path refid="test-classpath" />
-      </classpath>
-      <formatter type="xml" />
-      <batchtest todir="${testreport.dir}">
-        <fileset dir="${unittestsrc.dir}">
-          <include name="**/*Test.java" />
-          <exclude name="**/Abstract*.java" />
-        </fileset>
-      </batchtest>
-    </junit>
-    <cobertura-report format="html" destdir="${coverage.html.dir}" srcdir="${java.dir}" datafile="${coverage.datafile}" />
-    <cobertura-report format="xml" destdir="${coverage.xml.dir}" srcdir="${java.dir}" datafile="${coverage.datafile}" />
-  </target>
-
   <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
   </target>
 
