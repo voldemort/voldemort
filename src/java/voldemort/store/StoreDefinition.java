@@ -341,8 +341,6 @@ public class StoreDefinition implements Serializable {
         StoreDefinition def = (StoreDefinition) o;
         return getName().equals(def.getName())
                && getType().equals(def.getType())
-               && Objects.equal(getDescription(), def.getDescription())
-               && Objects.equal(getOwners(), def.getOwners())
                && getReplicationFactor() == def.getReplicationFactor()
                && getRequiredReads() == def.getRequiredReads()
                && Objects.equal(getPreferredReads(), def.getPreferredReads())
