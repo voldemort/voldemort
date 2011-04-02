@@ -46,7 +46,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
         this.stats = new StreamStats();
-        if(voldemortConfig.isJmxEnabled())
+        if(null != voldemortConfig && voldemortConfig.isJmxEnabled())
             JmxUtils.registerMbean("admin-streaming", new StreamStatsJmx(stats));
     }
 
