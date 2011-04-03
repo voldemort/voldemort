@@ -11,6 +11,8 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
 
@@ -23,13 +25,16 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                                          ErrorCodeMapper errorCodeMapper,
                                          VoldemortConfig voldemortConfig,
                                          StoreRepository storeRepository,
-                                         NetworkClassLoader networkClassLoader) {
+                                         NetworkClassLoader networkClassLoader,
+                                         StreamStats stats) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
-              networkClassLoader);
+              networkClassLoader,
+              stats,
+              Operation.FETCH_KEYS);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -38,7 +43,9 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         throttler.maybeThrottle(key.length());
         if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
@@ -46,8 +53,12 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             response.setKey(ProtoUtils.encodeBytes(key));
 
             fetched++;
+            handle.incrementEntriesScanned();
             Message message = response.build();
+
+            startNs = System.nanoTime();
             ProtoUtils.writeMessage(outputStream, message);
+            stats.recordNetworkTime(handle, System.nanoTime() - startNs);
         }
 
         // log progress
@@ -64,8 +75,10 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
 
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
-        else
+        else {
+            stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
+        }
     }
 
 }

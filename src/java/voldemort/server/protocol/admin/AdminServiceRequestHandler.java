@@ -58,6 +58,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.stats.StreamStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
@@ -95,6 +96,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
+    private final StreamStats stats;
     private FileFetcher fileFetcher;
 
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
@@ -103,7 +105,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                       MetadataStore metadataStore,
                                       VoldemortConfig voldemortConfig,
                                       AsyncOperationService asyncService,
-                                      Rebalancer rebalancer) {
+                                      Rebalancer rebalancer,
+                                      StreamStats stats) {
         this.errorCodeMapper = errorCodeMapper;
         this.storageService = storageService;
         this.metadataStore = metadataStore;
@@ -113,6 +116,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                .getContextClassLoader());
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
+        this.stats = stats;
         setFetcherClass(voldemortConfig);
     }
 
@@ -374,11 +378,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return new FetchPartitionFileStreamRequestHandler(request,
                                                           metadataStore,
                                                           voldemortConfig,
-                                                          storeRepository);
+                                                          storeRepository,
+                                                          stats);
     }
 
     public StreamRequestHandler handleUpdateSlopEntries(VAdminProto.UpdateSlopEntriesRequest request) {
-        return new UpdateSlopEntriesRequestHandler(request, errorCodeMapper, storeRepository);
+        return new UpdateSlopEntriesRequestHandler(request, errorCodeMapper, storeRepository, stats);
     }
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
@@ -394,14 +399,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                   errorCodeMapper,
                                                                   voldemortConfig,
                                                                   storeRepository,
-                                                                  networkClassLoader);
+                                                                  networkClassLoader,
+                                                                  stats);
             } else {
                 return new FetchEntriesStreamRequestHandler(request,
                                                             metadataStore,
                                                             errorCodeMapper,
                                                             voldemortConfig,
                                                             storeRepository,
-                                                            networkClassLoader);
+                                                            networkClassLoader,
+                                                            stats);
             }
         } else
             return new FetchKeysStreamRequestHandler(request,
@@ -409,7 +416,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                      errorCodeMapper,
                                                      voldemortConfig,
                                                      storeRepository,
-                                                     networkClassLoader);
+                                                     networkClassLoader,
+                                                     stats);
     }
 
     public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
@@ -417,7 +425,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                               errorCodeMapper,
                                                               voldemortConfig,
                                                               storeRepository,
-                                                              networkClassLoader);
+                                                              networkClassLoader,
+                                                              stats);
     }
 
     private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
