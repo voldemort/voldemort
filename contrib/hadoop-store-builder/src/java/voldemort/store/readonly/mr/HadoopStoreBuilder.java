@@ -210,6 +210,7 @@ public class HadoopStoreBuilder {
         conf.setOutputKeyClass(BytesWritable.class);
         conf.setOutputValueClass(BytesWritable.class);
         conf.setJarByClass(getClass());
+        conf.setReduceSpeculativeExecution(false);
         FileInputFormat.setInputPaths(conf, inputPath);
         conf.set("final.output.dir", outputDir.toString());
         conf.set("checksum.type", CheckSum.toString(checkSumType));
