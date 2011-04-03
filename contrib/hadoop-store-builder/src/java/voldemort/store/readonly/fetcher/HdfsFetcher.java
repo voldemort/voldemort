@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.ObjectName;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -170,22 +171,35 @@ public class HdfsFetcher implements FileFetcher {
                                              fileCheckSumGenerator);
 
                         if(fileCheckSumGenerator != null && checkSumGenerator != null) {
-                            checkSumGenerator.update(fileCheckSumGenerator.getCheckSum());
+                            byte[] checkSum = fileCheckSumGenerator.getCheckSum();
+                            logger.debug("Checksum for " + status.getPath() + " - "
+                                         + new String(Hex.encodeHex(checkSum)));
+                            checkSumGenerator.update(checkSum);
                         }
                     }
 
                 }
 
+                logger.info("Completed reading all files from " + source.toString() + " to "
+                            + dest.getAbsolutePath());
                 // Check checksum
                 if(checkSumType != CheckSumType.NONE) {
                     byte[] newCheckSum = checkSumGenerator.getCheckSum();
-                    return (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+                    boolean checkSumComparison = (ByteUtils.compare(newCheckSum, origCheckSum) == 0);
+
+                    logger.info("Checksum generated from streaming - "
+                                + new String(Hex.encodeHex(newCheckSum)));
+                    logger.info("Checksum on file - " + new String(Hex.encodeHex(origCheckSum)));
+                    logger.info("Check-sum verification - " + checkSumComparison);
+
+                    return checkSumComparison;
                 } else {
-                    // If checkSum file does not exist
+                    logger.info("No check-sum verification required");
                     return true;
                 }
             }
         }
+        logger.error("Source " + source.toString() + " should be a directory");
         return false;
 
     }
