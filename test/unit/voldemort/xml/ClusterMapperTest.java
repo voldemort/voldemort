@@ -93,7 +93,7 @@ public class ClusterMapperTest extends TestCase {
         for(int zoneId = 0; zoneId < 3; zoneId++) {
             LinkedList<Integer> proximityList = Lists.newLinkedList(zones3.get(zoneId)
                                                                           .getProximityList());
-            Collections.shuffle(proximityList);
+            Collections.reverse(proximityList);
             modifiedZones3.add(new Zone(zones3.get(zoneId).getId(), proximityList));
         }
 
