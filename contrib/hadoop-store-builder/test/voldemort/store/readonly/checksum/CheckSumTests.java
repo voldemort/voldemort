@@ -92,8 +92,7 @@ public class CheckSumTests extends TestCase {
 
                 // if both same, lexicographically
                 if((f1.endsWith(".index") && f2.endsWith(".index"))
-                   || (f1.endsWith(".data") && f2.endsWith(".data"))
-                   || (f1.endsWith(".patch") && f2.endsWith(".patch"))) {
+                   || (f1.endsWith(".data") && f2.endsWith(".data"))) {
                     return f1.compareToIgnoreCase(f2);
                 }
 
@@ -135,5 +134,4 @@ public class CheckSumTests extends TestCase {
         return checkSumGenerator.getCheckSum();
 
     }
-
 }

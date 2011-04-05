@@ -402,8 +402,7 @@ public class HadoopStoreBuilder {
 
             // if both same, lexicographically
             if((f1.contains(".index") && f2.contains(".index"))
-               || (f1.contains(".data") && f2.contains(".data"))
-               || (f1.contains(".patch") && f2.contains(".patch"))) {
+               || (f1.contains(".data") && f2.contains(".data"))) {
                 return f1.compareToIgnoreCase(f2);
             }
 
