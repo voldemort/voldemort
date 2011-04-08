@@ -16,8 +16,6 @@
 
 package voldemort.hadoop.pig;
 
-import java.io.IOException;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.apache.hadoop.mapreduce.Job;
@@ -28,20 +26,32 @@ import org.apache.pig.backend.hadoop.executionengine.mapReduceLayer.PigSplit;
 import org.apache.pig.data.DataByteArray;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
-
 import voldemort.hadoop.VoldemortHadoopConfig;
 import voldemort.hadoop.VoldemortInputFormat;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
-public class VoldemortStore extends AbstractVoldemortStore {
+import java.io.IOException;
 
+/**
+ * Voldemort store which exposes values as DataByteArray. Useful for loading
+ * binary format data (e.g protobufs, thrift).
+ *
+ * To use with Twitter's Elephant-Bird:
+ *
+ * <pre>
+ *     dataset = LOAD 'tcp://localhost:6666/storename' USING BinaryVoldemortStore();
+ *     DEFINE XProtoFormat x.x.x.pig.piggybank.XProtobufBytesToTuple();
+ *     result = FOREACH dataset GENERATE $0 as key, XProtoFormat($1).fieldName as fieldName;
+ * <pre>
+ */
+public class BinaryVoldemortStore extends AbstractVoldemortStore {
     @Override
     protected Tuple extractTuple(ByteArray key, Versioned<byte[]> value) throws ExecException {
         Tuple tuple = TupleFactory.getInstance().newTuple(2);
         tuple.set(0, new DataByteArray(key.get()));
-        tuple.set(1, new String(value.getValue()));
+        tuple.set(1, new DataByteArray(value.getValue()));
         return tuple;
-    }
 
+    }
 }
