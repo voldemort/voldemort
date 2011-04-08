@@ -34,6 +34,9 @@ import voldemort.hadoop.VoldemortInputFormat;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
+/**
+ * Voldemort store which exposes values as Strings.
+ */
 public class VoldemortStore extends AbstractVoldemortStore {
 
     @Override

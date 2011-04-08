@@ -34,7 +34,7 @@ import voldemort.versioning.Versioned;
 import java.io.IOException;
 
 /**
- * Voldemort store which exposes values as DataByteArray. Useful for loading
+ * Voldemort store which exposes values as DataByteArrays. Useful for loading
  * binary format data (e.g protobufs, thrift).
  *
  * To use with Twitter's Elephant-Bird:
@@ -43,7 +43,7 @@ import java.io.IOException;
  *     dataset = LOAD 'tcp://localhost:6666/storename' USING BinaryVoldemortStore();
  *     DEFINE XProtoFormat x.x.x.pig.piggybank.XProtobufBytesToTuple();
  *     result = FOREACH dataset GENERATE $0 as key, XProtoFormat($1).fieldName as fieldName;
- * <pre>
+ * </pre>
  */
 public class BinaryVoldemortStore extends AbstractVoldemortStore {
     @Override

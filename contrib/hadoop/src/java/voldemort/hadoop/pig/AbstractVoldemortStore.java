@@ -16,7 +16,7 @@ import voldemort.versioning.Versioned;
 import java.io.IOException;
 
 /**
- *
+ * Superclass for Voldemort Pig Stores. The Tuple format is specified by subclasses.
  */
 public abstract class AbstractVoldemortStore extends LoadFunc {
     protected RecordReader reader;
