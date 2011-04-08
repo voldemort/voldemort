@@ -517,9 +517,9 @@ public class JsonStoreBuilder {
                     // If the current element is same as previous element,
                     // append it...
                     if(ByteUtils.compare(previousElement.getFirst(),
-                                         ByteUtils.copy(currentElement.getKeyMd5(),
-                                                        0,
-                                                        2 * ByteUtils.SIZE_OF_INT)) == 0) {
+                                         currentElement.getKeyMd5(),
+                                         0,
+                                         2 * ByteUtils.SIZE_OF_INT) == 0) {
 
                         int numKeys = (int) ByteUtils.readBytes(previousElement.getSecond(), 0, 1);
 

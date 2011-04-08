@@ -98,7 +98,7 @@ public class ChunkedFileSet {
 
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
-                     + " chunks.");
+                     + " chunks and format  " + storageFormat);
     }
 
     public DataFileChunkSet toDataFileChunkSet() {
@@ -391,7 +391,7 @@ public class ChunkedFileSet {
     public int getChunkForKey(byte[] key) {
         switch(storageFormat) {
             case READONLY_V0: {
-                return ReadOnlyUtils.chunk(keyToStorageFormat(key), numChunks);
+                return ReadOnlyUtils.chunk(ByteUtils.md5(key), numChunks);
             }
             case READONLY_V1: {
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
@@ -402,7 +402,7 @@ public class ChunkedFileSet {
                 }
 
                 return chunkIdToChunkStart.get(routingPartitionList.get(0))
-                       + ReadOnlyUtils.chunk(keyToStorageFormat(key),
+                       + ReadOnlyUtils.chunk(ByteUtils.md5(key),
                                              chunkIdToNumChunks.get(routingPartitionList.get(0)));
             }
             case READONLY_V2: {
@@ -427,7 +427,7 @@ public class ChunkedFileSet {
 
                 return chunkIdToChunkStart.get(partitionIdsIndex * routingStrategy.getNumReplicas()
                                                + replicaType)
-                       + ReadOnlyUtils.chunk(keyToStorageFormat(key),
+                       + ReadOnlyUtils.chunk(ByteUtils.md5(key),
                                              chunkIdToNumChunks.get(partitionIdsIndex
                                                                     * routingStrategy.getNumReplicas()
                                                                     + replicaType));
@@ -460,28 +460,29 @@ public class ChunkedFileSet {
                     ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
                     dataFile.read(numKeyValsBuffer, valueLocation);
                     int numKeyVal = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
-                    int currentPosition = valueLocation + ByteUtils.SIZE_OF_BYTE;
+                    valueLocation += ByteUtils.SIZE_OF_BYTE;
 
                     for(int keyId = 0; keyId < numKeyVal; keyId++) {
                         // Read key size and value size
                         ByteBuffer sizeBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
-                        dataFile.read(sizeBuffer, currentPosition);
+                        dataFile.read(sizeBuffer, valueLocation);
+                        valueLocation += (2 * ByteUtils.SIZE_OF_INT);
+
                         int keySize = sizeBuffer.getInt(0);
                         int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
 
                         // Read key
-                        ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                        dataFile.read(keyBuffer, currentPosition + (2 * ByteUtils.SIZE_OF_INT));
+                        ByteBuffer buffer = ByteBuffer.allocate(keySize);
+                        dataFile.read(buffer, valueLocation);
+                        valueLocation += keySize;
 
-                        if(ByteUtils.compare(keyBuffer.array(), key) == 0) {
-                            // Read value
-                            ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                            dataFile.read(valueBuffer, currentPosition
-                                                       + (2 * ByteUtils.SIZE_OF_INT) + keySize);
-                            return valueBuffer.array();
-                        } else {
-                            currentPosition += (2 * ByteUtils.SIZE_OF_INT) + keySize + valueSize;
+                        // Read value
+                        if(ByteUtils.compare(buffer.array(), key) == 0) {
+                            buffer = ByteBuffer.allocate(valueSize);
+                            dataFile.read(buffer, valueLocation);
+                            return buffer.array();
                         }
+                        valueLocation += valueSize;
                     }
                     // Could not find key, return value of no size
                     return new byte[0];
