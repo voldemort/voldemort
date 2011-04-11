@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
+import voldemort.utils.Time;
 
 public class KeyedResourcePoolTest extends TestCase {
 
@@ -15,15 +16,21 @@ public class KeyedResourcePoolTest extends TestCase {
 
     private TestResourceFactory factory;
     private KeyedResourcePool<String, TestResource> pool;
+    private ResourcePoolConfig config;
 
     @Override
     public void setUp() {
         factory = new TestResourceFactory();
-        ResourcePoolConfig config = new ResourcePoolConfig().setMaxPoolSize(POOL_SIZE)
-                                                            .setTimeout(TIMEOUT_MS,
-                                                                        TimeUnit.MILLISECONDS)
-                                                            .setMaxInvalidAttempts(MAX_ATTEMPTS);
+        config = new ResourcePoolConfig().setMaxPoolSize(POOL_SIZE)
+                                         .setTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                         .setMaxInvalidAttempts(MAX_ATTEMPTS);
         this.pool = new KeyedResourcePool<String, TestResource>(factory, config);
+    }
+
+    public void testResourcePoolConfigTimeout() {
+        // Issue 343
+        assertEquals(config.getTimeout(TimeUnit.MILLISECONDS), TIMEOUT_MS);
+        assertEquals(config.getTimeout(TimeUnit.NANOSECONDS), TIMEOUT_MS * Time.NS_PER_MS);
     }
 
     public void testPoolingOccurs() throws Exception {
@@ -100,6 +107,8 @@ public class KeyedResourcePoolTest extends TestCase {
             // this is expected
         }
     }
+
+    public void testSetTimeOut() {}
 
     private static class TestResource {
 
