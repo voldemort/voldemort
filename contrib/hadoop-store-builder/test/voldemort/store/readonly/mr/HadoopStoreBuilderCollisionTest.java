@@ -48,6 +48,7 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
@@ -171,13 +172,17 @@ public class HadoopStoreBuilderCollisionTest {
 
         // create test data
         Map<String, String> values = new HashMap<String, String>();
+        List<String> valuesLeft = Lists.newArrayList();
+
         File testDir = TestUtils.createTempDir();
         File tempDir = new File(testDir, "temp");
         File outputDir = new File(testDir, "output");
         File storeDir = TestUtils.createTempDir(testDir);
 
-        for(int i = 0; i < totalElements; i++)
-            values.put(Integer.toString(i), Integer.toBinaryString(i));
+        for(int i = 0; i < totalElements; i++) {
+            values.put(Integer.toString(i), Integer.toString(i));
+            valuesLeft.add(Integer.toString(i));
+        }
 
         String storeName = "test";
         SerializerDefinition serDef = new SerializerDefinition("string");
@@ -248,34 +253,38 @@ public class HadoopStoreBuilderCollisionTest {
                                                                     serializer);
 
         // check values
-        int numKeys = 0;
         for(Map.Entry<String, String> entry: values.entrySet()) {
             List<Versioned<Object>> found = store.get(entry.getKey(), null);
             Assert.assertEquals("Incorrect number of results", 1, found.size());
             Assert.assertEquals(entry.getValue(), found.get(0).getValue());
-            numKeys++;
         }
 
         // also check the iterator - first key iterator...
+        List<String> valuesLeft2 = Lists.newArrayList(valuesLeft);
         ClosableIterator<ByteArray> keyIterator = engine.keys();
         int numElements = 0;
         while(keyIterator.hasNext()) {
-            Assert.assertTrue(values.containsKey(serializer.toObject(keyIterator.next().get())));
+            Object object = serializer.toObject(keyIterator.next().get());
+            assertEquals(valuesLeft.remove(object), true);
+            Assert.assertTrue(values.containsKey(object));
             numElements++;
         }
 
         Assert.assertEquals(numElements, values.size());
+        Assert.assertEquals(valuesLeft.size(), 0);
 
         // ... and entry iterator
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = engine.entries();
         numElements = 0;
         while(entryIterator.hasNext()) {
             Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
+            assertEquals(valuesLeft2.remove(serializer.toObject(entry.getFirst().get())), true);
             Assert.assertEquals(values.get(serializer.toObject(entry.getFirst().get())),
                                 serializer.toObject(entry.getSecond().getValue()));
             numElements++;
         }
 
         Assert.assertEquals(numElements, values.size());
+        Assert.assertEquals(valuesLeft2.size(), 0);
     }
 }

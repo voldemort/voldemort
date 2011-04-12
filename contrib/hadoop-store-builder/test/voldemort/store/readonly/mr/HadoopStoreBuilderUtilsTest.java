@@ -10,6 +10,7 @@ import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -22,6 +23,8 @@ public class HadoopStoreBuilderUtilsTest {
 
     @Test
     public void testIsFormatCorrect() {
+        Logger.getRootLogger().removeAllAppenders();
+
         assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0", ReadOnlyStorageFormat.READONLY_V0));
         assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_", ReadOnlyStorageFormat.READONLY_V0));
         assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0",

@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.log4j.Logger;
 import org.junit.Test;
 
 import voldemort.TestUtils;
@@ -20,6 +21,8 @@ public class HdfsDataFileChunkTest {
 
     @Test
     public void testDataFileChunk() throws IOException {
+        Logger.getRootLogger().removeAllAppenders();
+
         Path path = new Path(TestUtils.createTempDir().getAbsolutePath(), "tempFile");
         FileSystem fs = path.getFileSystem(new Configuration());
         fs.create(path);
