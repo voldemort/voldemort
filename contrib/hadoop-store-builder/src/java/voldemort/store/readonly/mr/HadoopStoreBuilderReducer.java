@@ -79,8 +79,8 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
      * Reduce should get sorted MD5 of Voldemort key ( either 16 bytes if saving
      * keys is disabled, else 8 bytes ) as key and for value (a) node-id,
      * partition-id, value - if saving keys is disabled (b) node-id,
-     * partition-id, [key-size, value-size, key, value]* if saving keys is
-     * enabled
+     * partition-id, replica-type, [key-size, value-size, key, value]* if saving
+     * keys is enabled
      */
     public void reduce(BytesWritable key,
                        Iterator<BytesWritable> iterator,
@@ -97,7 +97,7 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
             this.checkSumDigestIndex.update(this.position);
         }
 
-        int numKeyValues = 0;
+        short numTuples = 0;
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream valueStream = new DataOutputStream(stream);
 
@@ -140,13 +140,13 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
                 valueStream.write(valueBytes, offsetTillNow, valueLength);
             }
 
-            numKeyValues++;
+            numTuples++;
 
             // If we have multiple values for this md5 that is a collision,
             // throw an exception--either the data itself has duplicates, there
             // are trillions of keys, or someone is attempting something
             // malicious ( We obviously expect collisions when we save keys )
-            if(!getSaveKeys() && numKeyValues > 1)
+            if(!getSaveKeys() && numTuples > 1)
                 throw new VoldemortException("Duplicate keys detected for md5 sum "
                                              + ByteUtils.toHexString(ByteUtils.copy(key.get(),
                                                                                     0,
@@ -154,13 +154,17 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
 
         }
 
-        // Update number of collisions + max keys per collision
-        if(numKeyValues > 1) {
+        if(numTuples < 0) {
+            // Overflow
+            throw new VoldemortException("Found too many collisions: chunk " + chunkId
+                                         + " has exceeded " + Short.MAX_VALUE + " collisions.");
+        } else if(numTuples > 1) {
+            // Update number of collisions + max keys per collision
             reporter.incrCounter(CollisionCounter.NUM_COLLISIONS, 1);
 
             long numCollisions = reporter.getCounter(CollisionCounter.MAX_COLLISIONS).getCounter();
-            if(numKeyValues > numCollisions) {
-                reporter.incrCounter(CollisionCounter.MAX_COLLISIONS, numKeyValues - numCollisions);
+            if(numTuples > numCollisions) {
+                reporter.incrCounter(CollisionCounter.MAX_COLLISIONS, numTuples - numCollisions);
             }
         }
 
@@ -169,18 +173,14 @@ public class HadoopStoreBuilderReducer extends AbstractStoreBuilderConfigurable 
         byte[] value = stream.toByteArray();
 
         // Start writing to file now
-        // First, if save keys flag set then write number of keys
+        // First, if save keys flag set the number of keys
         if(getSaveKeys()) {
 
-            // Write the number of KVs as a single byte
-            byte[] numBuf = new byte[ByteUtils.SIZE_OF_BYTE];
-            ByteUtils.writeBytes(numBuf, numKeyValues, 0, ByteUtils.SIZE_OF_BYTE);
-
-            this.valueFileStream.write(numBuf);
-            this.position += ByteUtils.SIZE_OF_BYTE;
+            this.valueFileStream.writeShort(numTuples);
+            this.position += ByteUtils.SIZE_OF_SHORT;
 
             if(this.checkSumDigestValue != null) {
-                this.checkSumDigestValue.update(numBuf);
+                this.checkSumDigestValue.update(numTuples);
             }
         }
 

@@ -108,8 +108,6 @@ public class KeyedResourcePoolTest extends TestCase {
         }
     }
 
-    public void testSetTimeOut() {}
-
     private static class TestResource {
 
         private String value;

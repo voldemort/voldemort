@@ -521,15 +521,14 @@ public class JsonStoreBuilder {
                                          0,
                                          2 * ByteUtils.SIZE_OF_INT) == 0) {
 
-                        int numKeys = (int) ByteUtils.readBytes(previousElement.getSecond(), 0, 1);
-
+                        short numKeys = ByteUtils.readShort(previousElement.getSecond(), 0);
                         ByteArrayOutputStream stream = new ByteArrayOutputStream();
                         DataOutputStream valueStream = new DataOutputStream(stream);
 
-                        valueStream.writeByte(numKeys + 1);
+                        valueStream.writeShort(numKeys + 1);
                         // Append the previous tuples
                         valueStream.write(ByteUtils.copy(previousElement.getSecond(),
-                                                         1,
+                                                         ByteUtils.SIZE_OF_SHORT,
                                                          previousElement.getSecond().length));
                         valueStream.writeInt(currentElement.getKey().length);
                         valueStream.writeInt(currentElement.getValue().length);
@@ -592,7 +591,7 @@ public class JsonStoreBuilder {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         DataOutputStream valueStream = new DataOutputStream(stream);
 
-        valueStream.writeByte(1);
+        valueStream.writeShort(1);
         valueStream.writeInt(currentPair.getKey().length);
         valueStream.writeInt(currentPair.getValue().length);
         valueStream.write(currentPair.getKey());

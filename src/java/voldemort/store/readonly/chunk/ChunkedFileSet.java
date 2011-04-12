@@ -456,20 +456,38 @@ public class ChunkedFileSet {
                     return valueBuffer.array();
                 }
                 case READONLY_V2: {
-                    // Read a byte which holds the number of key/values
-                    ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
-                    dataFile.read(numKeyValsBuffer, valueLocation);
-                    int numKeyVal = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
-                    valueLocation += ByteUtils.SIZE_OF_BYTE;
 
-                    for(int keyId = 0; keyId < numKeyVal; keyId++) {
-                        // Read key size and value size
-                        ByteBuffer sizeBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
-                        dataFile.read(sizeBuffer, valueLocation);
-                        valueLocation += (2 * ByteUtils.SIZE_OF_INT);
+                    // Buffer for 'numKeyValues', 'keySize' and 'valueSize'
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT
+                                                                + (2 * ByteUtils.SIZE_OF_INT));
+                    dataFile.read(sizeBuffer, valueLocation);
 
-                        int keySize = sizeBuffer.getInt(0);
-                        int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+                    // Read the number of key-values
+                    short numKeyValues = sizeBuffer.getShort(0);
+                    valueLocation += ByteUtils.SIZE_OF_SHORT;
+
+                    // Read the key size
+                    int keySize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT);
+                    valueLocation += ByteUtils.SIZE_OF_INT;
+
+                    // Read the value size
+                    int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT
+                                                      + ByteUtils.SIZE_OF_INT);
+                    valueLocation += ByteUtils.SIZE_OF_INT;
+
+                    do {
+
+                        if(keySize == -1 && valueSize == -1) {
+                            sizeBuffer.clear();
+                            // Reads an extra short, but thats fine since this
+                            // is a special case ( collisions are rare ). Also
+                            // we save the unnecessary overhead of allocating a
+                            // new byte-buffer
+                            dataFile.read(sizeBuffer, valueLocation);
+                            keySize = sizeBuffer.getInt(0);
+                            valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+                            valueLocation += (2 * ByteUtils.SIZE_OF_INT);
+                        }
 
                         // Read key
                         ByteBuffer buffer = ByteBuffer.allocate(keySize);
@@ -482,8 +500,11 @@ public class ChunkedFileSet {
                             dataFile.read(buffer, valueLocation);
                             return buffer.array();
                         }
+
                         valueLocation += valueSize;
-                    }
+                        keySize = valueSize = -1;
+
+                    } while(--numKeyValues > 0);
                     // Could not find key, return value of no size
                     return new byte[0];
                 }
@@ -612,11 +633,11 @@ public class ChunkedFileSet {
                 ByteBuffer keyBuffer = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
 
                 // Update the tuple count
-                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
+                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT);
                 getCurrentChunk().read(numKeyValsBuffer, getCurrentOffsetInChunk());
-                int tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
+                short tupleCount = numKeyValsBuffer.getShort(0);
 
-                int offsetMoved = ByteUtils.SIZE_OF_BYTE;
+                int offsetMoved = ByteUtils.SIZE_OF_SHORT;
                 ByteBuffer keyValueLength = ByteBuffer.allocate(2 * ByteUtils.SIZE_OF_INT);
                 for(int tupleId = 0; tupleId < tupleCount; tupleId++) {
                     // Reads key length, value length

@@ -50,10 +50,10 @@ import voldemort.utils.ByteUtils;
 public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
         AbstractStoreBuilderConfigurable implements Mapper<K, V, BytesWritable, BytesWritable> {
 
-    private MessageDigest md5er;
-    private ConsistentRoutingStrategy routingStrategy;
-    private Serializer<Object> keySerializer;
-    private Serializer<Object> valueSerializer;
+    protected MessageDigest md5er;
+    protected ConsistentRoutingStrategy routingStrategy;
+    protected Serializer<Object> keySerializer;
+    protected Serializer<Object> valueSerializer;
     private CompressionStrategy valueCompressor;
     private CompressionStrategy keyCompressor;
     private SerializerDefinition keySerializerDefinition;

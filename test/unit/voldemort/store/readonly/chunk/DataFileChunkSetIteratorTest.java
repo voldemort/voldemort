@@ -36,23 +36,22 @@ public class DataFileChunkSetIteratorTest {
             try {
                 if(coalesceCollided) {
 
-                    // Read a byte
-                    ByteBuffer numKeysBytes = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
+                    // Read a short
+                    ByteBuffer numKeysBytes = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT);
                     getCurrentChunk().read(numKeysBytes, getCurrentOffsetInChunk());
-                    int numKeys = numKeysBytes.get(0) & ByteUtils.MASK_11111111;
+                    short numKeys = numKeysBytes.getShort(0);
 
                     // Read all the collided values
                     ByteBuffer values = ByteBuffer.allocate(numKeys * ByteUtils.SIZE_OF_INT);
                     getCurrentChunk().read(values,
-                                           getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_BYTE);
+                                           getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_SHORT);
 
                     // update the offset
-                    updateOffset(getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_BYTE
+                    updateOffset(getCurrentOffsetInChunk() + ByteUtils.SIZE_OF_SHORT
                                  + (numKeys * ByteUtils.SIZE_OF_INT));
 
                     return values;
                 } else {
-
                     // Read a value
                     ByteBuffer value = ByteBuffer.allocate(ByteUtils.SIZE_OF_INT);
                     getCurrentChunk().read(value, getCurrentOffsetInChunk());
@@ -103,10 +102,10 @@ public class DataFileChunkSetIteratorTest {
                 for(int entryId = 0; entryId < numberOfEntriesPerChunk
                                                / numberOfEntriesPerCollision; entryId++) {
 
-                    ByteBuffer buffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE
+                    ByteBuffer buffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT
                                                             + numberOfEntriesPerCollision
                                                             * ByteUtils.SIZE_OF_INT);
-                    buffer.put((byte) (numberOfEntriesPerCollision & ByteUtils.MASK_11111111));
+                    buffer.putShort((short) numberOfEntriesPerCollision);
 
                     for(int entryInCollision = 0; entryInCollision < numberOfEntriesPerCollision; entryInCollision++) {
                         buffer.putInt(currentEntry);

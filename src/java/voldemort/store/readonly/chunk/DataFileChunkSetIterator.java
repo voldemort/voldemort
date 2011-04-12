@@ -36,7 +36,7 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
     protected boolean coalesceCollided;
 
     // Number of k-v pairs which have collided and are in one bucket
-    private int tupleCount;
+    private short tupleCount;
 
     private ReadWriteLock fileModificationLock;
 
@@ -105,15 +105,15 @@ abstract class DataFileChunkSetIterator<T> implements ClosableIterator<T> {
 
         if(!coalesceCollided && tupleCount == 0) {
             // Update the tuple count
-            ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_BYTE);
+            ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT);
             try {
                 getCurrentChunk().read(numKeyValsBuffer, currentOffsetInChunk);
             } catch(IOException e) {
                 logger.error("Error while reading tuple count in iterator", e);
                 return false;
             }
-            tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
-            currentOffsetInChunk += ByteUtils.SIZE_OF_BYTE;
+            tupleCount = numKeyValsBuffer.getShort(0);
+            currentOffsetInChunk += ByteUtils.SIZE_OF_SHORT;
         }
         return true;
     }
