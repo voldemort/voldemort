@@ -45,7 +45,9 @@ public class VoldemortInputSplit extends InputSplit implements Writable {
      */
     @Override
     public long getLength() throws IOException, InterruptedException {
-        return 0;
+        // Quick test to avoid merging splits. The correct way to do this is
+        // setup getLocations correctly!
+        return Long.MAX_VALUE;
     }
 
     public String getStoreName() {
