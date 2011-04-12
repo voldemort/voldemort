@@ -132,21 +132,34 @@ public class StoreSwapperTest extends TestCase {
     }
 
     @Test
-    public void testFetchSwap() throws Exception {
+    public void testAdminStoreSwapper() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
 
-        // Use the admin store swapper
-        StoreSwapper swapper = new AdminStoreSwapper(cluster, executor, adminClient, 1000000);
-        testFetchSwap(swapper);
+        try {
+            // Use the admin store swapper
+            StoreSwapper swapper = new AdminStoreSwapper(cluster, executor, adminClient, 1000000);
+            testFetchSwap(swapper);
+        } finally {
+            executor.shutdown();
+        }
+    }
 
-        // Use the http store swapper
-        HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
-        manager.getParams().setMaxTotalConnections(10);
-        manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION, 10);
-        HttpClient client = new HttpClient(manager);
-        swapper = new HttpStoreSwapper(cluster, executor, client, "read-only/mgmt");
-        testFetchSwap(swapper);
+    @Test
+    public void testHttpStoreSwapper() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
 
+        try {
+            // Use the http store swapper
+            HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
+            manager.getParams().setMaxTotalConnections(10);
+            manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
+                                                         10);
+            HttpClient client = new HttpClient(manager);
+            StoreSwapper swapper = new HttpStoreSwapper(cluster, executor, client, "read-only/mgmt");
+            testFetchSwap(swapper);
+        } finally {
+            executor.shutdown();
+        }
     }
 
     public File createTempROFolder() {
