@@ -37,7 +37,7 @@ import voldemort.versioning.Versioned;
 /**
  * Voldemort store which exposes values as Strings.
  */
-public class VoldemortStore extends AbstractVoldemortStore {
+public class StringVoldemortStore extends AbstractVoldemortStore {
 
     @Override
     protected Tuple extractTuple(ByteArray key, Versioned<byte[]> value) throws ExecException {

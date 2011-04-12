@@ -25,6 +25,7 @@ import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import org.apache.log4j.Logger;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.utils.ByteArray;
@@ -32,6 +33,8 @@ import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 public class VoldemortRecordReader extends RecordReader<ByteArray, Versioned<byte[]>> {
+
+    private final Logger logger = Logger.getLogger(VoldemortRecordReader.class);
 
     private AdminClient adminClient;
     private Iterator<Pair<ByteArray, Versioned<byte[]>>> iter = null;
@@ -67,6 +70,7 @@ public class VoldemortRecordReader extends RecordReader<ByteArray, Versioned<byt
         partitionIds.addAll(adminClient.getAdminClientCluster()
                                        .getNodeById(voldemortSplit.getNodeId())
                                        .getPartitionIds());
+        logger.info("Initializing split for node " + voldemortSplit.getNodeId() + ", partitions " + partitionIds);
         this.iter = adminClient.fetchEntries(voldemortSplit.getNodeId(),
                                              voldemortSplit.getStoreName(),
                                              partitionIds,

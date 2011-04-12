@@ -28,6 +28,7 @@ import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RecordReader;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 
+import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -38,6 +39,8 @@ import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 public class VoldemortInputFormat extends InputFormat<ByteArray, Versioned<byte[]>> {
+
+    private final Logger logger = Logger.getLogger(VoldemortInputFormat.class);
 
     /**
      * Create a new connection to admin client and give it to RecordReader.
@@ -77,7 +80,8 @@ public class VoldemortInputFormat extends InputFormat<ByteArray, Versioned<byte[
             throw new VoldemortException("Store '" + storeName + "' not found");
         }
 
-        // Generate splits
+        // Generate one split per node.
+        // Should consider a config setting allowing one split per partition.
         Iterator<Node> nodeIter = cluster.getNodes().iterator();
         List<InputSplit> splits = new ArrayList<InputSplit>();
         while(nodeIter.hasNext()) {
@@ -85,7 +89,6 @@ public class VoldemortInputFormat extends InputFormat<ByteArray, Versioned<byte[
             VoldemortInputSplit split = new VoldemortInputSplit(storeName, currentNode);
             splits.add(split);
         }
-
         adminClient.stop();
         return splits;
     }

@@ -40,13 +40,14 @@ public class VoldemortInputSplit extends InputSplit implements Writable {
     }
 
     /**
-     * Is used to order the splits so that the largest get processed first, in
-     * an attempt to minimize the job runtime...Voldemort doesn't care!
+     * Pig will order the splits so that the largest get processed first. This has no
+     * consequence for Voldemort, but newer version of pig will also try to combine
+     * splits if the size of them are less than config <i>pig.maxCombinedSplitSize</i>.
+     * This does not map well to the Voldemort Storage. To avoid splitting altogether,
+     * we return Long.MAX_VALUE.
      */
     @Override
     public long getLength() throws IOException, InterruptedException {
-        // Quick test to avoid merging splits. The correct way to do this is
-        // setup getLocations correctly!
         return Long.MAX_VALUE;
     }
 
