@@ -118,6 +118,9 @@ public class ReadOnlyStorePerformanceTest {
                                + ReadOnlyStorageFormat.READONLY_V2 + " (default)]")
               .withRequiredArg()
               .describedAs("version");
+        parser.accepts("test-gz", "Path to gzip containing data. Works with --build only")
+              .withRequiredArg()
+              .describedAs("path");
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -168,23 +171,28 @@ public class ReadOnlyStorePerformanceTest {
             int valueSize = (Integer) options.valueOf("value-size");
 
             // generate test data
-            File temp = File.createTempFile("json-data", ".txt.gz", workingDir);
-            temp.deleteOnExit();
-            System.out.println("Generating test data in " + temp);
-            OutputStream outputStream = new GZIPOutputStream(new FileOutputStream(temp));
-            Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream),
-                                               10 * 1024 * 1024);
-            String value = TestUtils.randomLetters(valueSize);
-            for(int i = 0; i < numValues; i++) {
-                writer.write("\"");
-                writer.write(Integer.toString(i));
-                writer.write("\" \"");
-                writer.write(value);
-                writer.write("\"");
-                writer.write("\n");
+            File temp = null;
+            if(options.has("test-gz")) {
+                temp = new File((String) options.valueOf("test-gz"));
+            } else {
+                temp = File.createTempFile("json-data", ".txt.gz", workingDir);
+                temp.deleteOnExit();
+                System.out.println("Generating test data in " + temp);
+                OutputStream outputStream = new GZIPOutputStream(new FileOutputStream(temp));
+                Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream),
+                                                   10 * 1024 * 1024);
+                String value = TestUtils.randomLetters(valueSize);
+                for(int i = 0; i < numValues; i++) {
+                    writer.write("\"");
+                    writer.write(Integer.toString(i));
+                    writer.write("\" \"");
+                    writer.write(value);
+                    writer.write("\"");
+                    writer.write("\n");
+                }
+                writer.close();
+                writer = null;
             }
-            writer.close();
-            writer = null;
 
             System.out.println("Building store.");
             InputStream inputStream = new GZIPInputStream(new FileInputStream(temp));
