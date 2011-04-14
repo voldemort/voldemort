@@ -408,21 +408,20 @@ public class ChunkedFileSet {
             case READONLY_V2: {
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
 
-                int replicaType = -1, currentPartition = -1, partitionIdsIndex = -1;
-                for(int index = 0; index < routingPartitionList.size(); index++) {
-                    int partition = routingPartitionList.get(index);
-                    if(partitionIds.contains(partition)) {
+                int replicaType = -1, partitionIdsIndex = -1;
+                for(int index = 0; index < partitionIds.size(); index++) {
+                    int partition = partitionIds.get(index);
+                    if(routingPartitionList.contains(partition)) {
                         if(replicaType == -1) {
-                            partitionIdsIndex = partitionIds.indexOf(partition);
-                            replicaType = index;
-                            currentPartition = partition;
+                            partitionIdsIndex = index;
+                            replicaType = routingPartitionList.indexOf(partition);
                         } else {
                             return -1;
                         }
                     }
                 }
 
-                if(replicaType == -1 || currentPartition == -1)
+                if(replicaType == -1)
                     return -1;
 
                 return chunkIdToChunkStart.get(partitionIdsIndex * routingStrategy.getNumReplicas()
@@ -458,50 +457,43 @@ public class ChunkedFileSet {
                 case READONLY_V2: {
 
                     // Buffer for 'numKeyValues', 'keySize' and 'valueSize'
-                    ByteBuffer sizeBuffer = ByteBuffer.allocate(ByteUtils.SIZE_OF_SHORT
-                                                                + (2 * ByteUtils.SIZE_OF_INT));
+                    int headerSize = ByteUtils.SIZE_OF_SHORT + (2 * ByteUtils.SIZE_OF_INT);
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(headerSize);
                     dataFile.read(sizeBuffer, valueLocation);
+                    valueLocation += headerSize;
 
                     // Read the number of key-values
                     short numKeyValues = sizeBuffer.getShort(0);
-                    valueLocation += ByteUtils.SIZE_OF_SHORT;
 
                     // Read the key size
                     int keySize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT);
-                    valueLocation += ByteUtils.SIZE_OF_INT;
 
                     // Read the value size
                     int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT
                                                       + ByteUtils.SIZE_OF_INT);
-                    valueLocation += ByteUtils.SIZE_OF_INT;
 
                     do {
 
                         if(keySize == -1 && valueSize == -1) {
                             sizeBuffer.clear();
-                            // Reads an extra short, but thats fine since this
-                            // is a special case ( collisions are rare ). Also
-                            // we save the unnecessary overhead of allocating a
-                            // new byte-buffer
+                            // Reads an extra short, but that is fine since
+                            // collisions are rare. Also we save the unnecessary
+                            // overhead of allocating a new byte-buffer
                             dataFile.read(sizeBuffer, valueLocation);
                             keySize = sizeBuffer.getInt(0);
                             valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
                             valueLocation += (2 * ByteUtils.SIZE_OF_INT);
                         }
 
-                        // Read key
-                        ByteBuffer buffer = ByteBuffer.allocate(keySize);
+                        // Read key + value
+                        ByteBuffer buffer = ByteBuffer.allocate(keySize + valueSize);
                         dataFile.read(buffer, valueLocation);
-                        valueLocation += keySize;
 
-                        // Read value
-                        if(ByteUtils.compare(buffer.array(), key) == 0) {
-                            buffer = ByteBuffer.allocate(valueSize);
-                            dataFile.read(buffer, valueLocation);
-                            return buffer.array();
+                        // Compare key
+                        if(ByteUtils.compare(key, buffer.array(), 0, keySize) == 0) {
+                            return ByteUtils.copy(buffer.array(), keySize, keySize + valueSize);
                         }
-
-                        valueLocation += valueSize;
+                        valueLocation += (keySize + valueSize);
                         keySize = valueSize = -1;
 
                     } while(--numKeyValues > 0);
