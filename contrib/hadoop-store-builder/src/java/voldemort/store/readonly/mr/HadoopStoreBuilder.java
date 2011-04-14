@@ -30,11 +30,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
 import org.apache.log4j.Logger;
 
@@ -294,7 +296,17 @@ public class HadoopStoreBuilder {
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys);
             logger.info("Building store...");
-            JobClient.runJob(conf);
+            RunningJob job = JobClient.runJob(conf);
+
+            // Once the job has completed log the counter
+            Counters counters = job.getCounters();
+
+            if(saveKeys) {
+                logger.info("Number of collisions in the job - "
+                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
+                logger.info("Maximum number of collisions for one entry - "
+                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+            }
 
             // Do a CheckSumOfCheckSum - Similar to HDFS
             CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
