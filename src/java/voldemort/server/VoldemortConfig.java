@@ -115,7 +115,6 @@ public class VoldemortConfig implements Serializable {
     private RequestFormatType requestFormatType;
 
     private int jmxRmiRegistryPort;
-    private String jmxRmiServerHost;
     private int jmxRmiServerPort;
 
     private boolean enableSlop;
@@ -268,7 +267,6 @@ public class VoldemortConfig implements Serializable {
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
 
         this.enableJmxRemote = props.getBoolean("jmx.remote.enable", false);
-        this.jmxRmiServerHost = props.getString("jmx.remote.rmi.server.host", "localhost");
         this.jmxRmiServerPort = props.getInt("jmx.remote.rmi.server.port", 10001);
         this.jmxRmiRegistryPort = props.getInt("jmx.remote.rmi.registry.port", 10002);
 
@@ -1042,14 +1040,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setJmxRmiRegistryPort(int jmxRmiRegistryPort) {
         this.jmxRmiRegistryPort = jmxRmiRegistryPort;
-    }
-
-    public String getJmxRmiServerHost() {
-        return jmxRmiServerHost;
-    }
-
-    public void setJmxRmiServerHost(String jmxRmiServerHost) {
-        this.jmxRmiServerHost = jmxRmiServerHost;
     }
 
     public int getJmxRmiServerPort() {

@@ -51,7 +51,6 @@ public class JmxRemoteService extends AbstractService {
     private final Logger log = Logger.getLogger(JmxService.class);
 
     private int rmiRegistryPort;
-    private String rmiServerHost;
     private int rmiServerPort;
 
     protected boolean rmiSSL = true;
@@ -63,12 +62,11 @@ public class JmxRemoteService extends AbstractService {
     protected String accessFile = null;
     protected boolean useLocalPorts = false;
 
-    protected JMXConnectorServer csPlatform = null;
+    protected JMXConnectorServer jmxConnector = null;
 
-    public JmxRemoteService(int rmiRegistryPort, String rmiServerHost, int rmiServerPort) {
+    public JmxRemoteService(int rmiRegistryPort, int rmiServerPort) {
         super(ServiceType.JMX_REMOTE);
         this.rmiRegistryPort = rmiRegistryPort;
-        this.rmiServerHost = rmiServerHost;
         this.rmiServerPort = rmiServerPort;
     }
 
@@ -147,9 +145,6 @@ public class JmxRemoteService extends AbstractService {
                     ssf);
         }
 
-        // Explicitly specify host name to receive RMI callbacks.
-        env.put("java.rmi.server.useLocalHostname", "false");
-        env.put("java.rmi.server.hostname", rmiServerHost);
 
         // Configure authentication
         if (authenticate) {
@@ -158,7 +153,7 @@ public class JmxRemoteService extends AbstractService {
         }
 
         // Create the Platform server
-        csPlatform = createServer(rmiRegistryPort,
+        jmxConnector = createServer(rmiRegistryPort,
                 rmiServerPort, env,
                 ManagementFactory.getPlatformMBeanServer());
 
@@ -167,7 +162,7 @@ public class JmxRemoteService extends AbstractService {
     @Override
     protected void stopInner() {
         // When the server starts, configure JMX/RMI
-        destroyServer("Platform", csPlatform);
+        destroyServer(jmxConnector);
     }
 
 
@@ -211,8 +206,7 @@ public class JmxRemoteService extends AbstractService {
         return cs;
     }
 
-    private void destroyServer(String serverName,
-                               JMXConnectorServer theConnectorServer) {
+    private void destroyServer(JMXConnectorServer theConnectorServer) {
         if (theConnectorServer != null) {
             try {
                 theConnectorServer.stop();

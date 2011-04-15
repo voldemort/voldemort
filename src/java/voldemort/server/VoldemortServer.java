@@ -202,7 +202,6 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isJmxRemoteEnabled())
             services.add(new JmxRemoteService(
                     voldemortConfig.getJmxRmiRegistryPort(),
-                    voldemortConfig.getJmxRmiServerHost(),
                     voldemortConfig.getJmxRmiServerPort())
             );
 
