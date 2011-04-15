@@ -10,6 +10,7 @@ public enum ServiceType {
     SOCKET("socket-service"),
     ADMIN("admin-service"),
     JMX("jmx-service"),
+    JMX_REMOTE("jmx-remote-service"),
     SCHEDULER("scheduler-service"),
     STORAGE("storage-service"),
     VOLDEMORT("voldemort-server"),

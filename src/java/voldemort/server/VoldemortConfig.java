@@ -41,8 +41,8 @@ import com.google.common.collect.ImmutableList;
 
 /**
  * Configuration parameters for the voldemort server.
- * 
- * 
+ *
+ *
  */
 public class VoldemortConfig implements Serializable {
 
@@ -114,6 +114,10 @@ public class VoldemortConfig implements Serializable {
 
     private RequestFormatType requestFormatType;
 
+    private int jmxRmiRegistryPort;
+    private String jmxRmiServerHost;
+    private int jmxRmiServerPort;
+
     private boolean enableSlop;
     private boolean enableSlopPusherJob;
     private boolean enableRepair;
@@ -122,6 +126,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableSocketServer;
     private boolean enableAdminServer;
     private boolean enableJmx;
+    private boolean enableJmxRemote;
     private boolean enablePipelineRoutedStore;
     private boolean enableVerboseLogging;
     private boolean enableStatTracking;
@@ -262,10 +267,16 @@ public class VoldemortConfig implements Serializable {
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 5000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
 
+        this.enableJmxRemote = props.getBoolean("jmx.remote.enable", false);
+        this.jmxRmiServerHost = props.getString("jmx.remote.rmi.server.host", "localhost");
+        this.jmxRmiServerPort = props.getInt("jmx.remote.rmi.server.port", 10001);
+        this.jmxRmiRegistryPort = props.getInt("jmx.remote.rmi.registry.port", 10002);
+
         this.enableHttpServer = props.getBoolean("http.enable", true);
         this.enableSocketServer = props.getBoolean("socket.enable", true);
         this.enableAdminServer = props.getBoolean("admin.enable", true);
         this.enableJmx = props.getBoolean("jmx.enable", true);
+
         this.enablePipelineRoutedStore = props.getBoolean("enable.pipeline.routed.store", true);
         this.enableSlop = props.getBoolean("slop.enable", true);
         this.enableSlopPusherJob = props.getBoolean("slop.pusher.enable", true);
@@ -530,7 +541,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * A log file will be cleaned if its utilization percentage is below this
      * value, irrespective of total utilization.
-     * 
+     *
      * <ul>
      * <li>property: "bdb.cleaner.minFileUtilization"</li>
      * <li>default: 5</li>
@@ -551,7 +562,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * If true, the checkpointer uses more resources in order to complete the
      * checkpoint in a shorter time interval.
-     * 
+     *
      * <ul>
      * <li>property: "bdb.checkpointer.high.priority"</li>
      * <li>default: false</li>
@@ -568,7 +579,7 @@ public class VoldemortConfig implements Serializable {
     /**
      * The maximum number of log files in the cleaner's backlog, or zero if
      * there is no limit
-     * 
+     *
      * <ul>
      * <li>property: "bdb.cleaner.max.batch.files"</li>
      * <li>default: 0</li>
@@ -587,9 +598,9 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * 
+     *
      * The number of cleaner threads
-     * 
+     *
      * <ul>
      * <li>property: "bdb.cleaner.threads"</li>
      * <li>default: 1</li>
@@ -617,11 +628,11 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * 
+     *
      * The lock timeout for all transactional and non-transactional operations.
      * Value of zero disables lock timeouts i.e. a deadlock scenario will block
      * forever
-     * 
+     *
      * <ul>
      * <li>property: "bdb.lock.timeout.ms"</li>
      * <li>default: 500</li>
@@ -667,10 +678,10 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * 
+     *
      * The cleaner will keep the total disk space utilization percentage above
      * this value.
-     * 
+     *
      * <ul>
      * <li>property: "bdb.cleaner.minUtilization"</li>
      * <li>default: 50</li>
@@ -689,7 +700,7 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * 
+     *
      * The btree node fanout. Given by "bdb.btree.fanout". default: 512
      */
     public int getBdbBtreeFanout() {
@@ -819,6 +830,15 @@ public class VoldemortConfig implements Serializable {
     public void setEnableJmx(boolean enableJmx) {
         this.enableJmx = enableJmx;
     }
+
+    public boolean isJmxRemoteEnabled() {
+        return enableJmxRemote;
+    }
+
+    public void setJmxRemoteEnabled(boolean enableJmxRemote) {
+        this.enableJmxRemote = enableJmxRemote;
+    }
+
 
     public boolean isPipelineRoutedStoreEnabled() {
         return enablePipelineRoutedStore;
@@ -1014,6 +1034,38 @@ public class VoldemortConfig implements Serializable {
 
     public void setClientMaxQueuedRequests(int clientMaxQueuedRequests) {
         this.clientMaxQueuedRequests = clientMaxQueuedRequests;
+    }
+
+    public int getJmxRmiRegistryPort() {
+        return jmxRmiRegistryPort;
+    }
+
+    public void setJmxRmiRegistryPort(int jmxRmiRegistryPort) {
+        this.jmxRmiRegistryPort = jmxRmiRegistryPort;
+    }
+
+    public String getJmxRmiServerHost() {
+        return jmxRmiServerHost;
+    }
+
+    public void setJmxRmiServerHost(String jmxRmiServerHost) {
+        this.jmxRmiServerHost = jmxRmiServerHost;
+    }
+
+    public int getJmxRmiServerPort() {
+        return jmxRmiServerPort;
+    }
+
+    public void setJmxRmiServerPort(int jmxRmiServerPort) {
+        this.jmxRmiServerPort = jmxRmiServerPort;
+    }
+
+    public boolean isEnableJmxRemote() {
+        return enableJmxRemote;
+    }
+
+    public void setEnableJmxRemote(boolean enableJmxRemote) {
+        this.enableJmxRemote = enableJmxRemote;
     }
 
     public boolean isSlopEnabled() {

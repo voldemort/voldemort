@@ -32,6 +32,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
+import voldemort.server.jmx.JmxRemoteService;
 import voldemort.server.jmx.JmxService;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -197,6 +198,13 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isGossipEnabled()) {
             services.add(new GossipService(this.metadata, scheduler, voldemortConfig));
         }
+
+        if(voldemortConfig.isJmxRemoteEnabled())
+            services.add(new JmxRemoteService(
+                    voldemortConfig.getJmxRmiRegistryPort(),
+                    voldemortConfig.getJmxRmiServerHost(),
+                    voldemortConfig.getJmxRmiServerPort())
+            );
 
         if(voldemortConfig.isJmxEnabled())
             services.add(new JmxService(this, this.metadata.getCluster(), storeRepository, services));
