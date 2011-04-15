@@ -12,7 +12,6 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;

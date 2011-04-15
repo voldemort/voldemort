@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
-import org.omg.CORBA.portable.Streamable;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;

@@ -139,12 +139,20 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
     protected void write(SelectionKey selectionKey) throws IOException {
         if(outputStream.getBuffer().hasRemaining()) {
             // If we have data, write what we can now...
-            int count = socketChannel.write(outputStream.getBuffer());
+            try {
+                int count = socketChannel.write(outputStream.getBuffer());
 
-            if(logger.isTraceEnabled())
-                logger.trace("Wrote " + count + " bytes, remaining: "
-                             + outputStream.getBuffer().remaining() + " for "
-                             + socketChannel.socket());
+                if(logger.isTraceEnabled())
+                    logger.trace("Wrote " + count + " bytes, remaining: "
+                                 + outputStream.getBuffer().remaining() + " for "
+                                 + socketChannel.socket());
+            } catch(IOException e) {
+                streamRequestHandler.close(new DataOutputStream(outputStream));
+                streamRequestHandler = null;
+
+                throw e;
+            }
+
         } else {
             if(logger.isTraceEnabled())
                 logger.trace("Wrote no bytes for " + socketChannel.socket());
