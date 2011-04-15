@@ -147,6 +147,8 @@ public class JmxRemoteService extends AbstractService {
                     ssf);
         }
 
+        // Explicitly specify host name to receive RMI callbacks.
+        env.put("java.rmi.server.useLocalHostname", "false");
         env.put("java.rmi.server.hostname", rmiServerHost);
 
         // Configure authentication
