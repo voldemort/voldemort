@@ -17,7 +17,7 @@ public class RebalancePartitionsInfo {
     private final int stealerId;
     private final int donorId;
     private final List<Integer> partitionList;
-    private final List<Integer> deletePartitionsList;
+    private List<Integer> deletePartitionsList;
     private List<String> unbalancedStoreList;
     private int attempt;
     private List<Integer> stealMasterPartitions;
@@ -99,6 +99,10 @@ public class RebalancePartitionsInfo {
         return deletePartitionsList;
     }
 
+    public void setDeletePartitionsList(List<Integer> deletedPartitions) {
+        deletePartitionsList = deletedPartitions;
+    }
+
     public void setAttempt(int attempt) {
         this.attempt = attempt;
     }
@@ -153,10 +157,10 @@ public class RebalancePartitionsInfo {
 
     @Override
     public String toString() {
-        return "RebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId()
-               + " partitions:" + getPartitionList() + " steal master partitions:"
-               + getStealMasterPartitions() + " delete: " + getDeletePartitionsList() + " stores:"
-               + getUnbalancedStoreList() + ")";
+        return "RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId() + " partitions:"
+               + getPartitionList() + " steal master partitions:" + getStealMasterPartitions()
+               + " deleted:" + getDeletePartitionsList() + " stores:" + getUnbalancedStoreList()
+               + ")";
     }
 
     public String toJsonString() {

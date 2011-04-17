@@ -731,7 +731,7 @@ public class AdminClient {
      * This is a background operation (see
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
      * node on which the updates are performed (the "stealer" node). See
-     * {@link AdminClient#updateEntries} for more informaiton on the "streaming"
+     * {@link AdminClient#updateEntries} for more information on the "streaming"
      * mode.
      * 
      * @param donorNodeId Node <em>from</em> which the partitions are to be
@@ -1481,10 +1481,10 @@ public class AdminClient {
     }
 
     /**
-     * Returns the 'current' version of RO store
+     * Returns the 'current' versions of all RO stores provided
      * 
      * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
+     * @param storeNames List of all the RO stores
      * @return Returns a map of store name to the respective max version
      *         directory
      */

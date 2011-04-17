@@ -28,6 +28,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
+import voldemort.server.rebalance.RebalancePartitionsInfoLiveCycle;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
@@ -223,7 +224,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      */
     private RebalancePartitionsInfo getRebalancePartitionsInfo(List<Integer> partitionIds) {
         RebalancerState rebalancerState = metadata.getRebalancerState();
-        return rebalancerState.find(getName(), partitionIds);
+        RebalancePartitionsInfoLiveCycle find = rebalancerState.find(getName(), partitionIds);
+        return (find != null) ? find.getRebalancePartitionsInfo() : null;
     }
 
     /**

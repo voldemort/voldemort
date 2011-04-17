@@ -44,6 +44,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
+import voldemort.server.rebalance.RebalancePartitionsInfoLiveCycle;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
@@ -51,6 +52,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleStatus;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -411,7 +413,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                      encodeROStoreVersionDirMap(request.getDonorRoStoreToDirList()),
                                                                                      request.getAttempt());
 
-            int requestId = rebalancer.rebalanceLocalNode(rebalanceStealInfo);
+            RebalancePartitionsInfoLiveCycle rebalancePartitionsInfoLiveCycle = new RebalancePartitionsInfoLiveCycle(rebalanceStealInfo,
+                                                                                                                     RebalancePartitionsInfoLifeCycleStatus.NEW);
+
+            int requestId = rebalancer.rebalanceLocalNode(rebalancePartitionsInfoLiveCycle);
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
@@ -776,7 +781,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
             String storeName = request.getStore();
-            List<Integer> partitions = request.getPartitionsList();
+            final List<Integer> partitions = request.getPartitionsList();
             StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                       storeName);
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter(),
@@ -879,7 +884,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.DeleteStoreResponse handleDeleteStore(VAdminProto.DeleteStoreRequest request) {
         VAdminProto.DeleteStoreResponse.Builder response = VAdminProto.DeleteStoreResponse.newBuilder();
 
-        // don't try to delete a store when not in normal state
+        // don't try to delete a store in the middle of rebalancing
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
                                                      new VoldemortException("Voldemort server is not in normal state")));

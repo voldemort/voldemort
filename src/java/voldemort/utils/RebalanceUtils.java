@@ -19,9 +19,10 @@ package voldemort.utils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -44,12 +45,10 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
- * RebalanceUtils provide basic functionality for rebalancing. Some of these
- * functions are not utils function but are forced move here to allow more
- * granular unit testing.
- * 
+ * RebalanceUtils provide basic functionality for rebalancing.
  * 
  */
 public class RebalanceUtils {
@@ -59,6 +58,13 @@ public class RebalanceUtils {
     public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
                                                                                      ViewStorageConfiguration.TYPE_NAME);
 
+    /**
+     * Given a cluster and a node id checks if the node exists
+     * 
+     * @param cluster The cluster metadata to check in
+     * @param nodeId The node id to search for
+     * @return True if cluster contains the node id, else false
+     */
     public static boolean containsNode(Cluster cluster, int nodeId) {
         try {
             cluster.getNodeById(nodeId);
@@ -172,6 +178,14 @@ public class RebalanceUtils {
         }
     }
 
+    /**
+     * Concatenates the list of current nodes in the given cluster with the new
+     * nodes provided and returns an updated cluster metadata
+     * 
+     * @param currentCluster The current cluster metadata
+     * @param updatedNodeList The list of new nodes to be added
+     * @return New cluster metadata containing both the sets of nodes
+     */
     public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
         List<Node> newNodeList = new ArrayList<Node>(updatedNodeList);
         for(Node currentNode: currentCluster.getNodes()) {
@@ -180,9 +194,18 @@ public class RebalanceUtils {
         }
 
         Collections.sort(newNodeList);
-        return new Cluster(currentCluster.getName(), newNodeList);
+        return new Cluster(currentCluster.getName(),
+                           newNodeList,
+                           Lists.newArrayList(currentCluster.getZones()));
     }
 
+    /**
+     * Creates a replica of the node with the new partitions list
+     * 
+     * @param node The node whose replica we are creating
+     * @param partitionsList The new partitions list
+     * @return Replica of node with new partitions list
+     */
     public static Node updateNode(Node node, List<Integer> partitionsList) {
         return new Node(node.getId(),
                         node.getHost(),
@@ -193,11 +216,74 @@ public class RebalanceUtils {
                         partitionsList);
     }
 
+    /**
+     * Add a partition to the node provided
+     * 
+     * @param node The node to which we'll add the partition
+     * @param donatedPartition The partition to add
+     * @return The new node with the new partition
+     */
+    public static Node addPartitionToNode(final Node node, Integer donatedPartition) {
+        return addPartitionToNode(node, Sets.newHashSet(donatedPartition));
+    }
+
+    /**
+     * Remove a partition from the node provided
+     * 
+     * @param node The node from which we're removing the partition
+     * @param donatedPartition The partitions to remove
+     * @return The new node without the partition
+     */
+    public static Node removePartitionToNode(final Node node, Integer donatedPartition) {
+        return removePartitionToNode(node, Sets.newHashSet(donatedPartition));
+    }
+
+    /**
+     * Add the set of partitions to the node provided
+     * 
+     * @param node The node to which we'll add the partitions
+     * @param donatedPartitions The list of partitions to add
+     * @return The new node with the new partitions
+     */
+    public static Node addPartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
+        List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
+        deepCopy.addAll(donatedPartitions);
+        return RebalanceUtils.updateNode(node, deepCopy);
+    }
+
+    /**
+     * Remove the set of partitions from the node provided
+     * 
+     * @param node The node from which we're removing the partitions
+     * @param donatedPartitions The list of partitions to remove
+     * @return The new node without the partitions
+     */
+    public static Node removePartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
+        List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
+        deepCopy.removeAll(donatedPartitions);
+        return RebalanceUtils.updateNode(node, deepCopy);
+    }
+
+    /**
+     * Given the cluster metadata returns a mapping of partition to node
+     * 
+     * @param currentCluster Cluster metadata
+     * @return Map of partition id to node id
+     */
     public static Map<Integer, Integer> getCurrentPartitionMapping(Cluster currentCluster) {
-        Map<Integer, Integer> partitionToNode = new HashMap<Integer, Integer>();
+
+        Map<Integer, Integer> partitionToNode = new LinkedHashMap<Integer, Integer>();
 
         for(Node n: currentCluster.getNodes()) {
             for(Integer partition: n.getPartitionIds()) {
+                // Check if partition is on another node
+                Integer previousRegisteredNodeId = partitionToNode.get(partition);
+                if(previousRegisteredNodeId != null) {
+                    throw new IllegalArgumentException("Partition id " + partition
+                                                       + " found on two nodes : " + n.getId()
+                                                       + " and " + previousRegisteredNodeId);
+                }
+
                 partitionToNode.put(partition, n.getId());
             }
         }
@@ -212,9 +298,10 @@ public class RebalanceUtils {
      * Cluster is in inconsistent state with concurrent versions for cluster
      * metadata on any two nodes.<br>
      * 
-     * @param stealerId
-     * @param donorId
-     * @return
+     * @param requiredNodes List of nodes from which we definitely need an
+     *        answer
+     * @param adminClient Admin client used to query the nodes
+     * @return Returns the latest cluster metadata
      */
     public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
                                                       AdminClient adminClient) {
@@ -389,12 +476,32 @@ public class RebalanceUtils {
         return maxStore;
     }
 
+    /**
+     * Given a list of store definitions return a list of store names
+     * 
+     * @param storeDefList The list of store definitions
+     * @return Returns a list of store names
+     */
     public static List<String> getStoreNames(List<StoreDefinition> storeDefList) {
         List<String> storeList = new ArrayList<String>(storeDefList.size());
         for(StoreDefinition def: storeDefList) {
             storeList.add(def.getName());
         }
         return storeList;
+    }
+
+    /**
+     * Given a list of nodes, retrieves the list of node ids
+     * 
+     * @param nodes The list of nodes
+     * @return Returns a list of node ids
+     */
+    public static List<Integer> getNodeIds(List<Node> nodes) {
+        List<Integer> nodeIds = new ArrayList<Integer>(nodes.size());
+        for(Node node: nodes) {
+            nodeIds.add(node.getId());
+        }
+        return nodeIds;
     }
 
     /**

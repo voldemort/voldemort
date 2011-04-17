@@ -21,7 +21,8 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileWriter;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,6 +42,7 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortTestConstants;
 import voldemort.client.ClientConfig;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
@@ -79,16 +81,28 @@ public abstract class AbstractRebalanceTest {
     protected static int NUM_KEYS = 100;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRO = "test-ro";
-    protected static String storeDefFile = "test/common/voldemort/config/two-stores.xml";
+    protected static String storeDefFile;
     private List<StoreDefinition> storeDefs;
     protected SocketStoreFactory socketStoreFactory;
     HashMap<String, String> testEntries;
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         testEntries = ServerTestUtils.createRandomKeyValueString(NUM_KEYS);
         socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
-        storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storeDefFile));
+        storeDefs = new StoreDefinitionsMapper().readStoreList(new StringReader(VoldemortTestConstants.getTwoStoresDefinitionsXml()));
+
+        try {
+            String twoStoresDefinitionsXml = VoldemortTestConstants.getTwoStoresDefinitionsXml();
+            File file = File.createTempFile("two-stores-", ".xml");
+            FileWriter fw = new FileWriter(file);
+            fw.write(twoStoresDefinitionsXml);
+            fw.flush();
+            fw.close();
+            storeDefFile = file.getAbsolutePath();
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @After
@@ -172,8 +186,11 @@ public abstract class AbstractRebalanceTest {
 
         try {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
-            rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
-
+            try {
+                rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
             // check that all keys are partitions 2,3 are Indeeed deleted.
             // assign all partitions to node 0 by force ..
             rebalanceClient.getAdminClient()
