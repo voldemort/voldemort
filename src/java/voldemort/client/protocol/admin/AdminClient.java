@@ -50,7 +50,6 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
-import voldemort.client.protocol.pb.VAdminProto.UpdateGrandfatherMetadataRequest;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -1727,51 +1726,4 @@ public class AdminClient {
 
     }
 
-    /**
-     * Updates the grandfather metadata on the remote machine and returns the
-     * current
-     * 
-     * @param donorNodeId The node id on which to update the metadata
-     * @param plan The list of all migrating partitions
-     * @return Returns the current state of the server. If we get back a state
-     *         other than rebalancing it means we have a problem
-     */
-    public Versioned<String> updateGrandfatherMetadata(int donorNodeId,
-                                                       List<RebalancePartitionsInfo> plans) {
-        List<VAdminProto.InitiateRebalanceNodeRequest> rebalanceRequests = Lists.newArrayList();
-
-        for(RebalancePartitionsInfo plan: plans) {
-            rebalanceRequests.add(VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                          .setAttempt(plan.getAttempt())
-                                                                          .setDonorId(plan.getDonorId())
-                                                                          .setStealerId(plan.getStealerId())
-                                                                          .addAllPartitions(plan.getPartitionList())
-                                                                          .addAllUnbalancedStore(plan.getUnbalancedStoreList())
-                                                                          .addAllDeletePartitions(plan.getDeletePartitionsList())
-                                                                          .addAllStealMasterPartitions(plan.getStealMasterPartitions())
-                                                                          .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(plan.getStealerNodeROStoreToDir()))
-                                                                          .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(plan.getDonorNodeROStoreToDir()))
-                                                                          .build());
-        }
-
-        UpdateGrandfatherMetadataRequest metadataRequest = VAdminProto.UpdateGrandfatherMetadataRequest.newBuilder()
-                                                                                                       .addAllPlan(rebalanceRequests)
-                                                                                                       .build();
-        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                     .setType(VAdminProto.AdminRequestType.UPDATE_GRANDFATHER_METADATA)
-                                                                                     .setUpdateGrandfatherMetadata(metadataRequest)
-                                                                                     .build();
-
-        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = sendAndReceive(donorNodeId,
-                                                                                        request,
-                                                                                        VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder());
-
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        Versioned<byte[]> value = ProtoUtils.decodeVersioned(response.getVersion());
-        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"),
-                                     value.getVersion());
-    }
 }

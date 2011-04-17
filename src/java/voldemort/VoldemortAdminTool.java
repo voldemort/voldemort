@@ -147,7 +147,7 @@ public class VoldemortAdminTool {
         parser.accepts("set-metadata",
                        "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " ], possibly after grandfathering or partial rebalancing")
+                               + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -156,8 +156,7 @@ public class VoldemortAdminTool {
                                + MetadataStore.STORES_KEY + " ] - xml file location, [ "
                                + MetadataStore.SERVER_STATE_KEY + " ] - "
                                + MetadataStore.VoldemortState.NORMAL_SERVER + ","
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ","
-                               + MetadataStore.VoldemortState.GRANDFATHERING_SERVER)
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);

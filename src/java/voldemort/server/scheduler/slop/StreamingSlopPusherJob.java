@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+@SuppressWarnings("unchecked")
 public class StreamingSlopPusherJob implements Runnable {
 
     private final static Logger logger = Logger.getLogger(StreamingSlopPusherJob.class.getName());
@@ -61,6 +62,7 @@ public class StreamingSlopPusherJob implements Runnable {
     private final EventThrottler readThrottler;
     private AdminClient adminClient;
     private final Cluster cluster;
+
     private final List<Future> consumerResults;
     private final VoldemortConfig voldemortConfig;
     private final Map<Integer, Set<Integer>> zoneMapping;

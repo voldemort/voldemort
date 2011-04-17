@@ -64,7 +64,6 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.grandfather.GrandfatheringStore;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
@@ -369,19 +368,11 @@ public class StorageService extends AbstractService {
         Store<ByteArray, byte[], byte[]> store = engine;
 
         boolean isSlop = store.getName().compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
-        boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(!isMetadata)
-                if(voldemortConfig.isGrandfatherEnabled())
-                    store = new GrandfatheringStore(store,
-                                                    metadata,
-                                                    storeRepository,
-                                                    clientThreadPool);
-
             if(voldemortConfig.isRedirectRoutingEnabled())
                 store = new RedirectingStore(store,
                                              metadata,

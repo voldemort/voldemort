@@ -242,7 +242,7 @@ public class StoreSwapperTest extends TestCase {
             fail("Should throw a VoldemortException during pushing to node 0, 1");
         } catch(VoldemortException e) {}
 
-        // 4) Move one node into grandfathering state and try swapping
+        // 4) Move one node into rebalancing state and try swapping
         temporaryDir = createTempROFolder();
         // Current version now should be same afterwards as well
         Map<Integer, Long> versionToNode = Maps.newHashMap();
@@ -255,7 +255,7 @@ public class StoreSwapperTest extends TestCase {
         }
 
         servers[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                          MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+                                          MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         try {
             swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 4);

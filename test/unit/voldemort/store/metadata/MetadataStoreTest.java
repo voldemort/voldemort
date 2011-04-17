@@ -25,7 +25,6 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.rebalance.RebalancerState;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -43,8 +42,7 @@ public class MetadataStoreTest extends TestCase {
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
                                                    MetadataStore.REBALANCING_STEAL_INFO,
-                                                   MetadataStore.SERVER_STATE_KEY,
-                                                   MetadataStore.GRANDFATHERING_INFO);
+                                                   MetadataStore.SERVER_STATE_KEY);
 
     @Override
     public void setUp() throws Exception {
@@ -87,22 +85,6 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     new HashMap<String, String>(),
                                                                                                     new HashMap<String, String>(),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
-                                      "UTF-8");
-        } else if(MetadataStore.GRANDFATHERING_INFO.equals(keyString)) {
-            int size = (int) (Math.random() * 10);
-            List<Integer> partition = new ArrayList<Integer>();
-            for(int i = 0; i < size; i++) {
-                partition.add((int) Math.random() * 10);
-            }
-            return ByteUtils.getBytes(new GrandfatherState(Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                                                     (int) Math.random() * 5,
-                                                                                                     partition,
-                                                                                                     new ArrayList<Integer>(0),
-                                                                                                     new ArrayList<Integer>(0),
-                                                                                                     Arrays.asList("testStoreName"),
-                                                                                                     new HashMap<String, String>(),
-                                                                                                     new HashMap<String, String>(),
-                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
 

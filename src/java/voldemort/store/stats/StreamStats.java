@@ -1,8 +1,5 @@
 package voldemort.store.stats;
 
-import com.google.common.collect.ImmutableList;
-import voldemort.utils.Time;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,6 +8,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import voldemort.utils.Time;
+
+import com.google.common.collect.ImmutableList;
 
 public class StreamStats {
 
@@ -21,7 +22,7 @@ public class StreamStats {
     private final ConcurrentMap<Operation, RequestCounter> networkCounter;
     private final ConcurrentMap<Operation, RequestCounter> diskCounter;
 
-    public StreamStats () {
+    public StreamStats() {
         this.handles = Collections.synchronizedMap(new Cache(MAX_ENTRIES));
         this.handleIdGenerator = new AtomicLong(0L);
         this.networkCounter = new ConcurrentHashMap<Operation, RequestCounter>();
@@ -94,6 +95,9 @@ public class StreamStats {
     }
 
     private static class Cache extends LinkedHashMap<Long, Handle> {
+
+        private static final long serialVersionUID = 1L;
+
         private final int maxEntries;
 
         public Cache(int maxEntries) {
@@ -200,19 +204,12 @@ public class StreamStats {
 
         @Override
         public String toString() {
-            return "Handle{" +
-                   "id=" + id +
-                   ", operation=" + operation +
-                   ", startedMs=" + startedMs +
-                   ", partitionIds=" + partitionIds +
-                   ", entriesScanned=" + getEntriesScanned() +
-                   ", finished=" + finished +
-                   ", entriesPerSecond=" + getEntriesPerSecond() +
-                   ", timeDiskNs=" + getTimeDiskNs() +
-                   ", timeNetworkNs=" + getTimeNetworkNs() +
-                   ", percentDisk=" + getPercentDisk() +
-                   ", percentNetwork=" + getPercentNetwork() +
-                   '}';
+            return "Handle{" + "id=" + id + ", operation=" + operation + ", startedMs=" + startedMs
+                   + ", partitionIds=" + partitionIds + ", entriesScanned=" + getEntriesScanned()
+                   + ", finished=" + finished + ", entriesPerSecond=" + getEntriesPerSecond()
+                   + ", timeDiskNs=" + getTimeDiskNs() + ", timeNetworkNs=" + getTimeNetworkNs()
+                   + ", percentDisk=" + getPercentDisk() + ", percentNetwork="
+                   + getPercentNetwork() + '}';
         }
     }
 }

@@ -48,7 +48,6 @@ import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.configuration.ConfigurationStorageEngine;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -77,7 +76,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
-    public static final String GRANDFATHERING_INFO = "grandfathering.info.key";
 
     public static final Set<String> GOSSIP_KEYS = ImmutableSet.of(CLUSTER_KEY, STORES_KEY);
 
@@ -85,8 +83,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static final Set<String> OPTIONAL_KEYS = ImmutableSet.of(SERVER_STATE_KEY,
                                                                     NODE_ID_KEY,
-                                                                    REBALANCING_STEAL_INFO,
-                                                                    GRANDFATHERING_INFO);
+                                                                    REBALANCING_STEAL_INFO);
 
     public static final Set<Object> METADATA_KEYS = ImmutableSet.builder()
                                                                 .addAll(REQUIRED_KEYS)
@@ -98,8 +95,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static enum VoldemortState {
         NORMAL_SERVER,
-        REBALANCING_MASTER_SERVER,
-        GRANDFATHERING_SERVER
+        REBALANCING_MASTER_SERVER
     }
 
     public static enum StoreState {
@@ -349,10 +345,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
-    public GrandfatherState getGrandfatherState() {
-        return (GrandfatherState) metadataCache.get(GRANDFATHERING_INFO).getValue();
-    }
-
     public StoreState getStoreState(String storeName) {
         List<RebalancePartitionsInfo> plans = getRebalancerState().find(storeName);
         if(plans.isEmpty())
@@ -439,8 +431,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         // Initialize with default if not present
         initCache(REBALANCING_STEAL_INFO,
                   new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-        initCache(GRANDFATHERING_INFO,
-                  new GrandfatherState(new ArrayList<RebalancePartitionsInfo>()));
         initCache(SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER.toString());
 
         // set transient values
@@ -495,9 +485,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         } else if(REBALANCING_STEAL_INFO.equals(key)) {
             RebalancerState rebalancerState = (RebalancerState) value.getValue();
             valueStr = rebalancerState.toJsonString();
-        } else if(GRANDFATHERING_INFO.equals(key)) {
-            GrandfatherState grandfatherState = (GrandfatherState) value.getValue();
-            valueStr = grandfatherState.toJsonString();
         } else if(SERVER_STATE_KEY.equals(key) || NODE_ID_KEY.equals(key)) {
             valueStr = value.getValue().toString();
         } else {
@@ -535,13 +522,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
                 valueObject = RebalancerState.create(valueString);
             } else {
                 valueObject = new RebalancerState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
-            }
-        } else if(GRANDFATHERING_INFO.equals(key)) {
-            String valueString = value.getValue();
-            if(valueString.startsWith("[")) {
-                valueObject = GrandfatherState.create(valueString);
-            } else {
-                valueObject = new GrandfatherState(Arrays.asList(RebalancePartitionsInfo.create(valueString)));
             }
         } else {
             throw new VoldemortException("Unhandled key:'" + key

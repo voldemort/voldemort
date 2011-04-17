@@ -163,8 +163,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  storeDef.getRequiredReads(),
                                                                                                                                  timeoutMs,
                                                                                                                                  nonblockingStores,
-                                                                                                                                 null,
-                                                                                                                                 null,
                                                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                                                  Event.INSUFFICIENT_ZONES));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
@@ -310,8 +308,6 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                              storeDef.getRequiredReads(),
                                                                                                              timeoutMs,
                                                                                                              nonblockingStores,
-                                                                                                             null,
-                                                                                                             null,
                                                                                                              Event.INSUFFICIENT_SUCCESSES,
                                                                                                              Event.INSUFFICIENT_ZONES));
 

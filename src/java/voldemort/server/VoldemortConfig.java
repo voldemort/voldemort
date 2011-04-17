@@ -132,7 +132,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
-    private boolean enableGrandfather;
 
     private List<String> storageConfigurations;
 
@@ -279,7 +278,6 @@ public class VoldemortConfig implements Serializable {
         this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableGrandfather = props.getBoolean("enable.grandfather", true);
         this.enableRepair = props.getBoolean("enable.repair", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
@@ -1040,14 +1038,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableRepair(boolean enableRepair) {
         this.enableRepair = enableRepair;
-    }
-
-    public boolean isGrandfatherEnabled() {
-        return this.enableGrandfather;
-    }
-
-    public void setGrandfather(boolean enableGrandfather) {
-        this.enableGrandfather = enableGrandfather;
     }
 
     public boolean isVerboseLoggingEnabled() {

@@ -36,7 +36,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -51,7 +50,6 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -232,10 +230,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case UPDATE_SLOP_ENTRIES:
                 return handleUpdateSlopEntries(request.getUpdateSlopEntries());
-            case UPDATE_GRANDFATHER_METADATA:
-                ProtoUtils.writeMessage(outputStream,
-                                        handleUpdateGrandfatherMetadata(request.getUpdateGrandfatherMetadata()));
-                break;
             case FAILED_FETCH_STORE:
                 ProtoUtils.writeMessage(outputStream,
                                         handleFailedFetch(request.getFailedFetchStore()));
@@ -275,43 +269,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleFailedFetch failed for request(" + request.toString() + ")", e);
         }
-        return response.build();
-    }
-
-    private VAdminProto.UpdateGrandfatherMetadataResponse handleUpdateGrandfatherMetadata(VAdminProto.UpdateGrandfatherMetadataRequest request) {
-        List<RebalancePartitionsInfo> plans = Lists.newArrayList();
-
-        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder();
-        try {
-            for(InitiateRebalanceNodeRequest nodeRequest: request.getPlanList()) {
-                plans.add(new RebalancePartitionsInfo(nodeRequest.getStealerId(),
-                                                      nodeRequest.getDonorId(),
-                                                      nodeRequest.getPartitionsList(),
-                                                      nodeRequest.getDeletePartitionsList(),
-                                                      nodeRequest.getStealMasterPartitionsList(),
-                                                      nodeRequest.getUnbalancedStoreList(),
-                                                      encodeROStoreVersionDirMap(nodeRequest.getStealerRoStoreToDirList()),
-                                                      encodeROStoreVersionDirMap(nodeRequest.getDonorRoStoreToDirList()),
-                                                      nodeRequest.getAttempt()));
-            }
-
-            if(metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
-                // If normal, set the state + rebalancer state
-                metadataStore.put(MetadataStore.GRANDFATHERING_INFO, new GrandfatherState(plans));
-                metadataStore.put(MetadataStore.SERVER_STATE_KEY,
-                                  MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
-            } else {
-                throw new VoldemortException("Voldemort server was not in normal state");
-            }
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleUpdateGrandfatherMetadata failed for request(" + request.toString()
-                         + ")", e);
-        }
-
-        Versioned<byte[]> versioned = metadataStore.get(MetadataStore.SERVER_STATE_KEY, null)
-                                                   .get(0);
-        response.setVersion(ProtoUtils.encodeVersioned(versioned));
         return response.build();
     }
 
