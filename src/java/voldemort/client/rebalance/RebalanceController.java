@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +74,7 @@ public class RebalanceController {
      * Grabs the latest cluster definition and calls
      * {@link #rebalance(voldemort.cluster.Cluster, voldemort.cluster.Cluster)}
      * 
-     * @param targetCluster: target Cluster configuration
+     * @param targetCluster Target Cluster metadata
      */
     public void rebalance(final Cluster targetCluster) {
 
@@ -84,36 +83,16 @@ public class RebalanceController {
                                                                                                                                              .getNodes())),
                                                                                      adminClient);
         Cluster currentCluster = currentVersionedCluster.getValue();
-        validateClusterState(currentCluster);
+
+        // Start the rebalance with the current cluster + target cluster
         rebalance(currentCluster, targetCluster);
     }
 
     /**
-     * Check the execution state of the server by checking the
-     * {@link MetadataStore}. Rebalance logic requires that for any
-     * rebalancing-task to be executed it is first written into the metadata for
-     * tracking purposes. This is because in case of a server crash the
-     * information can be read back from the metadata store and resumed.
-     * 
-     * <br>
+     * Check the execution state of the server by checking the <br>
      * 
      * This function checks if the nodes are all in normal state (
      * {@link VoldemortState#NORMAL_SERVER}).
-     * 
-     * <br>
-     * All possible states are :
-     * <ol>
-     * 
-     * <li> {@link VoldemortState#NORMAL_SERVER} = Server in normal execution
-     * mode.
-     * 
-     * <li> {@link VoldemortState#REBALANCING_MASTER_SERVER} = Server in
-     * rebalance mode.
-     * 
-     * <li> {@link VoldemortState#GRANDFATHERING_SERVER} = Server in
-     * grandfathering mode.
-     * 
-     * </ol>
      * 
      * @param cluster Cluster metadata whose nodes we are checking
      * @throws VoldemortRebalancingException if any node is not in normal state
@@ -139,15 +118,14 @@ public class RebalanceController {
 
     /**
      * Voldemort dynamic cluster membership rebalancing mechanism. <br>
+     * 
      * Migrate partitions across nodes to manage changes in cluster membership. <br>
-     * Takes target cluster as parameter, fetches the current cluster
-     * configuration from the cluster, compares and makes a list of partitions
-     * that eed to be transferred.<br>
+     * 
      * The cluster is kept consistent during rebalancing using a proxy mechanism
      * via {@link RedirectingStore}
      * 
-     * @param currentCluster: current cluster configuration
-     * @param targetCluster: target cluster configuration
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata
      */
     public void rebalance(Cluster currentCluster, final Cluster targetCluster) {
         if(logger.isDebugEnabled()) {
@@ -155,15 +133,18 @@ public class RebalanceController {
             logger.debug("Target Cluster configuration:" + targetCluster);
         }
 
+        // Add all new nodes to current cluster
+        currentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster, targetCluster);
+
+        // Make admin client point to this updated current cluster
         adminClient.setAdminClientCluster(currentCluster);
+
+        // Now validate that all nodes are in normal state
+        validateClusterState(currentCluster);
 
         // Retrieve list of stores
         List<StoreDefinition> storesList = RebalanceUtils.getStoreNameList(currentCluster,
                                                                            adminClient);
-
-        // Add all new nodes to currentCluster
-        currentCluster = getClusterWithNewNodes(currentCluster, targetCluster);
-        adminClient.setAdminClientCluster(currentCluster);
 
         // Maintain nodeId to map of RO store name to current version dirs
         final Map<Integer, Map<String, String>> currentROStoreVersionsDirs = Maps.newHashMapWithExpectedSize(storesList.size());
@@ -195,13 +176,16 @@ public class RebalanceController {
 
     /**
      * Rebalance on a step-by-step transitions from cluster.xml to
-     * target-cluster.xml. Each transition represents the migration of one
-     * primary partition at the time with all its side effect meaning migration
-     * of replicas and deleting handling.
+     * target-cluster.xml
      * 
-     * @param currentCluster the cluster currently running on each node.
-     * @param targetCluster the desired cluster after rebalance.
-     * @param storesList stores to rebalance.
+     * <br>
+     * 
+     * Each transition represents the migration of one primary partition along
+     * with all its side effect ( i.e. migration of replicas + deletions )
+     * 
+     * @param currentCluster The cluster currently running on each node
+     * @param targetCluster The desired cluster after rebalance
+     * @param storesList Stores to rebalance
      * @param currentROStoreVersionsDirs
      * @param readOnlyStores
      */
@@ -214,9 +198,10 @@ public class RebalanceController {
         final Map<Node, Set<Integer>> stealerToStolenPrimaryPartitions = new HashMap<Node, Set<Integer>>();
 
         for(Node stealerNode: targetCluster.getNodes()) {
-            stealerToStolenPrimaryPartitions.put(stealerNode, getStolenPrimaries(currentCluster,
-                                                                                 targetCluster,
-                                                                                 stealerNode));
+            stealerToStolenPrimaryPartitions.put(stealerNode,
+                                                 RebalanceUtils.getStolenPrimaries(currentCluster,
+                                                                                   targetCluster,
+                                                                                   stealerNode));
         }
 
         for(Node stealerNode: targetCluster.getNodes()) {
@@ -226,18 +211,14 @@ public class RebalanceController {
             if(stolenPrimaryPartitions == null || stolenPrimaryPartitions.isEmpty())
                 continue;
 
-            // If the node has existing partitions then remove
-            // the stolen partition from the list because they are going to be
-            // added one by one.
-            Node stealerNodeUpdated = RebalanceUtils.removePartitionToNode(stealerNode,
-                                                                           stolenPrimaryPartitions);
+            Node stealerNodeUpdated = currentCluster.getNodeById(stealerNode.getId());
 
             // Provision stolen primary partitions one by one.
             // Creates a transition cluster for each added partition.
             for(Integer donatedPrimaryPartition: stolenPrimaryPartitions) {
-                Cluster targetTransition = createTransitionTargetCluster(currentCluster,
-                                                                         stealerNodeUpdated,
-                                                                         donatedPrimaryPartition);
+                Cluster targetTransition = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                               stealerNodeUpdated,
+                                                                               donatedPrimaryPartition);
                 stealerNodeUpdated = targetTransition.getNodeById(stealerNodeUpdated.getId());
 
                 final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
@@ -250,13 +231,11 @@ public class RebalanceController {
                                                                                                        targetTransition,
                                                                                                        rebalanceClusterPlan);
 
-                // Only shows the plan without doing rebalancing.
-                if(rebalanceConfig.isShowPlanEnabled()) {
-                    System.out.print(orderedClusterTransition);
-                    if(logger.isDebugEnabled()) {
-                        logger.debug(orderedClusterTransition);
-                    }
-                } else {
+                if(logger.isInfoEnabled()) {
+                    logger.info(orderedClusterTransition);
+                }
+
+                if(!rebalanceConfig.isShowPlanEnabled()) {
                     rebalance(orderedClusterTransition, currentROStoreVersionsDirs, readOnlyStores);
                 }
 
@@ -422,8 +401,8 @@ public class RebalanceController {
     }
 
     private List<Exception> addFailures(final List<Exception> failures,
-                                        final List<RebalanceTask> myRebalanceTaskList) {
-        for(RebalanceTask task: myRebalanceTaskList) {
+                                        final List<RebalanceTask> rebalanceTaskList) {
+        for(RebalanceTask task: rebalanceTaskList) {
             if(task.hasErrors()) {
                 failures.addAll(task.getExceptions());
             }
@@ -515,14 +494,14 @@ public class RebalanceController {
      * parameter rebalanceStealInfo and propagates it to all nodes.<br>
      * Revert all changes if failed to copy on required nodes (stealer and
      * donor).<br>
-     * Holds a lock untill the commit/revert finishes.
+     * Holds a lock until the commit/revert finishes.
      * 
      * @param stealerNode Node copy data from
      * @param rebalanceStealInfo Current rebalance sub task
      * @throws Exception If we are unable to propagate the cluster definition to
      *         donor and stealer
      */
-    void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
+    private void commitClusterChanges(Node stealerNode, RebalancePartitionsInfo rebalanceStealInfo)
             throws Exception {
         synchronized(adminClient) {
             Cluster currentCluster = adminClient.getAdminClientCluster();
@@ -566,93 +545,6 @@ public class RebalanceController {
 
             adminClient.setAdminClientCluster(updatedCluster);
         }
-    }
-
-    private Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
-        ArrayList<Node> newNodes = new ArrayList<Node>();
-        for(Node node: targetCluster.getNodes()) {
-            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
-                // add stealerNode with empty partitions list
-                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
-            }
-        }
-        return RebalanceUtils.updateCluster(currentCluster, newNodes);
-    }
-
-    /**
-     * For a particular stealer node find all the partitions it will steal
-     * 
-     * @param currentCluster The cluster definition of the existing cluster
-     * @param targetCluster The target cluster definition
-     * @param stealerNode The stealer node
-     * @return Returns a list of partitions which this stealer node will get
-     */
-    private Set<Integer> getStolenPrimaries(final Cluster currentCluster,
-                                            final Cluster targetCluster,
-                                            final Node stealerNode) {
-        int stealNodeId = stealerNode.getId();
-        List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
-                                                                       .getPartitionIds());
-
-        List<Integer> currentList = new ArrayList<Integer>();
-        if(RebalanceUtils.containsNode(currentCluster, stealNodeId))
-            currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
-
-        // remove all current partitions from targetList
-        targetList.removeAll(currentList);
-
-        return new TreeSet<Integer>(targetList);
-    }
-
-    /**
-     * Creates a new cluster by adding a donated partition to a new or existing
-     * node.
-     * 
-     * @param currentCluster current cluster used to copy from.
-     * @param stealerNode now or existing node being updated.
-     * @param donatedPartition partition donated to the <code>stealerNode</code>
-     * @return
-     */
-    private Cluster createTransitionTargetCluster(final Cluster currentCluster,
-                                                  Node stealerNode,
-                                                  final Integer donatedPartition) {
-        // Gets the donor Node that owns this donated partition
-        Node donorNode = getNodeByPartition(currentCluster, donatedPartition);
-
-        // Removes the node from the list,
-        final List<Node> nodes = new ArrayList<Node>(currentCluster.getNodes());
-        nodes.remove(donorNode);
-        nodes.remove(stealerNode);
-
-        // Update the list of partitions for this node
-        donorNode = RebalanceUtils.removePartitionToNode(donorNode, donatedPartition);
-        stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
-
-        // Add the updated nodes (donor and stealer).
-        nodes.add(donorNode);
-        nodes.add(stealerNode);
-
-        // After the stealer & donor were fixed recreate the cluster.
-        // Sort the nodes so they will appear in the same order all the time.
-        Collections.sort(nodes);
-        return new Cluster(currentCluster.getName(), nodes);
-    }
-
-    /**
-     * Returns the Node associated to the provided partition.
-     * 
-     * @param currentCluster
-     * @param donatedPartition
-     * @return Node that owns <code>donatedPartition</code>
-     */
-    private Node getNodeByPartition(Cluster currentCluster, Integer donatedPartition) {
-        Map<Integer, Node> partitionToNode = new HashMap<Integer, Node>();
-        for(Node node: currentCluster.getNodes()) {
-            for(Integer partition: node.getPartitionIds()) {
-                partitionToNode.put(partition, node);
-            }
-        }
-        return partitionToNode.get(donatedPartition);
     }
 
     /**
@@ -715,14 +607,14 @@ public class RebalanceController {
         public String toString() {
             if(printedContent == null) {
                 StringBuilder sb = new StringBuilder();
-                sb.append("Id:").append(getId()).append(NL);
-                sb.append("Cluster transition:").append(NL).append(getCurrentCluster()).append(NL);
-                sb.append("Target transition:").append(NL).append(getTargetCluster()).append(NL);
-                sb.append("Partition distribution:")
+                sb.append("Id : ").append(getId()).append(NL);
+                sb.append("Current cluster : ").append(getCurrentCluster()).append(NL);
+                sb.append("Target cluster : ").append(getTargetCluster()).append(NL);
+                sb.append("Partition distribution : ")
                   .append(NL)
                   .append(getRebalanceClusterPlan().printPartitionDistribution())
                   .append(NL);
-                sb.append("Ordered rebalance node plan:")
+                sb.append("Ordered rebalance node plan : ")
                   .append(NL)
                   .append(printRebalanceNodePlan(getOrderedRebalanceNodePlanList()))
                   .append(NL);

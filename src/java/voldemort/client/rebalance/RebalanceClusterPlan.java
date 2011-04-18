@@ -97,7 +97,10 @@ public class RebalanceClusterPlan {
         this.storeDefList = Collections.unmodifiableList(storeDefList);
 
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
-            throw new VoldemortException("Total number of partitions should not change !!");
+            throw new VoldemortException("Total number of partitions should be equal [ Current cluster ("
+                                         + currentCluster.getNumberOfPartitions()
+                                         + ") not equal to Target cluster ("
+                                         + targetCluster.getNumberOfPartitions() + ") ]");
 
         // Create only once the node-to-all-partitions relationship.
         // All-partitions mean primaries and replicas that this node is
@@ -789,9 +792,7 @@ public class RebalanceClusterPlan {
                 builder.append("\t\t getDeletePartitionsList(): "
                                + rebalancePartitionsInfo.getDeletePartitionsList()).append(NL);
                 builder.append("\t\t getUnbalancedStoreList(): "
-                               + rebalancePartitionsInfo.getUnbalancedStoreList())
-                       .append(NL)
-                       .append(NL);
+                               + rebalancePartitionsInfo.getUnbalancedStoreList()).append(NL);
             }
         }
 
@@ -803,7 +804,7 @@ public class RebalanceClusterPlan {
         sb.append("Current Cluster: ").append(NL).append(printMap(clusterNodeIdToAllPartitions,
                                                                   currentCluster)).append(NL);
         sb.append("Target Cluster: ").append(NL).append(printMap(targetNodeIdToAllPartitions,
-                                                                 targetCluster)).append(NL);
+                                                                 targetCluster));
         return sb.toString();
     }
 

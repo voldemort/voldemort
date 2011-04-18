@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -74,16 +75,14 @@ public class RebalanceUtils {
     }
 
     /**
-     * Update the cluster with desired changes as marked in rebalanceNodeInfo
-     * rebalanceNodeInfo.getFirst() is the stealerNode (destinationNode) <br>
-     * rebalanceNodeInfo.getSecond() is the rebalance steal info contatining
-     * donorId, partitionList<br>
-     * Creates a new cluster Object with above partition list changes.<br>
-     * Propagates the new cluster on all nodes
+     * Updates the existing cluster such that we remove partitions mentioned
+     * from the stealer node and add them to the donor node
      * 
-     * @param adminClient
-     * @param rebalanceNodeInfo
-     * @return
+     * @param cluster Existing cluster metadata
+     * @param stealerNode Node from which we are stealing the partitions
+     * @param donorNode Node to which we are donating
+     * @param partitionList List of partitions we are moving
+     * @return Updated cluster metadata
      */
     public static Cluster createUpdatedCluster(Cluster cluster,
                                                Node stealerNode,
@@ -97,36 +96,61 @@ public class RebalanceUtils {
                 stealerPartitionList.add(p);
         }
 
-        for(int p: partitionList) {
-            removePartition(donorPartitionList, p);
-            if(!stealerPartitionList.contains(p))
-                stealerPartitionList.add(p);
+        for(int partition: partitionList) {
+            for(int i = 0; i < donorPartitionList.size(); i++) {
+                if(partition == donorPartitionList.get(i)) {
+                    donorPartitionList.remove(i);
+                }
+            }
+            if(!stealerPartitionList.contains(partition))
+                stealerPartitionList.add(partition);
         }
 
         // sort both list
         Collections.sort(stealerPartitionList);
         Collections.sort(donorPartitionList);
 
-        logger.debug("stealerNode: " + stealerNode);
-        logger.debug("donorNode: " + donorNode);
-        logger.debug("stealerPartitionList: " + stealerPartitionList);
-        logger.debug("donorPartitionList: " + donorPartitionList);
-
         // update both nodes
         stealerNode = updateNode(stealerNode, stealerPartitionList);
         donorNode = updateNode(donorNode, donorPartitionList);
 
         Cluster updatedCluster = updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
-        logger.debug("currentCluster: " + cluster + " updatedCluster:" + updatedCluster);
         return updatedCluster;
     }
 
-    private static void removePartition(List<Integer> donorPartitionList, int partition) {
-        for(int i = 0; i < donorPartitionList.size(); i++) {
-            if(partition == donorPartitionList.get(i)) {
-                donorPartitionList.remove(i);
-            }
-        }
+    /**
+     * Creates a new cluster by adding a donated partition to a new or existing
+     * node.
+     * 
+     * @param currentCluster current cluster used to copy from.
+     * @param stealerNode now or existing node being updated.
+     * @param donatedPartition partition donated to the <code>stealerNode</code>
+     */
+    public static Cluster createUpdatedCluster(final Cluster currentCluster,
+                                               Node stealerNode,
+                                               final int donatedPartition) {
+        // Gets the donor Node that owns this donated partition
+        Node donorNode = RebalanceUtils.getNodeByPartitionId(currentCluster, donatedPartition);
+
+        // Removes the node from the list,
+        final List<Node> nodes = new ArrayList<Node>(currentCluster.getNodes());
+        nodes.remove(donorNode);
+        nodes.remove(stealerNode);
+
+        // Update the list of partitions for this node
+        donorNode = RebalanceUtils.removePartitionToNode(donorNode, donatedPartition);
+        stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
+
+        // Add the updated nodes (donor and stealer).
+        nodes.add(donorNode);
+        nodes.add(stealerNode);
+
+        // After the stealer & donor were fixed recreate the cluster.
+        // Sort the nodes so they will appear in the same order all the time.
+        Collections.sort(nodes);
+        return new Cluster(currentCluster.getName(),
+                           nodes,
+                           Lists.newArrayList(currentCluster.getZones()));
     }
 
     /**
@@ -373,6 +397,67 @@ public class RebalanceUtils {
         }
     }
 
+    /**
+     * Given the current cluster and a target cluster, generates a cluster with
+     * new nodes ( which in turn contain empty partition lists )
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata
+     * @return Returns a new cluster which contains nodes of the current cluster
+     *         + new nodes
+     */
+    public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
+        ArrayList<Node> newNodes = new ArrayList<Node>();
+        for(Node node: targetCluster.getNodes()) {
+            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
+                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
+            }
+        }
+        return RebalanceUtils.updateCluster(currentCluster, newNodes);
+    }
+
+    /**
+     * For a particular stealer node find all the "primary" partitions it will
+     * steal
+     * 
+     * @param currentCluster The cluster definition of the existing cluster
+     * @param targetCluster The target cluster definition
+     * @param stealerNode The stealer node
+     * @return Returns a list of partitions which this stealer node will get
+     */
+    public static Set<Integer> getStolenPrimaries(final Cluster currentCluster,
+                                                  final Cluster targetCluster,
+                                                  final Node stealerNode) {
+        int stealNodeId = stealerNode.getId();
+        List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
+                                                                       .getPartitionIds());
+
+        List<Integer> currentList = new ArrayList<Integer>();
+        if(RebalanceUtils.containsNode(currentCluster, stealNodeId))
+            currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
+
+        // remove all current partitions from targetList
+        targetList.removeAll(currentList);
+
+        return new TreeSet<Integer>(targetList);
+    }
+
+    /**
+     * Returns the Node associated to the provided partition.
+     * 
+     * @param cluster The cluster in which to find the node
+     * @param partitionId Partition id for which we want the corresponding node
+     * @return Node that owns the partition
+     */
+    public static Node getNodeByPartitionId(Cluster cluster, int partitionId) {
+        for(Node node: cluster.getNodes()) {
+            if(node.getPartitionIds().contains(partitionId)) {
+                return node;
+            }
+        }
+        return null;
+    }
+
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
                                                     Cluster cluster,
                                                     int numThreads,
@@ -453,24 +538,6 @@ public class RebalanceUtils {
             nodeIds.add(node.getId());
         }
         return nodeIds;
-    }
-
-    /**
-     * Returns the store definition from the list with the store name specified,
-     * else returns null
-     * 
-     * @param storeDefs The list of store definitions
-     * @param storeName The name of the store which is required
-     * @return The store definition else null
-     */
-    public static StoreDefinition getStore(List<StoreDefinition> storeDefs, String storeName) {
-
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().compareTo(storeName) == 0) {
-                return storeDef;
-            }
-        }
-        return null;
     }
 
     public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
