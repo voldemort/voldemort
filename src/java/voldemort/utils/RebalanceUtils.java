@@ -35,7 +35,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreDefinition;
 import voldemort.store.mysql.MysqlStorageConfiguration;
@@ -72,54 +71,6 @@ public class RebalanceUtils {
         } catch(VoldemortException e) {
             return false;
         }
-    }
-
-    /**
-     * Returns a list of unique store definitions given a list of store
-     * definitions, where unique is defined as having a different
-     * "replication-factor" and "routing strategy"
-     * 
-     * @param storeDefs List of store definitions
-     * @return Returns list of unique store definitions
-     */
-    public static List<StoreDefinition> getUniqueStoreDefinitions(List<StoreDefinition> storeDefs) {
-
-        List<StoreDefinition> uniqueStoreDefs = Lists.newArrayList();
-        for(StoreDefinition storeDef: storeDefs) {
-            if(uniqueStoreDefs.isEmpty()) {
-                uniqueStoreDefs.add(storeDef);
-            } else {
-                boolean unique = true;
-                for(StoreDefinition uniqueStoreDef: uniqueStoreDefs) {
-                    if(uniqueStoreDef.getReplicationFactor() == storeDef.getReplicationFactor()
-                       && uniqueStoreDef.getRoutingStrategyType()
-                                        .compareTo(storeDef.getRoutingStrategyType()) == 0) {
-                        unique = false;
-                        // Further check for the zone routing case
-                        if(uniqueStoreDef.getRoutingStrategyType()
-                                         .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
-                            boolean zonesSame = true;
-                            for(int zoneId: uniqueStoreDef.getZoneReplicationFactor().keySet()) {
-                                if(storeDef.getZoneReplicationFactor().get(zoneId) == null
-                                   || storeDef.getZoneReplicationFactor().get(zoneId) != uniqueStoreDef.getZoneReplicationFactor()
-                                                                                                       .get(zoneId)) {
-                                    zonesSame = false;
-                                    break;
-                                }
-                            }
-                            if(!zonesSame) {
-                                unique = true;
-                            }
-                        }
-                    }
-                }
-                if(unique) {
-                    uniqueStoreDefs.add(storeDef);
-                }
-            }
-        }
-
-        return uniqueStoreDefs;
     }
 
     /**
