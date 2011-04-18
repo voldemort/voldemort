@@ -23,7 +23,7 @@ import voldemort.server.VoldemortServer;
 /**
  * Start VoldemortServer locally using ServerTestUtils and run rebalancing
  * tests.
- *
+ * 
  * 
  */
 @RunWith(Parameterized.class)
@@ -39,6 +39,16 @@ public class RebalanceTest extends AbstractRebalanceTest {
     @Parameters
     public static Collection<Object[]> configs() {
         return Arrays.asList(new Object[][] { { false } });
+    }
+
+    @Override
+    protected Cluster getCurrentCluster(int nodeId) {
+        VoldemortServer server = serverMap.get(nodeId);
+        if(server == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            return server.getMetadataStore().getCluster();
+        }
     }
 
     @Override

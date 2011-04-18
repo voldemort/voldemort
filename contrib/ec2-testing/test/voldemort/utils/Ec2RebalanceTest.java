@@ -29,6 +29,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -72,6 +73,17 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     public static void ec2TearDown() throws Exception {
         if(hostNames != null)
             destroyInstances(hostNames, ec2RebalanceTestConfig);
+    }
+
+    @Override
+    protected Cluster getCurrentCluster(int nodeId) {
+        String hostName = nodeIdsInv.get(nodeId);
+        if(hostName == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            return adminClient.getAdminClientCluster();
+        }
     }
 
     @After
@@ -270,4 +282,5 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             return requireds;
         }
     }
+
 }

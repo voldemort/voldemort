@@ -140,6 +140,14 @@ public abstract class AbstractRebalanceTest {
                                               isRouted);
     }
 
+    protected abstract Cluster getCurrentCluster(int nodeId);
+
+    public void checkConsistentMetadata(Cluster targetCluster, List<Integer> serverList) {
+        for(int nodeId: serverList) {
+            assertEquals(targetCluster, getCurrentCluster(nodeId));
+        }
+    }
+
     @Test
     public void testSingleRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
@@ -159,6 +167,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
+            checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
             stopServer(serverList);
@@ -188,6 +197,7 @@ public abstract class AbstractRebalanceTest {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             try {
                 rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
+                checkConsistentMetadata(targetCluster, serverList);
             } catch(Exception e) {
                 e.printStackTrace();
             }
@@ -231,6 +241,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1));
+            checkConsistentMetadata(targetCluster, serverList);
 
             // check that all keys are partitions 2,3 are still present -
             // applicable only for Read-write
@@ -273,6 +284,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
+            checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
             stopServer(serverList);
@@ -301,6 +313,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(1, 2));
+            checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
             stopServer(serverList);
@@ -328,6 +341,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0, 1, 2), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(3));
+            checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
             stopServer(serverList);
@@ -355,6 +369,7 @@ public abstract class AbstractRebalanceTest {
         try {
             populateData(updatedCluster, Arrays.asList(0, 1), rebalanceClient.getAdminClient());
             rebalanceAndCheck(updatedCluster, targetCluster, rebalanceClient, Arrays.asList(3));
+            checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
             stopServer(serverList);
@@ -447,15 +462,13 @@ public abstract class AbstractRebalanceTest {
                 try {
 
                     Thread.sleep(500);
-
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
                                       Arrays.asList(1));
-
                     Thread.sleep(500);
-
                     rebalancingToken.set(true);
+                    checkConsistentMetadata(targetCluster, serverList);
 
                 } catch(Exception e) {
                     exceptions.add(e);
@@ -572,15 +585,13 @@ public abstract class AbstractRebalanceTest {
                 try {
 
                     Thread.sleep(500);
-
                     rebalanceAndCheck(updatedCluster,
                                       updateCluster(targetCluster),
                                       rebalanceClient,
                                       Arrays.asList(2, 3));
-
                     Thread.sleep(500);
-
                     rebalancingToken.set(true);
+                    checkConsistentMetadata(targetCluster, serverList);
 
                 } catch(Exception e) {
                     exceptions.add(e);
@@ -696,18 +707,15 @@ public abstract class AbstractRebalanceTest {
 
             public void run() {
                 try {
-
                     Thread.sleep(500);
-
                     rebalanceAndCheck(updatedCluster,
                                       targetCluster,
                                       rebalanceClient,
                                       Arrays.asList(1));
 
                     Thread.sleep(500);
-
                     rebalancingToken.set(true);
-
+                    checkConsistentMetadata(targetCluster, serverList);
                 } catch(Exception e) {
                     exceptions.add(e);
                 } finally {
