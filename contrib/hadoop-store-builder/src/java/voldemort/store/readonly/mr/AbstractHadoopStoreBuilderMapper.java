@@ -88,10 +88,6 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
             valBytes = valueCompressor.deflate(valBytes);
         }
 
-        // Generate partition and node list this key is destined for
-        List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
-        Node[] partitionToNode = routingStrategy.getPartitionToNode();
-
         // Get the output byte arrays ready to populate
         byte[] outputValue;
         BytesWritable outputKey;
@@ -142,22 +138,35 @@ public abstract class AbstractHadoopStoreBuilderMapper<K, V> extends
 
         }
 
-        int replicaType = 0;
-        for(Integer partition: partitionList) {
+        // Generate partition and node list this key is destined for
+        List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
+        Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
-            ByteUtils.writeInt(outputValue, partitionToNode[partition].getId(), 0);
-            ByteUtils.writeInt(outputValue, partition, ByteUtils.SIZE_OF_INT);
+        for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
+
+            // Node id
+            ByteUtils.writeInt(outputValue,
+                               partitionToNode[partitionList.get(replicaType)].getId(),
+                               0);
 
             if(getSaveKeys()) {
+                // Primary partition id
+                ByteUtils.writeInt(outputValue, partitionList.get(0), ByteUtils.SIZE_OF_INT);
+
+                // Replica type
                 ByteUtils.writeBytes(outputValue,
                                      replicaType,
                                      2 * ByteUtils.SIZE_OF_INT,
                                      ByteUtils.SIZE_OF_BYTE);
+            } else {
+                // Partition id
+                ByteUtils.writeInt(outputValue,
+                                   partitionList.get(replicaType),
+                                   ByteUtils.SIZE_OF_INT);
             }
             BytesWritable outputVal = new BytesWritable(outputValue);
 
             output.collect(outputKey, outputVal);
-            replicaType++;
 
         }
         md5er.reset();
