@@ -223,6 +223,20 @@ message GetROCurrentVersionDirResponse {
   optional Error error = 2;
 }
 
+message ROStorageFormatMap {
+  required string store_name = 1;
+  required string storage_format = 2;
+}
+ 
+message GetROStorageFormatRequest {
+  repeated string store_name = 1;
+}
+
+message GetROStorageFormatResponse {
+  repeated ROStorageFormatMap ro_storage_format = 1;
+  optional Error error = 2;
+}
+
 message SwapStoresAndCleanStateRequest {
   repeated ROStoreVersionDirMap ro_store_versions = 1;
 }
@@ -254,6 +268,7 @@ enum AdminRequestType {
   SWAP_STORES_AND_CLEAN_STATE = 19;
   UPDATE_SLOP_ENTRIES = 20;
   FAILED_FETCH_STORE = 22;
+  GET_RO_STORAGE_FORMAT = 23;
 }
 
 message VoldemortAdminRequest {
@@ -280,4 +295,5 @@ message VoldemortAdminRequest {
   optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
   optional UpdateSlopEntriesRequest update_slop_entries = 22;
   optional FailedFetchStoreRequest failed_fetch_store = 24;
+  optional GetROStorageFormatRequest get_ro_storage_format = 25;
 }

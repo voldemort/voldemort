@@ -19,11 +19,13 @@ package voldemort.utils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -36,10 +38,17 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
+import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.mysql.MysqlStorageConfiguration;
-import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -56,7 +65,135 @@ public class RebalanceUtils {
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
     public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                     ViewStorageConfiguration.TYPE_NAME);
+                                                                                     InMemoryStorageConfiguration.TYPE_NAME);
+
+    /**
+     * Get the latest cluster from all available nodes in the cluster<br>
+     * 
+     * Throws exception if:<br>
+     * A) Any node in the required nodes list fails to respond.<br>
+     * B) Cluster is in inconsistent state with concurrent versions for cluster
+     * metadata on any two nodes.<br>
+     * 
+     * @param requiredNodes List of nodes from which we definitely need an
+     *        answer
+     * @param adminClient Admin client used to query the nodes
+     * @return Returns the latest cluster metadata
+     */
+    public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
+                                                      AdminClient adminClient) {
+        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
+        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
+
+        clusterList.add(latestCluster);
+        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            try {
+                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
+                if(null != newClock && !clusterList.contains(versionedCluster)) {
+                    // check no two clocks are concurrent.
+                    checkNotConcurrent(clusterList, newClock);
+
+                    // add to clock list
+                    clusterList.add(versionedCluster);
+
+                    // update latestClock
+                    Occured occured = newClock.compare(latestCluster.getVersion());
+                    if(Occured.AFTER.equals(occured))
+                        latestCluster = versionedCluster;
+                }
+            } catch(Exception e) {
+                if(null != requiredNodes && requiredNodes.contains(node.getId()))
+                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
+                                                 e);
+                else
+                    logger.info("Failed to get Cluster version from node:" + node, e);
+            }
+        }
+
+        return latestCluster;
+    }
+
+    private static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
+                                           VectorClock newClock) {
+        for(Versioned<Cluster> versionedCluster: clockList) {
+            VectorClock clock = (VectorClock) versionedCluster.getVersion();
+            if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
+                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
+                                             + clock + " and " + newClock);
+
+        }
+    }
+
+    /**
+     * Check the execution state of the server by checking the state of
+     * {@link MetadataStore.VoldemortState} <br>
+     * 
+     * This function checks if the nodes are all in normal state (
+     * {@link VoldemortState#NORMAL_SERVER}).
+     * 
+     * @param cluster Cluster metadata whose nodes we are checking
+     * @param adminClient Admin client used to query
+     * @throws VoldemortRebalancingException if any node is not in normal state
+     */
+    public static void validateClusterState(final Cluster cluster, final AdminClient adminClient) {
+        for(Node node: cluster.getNodes()) {
+            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(),
+                                                                        MetadataStore.SERVER_STATE_KEY);
+
+            if(!VoldemortState.NORMAL_SERVER.name().equals(versioned.getValue())) {
+                throw new VoldemortRebalancingException("Cannot rebalance since node "
+                                                        + node.getId() + " (" + node.getHost()
+                                                        + ") is not in normal state, but in "
+                                                        + versioned.getValue());
+            } else {
+                if(logger.isInfoEnabled()) {
+                    logger.info("Node " + node.getId() + " (" + node.getHost()
+                                + ") is ready for rebalance.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Given the current cluster and a target cluster, generates a cluster with
+     * new nodes ( which in turn contain empty partition lists )
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata
+     * @return Returns a new cluster which contains nodes of the current cluster
+     *         + new nodes
+     */
+    public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
+        ArrayList<Node> newNodes = new ArrayList<Node>();
+        for(Node node: targetCluster.getNodes()) {
+            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
+                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
+            }
+        }
+        return RebalanceUtils.updateCluster(currentCluster, newNodes);
+    }
+
+    /**
+     * Concatenates the list of current nodes in the given cluster with the new
+     * nodes provided and returns an updated cluster metadata
+     * 
+     * @param currentCluster The current cluster metadata
+     * @param updatedNodeList The list of new nodes to be added
+     * @return New cluster metadata containing both the sets of nodes
+     */
+    public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
+        List<Node> newNodeList = new ArrayList<Node>(updatedNodeList);
+        for(Node currentNode: currentCluster.getNodes()) {
+            if(!updatedNodeList.contains(currentNode))
+                newNodeList.add(currentNode);
+        }
+
+        Collections.sort(newNodeList);
+        return new Cluster(currentCluster.getName(),
+                           newNodeList,
+                           Lists.newArrayList(currentCluster.getZones()));
+    }
 
     /**
      * Given a cluster and a node id checks if the node exists
@@ -154,27 +291,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * Concatenates the list of current nodes in the given cluster with the new
-     * nodes provided and returns an updated cluster metadata
-     * 
-     * @param currentCluster The current cluster metadata
-     * @param updatedNodeList The list of new nodes to be added
-     * @return New cluster metadata containing both the sets of nodes
-     */
-    public static Cluster updateCluster(Cluster currentCluster, List<Node> updatedNodeList) {
-        List<Node> newNodeList = new ArrayList<Node>(updatedNodeList);
-        for(Node currentNode: currentCluster.getNodes()) {
-            if(!updatedNodeList.contains(currentNode))
-                newNodeList.add(currentNode);
-        }
-
-        Collections.sort(newNodeList);
-        return new Cluster(currentCluster.getName(),
-                           newNodeList,
-                           Lists.newArrayList(currentCluster.getZones()));
-    }
-
-    /**
      * Creates a replica of the node with the new partitions list
      * 
      * @param node The node whose replica we are creating
@@ -249,78 +365,21 @@ public class RebalanceUtils {
 
         Map<Integer, Integer> partitionToNode = new LinkedHashMap<Integer, Integer>();
 
-        for(Node n: currentCluster.getNodes()) {
-            for(Integer partition: n.getPartitionIds()) {
+        for(Node node: currentCluster.getNodes()) {
+            for(Integer partition: node.getPartitionIds()) {
                 // Check if partition is on another node
                 Integer previousRegisteredNodeId = partitionToNode.get(partition);
                 if(previousRegisteredNodeId != null) {
                     throw new IllegalArgumentException("Partition id " + partition
-                                                       + " found on two nodes : " + n.getId()
+                                                       + " found on two nodes : " + node.getId()
                                                        + " and " + previousRegisteredNodeId);
                 }
 
-                partitionToNode.put(partition, n.getId());
+                partitionToNode.put(partition, node.getId());
             }
         }
 
         return partitionToNode;
-    }
-
-    /**
-     * Get the latest cluster from all available nodes in the cluster<br>
-     * Throws exception if:<br>
-     * any node in the RequiredNode list fails to respond.<br>
-     * Cluster is in inconsistent state with concurrent versions for cluster
-     * metadata on any two nodes.<br>
-     * 
-     * @param requiredNodes List of nodes from which we definitely need an
-     *        answer
-     * @param adminClient Admin client used to query the nodes
-     * @return Returns the latest cluster metadata
-     */
-    public static Versioned<Cluster> getLatestCluster(List<Integer> requiredNodes,
-                                                      AdminClient adminClient) {
-        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
-        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
-
-        clusterList.add(latestCluster);
-        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-            try {
-                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
-                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
-                if(null != newClock && !clusterList.contains(versionedCluster)) {
-                    // check no two clocks are concurrent.
-                    checkNotConcurrent(clusterList, newClock);
-
-                    // add to clock list
-                    clusterList.add(versionedCluster);
-
-                    // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
-                        latestCluster = versionedCluster;
-                }
-            } catch(Exception e) {
-                if(null != requiredNodes && requiredNodes.contains(node.getId()))
-                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
-                                                 e);
-                else
-                    logger.info("Failed to get Cluster version from node:" + node, e);
-            }
-        }
-
-        return latestCluster;
-    }
-
-    public static void checkNotConcurrent(ArrayList<Versioned<Cluster>> clockList,
-                                          VectorClock newClock) {
-        for(Versioned<Cluster> versionedCluster: clockList) {
-            VectorClock clock = (VectorClock) versionedCluster.getVersion();
-            if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
-                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
-                                             + clock + " and " + newClock);
-
-        }
     }
 
     /**
@@ -398,37 +457,17 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given the current cluster and a target cluster, generates a cluster with
-     * new nodes ( which in turn contain empty partition lists )
-     * 
-     * @param currentCluster Current cluster metadata
-     * @param targetCluster Target cluster metadata
-     * @return Returns a new cluster which contains nodes of the current cluster
-     *         + new nodes
-     */
-    public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
-        ArrayList<Node> newNodes = new ArrayList<Node>();
-        for(Node node: targetCluster.getNodes()) {
-            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
-                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
-            }
-        }
-        return RebalanceUtils.updateCluster(currentCluster, newNodes);
-    }
-
-    /**
      * For a particular stealer node find all the "primary" partitions it will
      * steal
      * 
      * @param currentCluster The cluster definition of the existing cluster
      * @param targetCluster The target cluster definition
-     * @param stealerNode The stealer node
+     * @param stealNodeId Node id of the stealer node
      * @return Returns a list of partitions which this stealer node will get
      */
     public static Set<Integer> getStolenPrimaries(final Cluster currentCluster,
                                                   final Cluster targetCluster,
-                                                  final Node stealerNode) {
-        int stealNodeId = stealerNode.getId();
+                                                  final int stealNodeId) {
         List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
                                                                        .getPartitionIds());
 
@@ -440,6 +479,95 @@ public class RebalanceUtils {
         targetList.removeAll(currentList);
 
         return new TreeSet<Integer>(targetList);
+    }
+
+    /**
+     * For a particular stealer node find all the replica partitions it will
+     * steal.
+     * 
+     * <br>
+     * 
+     * If the stealer node has a primary that was given away and later on this
+     * partition became a replica then this replica is not going to be
+     * considered one that needs to be migrated due to the fact that it's
+     * already on the stealer node.
+     * 
+     * @param cluster Current cluster metadata
+     * @param target Target cluster metadata
+     * @param storeDefs List of store definitions
+     * @param stealerId Stealer node id
+     * @return Set of partition ids representing the replicas about to be
+     *         stolen.
+     */
+    public static Set<Integer> getStolenReplicas(final Cluster cluster,
+                                                 final Cluster target,
+                                                 final List<StoreDefinition> storeDefs,
+                                                 final int stealerId) {
+        Map<Integer, Set<Integer>> nodeIdToReplicas = getNodeIdToAllPartitions(cluster,
+                                                                               storeDefs,
+                                                                               false);
+        Map<Integer, Set<Integer>> targetNodeIdToReplicas = getNodeIdToAllPartitions(target,
+                                                                                     storeDefs,
+                                                                                     false);
+
+        Set<Integer> clusterStealerReplicas = nodeIdToReplicas.get(stealerId);
+        Set<Integer> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
+
+        Set<Integer> replicasAddedInTarget = RebalanceUtils.getAddedInTarget(clusterStealerReplicas,
+                                                                             targetStealerReplicas);
+
+        if(RebalanceUtils.containsNode(cluster, stealerId)) {
+            replicasAddedInTarget.removeAll(cluster.getNodeById(stealerId).getPartitionIds());
+        }
+        return replicasAddedInTarget;
+    }
+
+    /**
+     * For a particular cluster creates a mapping of node id to their
+     * corresponding list of primary and replica partitions
+     * 
+     * @param cluster The cluster metadata
+     * @param storeDefs The store definitions
+     * @param includePrimary Include the primary partition?
+     * @return Map of node id to set of "all" partitions
+     */
+    public static Map<Integer, Set<Integer>> getNodeIdToAllPartitions(final Cluster cluster,
+                                                                      final List<StoreDefinition> storeDefs,
+                                                                      boolean includePrimary) {
+        final StoreDefinition maxReplicationStore = RebalanceUtils.getMaxReplicationStore(storeDefs);
+        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(maxReplicationStore,
+                                                                                                   cluster);
+
+        final Map<Integer, Set<Integer>> nodeIdToReplicas = new HashMap<Integer, Set<Integer>>();
+        final Map<Integer, Integer> partitionToNodeIdMap = getCurrentPartitionMapping(cluster);
+
+        // Map initialization.
+        for(Node node: cluster.getNodes()) {
+            nodeIdToReplicas.put(node.getId(), new TreeSet<Integer>());
+        }
+
+        // Loops through all nodes
+        for(Node node: cluster.getNodes()) {
+
+            // Gets the partitions that this node was configured with.
+            for(Integer primary: node.getPartitionIds()) {
+
+                // Gets the list of replicating partitions.
+                List<Integer> replicaPartitionList = routingStrategy.getReplicatingPartitionList(primary);
+
+                if(!includePrimary)
+                    replicaPartitionList.remove(primary);
+
+                // Get the node that this replicating partition belongs to.
+                for(Integer replicaPartition: replicaPartitionList) {
+                    Integer replicaNodeId = partitionToNodeIdMap.get(replicaPartition);
+
+                    // The replicating node will have a copy of primary.
+                    nodeIdToReplicas.get(replicaNodeId).add(primary);
+                }
+            }
+        }
+        return nodeIdToReplicas;
     }
 
     /**
@@ -458,6 +586,82 @@ public class RebalanceUtils {
         return null;
     }
 
+    /**
+     * Returns a set of partitions that were added to the target list
+     * 
+     * getAddedInTarget(cluster, null) - nothing was added, returns null.
+     * 
+     * <br>
+     * 
+     * getAddedInTarget(null, target) - everything in target was added, return
+     * target.
+     * 
+     * <br>
+     * 
+     * getAddedInTarget(null, null) - neither added nor deleted, return null.
+     * 
+     * <br>
+     * 
+     * getAddedInTarget(cluster, target)) - returns new partition not found in
+     * cluster.
+     * 
+     * @param current Set of partitions present in current cluster for a given
+     *        node.
+     * @param target Set of partitions present in target cluster for a given
+     *        node.
+     * @return A set of added partitions in target cluster or empty set
+     */
+    public static Set<Integer> getAddedInTarget(Set<Integer> current, Set<Integer> target) {
+        if(current == null || target == null) {
+            return new TreeSet<Integer>();
+        }
+        return getDiff(target, current);
+    }
+
+    /**
+     * Returns a set of partitions that were deleted in the target set
+     * 
+     * getDeletedInTarget(cluster, null) - everything was deleted, returns
+     * cluster.
+     * 
+     * <br>
+     * 
+     * getDeletedInTarget(null, target) - everything in target was added, return
+     * target.
+     * 
+     * <br>
+     * 
+     * getDeletedInTarget(null, null) - neither added nor deleted, return null.
+     * 
+     * <br>
+     * 
+     * getDeletedInTarget(cluster, target)) - returns deleted partition not
+     * found in target.
+     * 
+     * @param current Set of partitions present in current cluster for a given
+     *        node.
+     * @param target Set of partitions present in target cluster for a given
+     *        node.
+     * @return A set of deleted partitions in Target cluster or empty set
+     */
+    public static Set<Integer> getDeletedInTarget(final Set<Integer> current,
+                                                  final Set<Integer> target) {
+        if(current == null || target == null) {
+            return new TreeSet<Integer>();
+        }
+        return getDiff(current, target);
+    }
+
+    private static Set<Integer> getDiff(final Set<Integer> source, final Set<Integer> dest) {
+        Set<Integer> diff = new TreeSet<Integer>();
+        for(Integer id: source) {
+            if(!dest.contains(id)) {
+                diff.add(id);
+            }
+        }
+        return diff;
+    }
+
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
                                                     Cluster cluster,
                                                     int numThreads,
@@ -471,21 +675,50 @@ public class RebalanceUtils {
         return new AdminClient(cluster, config);
     }
 
-    public static List<StoreDefinition> getStoreNameList(Cluster cluster, AdminClient adminClient) {
+    /**
+     * Given the cluster metadata and admin client, retrieves the list of store
+     * definitions.
+     * 
+     * <br>
+     * 
+     * It also checks if the store definitions are consistent across the cluster
+     * 
+     * @param cluster The cluster metadata
+     * @param adminClient The admin client to use to retrieve the store
+     *        definitions
+     * @return List of store definitions
+     */
+    public static List<StoreDefinition> getStoreDefinition(Cluster cluster, AdminClient adminClient) {
+        List<StoreDefinition> storeDefs = null;
         for(Node node: cluster.getNodes()) {
-            try {
-                List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
-                                                                .getValue();
-                return getWritableStores(storeDefList);
-            } catch(VoldemortException e) {
-                logger.warn(e);
+            List<StoreDefinition> storeDefList = getWritableStores(adminClient.getRemoteStoreDefList(node.getId())
+                                                                              .getValue());
+            if(storeDefs == null) {
+                storeDefs = storeDefList;
+            } else {
+
+                // Compare against the previous store definitions
+                if(!Utils.compareList(storeDefs, storeDefList)) {
+                    throw new VoldemortException("Store definitions on node " + node.getId()
+                                                 + " does not match those on other nodes");
+                }
             }
         }
 
-        throw new VoldemortException("Unable to get StoreDefList from any node for cluster:"
-                                     + cluster);
+        if(storeDefs == null) {
+            throw new VoldemortException("Could not retrieve list of store definitions correctly");
+        } else {
+            return storeDefs;
+        }
     }
 
+    /**
+     * Given a list of store definitions returns the store definitions which the
+     * rebalancing code currently supports
+     * 
+     * @param storeDefList List of store definitions
+     * @return Filtered list of store definitions which rebalancing supports
+     */
     public static List<StoreDefinition> getWritableStores(List<StoreDefinition> storeDefList) {
         List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
 
@@ -493,12 +726,19 @@ public class RebalanceUtils {
             if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getType())) {
                 storeNameList.add(def);
             } else {
-                logger.debug("ignoring store " + def.getName() + " for rebalancing");
+                logger.debug("Ignoring store " + def.getName() + " for Rebalancing");
             }
         }
         return storeNameList;
     }
 
+    /**
+     * Given a list of store definitions, returns the store definition with the
+     * max replication factor
+     * 
+     * @param storeDefList List of store definitions
+     * @return The store definition with the max replication factor
+     */
     public static StoreDefinition getMaxReplicationStore(List<StoreDefinition> storeDefList) {
         int maxReplication = 0;
         StoreDefinition maxStore = null;
@@ -510,6 +750,65 @@ public class RebalanceUtils {
         }
 
         return maxStore;
+    }
+
+    /**
+     * Given a list of store definitions, cluster and admin client returns a
+     * boolean indicating if all RO stores are in the correct format.
+     * 
+     * <br>
+     * 
+     * This function also takes into consideration nodes which are being
+     * bootstrapped for the first time, in which case we can safely ignore
+     * checking them
+     * 
+     * @param cluster Cluster metadata
+     * @param storeDefs Complete list of store definitions
+     * @param adminClient Admin client
+     */
+    public static void validateReadOnlyStores(Cluster cluster,
+                                              List<StoreDefinition> storeDefs,
+                                              AdminClient adminClient) {
+        List<StoreDefinition> readOnlyStores = getReadOnlyStores(storeDefs);
+
+        if(readOnlyStores.size() == 0) {
+            // No read-only stores
+            return;
+        }
+
+        List<String> storeNames = RebalanceUtils.getStoreNames(readOnlyStores);
+        for(Node node: cluster.getNodes()) {
+            if(node.getNumberOfPartitions() != 0) {
+                for(Entry<String, String> storeToStorageFormat: adminClient.getROStorageFormat(node.getId(),
+                                                                                               storeNames)
+                                                                           .entrySet()) {
+                    if(storeToStorageFormat.getValue()
+                                           .compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
+                        throw new VoldemortRebalancingException("Cannot rebalance since node "
+                                                                + node.getId() + " has store "
+                                                                + storeToStorageFormat.getKey()
+                                                                + " not using format "
+                                                                + ReadOnlyStorageFormat.READONLY_V2);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Given a list of store definitions returns the read-only stores only
+     * 
+     * @param storeDefs Complete list of store definitions
+     * @return List of read-only store definitions
+     */
+    public static List<StoreDefinition> getReadOnlyStores(List<StoreDefinition> storeDefs) {
+        List<StoreDefinition> readOnlyStores = Lists.newArrayList();
+        for(StoreDefinition storeDef: storeDefs) {
+            if(storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
+                readOnlyStores.add(storeDef);
+            }
+        }
+        return readOnlyStores;
     }
 
     /**

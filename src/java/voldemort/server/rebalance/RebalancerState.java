@@ -29,6 +29,7 @@ import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleStatus;
+import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 
@@ -39,7 +40,6 @@ import com.google.common.collect.Lists;
  */
 public class RebalancerState {
 
-    private final static String NL = System.getProperty("line.separator");
     private final ConcurrentMap<Integer, RebalancePartitionsInfoLiveCycle> stealInfoMap;
 
     /**
@@ -186,10 +186,10 @@ public class RebalancerState {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("RebalancerState(operations: ");
-        sb.append(NL);
+        sb.append(Utils.NEWLINE);
         for(RebalancePartitionsInfoLiveCycle info: getAll()) {
             sb.append(info);
-            sb.append(NL);
+            sb.append(Utils.NEWLINE);
         }
         sb.append(")");
 

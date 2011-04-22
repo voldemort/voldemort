@@ -236,11 +236,40 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleFailedFetch(request.getFailedFetchStore()));
                 break;
+            case GET_RO_STORAGE_FORMAT:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleGetROStorageFormat(request.getGetRoStorageFormat()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.GetROStorageFormatResponse handleGetROStorageFormat(VAdminProto.GetROStorageFormatRequest request) {
+        final List<String> storeNames = request.getStoreNameList();
+        VAdminProto.GetROStorageFormatResponse.Builder response = VAdminProto.GetROStorageFormatResponse.newBuilder();
+
+        try {
+            for(String storeName: storeNames) {
+
+                ReadOnlyStorageEngine store = getReadOnlyStorageEngine(metadataStore,
+                                                                       storeRepository,
+                                                                       storeName);
+                VAdminProto.ROStorageFormatMap storeResponse = VAdminProto.ROStorageFormatMap.newBuilder()
+                                                                                             .setStoreName(storeName)
+                                                                                             .setStorageFormat(store.getReadOnlyStorageFormat()
+                                                                                                                    .getCode())
+                                                                                             .build();
+                response.addRoStorageFormat(storeResponse);
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleGetROCurrentVersion failed for request(" + request.toString() + ")",
+                         e);
+        }
+        return response.build();
     }
 
     private VAdminProto.FailedFetchStoreResponse handleFailedFetch(VAdminProto.FailedFetchStoreRequest request) {

@@ -23,11 +23,11 @@ import voldemort.utils.Props;
 
 public class RebalanceClientConfig extends AdminClientConfig {
 
-    public final static int MAX_PARALLEL_DONOR = 1;
     public final static int MAX_PARALLEL_REBALANCING = 1;
+    public final static int MAX_TRIES = 2;
 
-    private int maxParallelDonors = MAX_PARALLEL_DONOR;
     private int maxParallelRebalancing = MAX_PARALLEL_REBALANCING;
+    private int maxTriesRebalancing = MAX_TRIES;
     private int rebalancingClientTimeoutSeconds = 7 * 24 * 60 * 60;
     private boolean deleteAfterRebalancingEnabled;
     private boolean enabledShowPlan;
@@ -35,14 +35,11 @@ public class RebalanceClientConfig extends AdminClientConfig {
     public static final String MaxParallelRebalancingString = "max.parallel.rebalancing";
     public static final String RebalancingClientTimeoutSeconds = "rebalancing.client.timeout.seconds";
     public static final String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
-    public static final String MaxParallelDonorsString = "max.parallel.donors";
+    public static final String MaxTriesRebalancingString = "max.tries.rebalancing";
 
     public RebalanceClientConfig(Properties properties) {
         super(properties);
         Props props = new Props(properties);
-
-        if(props.containsKey(MaxParallelDonorsString))
-            this.setMaxParallelDonors(props.getInt(MaxParallelDonorsString));
 
         if(props.containsKey(MaxParallelRebalancingString))
             this.setMaxParallelRebalancing(props.getInt(MaxParallelRebalancingString));
@@ -53,18 +50,13 @@ public class RebalanceClientConfig extends AdminClientConfig {
         if(props.containsKey(EnableDeleteAfterRebalancing))
             this.setDeleteAfterRebalancingEnabled(props.getBoolean(EnableDeleteAfterRebalancing));
 
+        if(props.containsKey(MaxTriesRebalancingString))
+            this.setMaxTriesRebalancing(props.getInt(MaxTriesRebalancingString));
+
     }
 
     public RebalanceClientConfig() {
         this(new Properties());
-    }
-
-    public void setMaxParallelDonors(int maxParallelDonors) {
-        this.maxParallelDonors = maxParallelDonors;
-    }
-
-    public int getMaxParallelDonors() {
-        return maxParallelDonors;
     }
 
     public void setMaxParallelRebalancing(int maxParallelRebalancing) {
@@ -73,6 +65,14 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
     public int getMaxParallelRebalancing() {
         return maxParallelRebalancing;
+    }
+
+    public void setMaxTriesRebalancing(int maxTriesRebalancing) {
+        this.maxTriesRebalancing = maxTriesRebalancing;
+    }
+
+    public int getMaxTriesRebalancing() {
+        return maxTriesRebalancing;
     }
 
     public void setRebalancingClientTimeoutSeconds(int rebalancingTimeoutSeconds) {

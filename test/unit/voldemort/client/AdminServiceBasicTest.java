@@ -557,6 +557,18 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testGetROStorageFormat() {
+        Map<String, String> storesToStorageFormat = getAdminClient().getROStorageFormat(0,
+                                                                                        Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                                           "test-readonly-versions"));
+        assertEquals(storesToStorageFormat.size(), 2);
+        assertEquals(storesToStorageFormat.get("test-readonly-fetchfiles"),
+                     ReadOnlyStorageFormat.READONLY_V0.getCode());
+        assertEquals(storesToStorageFormat.get("test-readonly-versions"),
+                     ReadOnlyStorageFormat.READONLY_V0.getCode());
+    }
+
+    @Test
     public void testGetROVersions() throws IOException {
 
         // Tests get current version
@@ -774,8 +786,6 @@ public class AdminServiceBasicTest extends TestCase {
                                                                         rebalancePartitionList,
                                                                         rebalancePartitionList,
                                                                         Arrays.asList(testStoreName),
-                                                                        new HashMap<String, String>(),
-                                                                        new HashMap<String, String>(),
                                                                         0);
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);

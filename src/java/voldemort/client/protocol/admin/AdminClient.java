@@ -49,6 +49,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VAdminProto.ROStorageFormatMap;
 import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -63,6 +64,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
@@ -1446,6 +1448,38 @@ public class AdminClient {
     }
 
     /**
+     * Returns the read-only storage format - {@link ReadOnlyStorageFormat} for
+     * a list of stores
+     * 
+     * @param nodeId The id of the node on which the stores are present
+     * @param storeNames List of all the store names
+     * @param Returns a map of store name to its corresponding RO storage format
+     */
+    public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROStorageFormatRequest.Builder getROStorageFormatRequest = VAdminProto.GetROStorageFormatRequest.newBuilder()
+                                                                                                                       .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoStorageFormat(getROStorageFormatRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_STORAGE_FORMAT)
+                                                                                          .build();
+        VAdminProto.GetROStorageFormatResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROStorageFormatResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        // generate map of store-name to version format
+        Map<String, String> storageFormatMap = encodeROStorageFormatMap(response.getRoStorageFormatList());
+
+        if(storageFormatMap.size() != storeNames.size()) {
+            storeNames.removeAll(storageFormatMap.keySet());
+            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
+        }
+        return storageFormatMap;
+    }
+
+    /**
      * Returns the max version of push currently being used by read-only store.
      * Important to remember that this may not be the 'current' version since
      * multiple pushes (with greater version numbers) may be in progress
@@ -1546,6 +1580,14 @@ public class AdminClient {
             storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
         }
         return storeToVersionDir;
+    }
+
+    private Map<String, String> encodeROStorageFormatMap(List<ROStorageFormatMap> storageFormatMap) {
+        Map<String, String> storeToStorageFormat = Maps.newHashMap();
+        for(ROStorageFormatMap currentStore: storageFormatMap) {
+            storeToStorageFormat.put(currentStore.getStoreName(), currentStore.getStorageFormat());
+        }
+        return storeToStorageFormat;
     }
 
     /**

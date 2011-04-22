@@ -109,7 +109,9 @@ public class RebootstrappingStoreTest {
                                  ImmutableList.of(0, 1));
         int deleted = adminClient.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
         assert deleted > 0;
-        Cluster newCluster = new Cluster(cluster.getName(), ImmutableList.of(newNode0, newNode1));
+        Cluster newCluster = new Cluster(cluster.getName(),
+                                         ImmutableList.of(newNode0, newNode1),
+                                         Lists.newArrayList(cluster.getZones()));
         for(Node node: cluster.getNodes()) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             clock.incrementVersion(node.getId(), System.currentTimeMillis());

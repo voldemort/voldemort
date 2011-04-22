@@ -5,7 +5,7 @@
     <description>Test store</description>
     <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
     <routing>client</routing>
-    <replication-factor>1</replication-factor>
+    <replication-factor>3</replication-factor>
     <required-reads>1</required-reads>
     <required-writes>1</required-writes>
     <key-serializer>
@@ -15,18 +15,4 @@
       <type>string</type>
     </value-serializer>
   </store>
-  <view>
-    <name>test-view</name>
-    <view-of>test</view-of>
-    <owners> ron@hogwarts.edu </owners>
-    <view-class>
-      voldemort.store.views.UpperCaseView
-    </view-class>
-    <value-serializer>
-      <type>string</type>
-    </value-serializer>
-    <transforms-serializer>
-    	<type>string</type>
-    </transforms-serializer>
-  </view>
 </stores>

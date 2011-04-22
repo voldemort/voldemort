@@ -421,6 +421,31 @@ public class Utils {
     }
 
     /**
+     * Compares two lists
+     * 
+     * @param <T> The type of items in the list
+     * @param listA List 1
+     * @param listB List 2
+     * @return Returns a boolean comparing the lists
+     */
+    public static <T> boolean compareList(List<T> listA, List<T> listB) {
+        // Both are null.
+        if(listA == null && listB == null)
+            return true;
+
+        // At least one of them is null.
+        if(listA == null || listB == null)
+            return false;
+
+        // If the size is different.
+        if(listA.size() != listB.size())
+            return false;
+
+        // Since size is same, containsAll will be true only if same
+        return listA.containsAll(listB);
+    }
+
+    /**
      * A helper function that wraps the checked parsing exception when creating
      * a URI
      * 

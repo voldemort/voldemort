@@ -1,6 +1,9 @@
 package voldemort.client.rebalance;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.List;
 import java.util.Set;
 
 import joptsimple.OptionException;
@@ -11,8 +14,10 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
@@ -28,25 +33,29 @@ public class RebalanceCLI {
         RebalanceController rebalanceController = null;
         try {
             OptionParser parser = new OptionParser();
-            parser.accepts("help", "print usage information");
-            parser.accepts("url", "[REQUIRED] bootstrap url")
+            parser.accepts("help", "Print usage information");
+            parser.accepts("current-cluster", "Path to current cluster xml")
                   .withRequiredArg()
-                  .describedAs("boostrap-url");
-            parser.accepts("cluster", "[REQUIRED] path to target cluster xml config file.")
+                  .describedAs("cluster.xml");
+            parser.accepts("target-cluster", "[REQUIRED] Path to target cluster xml")
                   .withRequiredArg()
-                  .describedAs("target-cluster.xml");
+                  .describedAs("cluster.xml");
+            parser.accepts("current-stores", "Path to store definition xml")
+                  .withRequiredArg()
+                  .describedAs("stores.xml");
+            parser.accepts("url", "Url to bootstrap from ").withRequiredArg().describedAs("url");
             parser.accepts("parallelism",
-                           "number of rebalances to run in parallel. (default:"
+                           "number of rebalances to run in parallel (Default:"
                                    + RebalanceClientConfig.MAX_PARALLEL_REBALANCING + ")")
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("parallelism");
-            parser.accepts("parallel-donors",
-                           "number of parallel donors to run in parallel. (default:"
-                                   + RebalanceClientConfig.MAX_PARALLEL_DONOR + ")")
+            parser.accepts("tries",
+                           "maximum number of tries for every rebalance (Default:"
+                                   + RebalanceClientConfig.MAX_TRIES + ")")
                   .withRequiredArg()
                   .ofType(Integer.class)
-                  .describedAs("parallel-donors");
+                  .describedAs("num-tries");
             parser.accepts("no-delete",
                            "Do not delete after rebalancing (Valid only for RW Stores)");
             parser.accepts("show-plan",
@@ -55,39 +64,60 @@ public class RebalanceCLI {
             OptionSet options = parser.parse(args);
 
             if(options.has("help")) {
-                parser.printHelpOn(System.out);
+                printHelp(System.out, parser);
                 System.exit(HELP_EXIT_CODE);
             }
 
-            Set<String> missing = CmdUtils.missing(options, "cluster", "url");
-            if(missing.size() > 0) {
-                System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-                parser.printHelpOn(System.err);
+            if(!options.has("target-cluster")) {
+                System.err.println("Missing required arguments: target-cluster");
+                printHelp(System.err, parser);
                 System.exit(ERROR_EXIT_CODE);
             }
 
-            String bootstrapURL = (String) options.valueOf("url");
-            String targetClusterXML = (String) options.valueOf("cluster");
+            String targetClusterXML = (String) options.valueOf("target-cluster");
+            Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
             boolean deleteAfterRebalancing = !options.has("no-delete");
             int maxParallelRebalancing = CmdUtils.valueOf(options,
                                                           "parallelism",
                                                           RebalanceClientConfig.MAX_PARALLEL_REBALANCING);
-            int maxParallelDonors = CmdUtils.valueOf(options,
-                                                     "parallel-donors",
-                                                     RebalanceClientConfig.MAX_PARALLEL_DONOR);
+            int maxTriesRebalancing = CmdUtils.valueOf(options,
+                                                       "tries",
+                                                       RebalanceClientConfig.MAX_TRIES);
             boolean enabledShowPlan = options.has("show-plan");
-
-            Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
-
             RebalanceClientConfig config = new RebalanceClientConfig();
             config.setMaxParallelRebalancing(maxParallelRebalancing);
             config.setDeleteAfterRebalancingEnabled(deleteAfterRebalancing);
-            config.setMaxParallelDonors(maxParallelDonors);
             config.setEnableShowPlan(enabledShowPlan);
+            config.setMaxTriesRebalancing(maxTriesRebalancing);
 
-            rebalanceController = new RebalanceController(bootstrapURL, config);
+            if(options.has("url")) {
 
-            rebalanceController.rebalance(targetCluster);
+                // Normal execution of rebalancing
+                String bootstrapURL = (String) options.valueOf("url");
+                rebalanceController = new RebalanceController(bootstrapURL, config);
+                rebalanceController.rebalance(targetCluster);
+
+            } else {
+
+                Set<String> missing = CmdUtils.missing(options, "current-cluster", "current-stores");
+                if(missing.size() > 0) {
+                    System.err.println("Missing required arguments: "
+                                       + Joiner.on(", ").join(missing));
+                    printHelp(System.err, parser);
+                    System.exit(ERROR_EXIT_CODE);
+                }
+
+                String currentClusterXML = (String) options.valueOf("current-cluster");
+                String currentStoresXML = (String) options.valueOf("current-stores");
+
+                Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
+                List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
+
+                rebalanceController = new RebalanceController(currentCluster, config);
+                rebalanceController.rebalance(currentCluster, targetCluster, storeDefs);
+
+            }
+
             exitCode = SUCCESS_EXIT_CODE;
             if(logger.isInfoEnabled()) {
                 logger.info("Successfully terminated rebalance");
@@ -96,7 +126,7 @@ public class RebalanceCLI {
         } catch(VoldemortException e) {
             logger.error("Unsuccessfully terminated rebalance - " + e.getMessage(), e);
         } catch(OptionException e) {
-            logger.error("Problem detected while parsing command line argument, please check and retry - "
+            logger.error("Problem detected while parsing command line argument, --help for more information - "
                                  + e.getMessage(),
                          e);
         } catch(Throwable e) {
@@ -109,5 +139,12 @@ public class RebalanceCLI {
             }
         }
         System.exit(exitCode);
+    }
+
+    public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
+        stream.println("Commands supported");
+        stream.println("a) --url <url> --target-cluster <path>");
+        stream.println("b) --current-cluster <path> --current-stores <path> --target-cluster <path> --show-plan");
+        parser.printHelpOn(stream);
     }
 }

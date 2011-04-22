@@ -24,8 +24,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import junit.framework.TestCase;
+
+import org.junit.Test;
+
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.rebalance.RebalanceClusterPlan;
@@ -39,6 +43,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class RebalanceUtilsTest extends TestCase {
 
@@ -58,6 +63,25 @@ public class RebalanceUtilsTest extends TestCase {
         }
     }
 
+    @Test
+    public void testRebalancePartitionsInfoCreate() {
+        Map<Integer, List<Integer>> partitionsMap = Maps.newHashMap();
+        partitionsMap.put(0, Lists.newArrayList(1, 2, 3));
+        partitionsMap.put(1, Lists.newArrayList(4, 5, 6));
+
+        RebalancePartitionsInfo info = new RebalancePartitionsInfo(0,
+                                                                   1,
+                                                                   Lists.newArrayList(1),
+                                                                   Lists.newArrayList(7),
+                                                                   Lists.newArrayList(3),
+                                                                   Lists.newArrayList("test"),
+                                                                   0);
+        String jsonString = info.toJsonString();
+        RebalancePartitionsInfo info2 = RebalancePartitionsInfo.create(jsonString);
+        assertEquals(info, info2);
+
+    }
+
     public void testRebalancePlan() {
         currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -69,8 +93,7 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         // The store has a replication factor = 2
         // Current Cluster:
         // 0 - [0, 1, 2, 3, 4, 5, 6, 7, 8] + []
@@ -515,8 +538,7 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         System.out.println("Plan partition distribution: "
                            + rebalancePlan.printPartitionDistribution());
         System.out.println("Plan: " + rebalancePlan);
@@ -583,8 +605,7 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDefList,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         System.out.println("Plan partition distribution: "
                            + rebalancePlan.printPartitionDistribution());
         System.out.println("Plan: " + rebalancePlan);
@@ -728,8 +749,7 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         System.out.println("Plan partition distribution: "
                            + rebalancePlan.printPartitionDistribution());
         System.out.println("Plan: " + rebalancePlan);
@@ -799,8 +819,7 @@ public class RebalanceUtilsTest extends TestCase {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         System.out.println("Plan partition distribution: "
                            + rebalancePlan.printPartitionDistribution());
         System.out.println("Plan: " + rebalancePlan);
@@ -877,23 +896,23 @@ public class RebalanceUtilsTest extends TestCase {
                 if(rebalanceInfo.getDonorId() == nodeRebalanceInfo.getDonorId()) {
                     assertEquals("partitions should match",
                                  true,
-                                 compareList(rebalanceInfo.getPartitionList(),
-                                             nodeRebalanceInfo.getPartitionList()));
+                                 Utils.compareList(rebalanceInfo.getPartitionList(),
+                                                   nodeRebalanceInfo.getPartitionList()));
 
                     assertEquals("delete partitions should match",
                                  true,
-                                 compareList(rebalanceInfo.getDeletePartitionsList(),
-                                             nodeRebalanceInfo.getDeletePartitionsList()));
+                                 Utils.compareList(rebalanceInfo.getDeletePartitionsList(),
+                                                   nodeRebalanceInfo.getDeletePartitionsList()));
 
                     assertEquals("store list should match",
                                  true,
-                                 compareList(rebalanceInfo.getUnbalancedStoreList(),
-                                             nodeRebalanceInfo.getUnbalancedStoreList()));
+                                 Utils.compareList(rebalanceInfo.getUnbalancedStoreList(),
+                                                   nodeRebalanceInfo.getUnbalancedStoreList()));
 
                     assertEquals("steal master partitions should match",
                                  true,
-                                 compareList(rebalanceInfo.getStealMasterPartitions(),
-                                             nodeRebalanceInfo.getStealMasterPartitions()));
+                                 Utils.compareList(rebalanceInfo.getStealMasterPartitions(),
+                                                   nodeRebalanceInfo.getStealMasterPartitions()));
                     match = true;
                 }
             }
@@ -984,38 +1003,13 @@ public class RebalanceUtilsTest extends TestCase {
         }
     }
 
-    private <T> boolean compareList(List<T> listA, List<T> listB) {
-        // Both are null.
-        if(listA == null && listB == null)
-            return true;
-
-        // At least one of them is null.
-        if(listA == null || listB == null)
-            return false;
-
-        // If the size is different.
-        if(listA.size() != listB.size())
-            return false;
-
-        // After checking the size we can call containsAll.
-        // for example:
-        //
-        // listA =[0, 4, 5]
-        // listB =[0, 4]
-        //
-        // This will return TRUE but they are not equal list.
-        // 
-        return listA.containsAll(listB);
-    }
-
     private OrderedClusterTransition createOrderedClusterTransition(Cluster currentCluster,
                                                                     Cluster targetCluster,
                                                                     List<StoreDefinition> storeDef) {
         RebalanceClusterPlan rebalancePlan = new RebalanceClusterPlan(currentCluster,
                                                                       targetCluster,
                                                                       storeDef,
-                                                                      true,
-                                                                      null);
+                                                                      true);
         final OrderedClusterTransition orderedClusterTransition = new RebalanceController.OrderedClusterTransition(currentCluster,
                                                                                                                    targetCluster,
                                                                                                                    rebalancePlan);
