@@ -37,7 +37,6 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.StoreState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -66,7 +65,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     private final StoreRepository storeRepository;
     private final SocketStoreFactory storeFactory;
     private FailureDetector failureDetector;
-    private boolean isReadOnly;
 
     public RedirectingStore(Store<ByteArray, byte[], byte[]> innerStore,
                             MetadataStore metadata,
@@ -78,21 +76,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         this.storeRepository = storeRepository;
         this.storeFactory = storeFactory;
         this.failureDetector = detector;
-        try {
-            this.isReadOnly = metadata.getStoreDef(getName())
-                                      .getType()
-                                      .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
-        } catch(Exception e) {
-            this.isReadOnly = false;
-        }
     }
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
-        if(this.isReadOnly)
-            throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
-
         RebalancePartitionsInfo stealInfo = redirectingKey(key);
 
         /**
@@ -128,11 +116,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * {@link ObsoleteVersionException}
          */
         if(stealInfo != null) {
-            List<Versioned<byte[]>> proxyValues = proxyGetAndLocalPut(key,
-                                                                      stealInfo.getDonorId(),
-                                                                      transforms);
-            if(isReadOnly)
-                return proxyValues;
+            proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
         }
 
         return getInnerStore().get(key, transforms);
@@ -148,11 +132,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * {@link ObsoleteVersionException}.
          */
         if(stealInfo != null) {
-            List<Versioned<byte[]>> proxyValues = proxyGetAndLocalPut(key,
-                                                                      stealInfo.getDonorId(),
-                                                                      null);
-            if(isReadOnly)
-                return StoreUtils.getVersions(proxyValues);
+            proxyGetAndLocalPut(key, stealInfo.getDonorId(), null);
         }
 
         return getInnerStore().getVersions(key);
@@ -175,12 +155,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         }
 
         if(!redirectingKeys.isEmpty()) {
-            Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAllAndLocalPut(redirectingKeys,
-                                                                                            rebalancePartitionsInfos,
-                                                                                            transforms);
-            if(isReadOnly) {
-                return proxyKeyValues;
-            }
+            proxyGetAllAndLocalPut(redirectingKeys, rebalancePartitionsInfos, transforms);
         }
 
         return getInnerStore().getAll(keys, transforms);
@@ -205,9 +180,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      */
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
-        if(isReadOnly)
-            throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
-
         StoreUtils.assertValidKey(key);
         return getInnerStore().delete(key, version);
     }
@@ -330,13 +302,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
                                                         byte[] transforms)
             throws VoldemortException {
         List<Versioned<byte[]>> proxyValues = proxyGet(key, donorId, transforms);
-        if(!isReadOnly) {
-            for(Versioned<byte[]> proxyValue: proxyValues) {
-                try {
-                    getInnerStore().put(key, proxyValue, null);
-                } catch(ObsoleteVersionException e) {
-                    // ignore these
-                }
+        for(Versioned<byte[]> proxyValue: proxyValues) {
+            try {
+                getInnerStore().put(key, proxyValue, null);
+            } catch(ObsoleteVersionException e) {
+                // ignore these
             }
         }
         return proxyValues;
@@ -358,14 +328,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys,
                                                                              stealInfoList,
                                                                              transforms);
-        if(!isReadOnly) {
-            for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
-                for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
-                    try {
-                        getInnerStore().put(keyValuePair.getKey(), proxyValue, null);
-                    } catch(ObsoleteVersionException e) {
-                        // ignore these
-                    }
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
+            for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
+                try {
+                    getInnerStore().put(keyValuePair.getKey(), proxyValue, null);
+                } catch(ObsoleteVersionException e) {
+                    // ignore these
                 }
             }
         }

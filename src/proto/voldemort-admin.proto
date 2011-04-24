@@ -123,15 +123,14 @@ message AsyncOperationListResponse {
 }
 
 message InitiateRebalanceNodeRequest {
-  required int32 stealer_id =2;
-  required int32 donor_id = 3;
-  repeated int32 partitions = 4;
-  required int32 attempt = 5;
-  repeated int32 deletePartitions = 6;
-  repeated string unbalanced_store = 7;
-  repeated int32 stealMasterPartitions = 8;
-  repeated ROStoreVersionDirMap stealer_ro_store_to_dir = 9; 
-  repeated ROStoreVersionDirMap donor_ro_store_to_dir = 10; 
+  required int32 stealer_id = 1;
+  required int32 donor_id = 2;
+  repeated int32 steal_master_partitions = 3;
+  repeated int32 steal_replica_partitions = 4;
+  repeated int32 delete_partitions = 5;
+  repeated string unbalanced_stores = 6;
+  required int32 attempt = 7;
+  required bool is_read_only = 8;
 }
 
 message AsyncOperationStatusResponse {

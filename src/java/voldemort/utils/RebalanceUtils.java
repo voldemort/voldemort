@@ -571,6 +571,17 @@ public class RebalanceUtils {
     }
 
     /**
+     * Print log to the following logger
+     * 
+     * @param stealerNodeId Stealer node id
+     * @param logger Logger class
+     * @param message The message to print
+     */
+    public static void printLog(int stealerNodeId, Logger logger, String message) {
+        logger.info("Stealer node " + Integer.toString(stealerNodeId) + "] " + message);
+    }
+
+    /**
      * Returns the Node associated to the provided partition.
      * 
      * @param cluster The cluster in which to find the node
@@ -691,8 +702,8 @@ public class RebalanceUtils {
     public static List<StoreDefinition> getStoreDefinition(Cluster cluster, AdminClient adminClient) {
         List<StoreDefinition> storeDefs = null;
         for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = getWritableStores(adminClient.getRemoteStoreDefList(node.getId())
-                                                                              .getValue());
+            List<StoreDefinition> storeDefList = getRebalanceStores(adminClient.getRemoteStoreDefList(node.getId())
+                                                                               .getValue());
             if(storeDefs == null) {
                 storeDefs = storeDefList;
             } else {
@@ -719,7 +730,7 @@ public class RebalanceUtils {
      * @param storeDefList List of store definitions
      * @return Filtered list of store definitions which rebalancing supports
      */
-    public static List<StoreDefinition> getWritableStores(List<StoreDefinition> storeDefList) {
+    public static List<StoreDefinition> getRebalanceStores(List<StoreDefinition> storeDefList) {
         List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
 
         for(StoreDefinition def: storeDefList) {
@@ -769,7 +780,7 @@ public class RebalanceUtils {
     public static void validateReadOnlyStores(Cluster cluster,
                                               List<StoreDefinition> storeDefs,
                                               AdminClient adminClient) {
-        List<StoreDefinition> readOnlyStores = getReadOnlyStores(storeDefs);
+        List<StoreDefinition> readOnlyStores = filterStores(storeDefs, true);
 
         if(readOnlyStores.size() == 0) {
             // No read-only stores
@@ -796,19 +807,22 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given a list of store definitions returns the read-only stores only
+     * Given a list of store definitions, filters the list depending on the
+     * boolean
      * 
      * @param storeDefs Complete list of store definitions
-     * @return List of read-only store definitions
+     * @param isReadOnly Boolean indicating whether filter on read-only or not?
+     * @return List of filtered store definition
      */
-    public static List<StoreDefinition> getReadOnlyStores(List<StoreDefinition> storeDefs) {
-        List<StoreDefinition> readOnlyStores = Lists.newArrayList();
+    public static List<StoreDefinition> filterStores(List<StoreDefinition> storeDefs,
+                                                     final boolean isReadOnly) {
+        List<StoreDefinition> filteredStores = Lists.newArrayList();
         for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME)) {
-                readOnlyStores.add(storeDef);
+            if(storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME) == isReadOnly) {
+                filteredStores.add(storeDef);
             }
         }
-        return readOnlyStores;
+        return filteredStores;
     }
 
     /**
@@ -839,6 +853,12 @@ public class RebalanceUtils {
         return nodeIds;
     }
 
+    /**
+     * Wait to shutdown service
+     * 
+     * @param executorService Executor service to shutdown
+     * @param timeOutSec Time we wait for
+     */
     public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
         try {
             executorService.shutdown();

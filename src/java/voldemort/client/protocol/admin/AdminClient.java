@@ -692,24 +692,24 @@ public class AdminClient {
     }
 
     /**
-     * Rebalance a stealer,donor node pair for the given storeName.<br>
-     * stealInfo also have a storeName list, this is passed to client to persist
-     * in case of failure and start balancing all the stores in the list only.
+     * Rebalance a stealer-donor node pair for a set of stores
      * 
-     * @param stealInfo
+     * @param stealInfo Partition steal information
+     * @param isReadOnly Are we rebalancing the read-only stores?
      * @return The request id of the async operation
      */
-    public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
+    public int rebalanceNode(RebalancePartitionsInfo stealInfo, boolean isReadOnly) {
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                                                                .setAttempt(stealInfo.getAttempt())
-                                                                                                                .setDonorId(stealInfo.getDonorId())
                                                                                                                 .setStealerId(stealInfo.getStealerId())
-                                                                                                                .addAllPartitions(stealInfo.getPartitionList())
-                                                                                                                .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
-                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+
+                                                                                                                .setDonorId(stealInfo.getDonorId())
+
                                                                                                                 .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
-                                                                                                                .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getStealerNodeROStoreToDir()))
-                                                                                                                .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getDonorNodeROStoreToDir()))
+                                                                                                                .addAllStealReplicaPartitions(stealInfo.getStealReplicaPartitions())
+                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+                                                                                                                .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
+                                                                                                                .setAttempt(stealInfo.getAttempt())
+                                                                                                                .setIsReadOnly(isReadOnly)
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)

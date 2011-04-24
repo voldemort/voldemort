@@ -417,29 +417,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                               stats);
     }
 
-    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
-        Map<String, String> storeToVersionDir = Maps.newHashMap();
-        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
-            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
-        }
-        return storeToVersionDir;
-    }
-
     public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
         try {
             if(!voldemortConfig.isEnableRebalanceService())
-                throw new VoldemortException("Rebalance service is not enabled for node:"
+                throw new VoldemortException("Rebalance service is not enabled for node: "
                                              + metadataStore.getNodeId());
 
             RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(request.getStealerId(),
                                                                                      request.getDonorId(),
-                                                                                     request.getPartitionsList(),
-                                                                                     request.getDeletePartitionsList(),
                                                                                      request.getStealMasterPartitionsList(),
-                                                                                     request.getUnbalancedStoreList(),
-                                                                                     encodeROStoreVersionDirMap(request.getStealerRoStoreToDirList()),
-                                                                                     encodeROStoreVersionDirMap(request.getDonorRoStoreToDirList()),
+                                                                                     request.getStealReplicaPartitionsList(),
+                                                                                     request.getDeletePartitionsList(),
+                                                                                     request.getUnbalancedStoresList(),
                                                                                      request.getAttempt());
 
             RebalancePartitionsInfoLiveCycle rebalancePartitionsInfoLiveCycle = new RebalancePartitionsInfoLiveCycle(rebalanceStealInfo,
@@ -449,7 +439,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
             response.setRequestId(requestId)
                     .setDescription(rebalanceStealInfo.toString())
-                    .setStatus("started")
+                    .setStatus("Started")
                     .setComplete(false);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));

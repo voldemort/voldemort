@@ -38,6 +38,15 @@ import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleSt
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
 
+/**
+ * Service responsible for rebalancing.
+ * 
+ * <br>
+ * 
+ * Handles two scenarios a) When a new request comes in b) When a rebalancing
+ * was shut down and the box was restarted
+ * 
+ */
 public class Rebalancer implements Runnable {
 
     private final static Logger logger = Logger.getLogger(Rebalancer.class);
@@ -219,15 +228,10 @@ public class Rebalancer implements Runnable {
     }
 
     /**
-     * Rebalance logic at single node level.<br>
-     * <imp> should be called by the rebalancing node itself</imp><br>
-     * Attempt to rebalance from node
-     * {@link RebalancePartitionsInfo#getDonorId()} for partitionList
-     * {@link RebalancePartitionsInfo#getPartitionList()}
-     * <p>
-     * Force Sets serverState to rebalancing, Sets stealInfo in MetadataStore,
-     * fetch keys from remote node and upsert them locally.<br>
-     * On success clean all states it changed
+     * Rebalance logic at single node level <br>
+     * a) Acquires a permit for the donor node <br>
+     * b) Changes the state if required <br>
+     * c) Starts the async operations <br>
      * 
      * @param stealInfo Rebalance partition information.
      * @return taskId for asynchronous task.
@@ -255,20 +259,13 @@ public class Rebalancer implements Runnable {
         checkCurrentState(stealInfoLiveCycle);
         setRebalancingState(stealInfo, RebalancePartitionsInfoLifeCycleStatus.NEW);
 
-        // get max parallel store rebalancing allowed
-        final int maxParallelStoresRebalancing = (-1 != voldemortConfig.getMaxParallelStoresRebalancing()) ? voldemortConfig.getMaxParallelStoresRebalancing()
-                                                                                                          : stealInfo.getUnbalancedStoreList()
-                                                                                                                     .size();
-
         int requestId = asyncService.getUniqueRequestId();
 
-        asyncService.submitOperation(requestId,
-                                     new RebalanceAsyncOperation(this,
-                                                                 voldemortConfig,
-                                                                 metadataStore,
-                                                                 requestId,
-                                                                 stealInfo,
-                                                                 maxParallelStoresRebalancing));
+        asyncService.submitOperation(requestId, new RebalanceAsyncOperation(this,
+                                                                            voldemortConfig,
+                                                                            metadataStore,
+                                                                            requestId,
+                                                                            stealInfo));
 
         return requestId;
     }

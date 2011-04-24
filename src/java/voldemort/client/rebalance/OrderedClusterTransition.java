@@ -6,6 +6,7 @@ import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Cluster;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.Utils;
 
 /**
@@ -19,17 +20,24 @@ public class OrderedClusterTransition {
     private final Cluster targetCluster;
     private final RebalanceClusterPlan rebalanceClusterPlan;
     private final List<RebalanceNodePlan> orderedRebalanceNodePlanList;
+    private final List<StoreDefinition> storeDefs;
     private String printedContent;
     private final int id;
 
     public OrderedClusterTransition(final Cluster currentCluster,
                                     final Cluster targetCluster,
+                                    List<StoreDefinition> storeDefs,
                                     final RebalanceClusterPlan rebalanceClusterPlan) {
         this.id = idGen.incrementAndGet();
         this.currentCluster = currentCluster;
         this.targetCluster = targetCluster;
+        this.storeDefs = storeDefs;
         this.rebalanceClusterPlan = rebalanceClusterPlan;
         this.orderedRebalanceNodePlanList = orderedClusterPlan(rebalanceClusterPlan);
+    }
+
+    public List<StoreDefinition> getStoreDefs() {
+        return this.storeDefs;
     }
 
     public int getId() {

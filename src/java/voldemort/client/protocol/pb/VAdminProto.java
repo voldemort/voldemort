@@ -8311,65 +8311,22 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable;
     }
     
-    // required int32 stealer_id = 2;
-    public static final int STEALER_ID_FIELD_NUMBER = 2;
+    // required int32 stealer_id = 1;
+    public static final int STEALER_ID_FIELD_NUMBER = 1;
     private boolean hasStealerId;
     private int stealerId_ = 0;
     public boolean hasStealerId() { return hasStealerId; }
     public int getStealerId() { return stealerId_; }
     
-    // required int32 donor_id = 3;
-    public static final int DONOR_ID_FIELD_NUMBER = 3;
+    // required int32 donor_id = 2;
+    public static final int DONOR_ID_FIELD_NUMBER = 2;
     private boolean hasDonorId;
     private int donorId_ = 0;
     public boolean hasDonorId() { return hasDonorId; }
     public int getDonorId() { return donorId_; }
     
-    // repeated int32 partitions = 4;
-    public static final int PARTITIONS_FIELD_NUMBER = 4;
-    private java.util.List<java.lang.Integer> partitions_ =
-      java.util.Collections.emptyList();
-    public java.util.List<java.lang.Integer> getPartitionsList() {
-      return partitions_;
-    }
-    public int getPartitionsCount() { return partitions_.size(); }
-    public int getPartitions(int index) {
-      return partitions_.get(index);
-    }
-    
-    // required int32 attempt = 5;
-    public static final int ATTEMPT_FIELD_NUMBER = 5;
-    private boolean hasAttempt;
-    private int attempt_ = 0;
-    public boolean hasAttempt() { return hasAttempt; }
-    public int getAttempt() { return attempt_; }
-    
-    // repeated int32 deletePartitions = 6;
-    public static final int DELETEPARTITIONS_FIELD_NUMBER = 6;
-    private java.util.List<java.lang.Integer> deletePartitions_ =
-      java.util.Collections.emptyList();
-    public java.util.List<java.lang.Integer> getDeletePartitionsList() {
-      return deletePartitions_;
-    }
-    public int getDeletePartitionsCount() { return deletePartitions_.size(); }
-    public int getDeletePartitions(int index) {
-      return deletePartitions_.get(index);
-    }
-    
-    // repeated string unbalanced_store = 7;
-    public static final int UNBALANCED_STORE_FIELD_NUMBER = 7;
-    private java.util.List<java.lang.String> unbalancedStore_ =
-      java.util.Collections.emptyList();
-    public java.util.List<java.lang.String> getUnbalancedStoreList() {
-      return unbalancedStore_;
-    }
-    public int getUnbalancedStoreCount() { return unbalancedStore_.size(); }
-    public java.lang.String getUnbalancedStore(int index) {
-      return unbalancedStore_.get(index);
-    }
-    
-    // repeated int32 stealMasterPartitions = 8;
-    public static final int STEALMASTERPARTITIONS_FIELD_NUMBER = 8;
+    // repeated int32 steal_master_partitions = 3;
+    public static final int STEAL_MASTER_PARTITIONS_FIELD_NUMBER = 3;
     private java.util.List<java.lang.Integer> stealMasterPartitions_ =
       java.util.Collections.emptyList();
     public java.util.List<java.lang.Integer> getStealMasterPartitionsList() {
@@ -8380,29 +8337,55 @@ public final class VAdminProto {
       return stealMasterPartitions_.get(index);
     }
     
-    // repeated .voldemort.ROStoreVersionDirMap stealer_ro_store_to_dir = 9;
-    public static final int STEALER_RO_STORE_TO_DIR_FIELD_NUMBER = 9;
-    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> stealerRoStoreToDir_ =
+    // repeated int32 steal_replica_partitions = 4;
+    public static final int STEAL_REPLICA_PARTITIONS_FIELD_NUMBER = 4;
+    private java.util.List<java.lang.Integer> stealReplicaPartitions_ =
       java.util.Collections.emptyList();
-    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStealerRoStoreToDirList() {
-      return stealerRoStoreToDir_;
+    public java.util.List<java.lang.Integer> getStealReplicaPartitionsList() {
+      return stealReplicaPartitions_;
     }
-    public int getStealerRoStoreToDirCount() { return stealerRoStoreToDir_.size(); }
-    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStealerRoStoreToDir(int index) {
-      return stealerRoStoreToDir_.get(index);
+    public int getStealReplicaPartitionsCount() { return stealReplicaPartitions_.size(); }
+    public int getStealReplicaPartitions(int index) {
+      return stealReplicaPartitions_.get(index);
     }
     
-    // repeated .voldemort.ROStoreVersionDirMap donor_ro_store_to_dir = 10;
-    public static final int DONOR_RO_STORE_TO_DIR_FIELD_NUMBER = 10;
-    private java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> donorRoStoreToDir_ =
+    // repeated int32 delete_partitions = 5;
+    public static final int DELETE_PARTITIONS_FIELD_NUMBER = 5;
+    private java.util.List<java.lang.Integer> deletePartitions_ =
       java.util.Collections.emptyList();
-    public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getDonorRoStoreToDirList() {
-      return donorRoStoreToDir_;
+    public java.util.List<java.lang.Integer> getDeletePartitionsList() {
+      return deletePartitions_;
     }
-    public int getDonorRoStoreToDirCount() { return donorRoStoreToDir_.size(); }
-    public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getDonorRoStoreToDir(int index) {
-      return donorRoStoreToDir_.get(index);
+    public int getDeletePartitionsCount() { return deletePartitions_.size(); }
+    public int getDeletePartitions(int index) {
+      return deletePartitions_.get(index);
     }
+    
+    // repeated string unbalanced_stores = 6;
+    public static final int UNBALANCED_STORES_FIELD_NUMBER = 6;
+    private java.util.List<java.lang.String> unbalancedStores_ =
+      java.util.Collections.emptyList();
+    public java.util.List<java.lang.String> getUnbalancedStoresList() {
+      return unbalancedStores_;
+    }
+    public int getUnbalancedStoresCount() { return unbalancedStores_.size(); }
+    public java.lang.String getUnbalancedStores(int index) {
+      return unbalancedStores_.get(index);
+    }
+    
+    // required int32 attempt = 7;
+    public static final int ATTEMPT_FIELD_NUMBER = 7;
+    private boolean hasAttempt;
+    private int attempt_ = 0;
+    public boolean hasAttempt() { return hasAttempt; }
+    public int getAttempt() { return attempt_; }
+    
+    // required bool is_read_only = 8;
+    public static final int IS_READ_ONLY_FIELD_NUMBER = 8;
+    private boolean hasIsReadOnly;
+    private boolean isReadOnly_ = false;
+    public boolean hasIsReadOnly() { return hasIsReadOnly; }
+    public boolean getIsReadOnly() { return isReadOnly_; }
     
     private void initFields() {
     }
@@ -8410,12 +8393,7 @@ public final class VAdminProto {
       if (!hasStealerId) return false;
       if (!hasDonorId) return false;
       if (!hasAttempt) return false;
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
-        if (!element.isInitialized()) return false;
-      }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
-        if (!element.isInitialized()) return false;
-      }
+      if (!hasIsReadOnly) return false;
       return true;
     }
     
@@ -8423,31 +8401,28 @@ public final class VAdminProto {
                         throws java.io.IOException {
       getSerializedSize();
       if (hasStealerId()) {
-        output.writeInt32(2, getStealerId());
+        output.writeInt32(1, getStealerId());
       }
       if (hasDonorId()) {
-        output.writeInt32(3, getDonorId());
-      }
-      for (int element : getPartitionsList()) {
-        output.writeInt32(4, element);
-      }
-      if (hasAttempt()) {
-        output.writeInt32(5, getAttempt());
-      }
-      for (int element : getDeletePartitionsList()) {
-        output.writeInt32(6, element);
-      }
-      for (java.lang.String element : getUnbalancedStoreList()) {
-        output.writeString(7, element);
+        output.writeInt32(2, getDonorId());
       }
       for (int element : getStealMasterPartitionsList()) {
-        output.writeInt32(8, element);
+        output.writeInt32(3, element);
       }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
-        output.writeMessage(9, element);
+      for (int element : getStealReplicaPartitionsList()) {
+        output.writeInt32(4, element);
       }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
-        output.writeMessage(10, element);
+      for (int element : getDeletePartitionsList()) {
+        output.writeInt32(5, element);
+      }
+      for (java.lang.String element : getUnbalancedStoresList()) {
+        output.writeString(6, element);
+      }
+      if (hasAttempt()) {
+        output.writeInt32(7, getAttempt());
+      }
+      if (hasIsReadOnly()) {
+        output.writeBool(8, getIsReadOnly());
       }
       getUnknownFields().writeTo(output);
     }
@@ -8460,24 +8435,29 @@ public final class VAdminProto {
       size = 0;
       if (hasStealerId()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(2, getStealerId());
+          .computeInt32Size(1, getStealerId());
       }
       if (hasDonorId()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(3, getDonorId());
+          .computeInt32Size(2, getDonorId());
       }
       {
         int dataSize = 0;
-        for (int element : getPartitionsList()) {
+        for (int element : getStealMasterPartitionsList()) {
           dataSize += com.google.protobuf.CodedOutputStream
             .computeInt32SizeNoTag(element);
         }
         size += dataSize;
-        size += 1 * getPartitionsList().size();
+        size += 1 * getStealMasterPartitionsList().size();
       }
-      if (hasAttempt()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(5, getAttempt());
+      {
+        int dataSize = 0;
+        for (int element : getStealReplicaPartitionsList()) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(element);
+        }
+        size += dataSize;
+        size += 1 * getStealReplicaPartitionsList().size();
       }
       {
         int dataSize = 0;
@@ -8490,29 +8470,20 @@ public final class VAdminProto {
       }
       {
         int dataSize = 0;
-        for (java.lang.String element : getUnbalancedStoreList()) {
+        for (java.lang.String element : getUnbalancedStoresList()) {
           dataSize += com.google.protobuf.CodedOutputStream
             .computeStringSizeNoTag(element);
         }
         size += dataSize;
-        size += 1 * getUnbalancedStoreList().size();
+        size += 1 * getUnbalancedStoresList().size();
       }
-      {
-        int dataSize = 0;
-        for (int element : getStealMasterPartitionsList()) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeInt32SizeNoTag(element);
-        }
-        size += dataSize;
-        size += 1 * getStealMasterPartitionsList().size();
-      }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getStealerRoStoreToDirList()) {
+      if (hasAttempt()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(9, element);
+          .computeInt32Size(7, getAttempt());
       }
-      for (voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap element : getDonorRoStoreToDirList()) {
+      if (hasIsReadOnly()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(10, element);
+          .computeBoolSize(8, getIsReadOnly());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -8656,29 +8627,21 @@ public final class VAdminProto {
           throw new IllegalStateException(
             "build() has already been called on this Builder.");
         }
-        if (result.partitions_ != java.util.Collections.EMPTY_LIST) {
-          result.partitions_ =
-            java.util.Collections.unmodifiableList(result.partitions_);
+        if (result.stealMasterPartitions_ != java.util.Collections.EMPTY_LIST) {
+          result.stealMasterPartitions_ =
+            java.util.Collections.unmodifiableList(result.stealMasterPartitions_);
+        }
+        if (result.stealReplicaPartitions_ != java.util.Collections.EMPTY_LIST) {
+          result.stealReplicaPartitions_ =
+            java.util.Collections.unmodifiableList(result.stealReplicaPartitions_);
         }
         if (result.deletePartitions_ != java.util.Collections.EMPTY_LIST) {
           result.deletePartitions_ =
             java.util.Collections.unmodifiableList(result.deletePartitions_);
         }
-        if (result.unbalancedStore_ != java.util.Collections.EMPTY_LIST) {
-          result.unbalancedStore_ =
-            java.util.Collections.unmodifiableList(result.unbalancedStore_);
-        }
-        if (result.stealMasterPartitions_ != java.util.Collections.EMPTY_LIST) {
-          result.stealMasterPartitions_ =
-            java.util.Collections.unmodifiableList(result.stealMasterPartitions_);
-        }
-        if (result.stealerRoStoreToDir_ != java.util.Collections.EMPTY_LIST) {
-          result.stealerRoStoreToDir_ =
-            java.util.Collections.unmodifiableList(result.stealerRoStoreToDir_);
-        }
-        if (result.donorRoStoreToDir_ != java.util.Collections.EMPTY_LIST) {
-          result.donorRoStoreToDir_ =
-            java.util.Collections.unmodifiableList(result.donorRoStoreToDir_);
+        if (result.unbalancedStores_ != java.util.Collections.EMPTY_LIST) {
+          result.unbalancedStores_ =
+            java.util.Collections.unmodifiableList(result.unbalancedStores_);
         }
         voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest returnMe = result;
         result = null;
@@ -8702,14 +8665,17 @@ public final class VAdminProto {
         if (other.hasDonorId()) {
           setDonorId(other.getDonorId());
         }
-        if (!other.partitions_.isEmpty()) {
-          if (result.partitions_.isEmpty()) {
-            result.partitions_ = new java.util.ArrayList<java.lang.Integer>();
+        if (!other.stealMasterPartitions_.isEmpty()) {
+          if (result.stealMasterPartitions_.isEmpty()) {
+            result.stealMasterPartitions_ = new java.util.ArrayList<java.lang.Integer>();
           }
-          result.partitions_.addAll(other.partitions_);
+          result.stealMasterPartitions_.addAll(other.stealMasterPartitions_);
         }
-        if (other.hasAttempt()) {
-          setAttempt(other.getAttempt());
+        if (!other.stealReplicaPartitions_.isEmpty()) {
+          if (result.stealReplicaPartitions_.isEmpty()) {
+            result.stealReplicaPartitions_ = new java.util.ArrayList<java.lang.Integer>();
+          }
+          result.stealReplicaPartitions_.addAll(other.stealReplicaPartitions_);
         }
         if (!other.deletePartitions_.isEmpty()) {
           if (result.deletePartitions_.isEmpty()) {
@@ -8717,29 +8683,17 @@ public final class VAdminProto {
           }
           result.deletePartitions_.addAll(other.deletePartitions_);
         }
-        if (!other.unbalancedStore_.isEmpty()) {
-          if (result.unbalancedStore_.isEmpty()) {
-            result.unbalancedStore_ = new java.util.ArrayList<java.lang.String>();
+        if (!other.unbalancedStores_.isEmpty()) {
+          if (result.unbalancedStores_.isEmpty()) {
+            result.unbalancedStores_ = new java.util.ArrayList<java.lang.String>();
           }
-          result.unbalancedStore_.addAll(other.unbalancedStore_);
+          result.unbalancedStores_.addAll(other.unbalancedStores_);
         }
-        if (!other.stealMasterPartitions_.isEmpty()) {
-          if (result.stealMasterPartitions_.isEmpty()) {
-            result.stealMasterPartitions_ = new java.util.ArrayList<java.lang.Integer>();
-          }
-          result.stealMasterPartitions_.addAll(other.stealMasterPartitions_);
+        if (other.hasAttempt()) {
+          setAttempt(other.getAttempt());
         }
-        if (!other.stealerRoStoreToDir_.isEmpty()) {
-          if (result.stealerRoStoreToDir_.isEmpty()) {
-            result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-          }
-          result.stealerRoStoreToDir_.addAll(other.stealerRoStoreToDir_);
-        }
-        if (!other.donorRoStoreToDir_.isEmpty()) {
-          if (result.donorRoStoreToDir_.isEmpty()) {
-            result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-          }
-          result.donorRoStoreToDir_.addAll(other.donorRoStoreToDir_);
+        if (other.hasIsReadOnly()) {
+          setIsReadOnly(other.getIsReadOnly());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -8766,53 +8720,19 @@ public final class VAdminProto {
               }
               break;
             }
-            case 16: {
+            case 8: {
               setStealerId(input.readInt32());
               break;
             }
-            case 24: {
+            case 16: {
               setDonorId(input.readInt32());
               break;
             }
-            case 32: {
-              addPartitions(input.readInt32());
-              break;
-            }
-            case 34: {
-              int length = input.readRawVarint32();
-              int limit = input.pushLimit(length);
-              while (input.getBytesUntilLimit() > 0) {
-                addPartitions(input.readInt32());
-              }
-              input.popLimit(limit);
-              break;
-            }
-            case 40: {
-              setAttempt(input.readInt32());
-              break;
-            }
-            case 48: {
-              addDeletePartitions(input.readInt32());
-              break;
-            }
-            case 50: {
-              int length = input.readRawVarint32();
-              int limit = input.pushLimit(length);
-              while (input.getBytesUntilLimit() > 0) {
-                addDeletePartitions(input.readInt32());
-              }
-              input.popLimit(limit);
-              break;
-            }
-            case 58: {
-              addUnbalancedStore(input.readString());
-              break;
-            }
-            case 64: {
+            case 24: {
               addStealMasterPartitions(input.readInt32());
               break;
             }
-            case 66: {
+            case 26: {
               int length = input.readRawVarint32();
               int limit = input.pushLimit(length);
               while (input.getBytesUntilLimit() > 0) {
@@ -8821,16 +8741,42 @@ public final class VAdminProto {
               input.popLimit(limit);
               break;
             }
-            case 74: {
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
-              input.readMessage(subBuilder, extensionRegistry);
-              addStealerRoStoreToDir(subBuilder.buildPartial());
+            case 32: {
+              addStealReplicaPartitions(input.readInt32());
               break;
             }
-            case 82: {
-              voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder subBuilder = voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.newBuilder();
-              input.readMessage(subBuilder, extensionRegistry);
-              addDonorRoStoreToDir(subBuilder.buildPartial());
+            case 34: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              while (input.getBytesUntilLimit() > 0) {
+                addStealReplicaPartitions(input.readInt32());
+              }
+              input.popLimit(limit);
+              break;
+            }
+            case 40: {
+              addDeletePartitions(input.readInt32());
+              break;
+            }
+            case 42: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              while (input.getBytesUntilLimit() > 0) {
+                addDeletePartitions(input.readInt32());
+              }
+              input.popLimit(limit);
+              break;
+            }
+            case 50: {
+              addUnbalancedStores(input.readString());
+              break;
+            }
+            case 56: {
+              setAttempt(input.readInt32());
+              break;
+            }
+            case 64: {
+              setIsReadOnly(input.readBool());
               break;
             }
           }
@@ -8838,7 +8784,7 @@ public final class VAdminProto {
       }
       
       
-      // required int32 stealer_id = 2;
+      // required int32 stealer_id = 1;
       public boolean hasStealerId() {
         return result.hasStealerId();
       }
@@ -8856,7 +8802,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // required int32 donor_id = 3;
+      // required int32 donor_id = 2;
       public boolean hasDonorId() {
         return result.hasDonorId();
       }
@@ -8874,133 +8820,7 @@ public final class VAdminProto {
         return this;
       }
       
-      // repeated int32 partitions = 4;
-      public java.util.List<java.lang.Integer> getPartitionsList() {
-        return java.util.Collections.unmodifiableList(result.partitions_);
-      }
-      public int getPartitionsCount() {
-        return result.getPartitionsCount();
-      }
-      public int getPartitions(int index) {
-        return result.getPartitions(index);
-      }
-      public Builder setPartitions(int index, int value) {
-        result.partitions_.set(index, value);
-        return this;
-      }
-      public Builder addPartitions(int value) {
-        if (result.partitions_.isEmpty()) {
-          result.partitions_ = new java.util.ArrayList<java.lang.Integer>();
-        }
-        result.partitions_.add(value);
-        return this;
-      }
-      public Builder addAllPartitions(
-          java.lang.Iterable<? extends java.lang.Integer> values) {
-        if (result.partitions_.isEmpty()) {
-          result.partitions_ = new java.util.ArrayList<java.lang.Integer>();
-        }
-        super.addAll(values, result.partitions_);
-        return this;
-      }
-      public Builder clearPartitions() {
-        result.partitions_ = java.util.Collections.emptyList();
-        return this;
-      }
-      
-      // required int32 attempt = 5;
-      public boolean hasAttempt() {
-        return result.hasAttempt();
-      }
-      public int getAttempt() {
-        return result.getAttempt();
-      }
-      public Builder setAttempt(int value) {
-        result.hasAttempt = true;
-        result.attempt_ = value;
-        return this;
-      }
-      public Builder clearAttempt() {
-        result.hasAttempt = false;
-        result.attempt_ = 0;
-        return this;
-      }
-      
-      // repeated int32 deletePartitions = 6;
-      public java.util.List<java.lang.Integer> getDeletePartitionsList() {
-        return java.util.Collections.unmodifiableList(result.deletePartitions_);
-      }
-      public int getDeletePartitionsCount() {
-        return result.getDeletePartitionsCount();
-      }
-      public int getDeletePartitions(int index) {
-        return result.getDeletePartitions(index);
-      }
-      public Builder setDeletePartitions(int index, int value) {
-        result.deletePartitions_.set(index, value);
-        return this;
-      }
-      public Builder addDeletePartitions(int value) {
-        if (result.deletePartitions_.isEmpty()) {
-          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
-        }
-        result.deletePartitions_.add(value);
-        return this;
-      }
-      public Builder addAllDeletePartitions(
-          java.lang.Iterable<? extends java.lang.Integer> values) {
-        if (result.deletePartitions_.isEmpty()) {
-          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
-        }
-        super.addAll(values, result.deletePartitions_);
-        return this;
-      }
-      public Builder clearDeletePartitions() {
-        result.deletePartitions_ = java.util.Collections.emptyList();
-        return this;
-      }
-      
-      // repeated string unbalanced_store = 7;
-      public java.util.List<java.lang.String> getUnbalancedStoreList() {
-        return java.util.Collections.unmodifiableList(result.unbalancedStore_);
-      }
-      public int getUnbalancedStoreCount() {
-        return result.getUnbalancedStoreCount();
-      }
-      public java.lang.String getUnbalancedStore(int index) {
-        return result.getUnbalancedStore(index);
-      }
-      public Builder setUnbalancedStore(int index, java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  result.unbalancedStore_.set(index, value);
-        return this;
-      }
-      public Builder addUnbalancedStore(java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  if (result.unbalancedStore_.isEmpty()) {
-          result.unbalancedStore_ = new java.util.ArrayList<java.lang.String>();
-        }
-        result.unbalancedStore_.add(value);
-        return this;
-      }
-      public Builder addAllUnbalancedStore(
-          java.lang.Iterable<? extends java.lang.String> values) {
-        if (result.unbalancedStore_.isEmpty()) {
-          result.unbalancedStore_ = new java.util.ArrayList<java.lang.String>();
-        }
-        super.addAll(values, result.unbalancedStore_);
-        return this;
-      }
-      public Builder clearUnbalancedStore() {
-        result.unbalancedStore_ = java.util.Collections.emptyList();
-        return this;
-      }
-      
-      // repeated int32 stealMasterPartitions = 8;
+      // repeated int32 steal_master_partitions = 3;
       public java.util.List<java.lang.Integer> getStealMasterPartitionsList() {
         return java.util.Collections.unmodifiableList(result.stealMasterPartitions_);
       }
@@ -9034,105 +8854,147 @@ public final class VAdminProto {
         return this;
       }
       
-      // repeated .voldemort.ROStoreVersionDirMap stealer_ro_store_to_dir = 9;
-      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getStealerRoStoreToDirList() {
-        return java.util.Collections.unmodifiableList(result.stealerRoStoreToDir_);
+      // repeated int32 steal_replica_partitions = 4;
+      public java.util.List<java.lang.Integer> getStealReplicaPartitionsList() {
+        return java.util.Collections.unmodifiableList(result.stealReplicaPartitions_);
       }
-      public int getStealerRoStoreToDirCount() {
-        return result.getStealerRoStoreToDirCount();
+      public int getStealReplicaPartitionsCount() {
+        return result.getStealReplicaPartitionsCount();
       }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getStealerRoStoreToDir(int index) {
-        return result.getStealerRoStoreToDir(index);
+      public int getStealReplicaPartitions(int index) {
+        return result.getStealReplicaPartitions(index);
       }
-      public Builder setStealerRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        result.stealerRoStoreToDir_.set(index, value);
+      public Builder setStealReplicaPartitions(int index, int value) {
+        result.stealReplicaPartitions_.set(index, value);
         return this;
       }
-      public Builder setStealerRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        result.stealerRoStoreToDir_.set(index, builderForValue.build());
+      public Builder addStealReplicaPartitions(int value) {
+        if (result.stealReplicaPartitions_.isEmpty()) {
+          result.stealReplicaPartitions_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        result.stealReplicaPartitions_.add(value);
         return this;
       }
-      public Builder addStealerRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
-        if (value == null) {
-          throw new NullPointerException();
+      public Builder addAllStealReplicaPartitions(
+          java.lang.Iterable<? extends java.lang.Integer> values) {
+        if (result.stealReplicaPartitions_.isEmpty()) {
+          result.stealReplicaPartitions_ = new java.util.ArrayList<java.lang.Integer>();
         }
-        if (result.stealerRoStoreToDir_.isEmpty()) {
-          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-        }
-        result.stealerRoStoreToDir_.add(value);
+        super.addAll(values, result.stealReplicaPartitions_);
         return this;
       }
-      public Builder addStealerRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        if (result.stealerRoStoreToDir_.isEmpty()) {
-          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-        }
-        result.stealerRoStoreToDir_.add(builderForValue.build());
-        return this;
-      }
-      public Builder addAllStealerRoStoreToDir(
-          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
-        if (result.stealerRoStoreToDir_.isEmpty()) {
-          result.stealerRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-        }
-        super.addAll(values, result.stealerRoStoreToDir_);
-        return this;
-      }
-      public Builder clearStealerRoStoreToDir() {
-        result.stealerRoStoreToDir_ = java.util.Collections.emptyList();
+      public Builder clearStealReplicaPartitions() {
+        result.stealReplicaPartitions_ = java.util.Collections.emptyList();
         return this;
       }
       
-      // repeated .voldemort.ROStoreVersionDirMap donor_ro_store_to_dir = 10;
-      public java.util.List<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> getDonorRoStoreToDirList() {
-        return java.util.Collections.unmodifiableList(result.donorRoStoreToDir_);
+      // repeated int32 delete_partitions = 5;
+      public java.util.List<java.lang.Integer> getDeletePartitionsList() {
+        return java.util.Collections.unmodifiableList(result.deletePartitions_);
       }
-      public int getDonorRoStoreToDirCount() {
-        return result.getDonorRoStoreToDirCount();
+      public int getDeletePartitionsCount() {
+        return result.getDeletePartitionsCount();
       }
-      public voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap getDonorRoStoreToDir(int index) {
-        return result.getDonorRoStoreToDir(index);
+      public int getDeletePartitions(int index) {
+        return result.getDeletePartitions(index);
       }
-      public Builder setDonorRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+      public Builder setDeletePartitions(int index, int value) {
+        result.deletePartitions_.set(index, value);
+        return this;
+      }
+      public Builder addDeletePartitions(int value) {
+        if (result.deletePartitions_.isEmpty()) {
+          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        result.deletePartitions_.add(value);
+        return this;
+      }
+      public Builder addAllDeletePartitions(
+          java.lang.Iterable<? extends java.lang.Integer> values) {
+        if (result.deletePartitions_.isEmpty()) {
+          result.deletePartitions_ = new java.util.ArrayList<java.lang.Integer>();
+        }
+        super.addAll(values, result.deletePartitions_);
+        return this;
+      }
+      public Builder clearDeletePartitions() {
+        result.deletePartitions_ = java.util.Collections.emptyList();
+        return this;
+      }
+      
+      // repeated string unbalanced_stores = 6;
+      public java.util.List<java.lang.String> getUnbalancedStoresList() {
+        return java.util.Collections.unmodifiableList(result.unbalancedStores_);
+      }
+      public int getUnbalancedStoresCount() {
+        return result.getUnbalancedStoresCount();
+      }
+      public java.lang.String getUnbalancedStores(int index) {
+        return result.getUnbalancedStores(index);
+      }
+      public Builder setUnbalancedStores(int index, java.lang.String value) {
         if (value == null) {
-          throw new NullPointerException();
-        }
-        result.donorRoStoreToDir_.set(index, value);
+    throw new NullPointerException();
+  }
+  result.unbalancedStores_.set(index, value);
         return this;
       }
-      public Builder setDonorRoStoreToDir(int index, voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        result.donorRoStoreToDir_.set(index, builderForValue.build());
-        return this;
-      }
-      public Builder addDonorRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap value) {
+      public Builder addUnbalancedStores(java.lang.String value) {
         if (value == null) {
-          throw new NullPointerException();
+    throw new NullPointerException();
+  }
+  if (result.unbalancedStores_.isEmpty()) {
+          result.unbalancedStores_ = new java.util.ArrayList<java.lang.String>();
         }
-        if (result.donorRoStoreToDir_.isEmpty()) {
-          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-        }
-        result.donorRoStoreToDir_.add(value);
+        result.unbalancedStores_.add(value);
         return this;
       }
-      public Builder addDonorRoStoreToDir(voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap.Builder builderForValue) {
-        if (result.donorRoStoreToDir_.isEmpty()) {
-          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
+      public Builder addAllUnbalancedStores(
+          java.lang.Iterable<? extends java.lang.String> values) {
+        if (result.unbalancedStores_.isEmpty()) {
+          result.unbalancedStores_ = new java.util.ArrayList<java.lang.String>();
         }
-        result.donorRoStoreToDir_.add(builderForValue.build());
+        super.addAll(values, result.unbalancedStores_);
         return this;
       }
-      public Builder addAllDonorRoStoreToDir(
-          java.lang.Iterable<? extends voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap> values) {
-        if (result.donorRoStoreToDir_.isEmpty()) {
-          result.donorRoStoreToDir_ = new java.util.ArrayList<voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap>();
-        }
-        super.addAll(values, result.donorRoStoreToDir_);
+      public Builder clearUnbalancedStores() {
+        result.unbalancedStores_ = java.util.Collections.emptyList();
         return this;
       }
-      public Builder clearDonorRoStoreToDir() {
-        result.donorRoStoreToDir_ = java.util.Collections.emptyList();
+      
+      // required int32 attempt = 7;
+      public boolean hasAttempt() {
+        return result.hasAttempt();
+      }
+      public int getAttempt() {
+        return result.getAttempt();
+      }
+      public Builder setAttempt(int value) {
+        result.hasAttempt = true;
+        result.attempt_ = value;
+        return this;
+      }
+      public Builder clearAttempt() {
+        result.hasAttempt = false;
+        result.attempt_ = 0;
+        return this;
+      }
+      
+      // required bool is_read_only = 8;
+      public boolean hasIsReadOnly() {
+        return result.hasIsReadOnly();
+      }
+      public boolean getIsReadOnly() {
+        return result.getIsReadOnly();
+      }
+      public Builder setIsReadOnly(boolean value) {
+        result.hasIsReadOnly = true;
+        result.isReadOnly_ = value;
+        return this;
+      }
+      public Builder clearIsReadOnly() {
+        result.hasIsReadOnly = false;
+        result.isReadOnly_ = false;
         return this;
       }
       
@@ -19366,113 +19228,111 @@ public final class VAdminProto {
       "quest_id\030\001 \002(\005\022\034\n\rshow_complete\030\002 \002(\010:\005f" +
       "alse\"R\n\032AsyncOperationListResponse\022\023\n\013re" +
       "quest_ids\030\001 \003(\005\022\037\n\005error\030\002 \001(\0132\020.voldemo",
-      "rt.Error\"\276\002\n\034InitiateRebalanceNodeReques" +
-      "t\022\022\n\nstealer_id\030\002 \002(\005\022\020\n\010donor_id\030\003 \002(\005\022" +
-      "\022\n\npartitions\030\004 \003(\005\022\017\n\007attempt\030\005 \002(\005\022\030\n\020" +
-      "deletePartitions\030\006 \003(\005\022\030\n\020unbalanced_sto" +
-      "re\030\007 \003(\t\022\035\n\025stealMasterPartitions\030\010 \003(\005\022" +
-      "@\n\027stealer_ro_store_to_dir\030\t \003(\0132\037.volde" +
-      "mort.ROStoreVersionDirMap\022>\n\025donor_ro_st" +
-      "ore_to_dir\030\n \003(\0132\037.voldemort.ROStoreVers" +
-      "ionDirMap\"\212\001\n\034AsyncOperationStatusRespon" +
-      "se\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013description\030\002 ",
-      "\001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030\004 \001(\010\022\037\n" +
-      "\005error\030\005 \001(\0132\020.voldemort.Error\"\'\n\026Trunca" +
-      "teEntriesRequest\022\r\n\005store\030\001 \002(\t\":\n\027Trunc" +
-      "ateEntriesResponse\022\037\n\005error\030\001 \001(\0132\020.vold" +
-      "emort.Error\"*\n\017AddStoreRequest\022\027\n\017storeD" +
-      "efinition\030\001 \002(\t\"3\n\020AddStoreResponse\022\037\n\005e" +
-      "rror\030\001 \001(\0132\020.voldemort.Error\"\'\n\022DeleteSt" +
-      "oreRequest\022\021\n\tstoreName\030\001 \002(\t\"6\n\023DeleteS" +
-      "toreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort." +
-      "Error\"P\n\021FetchStoreRequest\022\022\n\nstore_name",
-      "\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\022\024\n\014push_versio" +
-      "n\030\003 \001(\003\"9\n\020SwapStoreRequest\022\022\n\nstore_nam" +
-      "e\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"P\n\021SwapStoreR" +
-      "esponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error" +
-      "\022\032\n\022previous_store_dir\030\002 \001(\t\"@\n\024Rollback" +
-      "StoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push" +
-      "_version\030\002 \002(\003\"8\n\025RollbackStoreResponse\022" +
-      "\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"@\n\027Fail" +
-      "edFetchStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022" +
-      "\021\n\tstore_dir\030\002 \002(\t\";\n\030FailedFetchStoreRe",
-      "sponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"" +
-      "=\n\024ROStoreVersionDirMap\022\022\n\nstore_name\030\001 " +
-      "\002(\t\022\021\n\tstore_dir\030\002 \002(\t\"/\n\031GetROMaxVersio" +
-      "nDirRequest\022\022\n\nstore_name\030\001 \003(\t\"y\n\032GetRO" +
-      "MaxVersionDirResponse\022:\n\021ro_store_versio" +
-      "ns\030\001 \003(\0132\037.voldemort.ROStoreVersionDirMa" +
-      "p\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error\"3\n\035Ge" +
-      "tROCurrentVersionDirRequest\022\022\n\nstore_nam" +
-      "e\030\001 \003(\t\"}\n\036GetROCurrentVersionDirRespons" +
-      "e\022:\n\021ro_store_versions\030\001 \003(\0132\037.voldemort",
-      ".ROStoreVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.v" +
-      "oldemort.Error\"@\n\022ROStorageFormatMap\022\022\n\n" +
-      "store_name\030\001 \002(\t\022\026\n\016storage_format\030\002 \002(\t" +
-      "\"/\n\031GetROStorageFormatRequest\022\022\n\nstore_n" +
-      "ame\030\001 \003(\t\"w\n\032GetROStorageFormatResponse\022" +
-      "8\n\021ro_storage_format\030\001 \003(\0132\035.voldemort.R" +
-      "OStorageFormatMap\022\037\n\005error\030\002 \001(\0132\020.volde" +
-      "mort.Error\"\\\n\036SwapStoresAndCleanStateReq" +
-      "uest\022:\n\021ro_store_versions\030\001 \003(\0132\037.voldem" +
-      "ort.ROStoreVersionDirMap\"B\n\037SwapStoresAn",
-      "dCleanStateResponse\022\037\n\005error\030\001 \001(\0132\020.vol" +
-      "demort.Error\"\252\014\n\025VoldemortAdminRequest\022)" +
-      "\n\004type\030\001 \002(\0162\033.voldemort.AdminRequestTyp" +
-      "e\0223\n\014get_metadata\030\002 \001(\0132\035.voldemort.GetM" +
-      "etadataRequest\0229\n\017update_metadata\030\003 \001(\0132" +
-      " .voldemort.UpdateMetadataRequest\022J\n\030upd" +
-      "ate_partition_entries\030\004 \001(\0132(.voldemort." +
-      "UpdatePartitionEntriesRequest\022H\n\027fetch_p" +
-      "artition_entries\030\005 \001(\0132\'.voldemort.Fetch" +
-      "PartitionEntriesRequest\022J\n\030delete_partit",
-      "ion_entries\030\006 \001(\0132(.voldemort.DeletePart" +
-      "itionEntriesRequest\022K\n\031initiate_fetch_an" +
-      "d_update\030\007 \001(\0132(.voldemort.InitiateFetch" +
-      "AndUpdateRequest\022F\n\026async_operation_stat" +
-      "us\030\010 \001(\0132&.voldemort.AsyncOperationStatu" +
-      "sRequest\022H\n\027initiate_rebalance_node\030\t \001(" +
-      "\0132\'.voldemort.InitiateRebalanceNodeReque" +
-      "st\022B\n\024async_operation_stop\030\n \001(\0132$.volde" +
-      "mort.AsyncOperationStopRequest\022B\n\024async_" +
-      "operation_list\030\013 \001(\0132$.voldemort.AsyncOp",
-      "erationListRequest\022;\n\020truncate_entries\030\014" +
-      " \001(\0132!.voldemort.TruncateEntriesRequest\022" +
-      "-\n\tadd_store\030\r \001(\0132\032.voldemort.AddStoreR" +
-      "equest\0223\n\014delete_store\030\016 \001(\0132\035.voldemort" +
-      ".DeleteStoreRequest\0221\n\013fetch_store\030\017 \001(\013" +
-      "2\034.voldemort.FetchStoreRequest\022/\n\nswap_s" +
-      "tore\030\020 \001(\0132\033.voldemort.SwapStoreRequest\022" +
-      "7\n\016rollback_store\030\021 \001(\0132\037.voldemort.Roll" +
-      "backStoreRequest\022D\n\026get_ro_max_version_d" +
-      "ir\030\022 \001(\0132$.voldemort.GetROMaxVersionDirR",
-      "equest\022L\n\032get_ro_current_version_dir\030\023 \001" +
-      "(\0132(.voldemort.GetROCurrentVersionDirReq" +
-      "uest\022D\n\025fetch_partition_files\030\024 \001(\0132%.vo" +
-      "ldemort.FetchPartitionFilesRequest\022N\n\033sw" +
-      "ap_stores_and_clean_state\030\025 \001(\0132).voldem" +
-      "ort.SwapStoresAndCleanStateRequest\022@\n\023up" +
-      "date_slop_entries\030\026 \001(\0132#.voldemort.Upda" +
-      "teSlopEntriesRequest\022>\n\022failed_fetch_sto" +
-      "re\030\030 \001(\0132\".voldemort.FailedFetchStoreReq" +
-      "uest\022C\n\025get_ro_storage_format\030\031 \001(\0132$.vo",
-      "ldemort.GetROStorageFormatRequest*\316\004\n\020Ad" +
-      "minRequestType\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDA" +
-      "TE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_ENTRIE" +
-      "S\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n\030DELE" +
-      "TE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_FETCH" +
-      "_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_STATUS\020" +
-      "\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024ASYNC_" +
-      "OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION_LIST" +
-      "\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022" +
-      "\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSW",
-      "AP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO" +
-      "_MAX_VERSION_DIR\020\020\022\036\n\032GET_RO_CURRENT_VER" +
-      "SION_DIR\020\021\022\031\n\025FETCH_PARTITION_FILES\020\022\022\037\n" +
-      "\033SWAP_STORES_AND_CLEAN_STATE\020\023\022\027\n\023UPDATE" +
-      "_SLOP_ENTRIES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022" +
-      "\031\n\025GET_RO_STORAGE_FORMAT\020\027B-\n\034voldemort." +
-      "client.protocol.pbB\013VAdminProtoH\001"
+      "rt.Error\"\344\001\n\034InitiateRebalanceNodeReques" +
+      "t\022\022\n\nstealer_id\030\001 \002(\005\022\020\n\010donor_id\030\002 \002(\005\022" +
+      "\037\n\027steal_master_partitions\030\003 \003(\005\022 \n\030stea" +
+      "l_replica_partitions\030\004 \003(\005\022\031\n\021delete_par" +
+      "titions\030\005 \003(\005\022\031\n\021unbalanced_stores\030\006 \003(\t" +
+      "\022\017\n\007attempt\030\007 \002(\005\022\024\n\014is_read_only\030\010 \002(\010\"" +
+      "\212\001\n\034AsyncOperationStatusResponse\022\022\n\nrequ" +
+      "est_id\030\001 \001(\005\022\023\n\013description\030\002 \001(\t\022\016\n\006sta" +
+      "tus\030\003 \001(\t\022\020\n\010complete\030\004 \001(\010\022\037\n\005error\030\005 \001" +
+      "(\0132\020.voldemort.Error\"\'\n\026TruncateEntriesR",
+      "equest\022\r\n\005store\030\001 \002(\t\":\n\027TruncateEntries" +
+      "Response\022\037\n\005error\030\001 \001(\0132\020.voldemort.Erro" +
+      "r\"*\n\017AddStoreRequest\022\027\n\017storeDefinition\030" +
+      "\001 \002(\t\"3\n\020AddStoreResponse\022\037\n\005error\030\001 \001(\013" +
+      "2\020.voldemort.Error\"\'\n\022DeleteStoreRequest" +
+      "\022\021\n\tstoreName\030\001 \002(\t\"6\n\023DeleteStoreRespon" +
+      "se\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"P\n\021F" +
+      "etchStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\t" +
+      "store_dir\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003\"9\n" +
+      "\020SwapStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n",
+      "\tstore_dir\030\002 \002(\t\"P\n\021SwapStoreResponse\022\037\n" +
+      "\005error\030\001 \001(\0132\020.voldemort.Error\022\032\n\022previo" +
+      "us_store_dir\030\002 \001(\t\"@\n\024RollbackStoreReque" +
+      "st\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014push_version\030\002" +
+      " \002(\003\"8\n\025RollbackStoreResponse\022\037\n\005error\030\001" +
+      " \001(\0132\020.voldemort.Error\"@\n\027FailedFetchSto" +
+      "reRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_d" +
+      "ir\030\002 \002(\t\";\n\030FailedFetchStoreResponse\022\037\n\005" +
+      "error\030\001 \001(\0132\020.voldemort.Error\"=\n\024ROStore" +
+      "VersionDirMap\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tsto",
+      "re_dir\030\002 \002(\t\"/\n\031GetROMaxVersionDirReques" +
+      "t\022\022\n\nstore_name\030\001 \003(\t\"y\n\032GetROMaxVersion" +
+      "DirResponse\022:\n\021ro_store_versions\030\001 \003(\0132\037" +
+      ".voldemort.ROStoreVersionDirMap\022\037\n\005error" +
+      "\030\002 \001(\0132\020.voldemort.Error\"3\n\035GetROCurrent" +
+      "VersionDirRequest\022\022\n\nstore_name\030\001 \003(\t\"}\n" +
+      "\036GetROCurrentVersionDirResponse\022:\n\021ro_st" +
+      "ore_versions\030\001 \003(\0132\037.voldemort.ROStoreVe" +
+      "rsionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.E" +
+      "rror\"@\n\022ROStorageFormatMap\022\022\n\nstore_name",
+      "\030\001 \002(\t\022\026\n\016storage_format\030\002 \002(\t\"/\n\031GetROS" +
+      "torageFormatRequest\022\022\n\nstore_name\030\001 \003(\t\"" +
+      "w\n\032GetROStorageFormatResponse\0228\n\021ro_stor" +
+      "age_format\030\001 \003(\0132\035.voldemort.ROStorageFo" +
+      "rmatMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error" +
+      "\"\\\n\036SwapStoresAndCleanStateRequest\022:\n\021ro" +
+      "_store_versions\030\001 \003(\0132\037.voldemort.ROStor" +
+      "eVersionDirMap\"B\n\037SwapStoresAndCleanStat" +
+      "eResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Err" +
+      "or\"\252\014\n\025VoldemortAdminRequest\022)\n\004type\030\001 \002",
+      "(\0162\033.voldemort.AdminRequestType\0223\n\014get_m" +
+      "etadata\030\002 \001(\0132\035.voldemort.GetMetadataReq" +
+      "uest\0229\n\017update_metadata\030\003 \001(\0132 .voldemor" +
+      "t.UpdateMetadataRequest\022J\n\030update_partit" +
+      "ion_entries\030\004 \001(\0132(.voldemort.UpdatePart" +
+      "itionEntriesRequest\022H\n\027fetch_partition_e" +
+      "ntries\030\005 \001(\0132\'.voldemort.FetchPartitionE" +
+      "ntriesRequest\022J\n\030delete_partition_entrie" +
+      "s\030\006 \001(\0132(.voldemort.DeletePartitionEntri" +
+      "esRequest\022K\n\031initiate_fetch_and_update\030\007",
+      " \001(\0132(.voldemort.InitiateFetchAndUpdateR" +
+      "equest\022F\n\026async_operation_status\030\010 \001(\0132&" +
+      ".voldemort.AsyncOperationStatusRequest\022H" +
+      "\n\027initiate_rebalance_node\030\t \001(\0132\'.voldem" +
+      "ort.InitiateRebalanceNodeRequest\022B\n\024asyn" +
+      "c_operation_stop\030\n \001(\0132$.voldemort.Async" +
+      "OperationStopRequest\022B\n\024async_operation_" +
+      "list\030\013 \001(\0132$.voldemort.AsyncOperationLis" +
+      "tRequest\022;\n\020truncate_entries\030\014 \001(\0132!.vol" +
+      "demort.TruncateEntriesRequest\022-\n\tadd_sto",
+      "re\030\r \001(\0132\032.voldemort.AddStoreRequest\0223\n\014" +
+      "delete_store\030\016 \001(\0132\035.voldemort.DeleteSto" +
+      "reRequest\0221\n\013fetch_store\030\017 \001(\0132\034.voldemo" +
+      "rt.FetchStoreRequest\022/\n\nswap_store\030\020 \001(\013" +
+      "2\033.voldemort.SwapStoreRequest\0227\n\016rollbac" +
+      "k_store\030\021 \001(\0132\037.voldemort.RollbackStoreR" +
+      "equest\022D\n\026get_ro_max_version_dir\030\022 \001(\0132$" +
+      ".voldemort.GetROMaxVersionDirRequest\022L\n\032" +
+      "get_ro_current_version_dir\030\023 \001(\0132(.volde" +
+      "mort.GetROCurrentVersionDirRequest\022D\n\025fe",
+      "tch_partition_files\030\024 \001(\0132%.voldemort.Fe" +
+      "tchPartitionFilesRequest\022N\n\033swap_stores_" +
+      "and_clean_state\030\025 \001(\0132).voldemort.SwapSt" +
+      "oresAndCleanStateRequest\022@\n\023update_slop_" +
+      "entries\030\026 \001(\0132#.voldemort.UpdateSlopEntr" +
+      "iesRequest\022>\n\022failed_fetch_store\030\030 \001(\0132\"" +
+      ".voldemort.FailedFetchStoreRequest\022C\n\025ge" +
+      "t_ro_storage_format\030\031 \001(\0132$.voldemort.Ge" +
+      "tROStorageFormatRequest*\316\004\n\020AdminRequest" +
+      "Type\022\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADAT",
+      "A\020\001\022\034\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FET" +
+      "CH_PARTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITI" +
+      "ON_ENTRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDAT" +
+      "E\020\005\022\032\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITI" +
+      "ATE_REBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_" +
+      "STOP\020\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUN" +
+      "CATE_ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_" +
+      "STORE\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016" +
+      "\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSI" +
+      "ON_DIR\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021",
+      "\022\031\n\025FETCH_PARTITION_FILES\020\022\022\037\n\033SWAP_STOR" +
+      "ES_AND_CLEAN_STATE\020\023\022\027\n\023UPDATE_SLOP_ENTR" +
+      "IES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022\031\n\025GET_RO_" +
+      "STORAGE_FORMAT\020\027B-\n\034voldemort.client.pro" +
+      "tocol.pbB\013VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -19660,7 +19520,7 @@ public final class VAdminProto {
           internal_static_voldemort_InitiateRebalanceNodeRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_InitiateRebalanceNodeRequest_descriptor,
-              new java.lang.String[] { "StealerId", "DonorId", "Partitions", "Attempt", "DeletePartitions", "UnbalancedStore", "StealMasterPartitions", "StealerRoStoreToDir", "DonorRoStoreToDir", },
+              new java.lang.String[] { "StealerId", "DonorId", "StealMasterPartitions", "StealReplicaPartitions", "DeletePartitions", "UnbalancedStores", "Attempt", "IsReadOnly", },
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.class,
               voldemort.client.protocol.pb.VAdminProto.InitiateRebalanceNodeRequest.Builder.class);
           internal_static_voldemort_AsyncOperationStatusResponse_descriptor =

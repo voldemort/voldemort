@@ -61,4 +61,3 @@ public class RebalancePartitionsInfoLiveCycle {
         return sb.toString();
     }
 }
-

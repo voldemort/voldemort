@@ -110,7 +110,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      * has different states during the life cycle of it.
      * 
      * The need to keep track of the status is to be able to resume a failed
-     * operation that was interrupted due to a machine/server failure.
+     * operation that was interrupted due to a machine failure.
      */
     public static enum RebalancePartitionsInfoLifeCycleStatus {
         NEW,

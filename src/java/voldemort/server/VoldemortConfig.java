@@ -128,7 +128,6 @@ public class VoldemortConfig implements Serializable {
     private boolean enableStatTracking;
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
-    private boolean enableRedirectRouting;
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
@@ -275,7 +274,6 @@ public class VoldemortConfig implements Serializable {
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
-        this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
         this.enableRepair = props.getBoolean("enable.repair", false);
@@ -320,7 +318,7 @@ public class VoldemortConfig implements Serializable {
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
         this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 24 * 60 * 60);
         this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000 * 60);
-        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 1);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
@@ -1062,14 +1060,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableMetadataChecking(boolean enableMetadataChecking) {
         this.enableMetadataChecking = enableMetadataChecking;
-    }
-
-    public boolean isRedirectRoutingEnabled() {
-        return enableRedirectRouting;
-    }
-
-    public void setEnableRedirectRouting(boolean enableRedirectRouting) {
-        this.enableRedirectRouting = enableRedirectRouting;
     }
 
     public long getBdbCheckpointBytes() {
