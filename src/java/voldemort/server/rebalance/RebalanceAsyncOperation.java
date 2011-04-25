@@ -220,7 +220,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
         if(isReadOnlyStore) {
             partitionList = stealInfo.getStealMasterPartitions();
         } else {
-            partitionList = stealInfo.getPartitionList();
+            partitionList = stealInfo.getPartitions();
         }
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),

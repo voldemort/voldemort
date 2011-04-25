@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,8 +50,9 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.protocol.pb.VAdminProto.ROStorageFormatMap;
-import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
+import voldemort.client.protocol.pb.VAdminProto.ROMetadataMap;
+import voldemort.client.protocol.pb.VAdminProto.ROMetadataType;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -695,21 +697,20 @@ public class AdminClient {
      * Rebalance a stealer-donor node pair for a set of stores
      * 
      * @param stealInfo Partition steal information
-     * @param isReadOnly Are we rebalancing the read-only stores?
      * @return The request id of the async operation
      */
-    public int rebalanceNode(RebalancePartitionsInfo stealInfo, boolean isReadOnly) {
+    public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
+        VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap = VAdminProto.RebalancePartitionInfoMap.newBuilder()
+                                                                                                               .setStealerId(stealInfo.getStealerId())
+                                                                                                               .setDonorId(stealInfo.getDonorId())
+                                                                                                               .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
+                                                                                                               .addAllStealReplicaPartitions(stealInfo.getStealReplicaPartitions())
+                                                                                                               .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+                                                                                                               .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
+                                                                                                               .setAttempt(stealInfo.getAttempt())
+                                                                                                               .build();
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                                                                .setStealerId(stealInfo.getStealerId())
-
-                                                                                                                .setDonorId(stealInfo.getDonorId())
-
-                                                                                                                .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
-                                                                                                                .addAllStealReplicaPartitions(stealInfo.getStealReplicaPartitions())
-                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
-                                                                                                                .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
-                                                                                                                .setAttempt(stealInfo.getAttempt())
-                                                                                                                .setIsReadOnly(isReadOnly)
+                                                                                                                .setRebalancePartitionInfo(rebalancePartitionInfoMap)
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -1404,27 +1405,93 @@ public class AdminClient {
     }
 
     /**
-     * Swap multiple read-only stores and clear the rebalancing state
+     * Returns the read-only storage format - {@link ReadOnlyStorageFormat} for
+     * a list of stores
      * 
-     * @param nodeId The node id on which to swap the stores
-     * @param storeToDir A map of read-only store names with their respective
-     *        directories
+     * @param nodeId The id of the node on which the stores are present
+     * @param storeNames List of all the store names
+     * @param Returns a map of store name to its corresponding RO storage format
      */
-    public void swapStoresAndCleanState(int nodeId, Map<String, String> storeToDir) {
-        VAdminProto.SwapStoresAndCleanStateRequest.Builder swapStoreRequest = VAdminProto.SwapStoresAndCleanStateRequest.newBuilder()
-                                                                                                                        .addAllRoStoreVersions(decodeROStoreVersionDirMap(storeToDir));
+    public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
+        return getROMetadata(nodeId, storeNames, ROMetadataType.STORAGE_FORMAT);
+    }
 
+    /**
+     * Returns the max version of push currently being used by read-only store.
+     * Important to remember that this may not be the 'current' version since
+     * multiple pushes (with greater version numbers) may be in progress
+     * currently
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective store directory
+     */
+    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
+        return getROMetadata(nodeId, storeNames, ROMetadataType.MAX_VERSION_DIR);
+    }
+
+    /**
+     * Returns the 'current' versions of all RO stores provided
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the RO stores
+     * @return Returns a map of store name to the respective max version
+     *         directory
+     */
+    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
+        return getROMetadata(nodeId, storeNames, ROMetadataType.CURRENT_VERSION_DIR);
+    }
+
+    private Map<String, String> getROMetadata(int nodeId,
+                                              List<String> storeNames,
+                                              ROMetadataType type) {
+        VAdminProto.GetROMetadataRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMetadataRequest.newBuilder()
+                                                                                                             .addAllStoreName(storeNames)
+                                                                                                             .setType(type);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setSwapStoresAndCleanState(swapStoreRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.SWAP_STORES_AND_CLEAN_STATE)
+                                                                                          .setGetRoMetadata(getROMaxVersionDirRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_METADATA)
                                                                                           .build();
-        VAdminProto.SwapStoresAndCleanStateResponse.Builder response = sendAndReceive(nodeId,
-                                                                                      adminRequest,
-                                                                                      VAdminProto.SwapStoresAndCleanStateResponse.newBuilder());
+        VAdminProto.GetROMetadataResponse.Builder response = sendAndReceive(nodeId,
+                                                                            adminRequest,
+                                                                            VAdminProto.GetROMetadataResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
-        return;
+
+        // generate map of store-name to max version
+        Map<String, String> storeToValues = encodeROMetadataMap(response.getRoStoreMetadataList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
+    }
+
+    private Map<String, String> encodeROMetadataMap(List<ROMetadataMap> metadataMap) {
+        Map<String, String> storeToValue = Maps.newHashMap();
+        for(ROMetadataMap currentStore: metadataMap) {
+            storeToValue.put(currentStore.getStoreName(), currentStore.getValue());
+        }
+        return storeToValue;
+    }
+
+    /**
+     * Returns the 'current' version of RO store
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version number
+     */
+    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        }
+        return returnMap;
     }
 
     /**
@@ -1445,149 +1512,6 @@ public class AdminClient {
                           ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
         }
         return returnMap;
-    }
-
-    /**
-     * Returns the read-only storage format - {@link ReadOnlyStorageFormat} for
-     * a list of stores
-     * 
-     * @param nodeId The id of the node on which the stores are present
-     * @param storeNames List of all the store names
-     * @param Returns a map of store name to its corresponding RO storage format
-     */
-    public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
-        VAdminProto.GetROStorageFormatRequest.Builder getROStorageFormatRequest = VAdminProto.GetROStorageFormatRequest.newBuilder()
-                                                                                                                       .addAllStoreName(storeNames);
-        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoStorageFormat(getROStorageFormatRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_STORAGE_FORMAT)
-                                                                                          .build();
-        VAdminProto.GetROStorageFormatResponse.Builder response = sendAndReceive(nodeId,
-                                                                                 adminRequest,
-                                                                                 VAdminProto.GetROStorageFormatResponse.newBuilder());
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        // generate map of store-name to version format
-        Map<String, String> storageFormatMap = encodeROStorageFormatMap(response.getRoStorageFormatList());
-
-        if(storageFormatMap.size() != storeNames.size()) {
-            storeNames.removeAll(storageFormatMap.keySet());
-            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
-        }
-        return storageFormatMap;
-    }
-
-    /**
-     * Returns the max version of push currently being used by read-only store.
-     * Important to remember that this may not be the 'current' version since
-     * multiple pushes (with greater version numbers) may be in progress
-     * currently
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
-     * @return Returns a map of store name to the respective store directory
-     */
-    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
-
-        VAdminProto.GetROMaxVersionDirRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
-                                                                                                                       .addAllStoreName(storeNames);
-        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoMaxVersionDir(getROMaxVersionDirRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
-                                                                                          .build();
-        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
-                                                                                 adminRequest,
-                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        // generate map of store-name to max version
-        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
-
-        if(storeToVersionDir.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersionDir.keySet());
-            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
-        }
-        return storeToVersionDir;
-    }
-
-    /**
-     * Returns the 'current' versions of all RO stores provided
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the RO stores
-     * @return Returns a map of store name to the respective max version
-     *         directory
-     */
-    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
-        VAdminProto.GetROCurrentVersionDirRequest.Builder getROCurrentVersionDirRequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
-                                                                                                                                   .addAllStoreName(storeNames);
-        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoCurrentVersionDir(getROCurrentVersionDirRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
-                                                                                          .build();
-        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
-                                                                                     adminRequest,
-                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        // generate map of store-name to current version
-        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
-
-        if(storeToVersionDir.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersionDir.keySet());
-            throw new VoldemortException("Did not retrieve current version id for " + storeNames);
-        }
-        return storeToVersionDir;
-    }
-
-    /**
-     * Returns the 'current' version of RO store
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
-     * @return Returns a map of store name to the respective max version number
-     */
-    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
-        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
-        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
-        for(String storeName: versionDirs.keySet()) {
-            returnMap.put(storeName,
-                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
-        }
-        return returnMap;
-    }
-
-    private List<ROStoreVersionDirMap> decodeROStoreVersionDirMap(Map<String, String> storeVersionDirMap) {
-        List<ROStoreVersionDirMap> storeToVersionDir = Lists.newArrayList();
-        for(String storeName: storeVersionDirMap.keySet()) {
-            storeToVersionDir.add(ROStoreVersionDirMap.newBuilder()
-                                                      .setStoreName(storeName)
-                                                      .setStoreDir(storeVersionDirMap.get(storeName))
-                                                      .build());
-        }
-        return storeToVersionDir;
-    }
-
-    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
-        Map<String, String> storeToVersionDir = Maps.newHashMap();
-        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
-            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
-        }
-        return storeToVersionDir;
-    }
-
-    private Map<String, String> encodeROStorageFormatMap(List<ROStorageFormatMap> storageFormatMap) {
-        Map<String, String> storeToStorageFormat = Maps.newHashMap();
-        for(ROStorageFormatMap currentStore: storageFormatMap) {
-            storeToStorageFormat.put(currentStore.getStoreName(), currentStore.getStorageFormat());
-        }
-        return storeToStorageFormat;
     }
 
     /**
@@ -1766,6 +1690,121 @@ public class AdminClient {
             pool.checkin(destination, sands);
         }
 
+    }
+
+    /**
+     * Used in rebalancing to indicate change in states. Groups the partition
+     * plans on the basis of stealer nodes and sends them over
+     * 
+     * @param transitionCluster Transition cluster
+     * @param rebalancePartitionPlanList The list of rebalance partition info
+     *        plans
+     * @param completedNodeIds Set of node ids which have completed successfully
+     * @param swapRO Boolean indicating if we need to swap RO stores
+     * @param changeClusterMetadata Boolean indicating if we need to change
+     *        cluster metadata
+     * @param changeRebalanceState Boolean indicating if we need to change
+     *        rebalancing state
+     */
+    public void rebalanceStateChange(Cluster transitionCluster,
+                                     List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                     Set<Integer> completedNodeIds,
+                                     boolean swapRO,
+                                     boolean changeClusterMetadata,
+                                     boolean changeRebalanceState) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
+
+        int nodeId = 0;
+        try {
+            while(nodeId < transitionCluster.getNumberOfNodes()) {
+                boolean isStealerNode = false;
+                if(stealerNodeToPlan.containsKey(nodeId)) {
+                    isStealerNode = true;
+                }
+
+                sendRebalanceStateChange(nodeId,
+                                         transitionCluster,
+                                         stealerNodeToPlan.get(nodeId),
+                                         swapRO,
+                                         changeClusterMetadata,
+                                         changeRebalanceState,
+                                         isStealerNode);
+                completedNodeIds.add(nodeId);
+                nodeId++;
+            }
+        } catch(Exception e) {
+            // Fail early
+            logger.error("Got exceptions from node " + nodeId + " while changing state");
+
+            // Rollback changes on completed nodes
+
+            throw new VoldemortException("Got exceptions from node " + nodeId
+                                         + " nodes while changing state");
+        }
+
+    }
+
+    private void sendRebalanceStateChange(int nodeId,
+                                          Cluster transitionCluster,
+                                          List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                          boolean swapRO,
+                                          boolean changeClusterMetadata,
+                                          boolean changeRebalanceState,
+                                          boolean isStealerNode) {
+
+        // If we do not want to change the metadata and are not one of the
+        // stealer nodes, nothing to do
+        if(!changeClusterMetadata && !isStealerNode) {
+            return;
+        }
+
+        VAdminProto.RebalanceStateChangeRequest.Builder getRebalanceStateChangeRequestBuilder = VAdminProto.RebalanceStateChangeRequest.newBuilder();
+
+        if(rebalancePartitionPlanList != null) {
+            List<RebalancePartitionInfoMap> map = Lists.newArrayList();
+            for(RebalancePartitionsInfo stealInfo: rebalancePartitionPlanList) {
+                RebalancePartitionInfoMap infoMap = RebalancePartitionInfoMap.newBuilder()
+                                                                             .setStealerId(stealInfo.getStealerId())
+                                                                             .setDonorId(stealInfo.getDonorId())
+                                                                             .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
+                                                                             .addAllStealReplicaPartitions(stealInfo.getStealReplicaPartitions())
+                                                                             .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
+                                                                             .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
+                                                                             .setAttempt(stealInfo.getAttempt())
+                                                                             .build();
+                map.add(infoMap);
+            }
+            getRebalanceStateChangeRequestBuilder.addAllRebalancePartitionInfoList(map);
+        }
+
+        VAdminProto.RebalanceStateChangeRequest getRebalanceStateChangeRequest = getRebalanceStateChangeRequestBuilder.setSwapRo(swapRO)
+                                                                                                                      .setChangeClusterMetadata(changeClusterMetadata)
+                                                                                                                      .setChangeRebalanceState(changeRebalanceState)
+                                                                                                                      .setClusterString(clusterMapper.writeCluster(transitionCluster))
+                                                                                                                      .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setRebalanceStateChange(getRebalanceStateChangeRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.REBALANCE_STATE_CHANGE)
+                                                                                          .build();
+        VAdminProto.RebalanceStateChangeResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.RebalanceStateChangeResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+    }
+
+    private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+            List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
+            if(partitionInfos == null) {
+                partitionInfos = Lists.newArrayList();
+                stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
+            }
+            partitionInfos.add(partitionInfo);
+        }
+        return stealerNodeToPlan;
     }
 
 }

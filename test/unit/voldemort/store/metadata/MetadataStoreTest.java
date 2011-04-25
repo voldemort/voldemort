@@ -18,7 +18,6 @@ package voldemort.store.metadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -82,8 +81,6 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     new ArrayList<Integer>(0),
                                                                                                     new ArrayList<Integer>(0),
                                                                                                     Arrays.asList("testStoreName"),
-                                                                                                    new HashMap<String, String>(),
-                                                                                                    new HashMap<String, String>(),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }

@@ -65,8 +65,7 @@ public class OrderedClusterTransition {
               .append(Utils.NEWLINE);
             sb.append("Ordered rebalance node plan : ")
               .append(Utils.NEWLINE)
-              .append(printRebalanceNodePlan(getOrderedRebalanceNodePlanList()))
-              .append(Utils.NEWLINE);
+              .append(printRebalanceNodePlan(getOrderedRebalanceNodePlanList()));
             printedContent = sb.toString();
         }
         return printedContent;

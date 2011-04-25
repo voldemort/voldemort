@@ -151,10 +151,10 @@ public class Rebalancer implements Runnable {
                                     + stealInfo);
                         if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
                             attemptRebalance(stealInfoLiveCycle);
-                            nodeIdsToStoreDirs.put(stealInfo.getDonorId(),
-                                                   stealInfo.getDonorNodeROStoreToDir());
-                            nodeIdsToStoreDirs.put(stealInfo.getStealerId(),
-                                                   stealInfo.getStealerNodeROStoreToDir());
+                            // nodeIdsToStoreDirs.put(stealInfo.getDonorId(),
+                            // stealInfo.getDonorNodeROStoreToDir());
+                            // nodeIdsToStoreDirs.put(stealInfo.getStealerId(),
+                            // stealInfo.getStealerNodeROStoreToDir());
                         } else {
                             logger.warn("Rebalancing for rebalancing task " + stealInfo
                                         + " failed multiple times (max. attemps:"
@@ -185,7 +185,8 @@ public class Rebalancer implements Runnable {
                                                                                            2);
                             try {
                                 logger.info("Swapping read-only stores on node " + nodeId);
-                                adminClient.swapStoresAndCleanState(nodeId, storeDirs);
+                                // adminClient.swapStoresAndCleanState(nodeId,
+                                // storeDirs);
                                 logger.info("Successfully swapped on node " + nodeId);
                             } catch(Exception e) {
                                 logger.error("Failed swapping on node " + nodeId, e);

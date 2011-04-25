@@ -306,7 +306,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
-        config.setMaxParallelDonors(2);
+        // config.setMaxParallelDonors(2);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
@@ -333,7 +333,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
-        config.setMaxParallelDonors(2);
+        // config.setMaxParallelDonors(2);
 
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
@@ -362,7 +362,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setMaxParallelRebalancing(2);
-        config.setMaxParallelDonors(2);
+        // config.setMaxParallelDonors(2);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
                                                                                       0),
                                                                       config);
@@ -393,7 +393,7 @@ public abstract class AbstractRebalanceTest {
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelDonors(2);
+        // rebalanceClientConfig.setMaxParallelDonors(2);
         rebalanceClientConfig.setMaxParallelRebalancing(2);
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
@@ -516,7 +516,7 @@ public abstract class AbstractRebalanceTest {
         final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
 
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelDonors(2);
+        // rebalanceClientConfig.setMaxParallelDonors(2);
         rebalanceClientConfig.setMaxParallelRebalancing(2);
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,
@@ -643,7 +643,7 @@ public abstract class AbstractRebalanceTest {
 
         // populate data now.
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
-        rebalanceClientConfig.setMaxParallelDonors(2);
+        // rebalanceClientConfig.setMaxParallelDonors(2);
         rebalanceClientConfig.setMaxParallelRebalancing(2);
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCluster,

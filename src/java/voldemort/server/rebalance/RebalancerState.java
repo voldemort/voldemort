@@ -141,7 +141,7 @@ public class RebalancerState {
         for(int p: partitionIds) {
             for(RebalancePartitionsInfoLiveCycle info: getAll()) {
                 if(info.getRebalancePartitionsInfo().getUnbalancedStoreList().contains(store)
-                   && info.getRebalancePartitionsInfo().getPartitionList().contains(p))
+                   && info.getRebalancePartitionsInfo().getPartitions().contains(p))
                     return info;
             }
         }

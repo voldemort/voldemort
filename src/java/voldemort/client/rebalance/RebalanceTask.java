@@ -30,17 +30,14 @@ class RebalanceTask implements Runnable {
     private final RebalancePartitionsInfo stealInfo;
 
     private final List<Exception> exceptions = new ArrayList<Exception>();
-    private final boolean isReadOnly;
     private final RebalanceClientConfig config;
     private final AdminClient adminClient;
 
     public RebalanceTask(final RebalancePartitionsInfo stealInfo,
                          final List<StoreDefinition> storeDefs,
                          final RebalanceClientConfig config,
-                         final AdminClient adminClient,
-                         final boolean isReadOnly) {
+                         final AdminClient adminClient) {
         this.stealInfo = modifyAndCopy(stealInfo, storeDefs);
-        this.isReadOnly = isReadOnly;
         this.config = config;
         this.adminClient = adminClient;
     }
@@ -79,7 +76,7 @@ class RebalanceTask implements Runnable {
             try {
 
                 logger.debug("Rebalancing node for plan: " + stealInfo);
-                int asyncOperationId = adminClient.rebalanceNode(stealInfo, isReadOnly);
+                int asyncOperationId = adminClient.rebalanceNode(stealInfo);
                 logger.debug("Async operation id: " + asyncOperationId + " for plan: " + stealInfo);
                 return asyncOperationId;
 

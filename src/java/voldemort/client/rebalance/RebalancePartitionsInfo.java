@@ -11,6 +11,7 @@ import voldemort.serialization.json.JsonWriter;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 /**
  * Holds the list of partitions being moved / deleted for a stealer-donor node
@@ -25,6 +26,7 @@ public class RebalancePartitionsInfo {
     private int attempt;
     private List<Integer> stealMasterPartitions;
     private List<Integer> stealReplicaPartitions;
+    private List<Integer> allPartitions;
     private List<Integer> deletePartitionsList;
 
     /**
@@ -55,6 +57,8 @@ public class RebalancePartitionsInfo {
         this.deletePartitionsList = deletePartitionsList;
         this.attempt = attempt;
         this.unbalancedStoreList = unbalancedStoreList;
+        this.allPartitions = Lists.newArrayList(stealMasterPartitions);
+        this.allPartitions.addAll(stealReplicaPartitions);
     }
 
     public static RebalancePartitionsInfo create(String line) {
@@ -132,6 +136,13 @@ public class RebalancePartitionsInfo {
 
     public void setStealMasterPartitions(List<Integer> stealMasterPartitions) {
         this.stealMasterPartitions = stealMasterPartitions;
+    }
+
+    /**
+     * Returns list of all partitions being moved ( primary + replicas )
+     */
+    public List<Integer> getPartitions() {
+        return allPartitions;
     }
 
     @Override

@@ -22,7 +22,6 @@ import java.io.FileReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,11 +31,10 @@ import org.junit.Test;
 
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.rebalance.OrderedClusterTransition;
 import voldemort.client.rebalance.RebalanceClusterPlan;
-import voldemort.client.rebalance.RebalanceController;
 import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
-import voldemort.client.rebalance.RebalanceController.OrderedClusterTransition;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.StoreDefinition;
@@ -133,8 +131,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                            empty,
                                                                            Arrays.asList(2, 3),
                                                                            RebalanceUtils.getStoreNames(storeDefList),
-                                                                           new HashMap<String, String>(),
-                                                                           new HashMap<String, String>(),
                                                                            0);
 
             assertEquals("rebalanceStealInfo should match",
@@ -212,8 +208,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(6),
                                                                     Arrays.asList(0),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
         }
@@ -228,8 +222,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(7),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -246,8 +238,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -296,8 +286,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(3),
                                                                     Arrays.asList(4),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
@@ -312,8 +300,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(2),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
@@ -328,8 +314,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(4),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
@@ -397,8 +381,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(1),
                                                                     Arrays.asList(3),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
         }
@@ -414,8 +396,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(2),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -432,8 +412,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(3),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -482,8 +460,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(6),
                                                                     Arrays.asList(7),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
         }
@@ -499,8 +475,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(5),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -517,8 +491,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(7),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
@@ -557,8 +529,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(1, 5),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -572,8 +542,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(2),
                                                                     Arrays.asList(2),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -587,8 +555,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0, 4, 6),
                                                                     Arrays.asList(6),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -636,8 +602,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(4),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDefList),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
@@ -653,8 +617,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDefList),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -669,8 +631,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     empty,
                                                                     Arrays.asList(1),
                                                                     RebalanceUtils.getStoreNames(storeDefList),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             RebalancePartitionsInfo b = new RebalancePartitionsInfo(3,
                                                                     1,
@@ -678,8 +638,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(1),
                                                                     Arrays.asList(5),
                                                                     RebalanceUtils.getStoreNames(storeDefList),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a, b));
         }
@@ -720,8 +678,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0, 5),
                                                                     Arrays.asList(0),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             RebalancePartitionsInfo b = new RebalancePartitionsInfo(3,
                                                                     1,
@@ -729,8 +685,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(4),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a, b));
         }
@@ -768,8 +722,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(1),
                                                                     Arrays.asList(1),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -783,8 +735,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(3, 5, 7),
                                                                     Arrays.asList(5),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -798,8 +748,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0, 4),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
 
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
@@ -851,8 +799,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(1),
                                                                     Arrays.asList(1),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -866,8 +812,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(3, 5, 11),
                                                                     Arrays.asList(5),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -881,8 +825,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0, 4),
                                                                     empty,
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(nodePlan, Arrays.asList(a));
         }
@@ -896,8 +838,8 @@ public class RebalanceUtilsTest extends TestCase {
                 if(rebalanceInfo.getDonorId() == nodeRebalanceInfo.getDonorId()) {
                     assertEquals("partitions should match",
                                  true,
-                                 Utils.compareList(rebalanceInfo.getPartitionList(),
-                                                   nodeRebalanceInfo.getPartitionList()));
+                                 Utils.compareList(rebalanceInfo.getPartitions(),
+                                                   nodeRebalanceInfo.getPartitions()));
 
                     assertEquals("delete partitions should match",
                                  true,
@@ -945,8 +887,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                    Arrays.asList(1, 2, 3, 4),
                                                                    new ArrayList<Integer>(0),
                                                                    Arrays.asList("test1", "test2"),
-                                                                   new HashMap<String, String>(),
-                                                                   new HashMap<String, String>(),
                                                                    0);
         assertEquals("RebalanceStealInfo fromString --> toString should match.",
                      info.toString(),
@@ -996,8 +936,6 @@ public class RebalanceUtilsTest extends TestCase {
                                                                     Arrays.asList(0, 16, 17),
                                                                     Arrays.asList(0),
                                                                     RebalanceUtils.getStoreNames(storeDef),
-                                                                    new HashMap<String, String>(),
-                                                                    new HashMap<String, String>(),
                                                                     0);
             checkAllRebalanceInfoPresent(rebalanceNodePlan, Arrays.asList(a));
         }
@@ -1010,9 +948,10 @@ public class RebalanceUtilsTest extends TestCase {
                                                                       targetCluster,
                                                                       storeDef,
                                                                       true);
-        final OrderedClusterTransition orderedClusterTransition = new RebalanceController.OrderedClusterTransition(currentCluster,
-                                                                                                                   targetCluster,
-                                                                                                                   rebalancePlan);
+        final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(currentCluster,
+                                                                                               targetCluster,
+                                                                                               storeDef,
+                                                                                               rebalancePlan);
         System.out.println("orderedClusterTransition: " + orderedClusterTransition);
         return orderedClusterTransition;
     }

@@ -252,7 +252,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
                 byte[] keyBytes = key.get();
 
                 for(int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
-                    if(stealInfo.getPartitionList().contains(p))
+                    if(stealInfo.getPartitions().contains(p))
                         scatterMap.put(stealInfo.getDonorId(), key);
                 }
             }

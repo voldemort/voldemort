@@ -122,7 +122,7 @@ message AsyncOperationListResponse {
   optional Error error = 2;
 }
 
-message InitiateRebalanceNodeRequest {
+message RebalancePartitionInfoMap {
   required int32 stealer_id = 1;
   required int32 donor_id = 2;
   repeated int32 steal_master_partitions = 3;
@@ -130,7 +130,10 @@ message InitiateRebalanceNodeRequest {
   repeated int32 delete_partitions = 5;
   repeated string unbalanced_stores = 6;
   required int32 attempt = 7;
-  required bool is_read_only = 8;
+}
+
+message InitiateRebalanceNodeRequest {
+  required RebalancePartitionInfoMap rebalance_partition_info = 1;
 }
 
 message AsyncOperationStatusResponse {
@@ -199,49 +202,37 @@ message FailedFetchStoreResponse {
   optional Error error = 1;
 }
 
-message ROStoreVersionDirMap {
- required string store_name = 1;
- required string store_dir = 2;
+enum ROMetadataType {
+  CURRENT_VERSION_DIR = 0;
+  MAX_VERSION_DIR = 1;
+  STORAGE_FORMAT = 2;
 }
 
-message GetROMaxVersionDirRequest {
-  repeated string store_name = 1;
-}
-
-message GetROMaxVersionDirResponse {
-  repeated ROStoreVersionDirMap ro_store_versions = 1;
-  optional Error error = 2;
-}
- 
-message GetROCurrentVersionDirRequest {
-  repeated string store_name = 1;
-}
-
-message GetROCurrentVersionDirResponse {
-  repeated ROStoreVersionDirMap ro_store_versions = 1;
-  optional Error error = 2;
-}
-
-message ROStorageFormatMap {
+message ROMetadataMap {
   required string store_name = 1;
-  required string storage_format = 2;
-}
- 
-message GetROStorageFormatRequest {
-  repeated string store_name = 1;
+  required string value = 2;
 }
 
-message GetROStorageFormatResponse {
-  repeated ROStorageFormatMap ro_storage_format = 1;
+message GetROMetadataRequest {
+  repeated string store_name = 1;
+  required ROMetadataType type = 2;
+}
+
+message GetROMetadataResponse {
+  repeated ROMetadataMap ro_store_metadata = 1;
   optional Error error = 2;
 }
 
-message SwapStoresAndCleanStateRequest {
-  repeated ROStoreVersionDirMap ro_store_versions = 1;
+message RebalanceStateChangeRequest {
+  repeated RebalancePartitionInfoMap rebalance_partition_info_list = 1;
+  required string cluster_string = 2;
+  required bool swap_ro = 3;
+  required bool change_cluster_metadata = 4;
+  required bool change_rebalance_state = 5;
 }
 
-message SwapStoresAndCleanStateResponse {
-  optional Error error = 1; 
+message RebalanceStateChangeResponse {
+  optional Error error = 1;
 }
 
 enum AdminRequestType {
@@ -261,13 +252,11 @@ enum AdminRequestType {
   FETCH_STORE = 13;
   SWAP_STORE = 14;
   ROLLBACK_STORE = 15;
-  GET_RO_MAX_VERSION_DIR = 16;
-  GET_RO_CURRENT_VERSION_DIR = 17;
   FETCH_PARTITION_FILES = 18;
-  SWAP_STORES_AND_CLEAN_STATE = 19;
   UPDATE_SLOP_ENTRIES = 20;
   FAILED_FETCH_STORE = 22;
-  GET_RO_STORAGE_FORMAT = 23;
+  GET_RO_METADATA = 23;
+  REBALANCE_STATE_CHANGE = 24;
 }
 
 message VoldemortAdminRequest {
@@ -288,11 +277,9 @@ message VoldemortAdminRequest {
   optional FetchStoreRequest fetch_store = 15;
   optional SwapStoreRequest swap_store = 16;
   optional RollbackStoreRequest rollback_store = 17;
-  optional GetROMaxVersionDirRequest get_ro_max_version_dir = 18;
-  optional GetROCurrentVersionDirRequest get_ro_current_version_dir = 19;
   optional FetchPartitionFilesRequest fetch_partition_files = 20;
-  optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
   optional UpdateSlopEntriesRequest update_slop_entries = 22;
   optional FailedFetchStoreRequest failed_fetch_store = 24;
-  optional GetROStorageFormatRequest get_ro_storage_format = 25;
+  optional GetROMetadataRequest get_ro_metadata = 25;
+  optional RebalanceStateChangeRequest rebalance_state_change = 26;
 }
