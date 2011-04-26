@@ -36,6 +36,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -571,7 +572,7 @@ public class RebalanceUtils {
     }
 
     /**
-     * Print log to the following logger
+     * Print log to the following logger ( Info level )
      * 
      * @param stealerNodeId Stealer node id
      * @param logger Logger class
@@ -579,6 +580,21 @@ public class RebalanceUtils {
      */
     public static void printLog(int stealerNodeId, Logger logger, String message) {
         logger.info("Stealer node " + Integer.toString(stealerNodeId) + "] " + message);
+    }
+
+    /**
+     * Print log to the following logger ( Error level )
+     * 
+     * @param stealerNodeId Stealer node id
+     * @param logger Logger class
+     * @param message The message to print
+     */
+    public static void printErrorLog(int stealerNodeId, Logger logger, String message, Exception e) {
+        if(e == null) {
+            logger.error("Stealer node " + Integer.toString(stealerNodeId) + "] " + message);
+        } else {
+            logger.error("Stealer node " + Integer.toString(stealerNodeId) + "] " + message, e);
+        }
     }
 
     /**
@@ -807,6 +823,29 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given a list of partition plans and a set of stores, copies the store
+     * names to every individual plan and creates a new list
+     * 
+     * @param existingPlanList Existing partition plan list
+     * @param storeDefs List of store names we are rebalancing
+     * @return List of updated partition plan
+     */
+    public static List<RebalancePartitionsInfo> updatePartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
+                                                                              List<StoreDefinition> storeDefs) {
+        List<RebalancePartitionsInfo> plans = Lists.newArrayList();
+        for(RebalancePartitionsInfo existingPlan: existingPlanList) {
+            RebalancePartitionsInfo info = RebalancePartitionsInfo.create(existingPlan.toJsonString());
+
+            // Copy over the new stores then
+            info.setUnbalancedStoreList(RebalanceUtils.getStoreNames(storeDefs));
+
+            plans.add(info);
+        }
+
+        return plans;
+    }
+
+    /**
      * Given a list of store definitions, filters the list depending on the
      * boolean
      * 
@@ -832,7 +871,7 @@ public class RebalanceUtils {
      * @return Returns a list of store names
      */
     public static List<String> getStoreNames(List<StoreDefinition> storeDefList) {
-        List<String> storeList = new ArrayList<String>(storeDefList.size());
+        List<String> storeList = new ArrayList<String>();
         for(StoreDefinition def: storeDefList) {
             storeList.add(def.getName());
         }

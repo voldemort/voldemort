@@ -48,6 +48,10 @@ public class OrderedClusterTransition {
         return targetCluster;
     }
 
+    public Cluster getCurrentCluster() {
+        return currentCluster;
+    }
+
     public List<RebalanceNodePlan> getOrderedRebalanceNodePlanList() {
         return orderedRebalanceNodePlanList;
     }
@@ -83,10 +87,6 @@ public class OrderedClusterTransition {
 
     private RebalanceClusterPlan getRebalanceClusterPlan() {
         return rebalanceClusterPlan;
-    }
-
-    private Cluster getCurrentCluster() {
-        return currentCluster;
     }
 
     /**

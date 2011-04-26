@@ -229,6 +229,7 @@ message RebalanceStateChangeRequest {
   required bool swap_ro = 3;
   required bool change_cluster_metadata = 4;
   required bool change_rebalance_state = 5;
+  required bool rollback = 6;
 }
 
 message RebalanceStateChangeResponse {

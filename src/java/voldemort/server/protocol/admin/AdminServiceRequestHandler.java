@@ -225,10 +225,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleFailedFetch(request.getFailedFetchStore()));
                 break;
+            case REBALANCE_STATE_CHANGE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceStateChange(request.getRebalanceStateChange()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
+        return null;
+    }
+
+    private VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
+        // TODO: Complete
         return null;
     }
 

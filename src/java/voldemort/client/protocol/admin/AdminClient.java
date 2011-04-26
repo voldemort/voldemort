@@ -60,6 +60,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -87,6 +88,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -1696,6 +1698,7 @@ public class AdminClient {
      * Used in rebalancing to indicate change in states. Groups the partition
      * plans on the basis of stealer nodes and sends them over
      * 
+     * @param existingCluster Current cluster
      * @param transitionCluster Transition cluster
      * @param rebalancePartitionPlanList The list of rebalance partition info
      *        plans
@@ -1706,29 +1709,26 @@ public class AdminClient {
      * @param changeRebalanceState Boolean indicating if we need to change
      *        rebalancing state
      */
-    public void rebalanceStateChange(Cluster transitionCluster,
+    public void rebalanceStateChange(Cluster existingCluster,
+                                     Cluster transitionCluster,
                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                     Set<Integer> completedNodeIds,
                                      boolean swapRO,
                                      boolean changeClusterMetadata,
                                      boolean changeRebalanceState) {
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
+        Set<Integer> completedNodeIds = Sets.newHashSet();
 
         int nodeId = 0;
         try {
             while(nodeId < transitionCluster.getNumberOfNodes()) {
-                boolean isStealerNode = false;
-                if(stealerNodeToPlan.containsKey(nodeId)) {
-                    isStealerNode = true;
-                }
-
-                sendRebalanceStateChange(nodeId,
-                                         transitionCluster,
-                                         stealerNodeToPlan.get(nodeId),
-                                         swapRO,
-                                         changeClusterMetadata,
-                                         changeRebalanceState,
-                                         isStealerNode);
+                individualStateChange(nodeId,
+                                      transitionCluster,
+                                      stealerNodeToPlan.get(nodeId),
+                                      swapRO,
+                                      changeClusterMetadata,
+                                      changeRebalanceState,
+                                      stealerNodeToPlan.containsKey(nodeId),
+                                      false);
                 completedNodeIds.add(nodeId);
                 nodeId++;
             }
@@ -1737,20 +1737,31 @@ public class AdminClient {
             logger.error("Got exceptions from node " + nodeId + " while changing state");
 
             // Rollback changes on completed nodes
+            for(int completedNodeId: completedNodeIds) {
+                individualStateChange(completedNodeId,
+                                      existingCluster,
+                                      stealerNodeToPlan.get(completedNodeId),
+                                      swapRO,
+                                      changeClusterMetadata,
+                                      changeRebalanceState,
+                                      stealerNodeToPlan.containsKey(completedNodeId),
+                                      true);
+            }
 
-            throw new VoldemortException("Got exceptions from node " + nodeId
-                                         + " nodes while changing state");
+            throw new VoldemortRebalancingException("Got exceptions from node " + nodeId
+                                                    + " while changing state");
         }
 
     }
 
-    private void sendRebalanceStateChange(int nodeId,
-                                          Cluster transitionCluster,
-                                          List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                          boolean swapRO,
-                                          boolean changeClusterMetadata,
-                                          boolean changeRebalanceState,
-                                          boolean isStealerNode) {
+    public void individualStateChange(int nodeId,
+                                      Cluster cluster,
+                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                      boolean swapRO,
+                                      boolean changeClusterMetadata,
+                                      boolean changeRebalanceState,
+                                      boolean isStealerNode,
+                                      boolean rollback) {
 
         // If we do not want to change the metadata and are not one of the
         // stealer nodes, nothing to do
@@ -1780,7 +1791,8 @@ public class AdminClient {
         VAdminProto.RebalanceStateChangeRequest getRebalanceStateChangeRequest = getRebalanceStateChangeRequestBuilder.setSwapRo(swapRO)
                                                                                                                       .setChangeClusterMetadata(changeClusterMetadata)
                                                                                                                       .setChangeRebalanceState(changeRebalanceState)
-                                                                                                                      .setClusterString(clusterMapper.writeCluster(transitionCluster))
+                                                                                                                      .setClusterString(clusterMapper.writeCluster(cluster))
+                                                                                                                      .setRollback(rollback)
                                                                                                                       .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setRebalanceStateChange(getRebalanceStateChangeRequest)

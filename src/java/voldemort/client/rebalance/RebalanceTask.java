@@ -1,7 +1,5 @@
 package voldemort.client.rebalance;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -9,8 +7,6 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.server.rebalance.AlreadyRebalancingException;
-import voldemort.server.rebalance.VoldemortRebalancingException;
-import voldemort.store.StoreDefinition;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -29,47 +25,34 @@ class RebalanceTask implements Runnable {
 
     private final RebalancePartitionsInfo stealInfo;
 
-    private final List<Exception> exceptions = new ArrayList<Exception>();
+    private Exception exception;
     private final RebalanceClientConfig config;
     private final AdminClient adminClient;
 
     public RebalanceTask(final RebalancePartitionsInfo stealInfo,
-                         final List<StoreDefinition> storeDefs,
                          final RebalanceClientConfig config,
                          final AdminClient adminClient) {
-        this.stealInfo = modifyAndCopy(stealInfo, storeDefs);
+        this.stealInfo = stealInfo;
         this.config = config;
         this.adminClient = adminClient;
+        this.exception = null;
     }
 
-    /**
-     * Change the partition info to have only the stores passed down
-     * 
-     * @param stealInfo Existing store definition to copy
-     * @return Returns a modified partition info
-     */
-    private RebalancePartitionsInfo modifyAndCopy(final RebalancePartitionsInfo stealInfo,
-                                                  final List<StoreDefinition> newStoreDefs) {
-        // Clone the existing one first
-        RebalancePartitionsInfo info = RebalancePartitionsInfo.create(stealInfo.toJsonString());
-
-        // Copy over the new stores then
-        info.setUnbalancedStoreList(RebalanceUtils.getStoreNames(newStoreDefs));
-
-        return info;
+    public boolean hasException() {
+        return exception != null;
     }
 
-    public boolean hasErrors() {
-        return !exceptions.isEmpty();
+    public Exception getError() {
+        return exception;
     }
 
-    public List<Exception> getExceptions() {
-        return exceptions;
+    public RebalancePartitionsInfo getRebalancePartitionsInfo() {
+        return this.stealInfo;
     }
 
     private int startNodeRebalancing(RebalancePartitionsInfo stealInfo) {
         int nTries = 0;
-        AlreadyRebalancingException exception = null;
+        AlreadyRebalancingException rebalanceException = null;
 
         while(nTries < config.getMaxTriesRebalancing()) {
             nTries++;
@@ -89,12 +72,12 @@ class RebalanceTask implements Runnable {
                                               VoldemortState.NORMAL_SERVER.toString(),
                                               config.getRebalancingClientTimeoutSeconds(),
                                               TimeUnit.SECONDS);
-                exception = e;
+                rebalanceException = e;
             }
         }
 
         throw new VoldemortException("Failed to start rebalancing with plan: " + stealInfo,
-                                     exception);
+                                     rebalanceException);
     }
 
     public void run() {
@@ -115,15 +98,12 @@ class RebalanceTask implements Runnable {
                                             + rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
-            exceptions.add(e);
+            exception = e;
             logger.error("StealerNode " + stealerNodeId
                          + " is unreachable, please make sure it is up and running - "
                          + e.getMessage(), e);
-        } catch(VoldemortRebalancingException e) {
-            exceptions.add(e);
-            logger.error("Rebalance failed: " + e.getMessage(), e);
         } catch(Exception e) {
-            exceptions.add(e);
+            exception = e;
             logger.error("Rebalance failed: " + e.getMessage(), e);
         }
     }
