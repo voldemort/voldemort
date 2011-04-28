@@ -366,6 +366,60 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         }
     }
 
+    /**
+     * Add the steal information to the rebalancer state
+     * 
+     * @param stealInfo The steal information to add
+     */
+    public void addRebalancingState(final RebalancePartitionsInfo stealInfo) {
+        writeLock.lock();
+        try {
+            // Move into rebalancing state
+            if(ByteUtils.getString(get(SERVER_STATE_KEY, null).get(0).getValue(), "UTF-8")
+                        .compareTo(VoldemortState.NORMAL_SERVER.toString()) == 0) {
+                put(SERVER_STATE_KEY, VoldemortState.REBALANCING_MASTER_SERVER);
+                initCache(SERVER_STATE_KEY);
+            }
+
+            // Add the steal information
+            RebalancerState rebalancerState = getRebalancerState();
+            if(!rebalancerState.update(stealInfo)) {
+                throw new VoldemortException("Could not add steal information since a plan for the same donor node "
+                                             + stealInfo.getDonorId() + " already exists");
+            }
+            put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
+            initCache(REBALANCING_STEAL_INFO);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Delete the partition steal information from the rebalancer state
+     * 
+     * @param stealInfo The steal information to delete
+     */
+    public void deleteRebalancingState(RebalancePartitionsInfo stealInfo) {
+        writeLock.lock();
+        try {
+            RebalancerState rebalancerState = getRebalancerState();
+
+            if(!rebalancerState.remove(stealInfo))
+                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in "
+                                                   + rebalancerState);
+
+            if(rebalancerState.isEmpty()) {
+                logger.debug("stealInfoList empty, cleaning all rebalancing state");
+                cleanAllRebalancingState();
+            } else {
+                put(REBALANCING_STEAL_INFO, rebalancerState);
+                initCache(REBALANCING_STEAL_INFO);
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new VoldemortException("You cannot iterate over all entries in Metadata");
     }
