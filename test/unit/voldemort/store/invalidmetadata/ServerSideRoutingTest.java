@@ -17,22 +17,33 @@
 package voldemort.store.invalidmetadata;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.Map.Entry;
 
 import junit.framework.TestCase;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -40,42 +51,65 @@ import voldemort.versioning.Versioned;
  * InvalidMetadata can cause trouble for server side routing by not allowing
  * requests from random partitions on a server.
  * 
- * 
  */
+@RunWith(Parameterized.class)
 public class ServerSideRoutingTest extends TestCase {
 
     private static int TEST_VALUES_SIZE = 1000;
     private static String testStoreName = "test-replication-memory";
+    private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
+    private final boolean useNio;
+    private final boolean enableMetadataChecking;
+    private VoldemortServer servers[];
 
-    /**
-     * TODO : enable this test after serversideRouting is fixed.
-     * 
-     * @throws IOException
-     */
-    @Test
-    public void testServerSideRouting() throws IOException {
-    // Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1
-    // }, { 2, 3 } });
-    //
-    // // check with InvalidMetadata disabled.
-    // VoldemortServer server0 = startServer(0, storesXmlfile, cluster, false);
-    // VoldemortServer server1 = startServer(1, storesXmlfile, cluster, false);
-    // checkServerSideRouting(server0, server1);
-    //
-    // // check with InvalidMetadata enabled.
-    // server0 = startServer(0, storesXmlfile, cluster, true);
-    // server1 = startServer(1, storesXmlfile, cluster, true);
-    // checkServerSideRouting(server0, server1);
+    public ServerSideRoutingTest(boolean useNio, boolean enableMetadataChecking) {
+        this.useNio = useNio;
+        this.enableMetadataChecking = enableMetadataChecking;
     }
 
-    @SuppressWarnings("unused")
+    @Parameters
+    public static Collection<Object[]> configs() {
+        return Arrays.asList(new Object[][] { { false, false }, { false, true }, { true, false },
+                { true, true } });
+    }
+
+    @Override
+    @Before
+    public void setUp() throws IOException {
+        Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1 }, { 2, 3 } });
+
+        servers = new VoldemortServer[2];
+        servers[0] = startServer(useNio, 0, storesXmlfile, cluster, enableMetadataChecking);
+        servers[1] = startServer(useNio, 1, storesXmlfile, cluster, enableMetadataChecking);
+    }
+
+    @Override
+    @After
+    public void tearDown() {
+        for(int i = 0; i < servers.length; i++) {
+            try {
+                ServerTestUtils.stopVoldemortServer(servers[i]);
+            } catch(VoldemortException e) {
+                // ignore these at stop time
+            } catch(IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Test
+    public void testServerSideRouting() {
+        checkServerSideRouting(servers[0], servers[1]);
+    }
+
     private void checkServerSideRouting(VoldemortServer server0, VoldemortServer server1) {
         // create bunch of key-value pairs
         HashMap<ByteArray, byte[]> entryMap = ServerTestUtils.createRandomKeyValuePairs(TEST_VALUES_SIZE);
 
         // populate all entries in server1
         Store<ByteArray, byte[], byte[]> store = server1.getStoreRepository()
-                                                        .getStorageEngine(testStoreName);
+                                                        .getRoutedStore(testStoreName);
         for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
             store.put(entry.getKey(),
                       Versioned.value(entry.getValue(),
@@ -88,15 +122,29 @@ public class ServerSideRoutingTest extends TestCase {
         RoutingStrategy routing = server0.getMetadataStore().getRoutingStrategy(testStoreName);
 
         for(Entry<ByteArray, byte[]> entry: entryMap.entrySet()) {
-            if(!routing.routeRequest(entry.getKey().get()).contains(0)) {
-                assertEquals("ServerSideRouting should return keys from other nodes.",
-                             entry.getValue(),
-                             store.get(entry.getKey(), null).get(0).getValue());
+            List<Node> nodes = routing.routeRequest(entry.getKey().get());
+            if(hasNode(nodes, 0)) {
+                assertTrue("ServerSideRouting should return keys from other nodes.",
+                           ByteUtils.compare(entry.getValue(), store.get(entry.getKey(), null)
+                                                                    .get(0)
+                                                                    .getValue()) == 0);
             }
         }
     }
 
-    @SuppressWarnings("unused")
+    /**
+     * Checks if a list of nodes contains a node with the passed node id
+     * 
+     */
+    private boolean hasNode(List<Node> nodes, int nodeId) {
+        for(Node node: nodes) {
+            if(node.getId() == nodeId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private VoldemortServer startServer(boolean useNio,
                                         int node,
                                         String storesXmlfile,

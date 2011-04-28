@@ -31,12 +31,12 @@ public abstract class IntegerGenerator extends Generator {
 
     @Override
     public String nextString() {
-        return "" + nextInt();
+        return Integer.toString(nextInt());
     }
 
     @Override
     public String lastString() {
-        return "" + lastInt;
+        return Integer.toString(lastInt);
     }
 
     public int lastInt() {

@@ -31,6 +31,25 @@ public class ReadOnlyUtils {
     }
 
     /**
+     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
+     * version dir
+     * 
+     * @return Current version directory, else null
+     */
+    public static File getCurrentVersion(File storeDirectory) {
+        File latestDir = getLatestDir(storeDirectory);
+        if(latestDir != null)
+            return latestDir;
+
+        File[] versionDirs = getVersionDirs(storeDirectory);
+        if(versionDirs == null || versionDirs.length == 0) {
+            return null;
+        } else {
+            return findKthVersionedDir(versionDirs, versionDirs.length - 1, versionDirs.length - 1)[0];
+        }
+    }
+
+    /**
      * Retrieve the directory pointed by latest symbolic link
      * 
      * @param parentDir The root directory
@@ -47,8 +66,7 @@ public class ReadOnlyUtils {
                 return null;
             }
 
-            if(canonicalLatestVersion != null
-               && ReadOnlyUtils.checkVersionDirName(canonicalLatestVersion))
+            if(canonicalLatestVersion != null && checkVersionDirName(canonicalLatestVersion))
                 return canonicalLatestVersion;
         }
         return null;
@@ -68,15 +86,24 @@ public class ReadOnlyUtils {
     /**
      * Extracts the version id from the directory
      * 
-     * @param versionDir The directory
+     * @param versionDir The directory path
      * @return Returns the version id of the directory, else -1
      */
     public static long getVersionId(File versionDir) {
+        return getVersionId(versionDir.getName());
+    }
+
+    /**
+     * Extracts the version id from a string
+     * 
+     * @param versionDir The string
+     * @return Returns the version id of the directory, else -1
+     */
+    private static long getVersionId(String versionDir) {
         try {
-            return Long.parseLong(versionDir.getName().replace("version-", ""));
+            return Long.parseLong(versionDir.replace("version-", ""));
         } catch(NumberFormatException e) {
-            logger.trace("Cannot parse version directory to obtain id "
-                         + versionDir.getAbsolutePath());
+            logger.trace("Cannot parse version directory to obtain id " + versionDir);
             return -1;
         }
     }

@@ -178,7 +178,8 @@ message SwapStoreRequest {
 }
 
 message SwapStoreResponse {
-  optional Error error = 1;
+  optional Error error = 1; 
+  optional string previous_store_dir = 2;
 }
 
 message RollbackStoreRequest {
@@ -187,6 +188,15 @@ message RollbackStoreRequest {
 }
 
 message RollbackStoreResponse {
+  optional Error error = 1;
+}
+
+message FailedFetchStoreRequest {
+  required string store_name = 1;
+  required string store_dir = 2;
+}
+
+message FailedFetchStoreResponse {
   optional Error error = 1;
 }
 
@@ -253,6 +263,7 @@ enum AdminRequestType {
   SWAP_STORES_AND_CLEAN_STATE = 19;
   UPDATE_SLOP_ENTRIES = 20;
   UPDATE_GRANDFATHER_METADATA = 21;
+  FAILED_FETCH_STORE = 22;
 }
 
 message VoldemortAdminRequest {
@@ -279,4 +290,5 @@ message VoldemortAdminRequest {
   optional SwapStoresAndCleanStateRequest swap_stores_and_clean_state = 21;
   optional UpdateSlopEntriesRequest update_slop_entries = 22;
   optional UpdateGrandfatherMetadataRequest update_grandfather_metadata = 23;
+  optional FailedFetchStoreRequest failed_fetch_store = 24;
 }

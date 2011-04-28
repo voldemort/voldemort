@@ -21,6 +21,7 @@ import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.store.stats.StreamStats;
 import voldemort.utils.EventThrottler;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
@@ -35,10 +36,15 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final long blockSize;
 
+    private final StreamStats stats;
+
+    private final StreamStats.Handle handle;
+
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
                                                      VoldemortConfig voldemortConfig,
-                                                     StoreRepository storeRepository) {
+                                                     StoreRepository storeRepository,
+                                                     StreamStats stats) {
         this.request = request;
         boolean isReadOnly = metadataStore.getStoreDef(request.getStore())
                                           .getType()
@@ -56,6 +62,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                  voldemortConfig.getAdminSocketBufferSize());
         this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
+        this.stats = stats;
+        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE, request.getPartitionsList());
     }
 
     public StreamRequestDirection getDirection() {
@@ -104,9 +112,11 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                 logger.info("Completed streaming " + index.getAbsolutePath());
 
                 chunkId++;
+                handle.incrementEntriesScanned();
             }
         }
 
+        stats.closeHandle(handle);
         return StreamRequestHandlerState.COMPLETE;
     }
 

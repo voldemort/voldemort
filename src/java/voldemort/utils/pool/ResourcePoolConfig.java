@@ -47,7 +47,7 @@ public class ResourcePoolConfig {
      * @return The timeout
      */
     public long getTimeout(TimeUnit unit) {
-        return unit.convert(timeoutNs, unit);
+        return unit.convert(timeoutNs, TimeUnit.NANOSECONDS);
     }
 
     /**

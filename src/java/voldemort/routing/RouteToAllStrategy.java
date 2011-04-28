@@ -37,6 +37,10 @@ public class RouteToAllStrategy implements RoutingStrategy {
         this.nodes = nodes;
     }
 
+    public int getNumReplicas() {
+        return nodes.size();
+    }
+
     public List<Node> routeRequest(byte[] key) {
         return new ArrayList<Node>(nodes);
     }

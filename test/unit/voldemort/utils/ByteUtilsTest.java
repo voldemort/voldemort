@@ -165,6 +165,23 @@ public class ByteUtilsTest extends TestCase {
         assertEquals(0, ByteUtils.compare(new byte[] { -1 }, new byte[] { -1 }));
         assertEquals(1, ByteUtils.compare(new byte[] { -1 }, new byte[] { -4 }));
         assertEquals(-1, ByteUtils.compare(new byte[] { -4 }, new byte[] { -1 }));
-    }
 
+        // Tests byte comparison with sub-sequence
+        assertEquals(1, ByteUtils.compare(new byte[] { 0 }, new byte[] { 0 }, 0, 0));
+        assertEquals(0, ByteUtils.compare(new byte[] { 0 }, new byte[] { 0 }, 0, 1));
+        try {
+            assertEquals(0, ByteUtils.compare(new byte[] { 0 }, new byte[] { 0 }, 0, 2));
+            fail("Should have thrown an exception");
+        } catch(IllegalArgumentException e) {}
+        assertEquals(-1, ByteUtils.compare(new byte[] { 2 }, new byte[] { 0, 1, 2, 3 }, 3, 4));
+        assertEquals(0, ByteUtils.compare(new byte[] { 3 }, new byte[] { 0, 1, 2, 3 }, 3, 4));
+        assertEquals(1, ByteUtils.compare(new byte[] { 5 }, new byte[] { 0, 1, 2, 3 }, 3, 4));
+
+        assertEquals(0, ByteUtils.compare(new byte[] { 2, 3 }, new byte[] { 0, 1, 2, 3 }, 2, 4));
+        try {
+            assertEquals(0, ByteUtils.compare(new byte[] { 2, 3 }, new byte[] { 0, 1, 2, 3 }, 2, 5));
+            fail("Should have thrown an exception");
+        } catch(IllegalArgumentException e) {}
+        assertEquals(1, ByteUtils.compare(new byte[] { 5 }, new byte[] { 0, 1, 2, 3 }, 2, 4));
+    }
 }

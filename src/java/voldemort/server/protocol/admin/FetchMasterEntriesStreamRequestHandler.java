@@ -3,6 +3,7 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -11,6 +12,8 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.versioning.Versioned;
@@ -34,13 +37,16 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
                                                   ErrorCodeMapper errorCodeMapper,
                                                   VoldemortConfig voldemortConfig,
                                                   StoreRepository storeRepository,
-                                                  NetworkClassLoader networkClassLoader) {
+                                                  NetworkClassLoader networkClassLoader,
+                                                  StreamStats stats) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
-              networkClassLoader);
+              networkClassLoader,
+              stats,
+              Operation.FETCH_ENTRIES);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -49,13 +55,18 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
 
         // Since Master-Only filter does not need value, we can save some disk
         // seeks by getting back only Master replica values
         if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
-            for(Versioned<byte[]> value: storageEngine.get(key, null)) {
+            List<Versioned<byte[]>> values = storageEngine.get(key, null);
+            stats.recordDiskTime(handle, System.nanoTime() - startNs);
+
+            for(Versioned<byte[]> value: values) {
                 throttler.maybeThrottle(key.length());
+                handle.incrementEntriesScanned();
                 fetched++;
                 VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
@@ -66,10 +77,14 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
                 response.setPartitionEntry(partitionEntry);
 
                 Message message = response.build();
+                startNs = System.nanoTime();
                 ProtoUtils.writeMessage(outputStream, message);
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
 
                 throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
             }
+        } else {
+            stats.recordDiskTime(handle, System.nanoTime() - startNs);
         }
 
         // log progress
@@ -86,8 +101,10 @@ public class FetchMasterEntriesStreamRequestHandler extends FetchStreamRequestHa
 
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
-        else
+        else {
+            stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
+        }
     }
 
 }

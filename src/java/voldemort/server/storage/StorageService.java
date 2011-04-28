@@ -203,7 +203,6 @@ public class StorageService extends AbstractService {
             registerEngine(slopEngine);
             storeRepository.setSlopStore(slopEngine);
 
-
             if(voldemortConfig.isSlopPusherJobEnabled()) {
                 // Now initialize the pusher job after some time
                 GregorianCalendar cal = new GregorianCalendar();
@@ -220,11 +219,11 @@ public class StorageService extends AbstractService {
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
                                                                                                                                  scanPermits)
-                                                                                                     : new StreamingSlopPusherJob(storeRepository,
-                                                                                                                                  metadata,
-                                                                                                                                  failureDetector,
-                                                                                                                                  voldemortConfig,
-                                                                                                                                  scanPermits),
+                                                                                                    : new StreamingSlopPusherJob(storeRepository,
+                                                                                                                                 metadata,
+                                                                                                                                 failureDetector,
+                                                                                                                                 voldemortConfig,
+                                                                                                                                 scanPermits),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
 
@@ -236,12 +235,15 @@ public class StorageService extends AbstractService {
                     cal.add(Calendar.SECOND,
                             (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
                     nextRun = cal.getTime();
-                    logger.info("Initializing repair job " + voldemortConfig.getPusherType() + " at "
-                                + nextRun);
+                    logger.info("Initializing repair job " + voldemortConfig.getPusherType()
+                                + " at " + nextRun);
                     RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
 
                     JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                    scheduler.schedule("repair", job, nextRun, voldemortConfig.getRepairFrequencyMs());
+                    scheduler.schedule("repair",
+                                       job,
+                                       nextRun,
+                                       voldemortConfig.getRepairFrequencyMs());
                 }
             }
         }
@@ -392,8 +394,7 @@ public class StorageService extends AbstractService {
         }
 
         if(voldemortConfig.isStatTrackingEnabled()) {
-            StatTrackingStore statStore = new StatTrackingStore(store,
-                                                                                                                      this.storeStats);
+            StatTrackingStore statStore = new StatTrackingStore(store, this.storeStats);
             store = statStore;
             if(voldemortConfig.isJmxEnabled()) {
 

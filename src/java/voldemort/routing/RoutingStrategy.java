@@ -69,4 +69,11 @@ public interface RoutingStrategy {
      */
     public Set<Node> getNodes();
 
+    /**
+     * Return the number of replicas
+     * 
+     * @return The number of replicas
+     */
+    public int getNumReplicas();
+
 }

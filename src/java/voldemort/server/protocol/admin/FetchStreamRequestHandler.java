@@ -19,6 +19,8 @@ import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStats.Handle;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -50,6 +52,10 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final long startTime;
 
+    protected final Handle handle;
+
+    protected final StreamStats stats;
+
     protected final Logger logger = Logger.getLogger(getClass());
 
     protected FetchStreamRequestHandler(VAdminProto.FetchPartitionEntriesRequest request,
@@ -57,14 +63,18 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
                                         ErrorCodeMapper errorCodeMapper,
                                         VoldemortConfig voldemortConfig,
                                         StoreRepository storeRepository,
-                                        NetworkClassLoader networkClassLoader) {
+                                        NetworkClassLoader networkClassLoader,
+                                        StreamStats stats,
+                                        StreamStats.Operation operation) {
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
+        partitionList = request.getPartitionsList();
+        this.stats = stats;
+        this.handle = stats.makeHandle(operation, partitionList);
         storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                     request.getStore());
         routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
         throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-        partitionList = request.getPartitionsList();
         if(request.hasFilter()) {
             filter = AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
                                                                      voldemortConfig,

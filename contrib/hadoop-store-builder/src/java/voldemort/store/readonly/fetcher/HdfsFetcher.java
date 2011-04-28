@@ -144,7 +144,7 @@ public class HdfsFetcher implements FileFetcher {
                     // Kept for backwards compatibility
                     if(status.getPath().getName().contains("checkSum.txt")) {
 
-                        // Ignore old checksum files 
+                        // Ignore old checksum files
 
                     } else if(status.getPath().getName().contains(".metadata")) {
 

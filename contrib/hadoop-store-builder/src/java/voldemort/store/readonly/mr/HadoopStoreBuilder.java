@@ -30,11 +30,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
 import org.apache.log4j.Logger;
 
@@ -238,29 +240,28 @@ public class HadoopStoreBuilder {
      * Run the job
      */
     public void build() {
-        JobConf conf = new JobConf(config);
-        conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
-        conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
-        conf.set("stores.xml",
-                 new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-        conf.setBoolean("save.keys", saveKeys);
-        conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-        conf.setMapperClass(mapperClass);
-        conf.setMapOutputKeyClass(BytesWritable.class);
-        conf.setMapOutputValueClass(BytesWritable.class);
-        conf.setReducerClass(HadoopStoreBuilderReducer.class);
-        conf.setInputFormat(inputFormatClass);
-        conf.setOutputFormat(SequenceFileOutputFormat.class);
-        conf.setOutputKeyClass(BytesWritable.class);
-        conf.setOutputValueClass(BytesWritable.class);
-        conf.setJarByClass(getClass());
-        conf.setReduceSpeculativeExecution(false);
-        FileInputFormat.setInputPaths(conf, inputPath);
-        conf.set("final.output.dir", outputDir.toString());
-        conf.set("checksum.type", CheckSum.toString(checkSumType));
-        FileOutputFormat.setOutputPath(conf, tempDir);
-
         try {
+            JobConf conf = new JobConf(config);
+            conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+            conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
+            conf.set("stores.xml",
+                     new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+            conf.setBoolean("save.keys", saveKeys);
+            conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+            conf.setMapperClass(mapperClass);
+            conf.setMapOutputKeyClass(BytesWritable.class);
+            conf.setMapOutputValueClass(BytesWritable.class);
+            conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            conf.setInputFormat(inputFormatClass);
+            conf.setOutputFormat(SequenceFileOutputFormat.class);
+            conf.setOutputKeyClass(BytesWritable.class);
+            conf.setOutputValueClass(BytesWritable.class);
+            conf.setJarByClass(getClass());
+            conf.setReduceSpeculativeExecution(false);
+            FileInputFormat.setInputPaths(conf, inputPath);
+            conf.set("final.output.dir", outputDir.toString());
+            conf.set("checksum.type", CheckSum.toString(checkSumType));
+            FileOutputFormat.setOutputPath(conf, tempDir);
 
             FileSystem outputFs = outputDir.getFileSystem(conf);
             if(outputFs.exists(outputDir)) {
@@ -272,20 +273,40 @@ public class HadoopStoreBuilder {
             tempFs.delete(tempDir, true);
 
             long size = sizeOfPath(tempFs, inputPath);
-            int numChunksPerPartition = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                        / cluster.getNumberOfPartitions() / chunkSizeBytes),
-                                                 1);
             logger.info("Data size = " + size + ", replication factor = "
                         + storeDef.getReplicationFactor() + ", numNodes = "
-                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes
-                        + ",  num.chunks per partition = " + numChunksPerPartition);
-            conf.setInt("num.chunks", numChunksPerPartition);
-            int numReduces = cluster.getNumberOfPartitions() * numChunksPerPartition;
-            conf.setNumReduceTasks(numReduces);
-            logger.info("Number of reduces: " + numReduces);
+                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
 
+            // Derive number of chunks and reducers
+            int numChunks, numReducers;
+            if(saveKeys) {
+                numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfPartitions()
+                                            / storeDef.getReplicationFactor() / chunkSizeBytes), 1);
+                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
+                              * numChunks;
+            } else {
+                numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                            / cluster.getNumberOfPartitions() / chunkSizeBytes), 1);
+                numReducers = cluster.getNumberOfPartitions() * numChunks;
+            }
+            conf.setInt("num.chunks", numChunks);
+            conf.setNumReduceTasks(numReducers);
+
+            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
+                        + ", save keys: " + saveKeys);
             logger.info("Building store...");
-            JobClient.runJob(conf);
+            RunningJob job = JobClient.runJob(conf);
+
+            // Once the job has completed log the counter
+            Counters counters = job.getCounters();
+
+            if(saveKeys) {
+                logger.info("Number of collisions in the job - "
+                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
+                logger.info("Maximum number of collisions for one entry - "
+                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+            }
 
             // Do a CheckSumOfCheckSum - Similar to HDFS
             CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
@@ -299,15 +320,19 @@ public class HadoopStoreBuilder {
 
                 ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
 
-                if(saveKeys)
+                if(saveKeys) {
                     metadata.add(ReadOnlyStorageMetadata.FORMAT,
                                  ReadOnlyStorageFormat.READONLY_V2.getCode());
-                else
+                } else {
                     metadata.add(ReadOnlyStorageMetadata.FORMAT,
                                  ReadOnlyStorageFormat.READONLY_V1.getCode());
+                }
 
                 Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
+
                 if(!outputFs.exists(nodePath)) {
+                    logger.info("No data generated for node " + node.getId()
+                                + ". Generating empty folder");
                     outputFs.mkdirs(nodePath); // Create empty folder
                 }
 
@@ -414,4 +439,5 @@ public class HadoopStoreBuilder {
         }
         return size;
     }
+
 }

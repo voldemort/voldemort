@@ -134,5 +134,4 @@ public class CheckSumTests extends TestCase {
         return checkSumGenerator.getCheckSum();
 
     }
-
 }

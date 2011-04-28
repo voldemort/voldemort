@@ -17,8 +17,6 @@
 package voldemort.store.readonly;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -38,6 +36,7 @@ import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -66,12 +65,39 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private RoutingStrategy routingStrategy;
     private volatile ChunkedFileSet fileSet;
     private volatile boolean isOpen;
+    private int deleteBackupMs = 0;
+    private long lastSwapped;
 
     /**
      * Create an instance of the store
      * 
      * @param name The name of the store
      * @param searchStrategy The algorithm to use for searching for keys
+     * @param routingStrategy The routing strategy used to route keys
+     * @param nodeId Node id
+     * @param storeDir The directory in which the .data and .index files reside
+     * @param numBackups The number of backups of these files to retain
+     * @param deleteBackupMs The time in ms for which we'll wait before we
+     *        delete a backup
+     */
+    public ReadOnlyStorageEngine(String name,
+                                 SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
+                                 File storeDir,
+                                 int numBackups,
+                                 int deleteBackupMs) {
+        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups);
+        this.deleteBackupMs = deleteBackupMs;
+    }
+
+    /**
+     * Create an instance of the store
+     * 
+     * @param name The name of the store
+     * @param searchStrategy The algorithm to use for searching for keys
+     * @param routingStrategy The routing strategy used to route keys
+     * @param nodeId Node id
      * @param storeDir The directory in which the .data and .index files reside
      * @param numBackups The number of backups of these files to retain
      */
@@ -115,7 +141,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
             // Find version directory from symbolic link or max version id
             if(versionDir == null) {
-                versionDir = getCurrentVersion();
+                versionDir = ReadOnlyUtils.getCurrentVersion(storeDir);
 
                 if(versionDir == null)
                     versionDir = new File(storeDir, "version-0");
@@ -136,7 +162,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
             this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
-            isOpen = true;
+            this.lastSwapped = System.currentTimeMillis();
+            this.isOpen = true;
         } finally {
             fileModificationLock.writeLock().unlock();
         }
@@ -154,37 +181,51 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     }
 
     /**
-     * Retrieve the dir pointed to by 'latest' symbolic-link or the current
-     * version dir
+     * Retrieve the absolute path of the current version
      * 
-     * @return Current version directory, else null
+     * @return Returns the absolute path of the current dir
      */
-    private File getCurrentVersion() {
-        File latestDir = ReadOnlyUtils.getLatestDir(storeDir);
-        if(latestDir != null)
-            return latestDir;
-
-        File[] versionDirs = ReadOnlyUtils.getVersionDirs(storeDir);
-        if(versionDirs == null || versionDirs.length == 0) {
-            return null;
-        } else {
-            return ReadOnlyUtils.findKthVersionedDir(versionDirs,
-                                                     versionDirs.length - 1,
-                                                     versionDirs.length - 1)[0];
-        }
-    }
-
     public String getCurrentDirPath() {
         return storeDir.getAbsolutePath() + File.separator + "version-"
                + Long.toString(currentVersionId);
     }
 
+    /**
+     * Retrieve the version id of the current directory
+     * 
+     * @return Returns a long indicating the version number
+     */
     public long getCurrentVersionId() {
         return currentVersionId;
     }
 
+    /**
+     * Retrieves the path of the store
+     * 
+     * @return The absolute path of the store
+     */
     public String getStoreDirPath() {
         return storeDir.getAbsolutePath();
+    }
+
+    /**
+     * Retrieve the storage format of RO
+     * 
+     * @return The type of the storage format
+     */
+    public ReadOnlyStorageFormat getReadOnlyStorageFormat() {
+        return fileSet.getReadOnlyStorageFormat();
+    }
+
+    /**
+     * Time since last time the store was swapped
+     * 
+     * @return Time in milliseconds since the store was swapped
+     */
+    @JmxGetter(name = "lastSwapped", description = "Time in milliseconds since the store was swapped")
+    public long getLastSwapped() {
+        long timeSinceLastSwap = System.currentTimeMillis() - lastSwapped;
+        return timeSinceLastSwap > 0 ? timeSinceLastSwap : 0;
     }
 
     /**
@@ -227,7 +268,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
         // retrieve previous version for (a) check if last write is winning
         // (b) if failure, rollback use
-        File previousVersionDir = getCurrentVersion();
+        File previousVersionDir = ReadOnlyUtils.getCurrentVersion(storeDir);
         if(previousVersionDir == null)
             throw new VoldemortException("Could not find any latest directory to swap with in store '"
                                          + getName() + "'");
@@ -308,9 +349,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
             public void run() {
                 try {
-                    logger.info("Deleting file " + file);
+                    try {
+                        logger.info("Waiting for " + deleteBackupMs
+                                    + " milliseconds before deleting " + file.getAbsolutePath());
+                        Thread.sleep(deleteBackupMs);
+                    } catch(InterruptedException e) {
+                        logger.warn("Did not sleep enough before deleting backups");
+                    }
+                    logger.info("Deleting file " + file.getAbsolutePath());
                     Utils.rm(file);
-                    logger.info("Delete completed successfully.");
+                    logger.info("Deleting of " + file.getAbsolutePath()
+                                + " completed successfully.");
                 } catch(Exception e) {
                     logger.error(e);
                 }
@@ -338,8 +387,12 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         logger.info("Rolling back store '" + getName() + "'");
         fileModificationLock.writeLock().lock();
         try {
-            if(rollbackToDir == null || !rollbackToDir.exists())
-                throw new VoldemortException("Version directory specified to rollback to does not exist or is null");
+            if(rollbackToDir == null)
+                throw new VoldemortException("Version directory specified to rollback is null");
+
+            if(!rollbackToDir.exists())
+                throw new VoldemortException("Version directory " + rollbackToDir.getAbsolutePath()
+                                             + " specified to rollback does not exist");
 
             long versionId = ReadOnlyUtils.getVersionId(rollbackToDir);
             if(versionId == -1)
@@ -377,7 +430,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                     + getClass().getName()
                                                     + " with storage format "
                                                     + fileSet.getReadOnlyStorageFormat());
-        return new ROKeyIterator(fileSet);
+        return new ChunkedFileSet.ROKeyIterator(fileSet, fileModificationLock);
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
@@ -386,165 +439,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                     + getClass().getName()
                                                     + " with storage format "
                                                     + fileSet.getReadOnlyStorageFormat());
-        return new ROEntriesIterator(fileSet);
-    }
-
-    private abstract class ROIterator<T> implements ClosableIterator<T> {
-
-        protected ChunkedFileSet chunkedFileSet;
-        protected int currentChunk;
-        protected long currentOffsetInChunk;
-        private boolean chunksFinished;
-        // Number of k-v pairs which have collided and are in one bucket
-        private int tupleCount;
-
-        public ROIterator(ChunkedFileSet chunkedFileSet) {
-            this.chunkedFileSet = chunkedFileSet;
-            this.currentChunk = 0;
-            this.currentOffsetInChunk = 0;
-            this.tupleCount = 0;
-            this.chunksFinished = false;
-            fileModificationLock.readLock().lock();
-        }
-
-        public void close() {
-            fileModificationLock.readLock().unlock();
-        }
-
-        public abstract T next();
-
-        public boolean hasNext() {
-            if(chunksFinished)
-                return false;
-
-            // Jump till you reach the first non-zero data size file or end
-            if(currentOffsetInChunk >= chunkedFileSet.getDataFileSize(currentChunk)) {
-                // Time to jump to another chunk with a non-zero size data file
-                currentChunk++;
-                currentOffsetInChunk = 0;
-
-                // Jump over all zero size data files
-                while(currentChunk < chunkedFileSet.getNumChunks()
-                      && chunkedFileSet.getDataFileSize(currentChunk) == 0) {
-                    currentChunk++;
-                }
-
-                if(currentChunk == chunkedFileSet.getNumChunks()) {
-                    chunksFinished = true;
-                    return false;
-                }
-            }
-
-            if(tupleCount == 0) {
-                // Update the tuple count
-                ByteBuffer numKeyValsBuffer = ByteBuffer.allocate(1);
-                try {
-                    chunkedFileSet.dataFileFor(currentChunk).read(numKeyValsBuffer,
-                                                                  currentOffsetInChunk);
-                } catch(IOException e) {
-                    logger.error("Error while reading tuple count in iterator", e);
-                    return false;
-                }
-                tupleCount = numKeyValsBuffer.get(0) & ByteUtils.MASK_11111111;
-                currentOffsetInChunk += 1;
-            }
-            return true;
-        }
-
-        public void updateOffset(long updatedOffset) {
-            tupleCount--;
-            currentOffsetInChunk = updatedOffset;
-            hasNext();
-        }
-
-        public void remove() {
-            throw new UnsupportedOperationException("Cannot remove from read-only store");
-        }
-    }
-
-    private class ROKeyIterator extends ROIterator<ByteArray> {
-
-        public ROKeyIterator(ChunkedFileSet chunkedFileSet) {
-            super(chunkedFileSet);
-        }
-
-        @Override
-        public ByteArray next() {
-            if(!hasNext())
-                throw new VoldemortException("Reached the end");
-
-            try {
-                // Read key size
-                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
-                int keySize = sizeBuffer.getInt(0);
-                sizeBuffer.clear();
-
-                // Read value size
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
-                                                              currentOffsetInChunk + 4 + keySize);
-                int valueSize = sizeBuffer.getInt(0);
-
-                // Read the key contents
-                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
-
-                // Update the offset
-                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
-
-                // Return the key
-                return new ByteArray(keyBuffer.array());
-            } catch(IOException e) {
-                logger.error(e);
-                throw new VoldemortException(e);
-            }
-
-        }
-    }
-
-    private class ROEntriesIterator extends ROIterator<Pair<ByteArray, Versioned<byte[]>>> {
-
-        public ROEntriesIterator(ChunkedFileSet chunkedFileSet) {
-            super(chunkedFileSet);
-        }
-
-        @Override
-        public Pair<ByteArray, Versioned<byte[]>> next() {
-            if(!hasNext())
-                throw new VoldemortException("Reached the end");
-
-            try {
-                // Read key size
-                ByteBuffer sizeBuffer = ByteBuffer.allocate(4);
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer, currentOffsetInChunk);
-                int keySize = sizeBuffer.getInt(0);
-                sizeBuffer.clear();
-
-                // Read value size
-                chunkedFileSet.dataFileFor(currentChunk).read(sizeBuffer,
-                                                              currentOffsetInChunk + 4 + keySize);
-                int valueSize = sizeBuffer.getInt(0);
-
-                // Read the key contents
-                ByteBuffer keyBuffer = ByteBuffer.allocate(keySize);
-                chunkedFileSet.dataFileFor(currentChunk).read(keyBuffer, currentOffsetInChunk + 4);
-
-                // Read the value contents
-                ByteBuffer valueBuffer = ByteBuffer.allocate(valueSize);
-                chunkedFileSet.dataFileFor(currentChunk).read(valueBuffer,
-                                                              currentOffsetInChunk + 4 + keySize
-                                                                      + 4);
-
-                // Update the offset
-                updateOffset(currentOffsetInChunk + 4 + 4 + keySize + valueSize);
-
-                return Pair.create(new ByteArray(keyBuffer.array()),
-                                   Versioned.value(valueBuffer.array()));
-            } catch(IOException e) {
-                logger.error(e);
-                throw new VoldemortException(e);
-            }
-        }
+        return new ChunkedFileSet.ROEntriesIterator(fileSet, fileModificationLock);
     }
 
     public void truncate() {
@@ -568,7 +463,11 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                                   fileSet.getIndexFileSize(chunk));
             if(location >= 0) {
                 byte[] value = fileSet.readValue(key.get(), chunk, location);
-                return Collections.singletonList(Versioned.value(value));
+                if(value.length == 0) {
+                    return Collections.emptyList();
+                } else {
+                    return Collections.singletonList(Versioned.value(value));
+                }
             } else {
                 return Collections.emptyList();
             }
@@ -599,7 +498,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                 byte[] value = fileSet.readValue(keyVal.getKey().get(),
                                                  keyVal.getChunk(),
                                                  keyVal.getValueLocation());
-                results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
+                if(value.length > 0)
+                    results.put(keyVal.getKey(), Collections.singletonList(Versioned.value(value)));
             }
             return results;
         } finally {

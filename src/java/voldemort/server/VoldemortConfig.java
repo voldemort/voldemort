@@ -72,7 +72,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerLookAheadCacheSize;
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
-
+    private boolean bdbReadUncommitted;
     private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
@@ -88,6 +88,7 @@ public class VoldemortConfig implements Serializable {
     private int readOnlyBackups;
     private String readOnlyStorageDir;
     private String readOnlySearchStrategy;
+    private int readOnlyDeleteBackupTimeMs;
 
     private int coreThreads;
     private int maxThreads;
@@ -209,6 +210,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
+        this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -219,6 +221,7 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyStorageDir = props.getString("readonly.data.directory", this.dataDirectory
                                                                              + File.separator
                                                                              + "read-only");
+        this.readOnlyDeleteBackupTimeMs = props.getInt("readonly.delete.backup.ms", 0);
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -655,6 +658,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbFairLatches(boolean bdbFairLatches) {
         this.bdbFairLatches = bdbFairLatches;
+    }
+
+    public boolean getBdbReadUncommitted() {
+        return bdbReadUncommitted;
+    }
+
+    public void setBdbReadUncommitted(boolean bdbReadUncommitted) {
+        this.bdbReadUncommitted = bdbReadUncommitted;
     }
 
     /**
@@ -1109,6 +1120,21 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyBackups(int readOnlyBackups) {
         this.readOnlyBackups = readOnlyBackups;
+    }
+
+    /**
+     * Amount of time we will wait before we start deleting the backup. This
+     * happens during swaps when old backups need to be deleted. Some delay is
+     * required so that we don't cause a sudden increase of IOPs during swap.
+     * 
+     * @return The start time in ms
+     */
+    public int getReadOnlyDeleteBackupMs() {
+        return readOnlyDeleteBackupTimeMs;
+    }
+
+    public void setReadOnlyDeleteBackupMs(int readOnlyDeleteBackupTimeMs) {
+        this.readOnlyDeleteBackupTimeMs = readOnlyDeleteBackupTimeMs;
     }
 
     public boolean isBdbWriteTransactionsEnabled() {
