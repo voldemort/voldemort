@@ -30,7 +30,6 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleStatus;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.RebalanceUtils;
 
@@ -71,22 +70,22 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                    MetadataStore metadataStore,
                                    int requestId,
                                    RebalancePartitionsInfo stealInfo) {
-        super(requestId, "Rebalance Operation:" + stealInfo.toString());
+        super(requestId, "Rebalance Operation: " + stealInfo.toString());
         this.rebalancer = rebalancer;
         this.voldemortConfig = voldemortConfig;
         this.metadataStore = metadataStore;
         this.stealInfo = stealInfo;
-        rebalanceStatusList = new ArrayList<Integer>();
-        adminClient = null;
-        executors = createExecutors(voldemortConfig.getMaxParallelStoresRebalancing());
+        this.rebalanceStatusList = new ArrayList<Integer>();
+        this.adminClient = null;
+        this.executors = createExecutors(voldemortConfig.getMaxParallelStoresRebalancing());
     }
 
     @Override
     public void operate() throws Exception {
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
-                                                           voldemortConfig.getMaxParallelStoresRebalancing() * 4,
-                                                           voldemortConfig.getMaxParallelStoresRebalancing() * 2);
+                                                           voldemortConfig.getMaxParallelStoresRebalancing(),
+                                                           1);
         final List<Exception> failures = new ArrayList<Exception>();
         final List<String> readOnlyStoresCompleted = new ArrayList<String>();
         try {

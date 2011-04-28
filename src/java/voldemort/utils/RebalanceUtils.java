@@ -44,10 +44,9 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
-import voldemort.store.memory.InMemoryStorageConfiguration;
+import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.versioning.Occured;
@@ -65,8 +64,8 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public final static List<String> rebalancingStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                     InMemoryStorageConfiguration.TYPE_NAME);
+    public final static List<String> canRebalanceList = Arrays.asList(BdbStorageConfiguration.TYPE_NAME,
+                                                                      ReadOnlyStorageConfiguration.TYPE_NAME);
 
     /**
      * Get the latest cluster from all available nodes in the cluster<br>
@@ -718,8 +717,8 @@ public class RebalanceUtils {
     public static List<StoreDefinition> getStoreDefinition(Cluster cluster, AdminClient adminClient) {
         List<StoreDefinition> storeDefs = null;
         for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = getRebalanceStores(adminClient.getRemoteStoreDefList(node.getId())
-                                                                               .getValue());
+            List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
+                                                            .getValue();
             if(storeDefs == null) {
                 storeDefs = storeDefList;
             } else {
@@ -740,23 +739,26 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given a list of store definitions returns the store definitions which the
-     * rebalancing code currently supports
+     * Given a list of store definitions, makes sure that rebalance supports all
+     * of them. If not it throws an error.
      * 
      * @param storeDefList List of store definitions
      * @return Filtered list of store definitions which rebalancing supports
      */
-    public static List<StoreDefinition> getRebalanceStores(List<StoreDefinition> storeDefList) {
-        List<StoreDefinition> storeNameList = new ArrayList<StoreDefinition>(storeDefList.size());
+    public static List<StoreDefinition> validateRebalanceStore(List<StoreDefinition> storeDefList) {
+        List<StoreDefinition> returnList = new ArrayList<StoreDefinition>(storeDefList.size());
 
         for(StoreDefinition def: storeDefList) {
-            if(!def.isView() && !rebalancingStoreEngineBlackList.contains(def.getType())) {
-                storeNameList.add(def);
+            if(!def.isView() && !canRebalanceList.contains(def.getType())) {
+                throw new VoldemortException("Rebalance does not support rebalancing of stores of type "
+                                             + def.getType() + " - " + def.getName());
+            } else if(!def.isView()) {
+                returnList.add(def);
             } else {
-                logger.debug("Ignoring store " + def.getName() + " for Rebalancing");
+                logger.debug("Ignoring view " + def.getName() + " for rebalancing");
             }
         }
-        return storeNameList;
+        return returnList;
     }
 
     /**

@@ -41,7 +41,6 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.server.rebalance.RebalancePartitionsInfoLiveCycle;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -102,20 +101,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public static enum StoreState {
         NORMAL,
         REBALANCING
-    }
-
-    /**
-     * Each {@link RebalancePartitionsInfo} represents a rebalancing exchange of
-     * data between one stealer-donor pair. This exchange of data or operation
-     * has different states during the life cycle of it.
-     * 
-     * The need to keep track of the status is to be able to resume a failed
-     * operation that was interrupted due to a machine failure.
-     */
-    public static enum RebalancePartitionsInfoLifeCycleStatus {
-        NEW,
-        RUNNING,
-        NOT_RUNNING
     }
 
     private final Store<String, String, String> innerStore;
@@ -299,27 +284,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         init(getNodeId());
     }
 
-    public void cleanRebalancingState(RebalancePartitionsInfo stealInfo) {
-        writeLock.lock();
-        try {
-            RebalancerState rebalancerState = getRebalancerState();
-
-            if(!rebalancerState.remove(stealInfo))
-                throw new IllegalArgumentException("Couldn't find " + stealInfo + " in "
-                                                   + rebalancerState);
-
-            if(rebalancerState.isEmpty()) {
-                logger.debug("stealInfoList empty, cleaning all rebalancing state");
-                cleanAllRebalancingState();
-            } else {
-                put(REBALANCING_STEAL_INFO, rebalancerState);
-                initCache(REBALANCING_STEAL_INFO);
-            }
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key, null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -360,14 +324,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
-    public StoreState getStoreState(String storeName) {
-        List<RebalancePartitionsInfoLiveCycle> plans = getRebalancerState().find(storeName);
-        if(plans.isEmpty())
-            return StoreState.NORMAL;
-        else
-            return StoreState.REBALANCING;
-    }
-
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
         Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
@@ -375,6 +331,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return routingStrategyMap.get(storeName);
     }
 
+    /**
+     * Changes to cluster OR store definition metadata results in routing
+     * strategies changing. These changes need to be propagated to all the
+     * listeners.
+     * 
+     * @param cluster The updated cluster metadata
+     * @param storeDefs The updated list of store definition
+     */
     private void updateRoutingStrategies(Cluster cluster, List<StoreDefinition> storeDefs) {
         VectorClock clock = new VectorClock();
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))

@@ -28,14 +28,11 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
-import voldemort.server.rebalance.RebalancePartitionsInfoLiveCycle;
-import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.StoreState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
@@ -95,15 +92,9 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     }
 
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
-        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
-           && StoreState.REBALANCING.equals(metadata.getStoreState(getName()))) {
-            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
-                                                 .getPartitionList(key.get());
-
-            return getRebalancePartitionsInfo(partitionIds);
-        }
-
-        return null;
+        return metadata.getRebalancerState().find(getName(),
+                                                  metadata.getRoutingStrategy(getName())
+                                                          .getPartitionList(key.get()));
     }
 
     @Override
@@ -182,22 +173,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return getInnerStore().delete(key, version);
-    }
-
-    /**
-     * Finds the first
-     * {@link voldemort.client.rebalance.RebalancePartitionsInfo} containing any
-     * of supplied partitions ids for the store being redirected. Determines
-     * which rebalance operation (if any) happening to the present store impacts
-     * a partition in this list.
-     * 
-     * @param partitionIds List of partitions
-     * @return <code>null</code> if none found
-     */
-    private RebalancePartitionsInfo getRebalancePartitionsInfo(List<Integer> partitionIds) {
-        RebalancerState rebalancerState = metadata.getRebalancerState();
-        RebalancePartitionsInfoLiveCycle find = rebalancerState.find(getName(), partitionIds);
-        return (find != null) ? find.getRebalancePartitionsInfo() : null;
     }
 
     /**

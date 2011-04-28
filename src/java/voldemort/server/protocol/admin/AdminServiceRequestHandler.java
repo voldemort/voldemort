@@ -35,14 +35,15 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
-import voldemort.server.rebalance.RebalancePartitionsInfoLiveCycle;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
@@ -50,7 +51,6 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleStatus;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
@@ -71,6 +71,7 @@ import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -236,9 +237,79 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return null;
     }
 
+    /**
+     * Given a protobuf rebalance-partition info, converts it into our
+     * rebalance-partition info
+     * 
+     * @param rebalancePartitionInfoMap Proto-buff version of
+     *        rebalance-partition-info
+     * @return Rebalance-partition-info
+     */
+    private RebalancePartitionsInfo decodeRebalancePartitionInfoMap(VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap) {
+        RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
+                                                                                 rebalancePartitionInfoMap.getDonorId(),
+                                                                                 rebalancePartitionInfoMap.getStealMasterPartitionsList(),
+                                                                                 rebalancePartitionInfoMap.getStealReplicaPartitionsList(),
+                                                                                 rebalancePartitionInfoMap.getDeletePartitionsList(),
+                                                                                 rebalancePartitionInfoMap.getUnbalancedStoresList(),
+                                                                                 rebalancePartitionInfoMap.getAttempt());
+        return rebalanceStealInfo;
+    }
+
     private VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
-        // TODO: Complete
-        return null;
+
+        VAdminProto.RebalanceStateChangeResponse.Builder response = VAdminProto.RebalanceStateChangeResponse.newBuilder();
+
+        try {
+            // Retrieve all values first
+            List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
+            for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
+                rebalancePartitionsInfo.add(decodeRebalancePartitionInfoMap(map));
+            }
+
+            Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
+
+            boolean swapRO = request.getSwapRo();
+            boolean changeClusterMetadata = request.getChangeClusterMetadata();
+            boolean changeRebalanceState = request.getChangeRebalanceState();
+            boolean rollback = request.getRollback();
+
+            rebalancer.rebalanceStateChange(cluster,
+                                            rebalancePartitionsInfo,
+                                            swapRO,
+                                            changeClusterMetadata,
+                                            changeRebalanceState,
+                                            rollback);
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceStateChange failed for request(" + request.toString()
+                         + ")", e);
+        }
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+        try {
+            if(!voldemortConfig.isEnableRebalanceService())
+                throw new VoldemortException("Rebalance service is not enabled for node: "
+                                             + metadataStore.getNodeId());
+
+            RebalancePartitionsInfo rebalanceStealInfo = decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
+
+            int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
+
+            response.setRequestId(requestId)
+                    .setDescription(rebalanceStealInfo.toString())
+                    .setStatus("Started rebalancing")
+                    .setComplete(false);
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
     }
 
     private VAdminProto.GetROMetadataResponse handleGetROMetadata(VAdminProto.GetROMetadataRequest request) {
@@ -372,39 +443,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                               storeRepository,
                                                               networkClassLoader,
                                                               stats);
-    }
-
-    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNode(VAdminProto.InitiateRebalanceNodeRequest request) {
-        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
-        try {
-            if(!voldemortConfig.isEnableRebalanceService())
-                throw new VoldemortException("Rebalance service is not enabled for node: "
-                                             + metadataStore.getNodeId());
-
-            VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap = request.getRebalancePartitionInfo();
-            RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
-                                                                                     rebalancePartitionInfoMap.getDonorId(),
-                                                                                     rebalancePartitionInfoMap.getStealMasterPartitionsList(),
-                                                                                     rebalancePartitionInfoMap.getStealReplicaPartitionsList(),
-                                                                                     rebalancePartitionInfoMap.getDeletePartitionsList(),
-                                                                                     rebalancePartitionInfoMap.getUnbalancedStoresList(),
-                                                                                     rebalancePartitionInfoMap.getAttempt());
-
-            RebalancePartitionsInfoLiveCycle rebalancePartitionsInfoLiveCycle = new RebalancePartitionsInfoLiveCycle(rebalanceStealInfo,
-                                                                                                                     RebalancePartitionsInfoLifeCycleStatus.NEW);
-
-            int requestId = rebalancer.rebalanceLocalNode(rebalancePartitionsInfoLiveCycle);
-
-            response.setRequestId(requestId)
-                    .setDescription(rebalanceStealInfo.toString())
-                    .setStatus("Started")
-                    .setComplete(false);
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleRebalanceNode failed for request(" + request.toString() + ")", e);
-        }
-
-        return response.build();
     }
 
     public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {

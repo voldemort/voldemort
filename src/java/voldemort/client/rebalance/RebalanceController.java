@@ -87,7 +87,7 @@ public class RebalanceController {
         // Make admin client point to this updated current cluster
         adminClient.setAdminClientCluster(targetCluster);
 
-        // Retrieve list of stores + check for correctness
+        // Retrieve list of stores + check for that all are consistent
         List<StoreDefinition> storeDefs = RebalanceUtils.getStoreDefinition(targetCluster,
                                                                             adminClient);
 
@@ -116,7 +116,7 @@ public class RebalanceController {
         adminClient.setAdminClientCluster(currentCluster);
 
         // Filter the store definitions to a set rebalancing can support
-        storeDefs = RebalanceUtils.getRebalanceStores(storeDefs);
+        storeDefs = RebalanceUtils.validateRebalanceStore(storeDefs);
 
         // Do some verification
         if(!rebalanceConfig.isShowPlanEnabled()) {
@@ -163,6 +163,7 @@ public class RebalanceController {
                                                final List<StoreDefinition> storeDefs) {
         final Map<Node, Set<Integer>> stealerToStolenPrimaryPartitions = new HashMap<Node, Set<Integer>>();
 
+        // Generate the number of tasks to compute percent completed
         int numTasks = 0;
         for(Node stealerNode: targetCluster.getNodes()) {
             Set<Integer> stolenPrimaries = RebalanceUtils.getStolenPrimaries(currentCluster,
@@ -174,7 +175,8 @@ public class RebalanceController {
 
         int taskId = 0;
         for(Node stealerNode: targetCluster.getNodes()) {
-            // If not stealing partition, ignore
+
+            // If not stealing partition, ignore node
             Set<Integer> stolenPrimaryPartitions = stealerToStolenPrimaryPartitions.get(stealerNode);
 
             if(stolenPrimaryPartitions == null || stolenPrimaryPartitions.isEmpty()) {
@@ -190,8 +192,8 @@ public class RebalanceController {
 
             Node stealerNodeUpdated = currentCluster.getNodeById(stealerNode.getId());
 
-            // Provision stolen primary partitions one by one.
-            // Creates a transition cluster for each added partition.
+            // Steal primary partitions one by one while creating transition
+            // clusters
             for(Integer donatedPrimaryPartition: stolenPrimaryPartitions) {
 
                 Cluster transitionCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
@@ -209,6 +211,7 @@ public class RebalanceController {
                                                                                                        storeDefs,
                                                                                                        rebalanceClusterPlan);
 
+                // Print the transition plan
                 RebalanceUtils.printLog(stealerNode.getId(),
                                         logger,
                                         orderedClusterTransition.toString());
@@ -353,15 +356,6 @@ public class RebalanceController {
      * 
      * Truth table, FTW!
      * 
-     * The rollback plan for each of the actions
-     * 
-     * <pre>
-     * | Action | Rollback plan | 
-     * | rebalance state change | move back to normal | 
-     * | cluster change + rebalance state change | revert cluster change + move back to normal | 
-     * | cluster change + swap + rebalance state change | cluster change + revert swap + move back to normal |
-     * </pre>
-     * 
      * @param globalStealerNodeId Global stealer node id we're working on
      * @param currentCluster Current cluster
      * @param transitionCluster Transition cluster to propagate
@@ -405,8 +399,8 @@ public class RebalanceController {
                                                  transitionCluster,
                                                  rebalancePartitionPlanList,
                                                  false,
-                                                 true,
-                                                 false);
+                                                 false,
+                                                 true);
             } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 2 - swap + cluster change
                 RebalanceUtils.printLog(globalStealerNodeId,
@@ -507,7 +501,8 @@ public class RebalanceController {
 
         } catch(VoldemortRebalancingException e) {
 
-            logger.error("Failure while migrating partitions");
+            logger.error("Failure while migrating partitions for stealer node "
+                         + globalStealerNodeId);
 
             // Rollback state for all successful tasks
             for(RebalanceTask task: successfulTasks) {

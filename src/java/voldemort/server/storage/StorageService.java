@@ -229,23 +229,18 @@ public class StorageService extends AbstractService {
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
 
-                /*
-                 * Register the repairer thread only if slop pusher job is also
-                 * enabled
-                 */
+                // Run the repair job only if slop pusher job is enabled
+                // Also run it only once
                 if(voldemortConfig.isRepairEnabled()) {
                     cal.add(Calendar.SECOND,
-                            (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
+                            (int) (voldemortConfig.getRepairStartMs() / Time.MS_PER_SECOND));
                     nextRun = cal.getTime();
                     logger.info("Initializing repair job " + voldemortConfig.getPusherType()
                                 + " at " + nextRun);
                     RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
 
                     JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                    scheduler.schedule("repair",
-                                       job,
-                                       nextRun,
-                                       voldemortConfig.getRepairFrequencyMs());
+                    scheduler.schedule("repair", job, nextRun);
                 }
             }
         }
@@ -372,12 +367,14 @@ public class StorageService extends AbstractService {
         Store<ByteArray, byte[], byte[]> store = engine;
 
         boolean isSlop = store.getName().compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
+        boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
+
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly)
+            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata)
                 store = new RedirectingStore(store,
                                              metadata,
                                              storeRepository,

@@ -31,15 +31,16 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.RebalancePartitionsInfoLifeCycleStatus;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
 
 /**
- * Service responsible for rebalancing.
+ * Service responsible for rebalancing
  * 
  * <br>
  * 
@@ -200,7 +201,7 @@ public class Rebalancer implements Runnable {
 
                 try {
                     RebalanceUtils.executorShutDown(swapExecutors,
-                                                    voldemortConfig.getRebalancingTimeout());
+                                                    (int) voldemortConfig.getRebalancingTimeoutSec());
                 } catch(Exception e) {
                     logger.error("Interrupted swapping executor - " + e.getMessage(), e);
                     return;
@@ -217,10 +218,10 @@ public class Rebalancer implements Runnable {
                                                                        4,
                                                                        2);
         try {
-            int rebalanceAsyncId = rebalanceLocalNode(stealInfoLiveCycle);
+            int rebalanceAsyncId = rebalanceNode(stealInfoLiveCycle);
             adminClient.waitForCompletion(rebalancePartitionsInfo.getStealerId(),
                                           rebalanceAsyncId,
-                                          voldemortConfig.getRebalancingTimeout(),
+                                          voldemortConfig.getRebalancingTimeoutSec(),
                                           TimeUnit.SECONDS);
         } finally {
             adminClient.stop();
@@ -229,37 +230,193 @@ public class Rebalancer implements Runnable {
     }
 
     /**
-     * Rebalance logic at single node level <br>
-     * a) Acquires a permit for the donor node <br>
-     * b) Changes the state if required <br>
-     * c) Starts the async operations <br>
+     * Every rebalance state change comes with a couple of requests ( swap ro,
+     * change the cluster metadata or change rebalance state ). We need to track
+     * the progress of these operations in order to rollback in case of failures
      * 
-     * @param stealInfo Rebalance partition information.
-     * @return taskId for asynchronous task.
      */
-    public int rebalanceLocalNode(final RebalancePartitionsInfoLiveCycle stealInfoLiveCycle) {
-        final RebalancePartitionsInfo stealInfo = stealInfoLiveCycle.getRebalancePartitionsInfo();
+    private enum RebalanceChangeStatus {
+        NOT_REQUIRED,
+        STARTED,
+        COMPLETED
+    }
 
+    /**
+     * Support four different stages <br>
+     * For normal operation:
+     * 
+     * <pre>
+     * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
+     * | f | t | t | cluster -> rebalance | 
+     * | f | f | t | rebalance |
+     * | t | t | f | cluster -> swap |
+     * | t | t | t | cluster -> swap -> rebalance |
+     * </pre>
+     * 
+     * In general we need to do [ cluster change -> swap -> rebalance state
+     * change ]
+     * 
+     * @param cluster Cluster metadata to change
+     * @param rebalancePartitionsInfo List of rebalance partitions info
+     * @param swapRO Boolean to indicate swapping of RO store
+     * @param changeClusterMetadata Boolean to indicate a change of cluster
+     *        metadata
+     * @param changeRebalanceState Boolean to indicate a change in rebalance
+     *        state
+     * @param rollback Boolean to indicate that we are rolling back or not
+     */
+    public void rebalanceStateChange(Cluster cluster,
+                                     List<RebalancePartitionsInfo> rebalancePartitionsInfo,
+                                     boolean swapRO,
+                                     boolean changeClusterMetadata,
+                                     boolean changeRebalanceState,
+                                     boolean rollback) {
+        RebalanceChangeStatus changeClusterMetadataStatus = swapRO ? RebalanceChangeStatus.STARTED
+                                                                  : RebalanceChangeStatus.NOT_REQUIRED;
+        RebalanceChangeStatus swapROStatus = swapRO ? RebalanceChangeStatus.STARTED
+                                                   : RebalanceChangeStatus.NOT_REQUIRED;
+        RebalanceChangeStatus changeRebalanceStateStatus = swapRO ? RebalanceChangeStatus.STARTED
+                                                                 : RebalanceChangeStatus.NOT_REQUIRED;
+
+        Cluster currentCluster = metadataStore.getCluster();
+
+        try {
+            // CHANGE CLUSTER METADATA
+            if(changeClusterMetadataStatus == RebalanceChangeStatus.STARTED) {
+                changeCluster(cluster);
+                changeClusterMetadataStatus = RebalanceChangeStatus.COMPLETED;
+            }
+
+            // SWAP RO DATA
+            if(swapROStatus == RebalanceChangeStatus.STARTED) {
+                // TODO: Put swap code
+                swapROStatus = RebalanceChangeStatus.COMPLETED;
+            }
+
+            // CHANGE REBALANCING STATE
+            if(changeRebalanceStateStatus == RebalanceChangeStatus.STARTED) {
+                if(!rollback) {
+                    for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                        addRebalancingState(info);
+                    }
+                } else {
+                    for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                        deleteRebalancingState(info);
+                    }
+                }
+                changeRebalanceStateStatus = RebalanceChangeStatus.COMPLETED;
+            }
+        } catch(VoldemortException e) {
+
+            // ROLLBACK CLUSTER CHANGE
+            if(changeClusterMetadataStatus == RebalanceChangeStatus.COMPLETED) {
+                try {
+                    changeCluster(currentCluster);
+                } catch(Exception exception) {
+                    logger.error("Error while rolling back cluster metadata ");
+                }
+            }
+
+            if(swapROStatus == RebalanceChangeStatus.COMPLETED) {
+                try {
+                    // TODO:
+                } catch(Exception exception) {
+                    logger.error("Error while rolling back cluster metadata ");
+                }
+            }
+
+            if(changeRebalanceStateStatus == RebalanceChangeStatus.COMPLETED) {
+                try {
+                    // TODO:
+                } catch(Exception exception) {
+                    logger.error("Error while rolling back cluster metadata ");
+                }
+            }
+
+            throw e;
+        }
+
+    }
+
+    /**
+     * Updates the cluster metadata
+     * 
+     * @param cluster The cluster metadata information
+     */
+    private void changeCluster(final Cluster cluster) {
+        metadataStore.writeLock.lock();
+        try {
+            metadataStore.put(MetadataStore.CLUSTER_KEY, cluster);
+        } finally {
+            metadataStore.writeLock.unlock();
+        }
+    }
+
+    /**
+     * Add the steal information to the rebalancer state
+     * 
+     * @param stealInfo The steal information to add
+     */
+    private void addRebalancingState(final RebalancePartitionsInfo stealInfo) {
+        metadataStore.writeLock.lock();
+        try {
+            // Move into rebalancing state
+            if(ByteUtils.getString(metadataStore.get(MetadataStore.SERVER_STATE_KEY, null)
+                                                .get(0)
+                                                .getValue(),
+                                   "UTF-8").compareTo(VoldemortState.NORMAL_SERVER.toString()) == 0) {
+                metadataStore.put(MetadataStore.SERVER_STATE_KEY,
+                                  VoldemortState.REBALANCING_MASTER_SERVER);
+            }
+
+            // Add the steal information
+            RebalancerState rebalancerState = metadataStore.getRebalancerState();
+            if(!rebalancerState.update(stealInfo)) {
+                throw new VoldemortException("Could not add steal information since a plan for the same donor node "
+                                             + stealInfo.getDonorId() + " already exists");
+            }
+            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
+        } finally {
+            metadataStore.writeLock.unlock();
+        }
+    }
+
+    /**
+     * Delete the partition steal information from the rebalancer state
+     * 
+     * @param stealInfo The steal information to delete
+     */
+    private void deleteRebalancingState(final RebalancePartitionsInfo stealInfo) {
+        metadataStore.writeLock.lock();
+        try {
+
+            RebalancerState rebalancerState = metadataStore.getRebalancerState();
+            rebalancerState.remove(stealInfo);
+            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
+
+            // Move it back to normal state
+            if(rebalancerState.isEmpty()) {
+                metadataStore.put(MetadataStore.SERVER_STATE_KEY, VoldemortState.NORMAL_SERVER);
+            }
+        } finally {
+            metadataStore.writeLock.unlock();
+        }
+    }
+
+    public int rebalanceNode(final RebalancePartitionsInfo stealInfo) {
+
+        // Acquire a lock for the donor node
         if(!acquireRebalancingPermit(stealInfo.getDonorId())) {
             final RebalancerState rebalancerState = metadataStore.getRebalancerState();
-            final RebalancePartitionsInfoLiveCycle info = rebalancerState.find(stealInfo.getDonorId());
-            if(info != null
-               && RebalancePartitionsInfoLifeCycleStatus.RUNNING.equals(info.getStatus())) {
-                throw new AlreadyRebalancingException("Node "
-                                                      + metadataStore.getCluster()
-                                                                     .getNodeById(info.getRebalancePartitionsInfo()
-                                                                                      .getStealerId())
-                                                      + " is already rebalancing from "
-                                                      + info.getRebalancePartitionsInfo()
-                                                            .getDonorId() + " rebalanceInfo:"
-                                                      + info);
+            final RebalancePartitionsInfo info = rebalancerState.find(stealInfo.getDonorId());
+            if(info != null) {
+                throw new AlreadyRebalancingException("Node " + metadataStore.getNodeId()
+                                                      + " is already rebalancing from donor "
+                                                      + info.getDonorId() + " with info :" + info);
             }
         }
 
-        // check and set State
-        checkCurrentState(stealInfoLiveCycle);
-        setRebalancingState(stealInfo, RebalancePartitionsInfoLifeCycleStatus.NEW);
-
+        // Acquired lock successfully, start rebalancing...
         int requestId = asyncService.getUniqueRequestId();
 
         asyncService.submitOperation(requestId, new RebalanceAsyncOperation(this,
@@ -269,57 +426,5 @@ public class Rebalancer implements Runnable {
                                                                             stealInfo));
 
         return requestId;
-    }
-
-    protected void setRebalancingState(final RebalancePartitionsInfo stealInfo,
-                                       final RebalancePartitionsInfoLifeCycleStatus status) {
-        metadataStore.writeLock.lock();
-        try {
-            metadataStore.put(MetadataStore.SERVER_STATE_KEY,
-                              VoldemortState.REBALANCING_MASTER_SERVER);
-            RebalancerState rebalancerState = metadataStore.getRebalancerState();
-            rebalancerState.add(stealInfo, status);
-            metadataStore.put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
-        } finally {
-            metadataStore.writeLock.unlock();
-        }
-    }
-
-    private void checkCurrentState(final RebalancePartitionsInfoLiveCycle stealInfoLiveCycle) {
-        metadataStore.readLock.lock();
-
-        if(logger.isDebugEnabled()) {
-            logger.debug("Checking current state: " + metadataStore.getServerState().name() + " - "
-                         + stealInfoLiveCycle);
-        }
-
-        try {
-            if(metadataStore.getServerState().equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
-                RebalancerState rebalancerState = metadataStore.getRebalancerState();
-
-                final RebalancePartitionsInfo stealInfo = stealInfoLiveCycle.getRebalancePartitionsInfo();
-                final int donorId = stealInfo.getDonorId();
-
-                // In case that the server crashed then the metadata will be re
-                // initialized
-                final RebalancePartitionsInfoLiveCycle previousLiveCycle = rebalancerState.find(donorId);
-
-                if(previousLiveCycle != null
-                   && RebalancePartitionsInfoLifeCycleStatus.RUNNING.equals(previousLiveCycle.getStatus())) {
-                    throw new VoldemortException("Server " + metadataStore.getNodeId()
-                                                 + " is already rebalancing from: "
-                                                 + stealInfoLiveCycle
-                                                 + " rejecting rebalance request:" + stealInfo);
-                } else {
-                    if(logger.isInfoEnabled()) {
-                        logger.info("Found previous " + previousLiveCycle
-                                    + " - about to be executed.");
-                    }
-                }
-
-            }
-        } finally {
-            metadataStore.readLock.unlock();
-        }
     }
 }

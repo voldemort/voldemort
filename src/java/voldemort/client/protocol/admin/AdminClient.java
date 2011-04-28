@@ -1696,7 +1696,29 @@ public class AdminClient {
 
     /**
      * Used in rebalancing to indicate change in states. Groups the partition
-     * plans on the basis of stealer nodes and sends them over
+     * plans on the basis of stealer nodes and sends them over.
+     * 
+     * The various combinations and their order of execution is given below
+     * 
+     * <pre>
+     * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
+     * | f | t | t | cluster -> rebalance | 
+     * | f | f | t | rebalance |
+     * | t | t | f | cluster -> swap |
+     * | t | t | t | cluster -> swap -> rebalance |
+     * </pre>
+     * 
+     * 
+     * Similarly for rollback:
+     * 
+     * <pre>
+     * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
+     * | f | t | t | remove from rebalance -> cluster  | 
+     * | f | f | t | remove from rebalance |
+     * | t | t | f | cluster -> swap |
+     * | t | t | t | remove from rebalance -> cluster -> swap  |
+     * </pre>
+     * 
      * 
      * @param existingCluster Current cluster
      * @param transitionCluster Transition cluster
@@ -1733,19 +1755,25 @@ public class AdminClient {
                 nodeId++;
             }
         } catch(Exception e) {
+
             // Fail early
-            logger.error("Got exceptions from node " + nodeId + " while changing state");
+            logger.error("Got exceptions from node " + nodeId + " while changing state", e);
 
             // Rollback changes on completed nodes
             for(int completedNodeId: completedNodeIds) {
-                individualStateChange(completedNodeId,
-                                      existingCluster,
-                                      stealerNodeToPlan.get(completedNodeId),
-                                      swapRO,
-                                      changeClusterMetadata,
-                                      changeRebalanceState,
-                                      stealerNodeToPlan.containsKey(completedNodeId),
-                                      true);
+                try {
+                    individualStateChange(completedNodeId,
+                                          existingCluster,
+                                          stealerNodeToPlan.get(completedNodeId),
+                                          swapRO,
+                                          changeClusterMetadata,
+                                          changeRebalanceState,
+                                          stealerNodeToPlan.containsKey(completedNodeId),
+                                          true);
+                } catch(Exception exception) {
+                    logger.error("Error while reverting back state change for completed node "
+                                 + completedNodeIds, exception);
+                }
             }
 
             throw new VoldemortRebalancingException("Got exceptions from node " + nodeId
@@ -1754,6 +1782,21 @@ public class AdminClient {
 
     }
 
+    /**
+     * Single node rebalance state change
+     * 
+     * @param nodeId Stealer node id
+     * @param cluster Cluster information which we need to update
+     * @param rebalancePartitionPlanList The list of rebalance partition info
+     *        plans
+     * @param swapRO Boolean indicating if we need to swap RO stores
+     * @param changeClusterMetadata Boolean indicating if we need to change
+     *        cluster metadata
+     * @param changeRebalanceState Boolean indicating if we need to change
+     *        rebalancing state
+     * @param isStealerNode Is this node a stealer node?
+     * @param rollback Are we doing a rollback or a normal state?
+     */
     public void individualStateChange(int nodeId,
                                       Cluster cluster,
                                       List<RebalancePartitionsInfo> rebalancePartitionPlanList,
