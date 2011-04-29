@@ -42,7 +42,7 @@ public class RebalanceController {
 
     private static final Logger logger = Logger.getLogger(RebalanceController.class);
 
-    private static DecimalFormat decimalFormatter = new DecimalFormat("#.##");
+    private static final DecimalFormat decimalFormatter = new DecimalFormat("#.##");
 
     private final AdminClient adminClient;
     private final RebalanceClientConfig rebalanceConfig;
@@ -106,8 +106,8 @@ public class RebalanceController {
                           final Cluster targetCluster,
                           List<StoreDefinition> storeDefs) {
 
-        logger.info("Current Cluster configuration:" + currentCluster);
-        logger.info("Target Cluster configuration:" + targetCluster);
+        logger.info("Current cluster : " + currentCluster);
+        logger.info("Final target cluster : " + targetCluster);
 
         // Add all new nodes to current cluster
         currentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster, targetCluster);
@@ -184,11 +184,8 @@ public class RebalanceController {
                 continue;
             }
 
-            RebalanceUtils.printLog(stealerNode.getId(),
-                                    logger,
-                                    "Number of primary partitions being moved = "
-                                            + stolenPrimaryPartitions.size() + " - "
-                                            + stolenPrimaryPartitions);
+            RebalanceUtils.printLog(stealerNode.getId(), logger, "Primary partitions to steal = "
+                                                                 + stolenPrimaryPartitions);
 
             Node stealerNodeUpdated = currentCluster.getNodeById(stealerNode.getId());
 

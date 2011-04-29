@@ -9,6 +9,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 
@@ -23,6 +24,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StreamStats;
 import voldemort.utils.EventThrottler;
+import voldemort.utils.Pair;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
@@ -40,6 +42,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final StreamStats.Handle handle;
 
+    private final ReadOnlyStorageEngine storageEngine;
+
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
                                                      VoldemortConfig voldemortConfig,
@@ -53,7 +57,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
 
-        ReadOnlyStorageEngine storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
+        this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                  storeRepository,
                                                                                  request.getStore());
 
@@ -63,7 +67,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE, request.getPartitionsList());
+        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE,
+                                       request.getPartitionsList());
     }
 
     public StreamRequestDirection getDirection() {
@@ -80,42 +85,46 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                      + ")", e);
     }
 
+    @SuppressWarnings("unchecked")
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
         List<Integer> partitionIds = request.getPartitionsList();
 
-        for(Integer partitionId: partitionIds) {
-            int chunkId = 0;
-            while(true) {
-                String fileName = Integer.toString(partitionId) + "_" + Integer.toString(chunkId);
-                File index = new File(this.storeDir, fileName + ".index");
-                File data = new File(this.storeDir, fileName + ".data");
-                if(!index.exists() && !data.exists()) {
-                    if(chunkId == 0) {
+        // Go over the buckets and check if the partition matches
+        for(Entry<Object, Integer> entry: storageEngine.getChunkedFileSet()
+                                                       .getChunkIdToNumChunks()
+                                                       .entrySet()) {
+            Pair<Integer, Integer> bucket = (Pair<Integer, Integer>) entry.getKey();
+            if(partitionIds.contains(bucket.getFirst())) {
+
+                // Go over every chunk
+                for(int chunkId = 0; chunkId < entry.getValue(); chunkId++) {
+                    String fileName = Integer.toString(bucket.getFirst()) + "_"
+                                      + Integer.toString(bucket.getSecond()) + "_"
+                                      + Integer.toString(chunkId);
+                    File index = new File(this.storeDir, fileName + ".index");
+                    File data = new File(this.storeDir, fileName + ".data");
+
+                    if(!index.exists() && !data.exists()) {
                         throw new VoldemortException("Could not find any data for partition "
-                                                     + partitionId);
-                    } else {
-                        break;
+                                                     + bucket.getFirst() + ", replica-type "
+                                                     + bucket.getSecond() + ", chunk " + chunkId);
                     }
-                } else if(index.exists() ^ data.exists())
-                    throw new VoldemortException("One of the following does not exist: "
-                                                 + index.toString() + " and " + data.toString()
-                                                 + ".");
 
-                // Both files in chunk exist, start streaming...
-                logger.info("Streaming " + data.getAbsolutePath());
-                streamFile(data, outputStream);
-                logger.info("Completed streaming " + data.getAbsolutePath());
-                logger.info("Streaming " + index.getAbsolutePath());
-                streamFile(index, outputStream);
-                logger.info("Completed streaming " + index.getAbsolutePath());
+                    // Both files in chunk exist, start streaming...
+                    logger.info("Streaming " + data.getAbsolutePath());
+                    streamFile(data, outputStream);
+                    logger.info("Completed streaming " + data.getAbsolutePath());
+                    logger.info("Streaming " + index.getAbsolutePath());
+                    streamFile(index, outputStream);
+                    logger.info("Completed streaming " + index.getAbsolutePath());
+                    handle.incrementEntriesScanned();
+                }
 
-                chunkId++;
-                handle.incrementEntriesScanned();
             }
-        }
 
+        }
         stats.closeHandle(handle);
         return StreamRequestHandlerState.COMPLETE;
     }

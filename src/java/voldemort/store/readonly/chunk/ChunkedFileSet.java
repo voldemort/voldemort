@@ -227,19 +227,20 @@ public class ChunkedFileSet {
                     List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
 
                     // Find intersection with nodes partition ids
-                    String bucket = null;
+                    Pair<Integer, Integer> bucket = null;
                     for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
 
                         if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
                             if(bucket == null) {
 
                                 // Generate bucket information
-                                bucket = Integer.toString(routingPartitionList.get(0)) + "_"
-                                         + Integer.toString(replicaType);
+                                bucket = Pair.create(routingPartitionList.get(0), replicaType);
 
                                 int chunkId = 0;
                                 while(true) {
-                                    String fileName = bucket + "_" + Integer.toString(chunkId);
+                                    String fileName = Integer.toString(bucket.getFirst()) + "_"
+                                                      + Integer.toString(bucket.getSecond()) + "_"
+                                                      + Integer.toString(chunkId);
                                     File index = new File(baseDir, fileName + ".index");
                                     File data = new File(baseDir, fileName + ".data");
 
@@ -301,6 +302,15 @@ public class ChunkedFileSet {
                 throw new VoldemortException("No chunk files found in directory "
                                              + baseDir.toString());
         }
+    }
+
+    /**
+     * Get the chunk id to num chunks mapping
+     * 
+     * @return Map of chunk id to number of chunks
+     */
+    public HashMap<Object, Integer> getChunkIdToNumChunks() {
+        return this.chunkIdToNumChunks;
     }
 
     private void setRoutingStrategy(RoutingStrategy routingStrategy) {
@@ -430,13 +440,12 @@ public class ChunkedFileSet {
             case READONLY_V2: {
                 List<Integer> routingPartitionList = routingStrategy.getPartitionList(key);
 
-                String bucket = null;
+                Pair<Integer, Integer> bucket = null;
                 for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
 
                     if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
                         if(bucket == null) {
-                            bucket = new String(Integer.toString(routingPartitionList.get(0)) + "_"
-                                                + Integer.toString(replicaType));
+                            bucket = Pair.create(routingPartitionList.get(0), replicaType);
                         } else {
                             return -1;
                         }

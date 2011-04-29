@@ -173,16 +173,10 @@ class RebalanceAsyncOperation extends AsyncOperation {
         logger.info("starting partitions migration for store:" + storeName);
         updateStatus("started");
 
-        List<Integer> partitionList = null;
-        if(isReadOnlyStore) {
-            partitionList = stealInfo.getStealMasterPartitions();
-        } else {
-            partitionList = stealInfo.getPartitions();
-        }
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
                                                     storeName,
-                                                    partitionList,
+                                                    stealInfo.getPartitions(),
                                                     null);
         rebalanceStatusList.add(asyncId);
 

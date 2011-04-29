@@ -125,6 +125,15 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     }
 
     /**
+     * Returns the internal chunked file set
+     * 
+     * @return The chunked file set
+     */
+    public ChunkedFileSet getChunkedFileSet() {
+        return this.fileSet;
+    }
+
+    /**
      * Open the store with the version directory specified. If null is specified
      * we open the directory with the maximum version
      * 

@@ -69,6 +69,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
@@ -87,6 +88,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                   10000,
                                                                                   100000,
                                                                                   32 * 1024);
+    private List<StoreDefinition> storeDefs;
     private VoldemortServer[] servers;
     private Cluster cluster;
     private AdminClient adminClient;
@@ -107,6 +109,7 @@ public class AdminServiceBasicTest extends TestCase {
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
         servers = new VoldemortServer[2];
+        storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
         servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                           ServerTestUtils.createServerConfig(useNio,
@@ -476,8 +479,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testFetchPartitionFiles() throws IOException {
-        if(useNio)
-            generateAndFetchFiles(10, 1, 1000, 1000);
+        generateAndFetchFiles(10, 1, 1000, 1000);
     }
 
     private void generateFiles(int numChunks,
