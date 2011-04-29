@@ -54,6 +54,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /**
@@ -167,11 +168,11 @@ public class RebalanceUtils {
     public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
         ArrayList<Node> newNodes = new ArrayList<Node>();
         for(Node node: targetCluster.getNodes()) {
-            if(!RebalanceUtils.containsNode(currentCluster, node.getId())) {
-                newNodes.add(RebalanceUtils.updateNode(node, new ArrayList<Integer>()));
+            if(!containsNode(currentCluster, node.getId())) {
+                newNodes.add(updateNode(node, new ArrayList<Integer>()));
             }
         }
-        return RebalanceUtils.updateCluster(currentCluster, newNodes);
+        return updateCluster(currentCluster, newNodes);
     }
 
     /**
@@ -383,77 +384,76 @@ public class RebalanceUtils {
     }
 
     /**
-     * Attempt to propagate cluster definition to all nodes in the cluster.
+     * Attempt to propagate a cluster definition to all nodes. Also rollback is
+     * in place in case one of them fails
      * 
-     * @throws VoldemortException If we can't propagate to a list of require
-     *         nodes.
-     * @param adminClient {@link voldemort.client.protocol.admin.AdminClient}
-     *        instance to use
-     * @param cluster Cluster definition we wish to propagate
-     * @param clock Vector clock to attach to the cluster definition
-     * @param requireNodeIds If we can't propagate to these node ids, roll back
-     *        and throw an exception
-     */
-    public static void propagateCluster(AdminClient adminClient,
-                                        Cluster cluster,
-                                        VectorClock clock,
-                                        List<Integer> requireNodeIds) {
-        List<Integer> allNodeIds = new ArrayList<Integer>();
-        for(Node node: cluster.getNodes()) {
-            allNodeIds.add(node.getId());
-        }
-        propagateCluster(adminClient, cluster, clock, allNodeIds, requireNodeIds);
-    }
-
-    /**
-     * Attempt to propagate a cluster definition to specified nodes.
-     * 
-     * @throws VoldemortException If we can't propagate to a list of require
-     *         nodes.
      * @param adminClient {@link voldemort.client.protocol.admin.AdminClient}
      *        instance to use.
-     * @param cluster Cluster definition we wish to propagate
-     * @param clock Vector clock to attach to the cluster definition
-     * @param attemptNodeIds Attempt to propagate to these node ids
-     * @param requiredNodeIds If we can't propagate can't propagate to these
-     *        node ids, roll back and throw an exception
+     * @param cluster Cluster definition to propagate
      */
-    public static void propagateCluster(AdminClient adminClient,
-                                        Cluster cluster,
-                                        VectorClock clock,
-                                        List<Integer> attemptNodeIds,
-                                        List<Integer> requiredNodeIds) {
-        List<Integer> failures = new ArrayList<Integer>();
+    public static void propagateCluster(AdminClient adminClient, Cluster cluster) {
 
-        // copy everywhere else first
-        for(int nodeId: attemptNodeIds) {
-            if(!requiredNodeIds.contains(nodeId)) {
+        // Contains a mapping of node id to the existing cluster definition
+        HashMap<Integer, Cluster> currentClusters = Maps.newHashMap();
+
+        Versioned<Cluster> latestCluster = new Versioned<Cluster>(cluster);
+        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
+        clusterList.add(latestCluster);
+
+        for(Node node: cluster.getNodes()) {
+            try {
+                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
+
+                // Update the current cluster information
+                currentClusters.put(node.getId(), versionedCluster.getValue());
+
+                if(null != newClock && !clusterList.contains(versionedCluster)) {
+                    // check no two clocks are concurrent.
+                    checkNotConcurrent(clusterList, newClock);
+
+                    // add to clock list
+                    clusterList.add(versionedCluster);
+
+                    // update latestClock
+                    Occured occured = newClock.compare(latestCluster.getVersion());
+                    if(Occured.AFTER.equals(occured))
+                        latestCluster = versionedCluster;
+                }
+
+            } catch(Exception e) {
+                throw new VoldemortException("Failed to get cluster version from node "
+                                             + node.getId(), e);
+            }
+        }
+
+        // Vector clock to propagate
+        VectorClock latestClock = ((VectorClock) latestCluster.getVersion()).incremented(0,
+                                                                                         System.currentTimeMillis());
+
+        // Alright, now try updating the values...
+        Set<Integer> completedNodeIds = Sets.newHashSet();
+        try {
+            for(Node node: cluster.getNodes()) {
+                adminClient.updateRemoteCluster(node.getId(), cluster, latestClock);
+                logger.info("Updated cluster definition " + cluster + " on remote node "
+                            + node.getId());
+                completedNodeIds.add(node.getId());
+            }
+        } catch(VoldemortException e) {
+            // Fail early...
+            for(Integer completedNodeId: completedNodeIds) {
                 try {
-                    adminClient.updateRemoteCluster(nodeId, cluster, clock);
-                } catch(VoldemortException e) {
-                    // ignore these
-                    logger.debug("Failed to copy new cluster.xml(" + cluster
-                                 + ") on non-required node:" + nodeId, e);
+                    adminClient.updateRemoteCluster(completedNodeId,
+                                                    currentClusters.get(completedNodeId),
+                                                    latestClock);
+                } catch(VoldemortException exception) {
+                    logger.error("Could not revert back on node " + completedNodeId);
                 }
             }
+            throw e;
         }
 
-        // attempt copying on all required nodes.
-        for(int nodeId: requiredNodeIds) {
-            Node node = cluster.getNodeById(nodeId);
-            try {
-                logger.debug("Updating remote node:" + nodeId + " with cluster:" + cluster);
-                adminClient.updateRemoteCluster(node.getId(), cluster, clock);
-            } catch(Exception e) {
-                failures.add(node.getId());
-                logger.debug(e);
-            }
-        }
-
-        if(failures.size() > 0) {
-            throw new VoldemortException("Failed to copy updated cluster.xml:" + cluster
-                                         + " on required nodes:" + failures);
-        }
     }
 
     /**
@@ -554,6 +554,12 @@ public class RebalanceUtils {
 
                 // Gets the list of replicating partitions.
                 List<Integer> replicaPartitionList = routingStrategy.getReplicatingPartitionList(primary);
+
+                if(replicaPartitionList.size() != maxReplicationStore.getReplicationFactor())
+                    throw new VoldemortException("Number of replicas returned ("
+                                                 + replicaPartitionList.size()
+                                                 + ") is less than the required replication factor ("
+                                                 + maxReplicationStore.getReplicationFactor() + ")");
 
                 if(!includePrimary)
                     replicaPartitionList.remove(primary);

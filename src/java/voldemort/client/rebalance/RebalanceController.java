@@ -33,7 +33,6 @@ import voldemort.cluster.Node;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.RebalanceUtils;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -98,7 +97,7 @@ public class RebalanceController {
      * Does basic verification of the metadata + server state. Finally starts
      * the rebalancing.
      * 
-     * @param currentCluster The cluster currently used on each node
+     * @param newCurrentCluster The cluster currently used on each node
      * @param targetCluster The desired cluster after rebalance
      * @param storeDefs Stores to rebalance
      */
@@ -109,36 +108,32 @@ public class RebalanceController {
         logger.info("Current cluster : " + currentCluster);
         logger.info("Final target cluster : " + targetCluster);
 
-        // Add all new nodes to current cluster
-        currentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster, targetCluster);
-
-        // Make admin client point to this updated current cluster
-        adminClient.setAdminClientCluster(currentCluster);
-
         // Filter the store definitions to a set rebalancing can support
         storeDefs = RebalanceUtils.validateRebalanceStore(storeDefs);
+
+        // Add all new nodes to a 'new current cluster'
+        Cluster newCurrentCluster = RebalanceUtils.getClusterWithNewNodes(currentCluster,
+                                                                          targetCluster);
+
+        // Make admin client point to this updated current cluster
+        adminClient.setAdminClientCluster(newCurrentCluster);
 
         // Do some verification
         if(!rebalanceConfig.isShowPlanEnabled()) {
 
             // Now validate that all the nodes ( new + old ) are in normal state
-            RebalanceUtils.validateClusterState(currentCluster, adminClient);
+            RebalanceUtils.validateClusterState(newCurrentCluster, adminClient);
 
             // Verify all old RO stores exist at version 2
-            RebalanceUtils.validateReadOnlyStores(currentCluster, storeDefs, adminClient);
+            RebalanceUtils.validateReadOnlyStores(newCurrentCluster, storeDefs, adminClient);
 
             // Propagate the updated cluster metadata to everyone
-            List<Integer> nodeIds = RebalanceUtils.getNodeIds(Lists.newArrayList(currentCluster.getNodes()));
-            VectorClock latestClock = (VectorClock) RebalanceUtils.getLatestCluster(nodeIds,
-                                                                                    adminClient)
-                                                                  .getVersion();
-            RebalanceUtils.propagateCluster(adminClient,
-                                            currentCluster,
-                                            latestClock.incremented(0, System.currentTimeMillis()),
-                                            nodeIds);
+            logger.info("Propagating new cluster " + newCurrentCluster + " to all nodes");
+            RebalanceUtils.propagateCluster(adminClient, newCurrentCluster);
+
         }
 
-        rebalancePerClusterTransition(currentCluster, targetCluster, storeDefs);
+        rebalancePerClusterTransition(newCurrentCluster, targetCluster, storeDefs);
     }
 
     /**
