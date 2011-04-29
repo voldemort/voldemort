@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,6 +43,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -52,6 +54,7 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -131,6 +134,16 @@ public class AdminServiceBasicTest extends TestCase {
                                                           cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
+    }
+
+    /**
+     * Returns the corresponding server based on the node id
+     * 
+     * @param nodeId The node id for which we're retrieving the server
+     * @return Voldemort server
+     */
+    private VoldemortServer getServer(int nodeId) {
+        return servers[nodeId];
     }
 
     @Override
@@ -479,28 +492,30 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testFetchPartitionFiles() throws IOException {
-        generateAndFetchFiles(10, 1, 1000, 1000);
+        generateAndFetchFiles(10, 1, 1200, 1000);
     }
 
-    private void generateFiles(int numChunks,
-                               long indexSize,
-                               long dataSize,
-                               List<Integer> partitions,
-                               File versionDir) throws IOException {
+    private void generateROFiles(int numChunks,
+                                 long indexSize,
+                                 long dataSize,
+                                 List<Pair<Integer, Integer>> buckets,
+                                 File versionDir) throws IOException {
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V1.getCode());
+        metadata.add(ReadOnlyStorageMetadata.FORMAT, ReadOnlyStorageFormat.READONLY_V2.getCode());
 
         File metadataFile = new File(versionDir, ".metadata");
         BufferedWriter writer = new BufferedWriter(new FileWriter(metadataFile));
         writer.write(metadata.toJsonString());
         writer.close();
 
-        for(Integer partitionId: partitions) {
+        for(Pair<Integer, Integer> bucket: buckets) {
             for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                File index = new File(versionDir, Integer.toString(partitionId) + "_"
+                File index = new File(versionDir, Integer.toString(bucket.getFirst()) + "_"
+                                                  + Integer.toString(bucket.getSecond()) + "_"
                                                   + Integer.toString(chunkId) + ".index");
-                File data = new File(versionDir, Integer.toString(partitionId) + "_"
+                File data = new File(versionDir, Integer.toString(bucket.getFirst()) + "_"
+                                                 + Integer.toString(bucket.getSecond()) + "_"
                                                  + Integer.toString(chunkId) + ".data");
                 // write some random crap for index and data
                 FileOutputStream dataOs = new FileOutputStream(data);
@@ -515,22 +530,119 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
+    /**
+     * Given the store name and node id, returns the buckets possible for the RO
+     * files
+     * 
+     * @param nodeId The node id
+     * @param storeName The name of the store
+     * @return List of buckets
+     */
+    private List<Pair<Integer, Integer>> getBuckets(int nodeId, String storeName) {
+
+        // Get store definition
+        StoreDefinition def = null;
+        for(StoreDefinition storeDef: storeDefs) {
+            if(storeDef.getName().compareTo(storeName) == 0) {
+                def = storeDef;
+                break;
+            }
+        }
+
+        if(def == null) {
+            throw new VoldemortException("Couldn't find store " + storeName
+                                         + " in the store definition list");
+        }
+
+        List<Integer> nodePartitionIds = cluster.getNodeById(nodeId).getPartitionIds();
+        List<Pair<Integer, Integer>> buckets = Lists.newArrayList();
+        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(def,
+                                                                                             cluster);
+        for(Node node: cluster.getNodes()) {
+            for(int partitionId: node.getPartitionIds()) {
+                List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
+
+                for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
+                    if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
+                        buckets.add(Pair.create(routingPartitionList.get(0), replicaType));
+                    }
+                }
+            }
+        }
+        return buckets;
+    }
+
+    /**
+     * Filters the buckets based on whether they are primary partition based or
+     * replica based
+     * 
+     * @param buckets The overall list of buckets
+     * @param primaryPartitions The list of primary partitions
+     * @param primaryOnly The boolean indicating whether we want primary or
+     *        replica?
+     * @return List of filtered buckets
+     */
+    private List<Pair<Integer, Integer>> filterBuckets(List<Pair<Integer, Integer>> buckets,
+                                                       List<Integer> primaryPartitions,
+                                                       boolean primaryOnly) {
+        List<Pair<Integer, Integer>> filteredBuckets = Lists.newArrayList();
+
+        for(Pair<Integer, Integer> bucket: buckets) {
+            if(primaryPartitions.contains(bucket.getFirst()) == primaryOnly) {
+                filteredBuckets.add(bucket);
+            }
+        }
+        return filteredBuckets;
+    }
+
+    @SuppressWarnings("unchecked")
     private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
             throws IOException {
         for(Node node: cluster.getNodes()) {
             ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStore(node.getId(),
                                                                            "test-readonly-fetchfiles");
 
-            // Generate data
+            // Create list of buckets
+            List<Pair<Integer, Integer>> buckets = getBuckets(node.getId(),
+                                                              "test-readonly-fetchfiles");
+
+            // Split the buckets into primary and replica buckets
+            List<Pair<Integer, Integer>> primaryBuckets = filterBuckets(buckets,
+                                                                        cluster.getNodeById(node.getId())
+                                                                               .getPartitionIds(),
+                                                                        true);
+            List<Pair<Integer, Integer>> replicaBuckets = filterBuckets(buckets,
+                                                                        cluster.getNodeById(node.getId())
+                                                                               .getPartitionIds(),
+                                                                        false);
+            // Generate list of replica partitions
+            List<Integer> replicaPartitions = Lists.newArrayList();
+            for(Pair<Integer, Integer> replicaBucket: replicaBuckets) {
+                replicaPartitions.add(replicaBucket.getFirst());
+            }
+
+            // Generate list of all partitions ( replica + native )
+            List<Integer> allPartitions = Lists.newArrayList(replicaPartitions);
+            allPartitions.addAll(node.getPartitionIds());
+
+            // Generate data...
             File newVersionDir = new File(store.getStoreDirPath(), "version-"
                                                                    + Long.toString(versionId));
             Utils.mkdirs(newVersionDir);
-            generateFiles(numChunks, indexSize, dataSize, node.getPartitionIds(), newVersionDir);
+            generateROFiles(numChunks, indexSize, dataSize, buckets, newVersionDir);
 
             // Swap it...
             store.swapFiles(newVersionDir.getAbsolutePath());
 
-            // Fetch it...
+            // Check if everything got mmap-ed correctly...
+            HashMap<Object, Integer> chunkIdToNumChunks = store.getChunkedFileSet()
+                                                               .getChunkIdToNumChunks();
+            for(Object bucket: chunkIdToNumChunks.keySet()) {
+                Pair<Integer, Integer> pairBucket = (Pair<Integer, Integer>) bucket;
+                assertTrue(buckets.contains(pairBucket));
+            }
+
+            // Test 1) Fetch all the primary partitions...
             File tempDir = TestUtils.createTempDir();
 
             getAdminClient().fetchPartitionFiles(node.getId(),
@@ -541,11 +653,68 @@ public class AdminServiceBasicTest extends TestCase {
             // Check it...
             assertEquals(tempDir.list().length, 2 * node.getPartitionIds().size() * numChunks);
 
-            for(Integer partitionId: node.getPartitionIds()) {
+            for(Pair<Integer, Integer> bucket: primaryBuckets) {
                 for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File indexFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                       + Integer.toString(bucket.getSecond()) + "_"
                                                        + Integer.toString(chunkId) + ".index");
-                    File dataFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                      + Integer.toString(bucket.getSecond()) + "_"
+                                                      + Integer.toString(chunkId) + ".data");
+
+                    assertTrue(indexFile.exists());
+                    assertTrue(dataFile.exists());
+                    assertEquals(indexFile.length(), indexSize);
+                    assertEquals(dataFile.length(), dataSize);
+                }
+
+            }
+
+            // Test 2) Fetch all the replica partitions...
+            tempDir = TestUtils.createTempDir();
+
+            getAdminClient().fetchPartitionFiles(node.getId(),
+                                                 "test-readonly-fetchfiles",
+                                                 replicaPartitions,
+                                                 tempDir.getAbsolutePath());
+
+            // Check it...
+            assertEquals(tempDir.list().length, 2 * replicaPartitions.size() * numChunks);
+
+            for(Pair<Integer, Integer> bucket: replicaBuckets) {
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                       + Integer.toString(bucket.getSecond()) + "_"
+                                                       + Integer.toString(chunkId) + ".index");
+                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                      + Integer.toString(bucket.getSecond()) + "_"
+                                                      + Integer.toString(chunkId) + ".data");
+
+                    assertTrue(indexFile.exists());
+                    assertTrue(dataFile.exists());
+                    assertEquals(indexFile.length(), indexSize);
+                    assertEquals(dataFile.length(), dataSize);
+                }
+
+            }
+
+            // Test 3) Fetch all the replica partitions...
+            tempDir = TestUtils.createTempDir();
+            getAdminClient().fetchPartitionFiles(node.getId(),
+                                                 "test-readonly-fetchfiles",
+                                                 allPartitions,
+                                                 tempDir.getAbsolutePath());
+
+            // Check it...
+            assertEquals(tempDir.list().length, 2 * allPartitions.size() * numChunks);
+
+            for(Pair<Integer, Integer> bucket: buckets) {
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                       + Integer.toString(bucket.getSecond()) + "_"
+                                                       + Integer.toString(chunkId) + ".index");
+                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
+                                                      + Integer.toString(bucket.getSecond()) + "_"
                                                       + Integer.toString(chunkId) + ".data");
 
                     assertTrue(indexFile.exists());
@@ -571,7 +740,7 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
-    public void testGetROVersions() throws IOException {
+    public void testGetROVersions() {
 
         // Tests get current version
         Map<String, Long> storesToVersions = getAdminClient().getROCurrentVersion(0,
@@ -604,7 +773,6 @@ public class AdminServiceBasicTest extends TestCase {
         Utils.mkdirs(new File(storeNode0.getStoreDirPath(), "version-10"));
         File newVersionNode1 = new File(storeNode1.getStoreDirPath(), "version-11");
         Utils.mkdirs(newVersionNode1);
-        generateFiles(10, 20, 20, cluster.getNodeById(1).getPartitionIds(), newVersionNode1);
         storeNode1.swapFiles(newVersionNode1.getAbsolutePath());
 
         // Node 0
@@ -785,10 +953,27 @@ public class AdminServiceBasicTest extends TestCase {
         RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
                                                                         0,
                                                                         rebalancePartitionList,
-                                                                        rebalancePartitionList,
+                                                                        new ArrayList<Integer>(),
                                                                         rebalancePartitionList,
                                                                         Arrays.asList(testStoreName),
                                                                         0);
+        try {
+            adminClient.rebalanceNode(stealInfo);
+            fail("Should have thrown an exception since the steal information is not on the server + not in rebalancing state");
+        } catch(VoldemortException e) {}
+
+        // Set the rebalance info on the stealer node
+        getServer(1).getMetadataStore().put(MetadataStore.REBALANCING_STEAL_INFO,
+                                            new RebalancerState(Lists.newArrayList(stealInfo)));
+
+        try {
+            adminClient.rebalanceNode(stealInfo);
+            fail("Should have thrown an exception since not in rebalancing state");
+        } catch(VoldemortException e) {}
+
+        getServer(1).getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
+                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+
         int asyncId = adminClient.rebalanceNode(stealInfo);
         assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
 

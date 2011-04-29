@@ -384,7 +384,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             // Add the steal information
             RebalancerState rebalancerState = getRebalancerState();
             if(!rebalancerState.update(stealInfo)) {
-                throw new VoldemortException("Could not add steal information since a plan for the same donor node "
+                throw new VoldemortException("Could not add steal information " + stealInfo
+                                             + " since a plan for the same donor node "
                                              + stealInfo.getDonorId() + " already exists");
             }
             put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
@@ -406,7 +407,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
             if(!rebalancerState.remove(stealInfo))
                 throw new IllegalArgumentException("Couldn't find " + stealInfo + " in "
-                                                   + rebalancerState);
+                                                   + rebalancerState + " while deleting");
 
             if(rebalancerState.isEmpty()) {
                 logger.debug("stealInfoList empty, cleaning all rebalancing state");

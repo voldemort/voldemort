@@ -295,6 +295,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 throw new VoldemortException("Rebalance service is not enabled for node: "
                                              + metadataStore.getNodeId());
 
+            // We should be in rebalancing state to run this function
+            if(!metadataStore.getServerState()
+                             .equals(MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper,
+                                                         new VoldemortException("Voldemort server "
+                                                                                + metadataStore.getNodeId()
+                                                                                + " not in rebalancing state")));
+                return response.build();
+            }
+
             RebalancePartitionsInfo rebalanceStealInfo = decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
 
             int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
@@ -526,7 +536,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         if(!metadataStore.getServerState().equals(MetadataStore.VoldemortState.NORMAL_SERVER)) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                     new VoldemortException("Voldemort server not in normal state")));
+                                                     new VoldemortException("Voldemort server "
+                                                                            + metadataStore.getNodeId()
+                                                                            + " not in normal state while swapping store "
+                                                                            + storeName
+                                                                            + " with directory "
+                                                                            + dir)));
             return response.build();
         }
 
@@ -560,13 +575,18 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 if(pushVersion <= store.getCurrentVersionId())
                     throw new VoldemortException("Version of push specified (" + pushVersion
                                                  + ") should be greater than current version "
-                                                 + store.getCurrentVersionId());
+                                                 + store.getCurrentVersionId() + " for store "
+                                                 + storeName + " on node "
+                                                 + metadataStore.getNodeId());
             } else {
                 // Find the max version
                 long maxVersion;
                 File[] storeDirList = ReadOnlyUtils.getVersionDirs(new File(store.getStoreDirPath()));
                 if(storeDirList == null || storeDirList.length == 0) {
-                    throw new VoldemortException("Push version required since no version folders exist");
+                    throw new VoldemortException("Push version required since no version folders exist for store "
+                                                 + storeName
+                                                 + " on node "
+                                                 + metadataStore.getNodeId());
                 } else {
                     maxVersion = ReadOnlyUtils.getVersionId(ReadOnlyUtils.findKthVersionedDir(storeDirList,
                                                                                               storeDirList.length - 1,

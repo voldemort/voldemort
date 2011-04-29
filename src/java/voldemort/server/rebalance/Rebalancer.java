@@ -111,6 +111,10 @@ public class Rebalancer implements Runnable {
                                                                    + "permit to release"));
     }
 
+    /**
+     * This is triggered only once when a node comes back up from a failure (
+     * down node ) and tries to complete rebalancing
+     */
     public void run() {
         logger.debug("rebalancer run() called.");
         VoldemortState voldemortState;
@@ -292,6 +296,18 @@ public class Rebalancer implements Runnable {
         }
     }
 
+    /**
+     * This function is responsible for starting the actual async rebalance
+     * operation
+     * 
+     * <br>
+     * 
+     * We also assume that the check that this server is in rebalancing state
+     * has been done at a higher level
+     * 
+     * @param stealInfo Partition info to steal
+     * @return Returns a id identifying the async operation
+     */
     public int rebalanceNode(final RebalancePartitionsInfo stealInfo) {
 
         // Acquire a lock for the donor node

@@ -99,20 +99,17 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                                    .getType()
                                                                    .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-                            if(logger.isDebugEnabled()) {
-                                logger.debug("operate() -  storeName: " + storeName
-                                             + ", stealInfo: " + stealInfo);
-                            }
+                            logger.info("Working on store " + storeName + ", stealInfo: "
+                                        + stealInfo);
 
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
                             List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                             tempUnbalancedStoreList.remove(storeName);
                             stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
-                            metadataStore.deleteRebalancingState(stealInfo);
 
                         } catch(Exception e) {
-                            logger.error("rebalanceSubTask:" + stealInfo + " failed for store:"
+                            logger.error("Error while rebalancing " + stealInfo + " for store "
                                          + storeName + " - " + e.getMessage(), e);
                             failures.add(e);
                         }
@@ -126,7 +123,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
             // If empty, clean state
             List<String> unbalancedStores = Lists.newArrayList(stealInfo.getUnbalancedStoreList());
             if(unbalancedStores.isEmpty()) {
-                logger.info("Rebalancer: rebalance " + stealInfo + " completed successfully.");
+                logger.info("Rebalance for " + stealInfo + " on " + stealInfo.getStealerId()
+                            + " completed successfully.");
                 metadataStore.deleteRebalancingState(stealInfo);
             } else {
                 throw new VoldemortRebalancingException("Failed to rebalance task " + stealInfo,
@@ -136,7 +134,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
         } finally {
             // free the permit in all cases.
             if(logger.isInfoEnabled()) {
-                logger.info("Releasing permit for Donor: " + stealInfo.getDonorId());
+                logger.info("Releasing permit for donor node " + stealInfo.getDonorId());
             }
 
             rebalancer.releaseRebalancingPermit(stealInfo.getDonorId());
@@ -156,7 +154,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
     @Override
     public void stop() {
-        updateStatus("stop() called on rebalance operation !!");
+        updateStatus("Stop called on rebalance operation");
         if(null != adminClient) {
             for(int asyncID: rebalanceStatusList) {
                 adminClient.stopAsyncRequest(metadataStore.getNodeId(), asyncID);
@@ -166,12 +164,21 @@ class RebalanceAsyncOperation extends AsyncOperation {
         executors.shutdownNow();
     }
 
+    /**
+     * Blocking function which completes the migration of one store
+     * 
+     * @param storeName The name of the store
+     * @param adminClient Admin client used to initiate the copying of data
+     * @param stealInfo The steal information
+     * @param isReadOnlyStore Boolean indicating that this is a read-only store
+     */
     private void rebalanceStore(String storeName,
                                 final AdminClient adminClient,
                                 RebalancePartitionsInfo stealInfo,
-                                boolean isReadOnlyStore) throws Exception {
-        logger.info("starting partitions migration for store:" + storeName);
-        updateStatus("started");
+                                boolean isReadOnlyStore) {
+        logger.info("Starting partitions migration for store:" + storeName);
+        updateStatus("Started partition migration for store " + storeName + " and steal info - "
+                     + stealInfo);
 
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
@@ -181,8 +188,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
         rebalanceStatusList.add(asyncId);
 
         if(logger.isDebugEnabled()) {
-            logger.debug("waitForCompletion: stealer:" + metadataStore.getNodeId() + ", asyncId:"
-                         + asyncId);
+            logger.debug("Waiting for completion for " + storeName + " and steal info - "
+                         + stealInfo + " with async id - " + asyncId);
         }
         adminClient.waitForCompletion(metadataStore.getNodeId(),
                                       asyncId,
@@ -192,14 +199,19 @@ class RebalanceAsyncOperation extends AsyncOperation {
         rebalanceStatusList.remove((Object) asyncId);
 
         if(stealInfo.getDeletePartitionsList().size() > 0 && !isReadOnlyStore) {
+            logger.info("Deleting partitions for store " + storeName + " and steal info - "
+                        + stealInfo);
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
                                          stealInfo.getDeletePartitionsList(),
                                          null);
-            logger.debug("Deleted partitions " + stealInfo.getDeletePartitionsList()
-                         + " from donorNode:" + stealInfo.getDonorId() + " for store " + storeName);
+            logger.info("Deleting partitions for store " + storeName + " and steal info - "
+                        + stealInfo);
         }
 
-        logger.info("partitions migration for store:" + storeName + " completed.");
+        logger.info("Completed partition migration for store " + storeName + " and steal info - "
+                    + stealInfo);
+        updateStatus("Completed partition migration for store " + storeName + " and steal info - "
+                     + stealInfo);
     }
 }

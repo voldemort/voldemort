@@ -811,7 +811,7 @@ public abstract class AbstractRebalanceTest {
                                                              2,
                                                              10000,
                                                              false);
-        storeBuilder.build(ReadOnlyStorageFormat.READONLY_V1);
+        storeBuilder.build(ReadOnlyStorageFormat.READONLY_V2);
 
         AdminStoreSwapper swapper = new AdminStoreSwapper(cluster,
                                                           Executors.newFixedThreadPool(nodeList.size()),

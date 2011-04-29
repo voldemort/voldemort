@@ -53,7 +53,6 @@ public class RebalanceUtilsTest extends TestCase {
 
     @Override
     public void setUp() {
-
         try {
             storeDefList = new StoreDefinitionsMapper().readStoreList(new FileReader(new File(storeDefFile)));
         } catch(FileNotFoundException e) {

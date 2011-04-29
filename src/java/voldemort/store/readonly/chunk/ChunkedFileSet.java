@@ -217,10 +217,8 @@ public class ChunkedFileSet {
         int globalChunkId = 0;
         if(this.nodePartitionIds != null) {
 
-            // Generate a list of possible buckets
-            // Buckets = Pair of master partition id and replica type
-
-            // Go over every partition and find out all buckets
+            // Go over every partition and find out all buckets ( pair of master
+            // partition id and replica type )
             for(Node node: routingStrategy.getNodes()) {
                 for(int partitionId: node.getPartitionIds()) {
 
