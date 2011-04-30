@@ -2,8 +2,10 @@ package voldemort.client.rebalance;
 
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.json.JsonReader;
@@ -11,7 +13,7 @@ import voldemort.serialization.json.JsonWriter;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Holds the list of partitions being moved / deleted for a stealer-donor node
@@ -24,8 +26,7 @@ public class RebalancePartitionsInfo {
     private final int donorId;
     private List<String> unbalancedStoreList;
     private int attempt;
-    private List<Integer> stealMasterPartitions;
-    private List<Integer> stealReplicaPartitions;
+    private HashMap<Integer, List<Integer>> replicaToPartitionList;
     private List<Integer> allPartitions;
     private List<Integer> deletePartitionsList;
 
@@ -37,28 +38,23 @@ public class RebalancePartitionsInfo {
      * 
      * @param stealerNodeId Stealer node id
      * @param donorId Donor node id
-     * @param stealMasterPartitions List of master partitions being moved
-     * @param stealReplicaPartitions List of replica partitions being moved
+     * @param replicaToPartitionList Map of replica type to partition list
      * @param deletePartitionsList List of partitions being deleted
      * @param unbalancedStoreList List of stores which are unbalanced
      * @param attempt Attempt number
      */
     public RebalancePartitionsInfo(int stealerNodeId,
                                    int donorId,
-                                   List<Integer> stealMasterPartitions,
-                                   List<Integer> stealReplicaPartitions,
+                                   HashMap<Integer, List<Integer>> replicaToPartitionList,
                                    List<Integer> deletePartitionsList,
                                    List<String> unbalancedStoreList,
                                    int attempt) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
-        this.stealMasterPartitions = stealMasterPartitions;
-        this.stealReplicaPartitions = stealReplicaPartitions;
+        this.replicaToPartitionList = replicaToPartitionList;
         this.deletePartitionsList = deletePartitionsList;
         this.attempt = attempt;
         this.unbalancedStoreList = unbalancedStoreList;
-        this.allPartitions = Lists.newArrayList(stealMasterPartitions);
-        this.allPartitions.addAll(stealReplicaPartitions);
     }
 
     public static RebalancePartitionsInfo create(String line) {
@@ -75,19 +71,42 @@ public class RebalancePartitionsInfo {
     public static RebalancePartitionsInfo create(Map<?, ?> map) {
         int stealerId = (Integer) map.get("stealerId");
         int donorId = (Integer) map.get("donorId");
-        List<Integer> stealMasterPartitions = Utils.uncheckedCast(map.get("stealMasterPartitions"));
-        List<Integer> stealReplicaPartitions = Utils.uncheckedCast(map.get("stealReplicaPartitions"));
         List<Integer> deletePartitionsList = Utils.uncheckedCast(map.get("deletePartitionsList"));
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
         int attempt = (Integer) map.get("attempt");
+        int numReplicas = (Integer) map.get("numReplicas");
+
+        HashMap<Integer, List<Integer>> partitionMap = Maps.newHashMap();
+        for(int replicaNo = 0; replicaNo < numReplicas; replicaNo++) {
+            List<Integer> partitionList = Utils.uncheckedCast(map.get("replicaToPartitionList"
+                                                                      + Integer.toString(replicaNo)));
+            partitionMap.put(replicaNo, partitionList);
+        }
 
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
-                                           stealMasterPartitions,
-                                           stealReplicaPartitions,
+                                           partitionMap,
                                            deletePartitionsList,
                                            unbalancedStoreList,
                                            attempt);
+    }
+
+    public ImmutableMap<String, Object> asMap() {
+        ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<String, Object>();
+
+        builder.put("stealerId", stealerId)
+               .put("donorId", donorId)
+               .put("deletePartitionsList", deletePartitionsList)
+               .put("unbalancedStoreList", unbalancedStoreList)
+               .put("attempt", attempt)
+               .put("numReplicas", replicaToPartitionList.size());
+
+        for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
+            builder.put("replicaToPartitionList" + Integer.toString(entry.getKey()),
+                        entry.getValue());
+        }
+
+        return builder.build();
     }
 
     public List<Integer> getDeletePartitionsList() {
@@ -160,19 +179,6 @@ public class RebalancePartitionsInfo {
         new JsonWriter(writer).write(map);
         writer.flush();
         return writer.toString();
-    }
-
-    public ImmutableMap<String, Object> asMap() {
-        ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<String, Object>();
-
-        return builder.put("stealerId", stealerId)
-                      .put("donorId", donorId)
-                      .put("stealMasterPartitions", stealMasterPartitions)
-                      .put("stealReplicaPartitions", stealReplicaPartitions)
-                      .put("deletePartitionsList", deletePartitionsList)
-                      .put("unbalancedStoreList", unbalancedStoreList)
-                      .put("attempt", attempt)
-                      .build();
     }
 
     @Override

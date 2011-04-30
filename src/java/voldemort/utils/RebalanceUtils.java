@@ -20,11 +20,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -457,17 +457,19 @@ public class RebalanceUtils {
     }
 
     /**
-     * For a particular stealer node find all the "primary" partitions it will
-     * steal
+     * For a particular stealer node find all the "primary" <replica, partition>
+     * tuples it will steal. In other words, expect the "replica" part to be 0
+     * always.
      * 
      * @param currentCluster The cluster definition of the existing cluster
      * @param targetCluster The target cluster definition
      * @param stealNodeId Node id of the stealer node
-     * @return Returns a list of partitions which this stealer node will get
+     * @return Returns a list of primary partitions which this stealer node will
+     *         get
      */
-    public static Set<Integer> getStolenPrimaries(final Cluster currentCluster,
-                                                  final Cluster targetCluster,
-                                                  final int stealNodeId) {
+    public static List<Integer> getStolenPrimaryPartitions(final Cluster currentCluster,
+                                                           final Cluster targetCluster,
+                                                           final int stealNodeId) {
         List<Integer> targetList = new ArrayList<Integer>(targetCluster.getNodeById(stealNodeId)
                                                                        .getPartitionIds());
 
@@ -478,48 +480,56 @@ public class RebalanceUtils {
         // remove all current partitions from targetList
         targetList.removeAll(currentList);
 
-        return new TreeSet<Integer>(targetList);
+        return targetList;
     }
 
     /**
-     * For a particular stealer node find all the replica partitions it will
-     * steal.
+     * For a particular stealer node find primary <replica, partition> tuples it
+     * will steal.
      * 
-     * <br>
-     * 
-     * If the stealer node has a primary that was given away and later on this
-     * partition became a replica then this replica is not going to be
-     * considered one that needs to be migrated due to the fact that it's
-     * already on the stealer node.
+     * @param cluster Current cluster metadata
+     * @param target Target cluster metadata
+     * @param stealerId Stealer node id
+     * @return Set of <replica, partition> tuples stolen
+     */
+    public static Set<Pair<Integer, Integer>> getStolenPrimaryPartitionTuples(final Cluster currentCluster,
+                                                                              final Cluster targetCluster,
+                                                                              final int stealNodeId) {
+        Set<Pair<Integer, Integer>> primaryPartitionTuples = Sets.newHashSet();
+        List<Integer> primaryPartitions = getStolenPrimaryPartitions(currentCluster,
+                                                                     targetCluster,
+                                                                     stealNodeId);
+        for(int primaryPartition: primaryPartitions) {
+            primaryPartitionTuples.add(Pair.create(0, primaryPartition));
+        }
+        return primaryPartitionTuples;
+    }
+
+    /**
+     * For a particular stealer node find all replica <replica_type, partition>
+     * tuples it will steal.
      * 
      * @param cluster Current cluster metadata
      * @param target Target cluster metadata
      * @param storeDefs List of store definitions
      * @param stealerId Stealer node id
-     * @return Set of partition ids representing the replicas about to be
-     *         stolen.
+     * @return Set of <replica, partition> tuples stolen
      */
-    public static Set<Integer> getStolenReplicas(final Cluster cluster,
-                                                 final Cluster target,
-                                                 final List<StoreDefinition> storeDefs,
-                                                 final int stealerId) {
-        Map<Integer, Set<Integer>> nodeIdToReplicas = getNodeIdToAllPartitions(cluster,
-                                                                               storeDefs,
-                                                                               false);
-        Map<Integer, Set<Integer>> targetNodeIdToReplicas = getNodeIdToAllPartitions(target,
-                                                                                     storeDefs,
-                                                                                     false);
+    public static Set<Pair<Integer, Integer>> getStolenReplicaPartitionTuples(final Cluster cluster,
+                                                                              final Cluster target,
+                                                                              final List<StoreDefinition> storeDefs,
+                                                                              final int stealerId) {
+        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = getNodeIdToAllPartitions(cluster,
+                                                                                              storeDefs,
+                                                                                              false);
+        Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(target,
+                                                                                                    storeDefs,
+                                                                                                    false);
 
-        Set<Integer> clusterStealerReplicas = nodeIdToReplicas.get(stealerId);
-        Set<Integer> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
+        Set<Pair<Integer, Integer>> clusterStealerReplicas = nodeIdToReplicas.get(stealerId);
+        Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
 
-        Set<Integer> replicasAddedInTarget = RebalanceUtils.getAddedInTarget(clusterStealerReplicas,
-                                                                             targetStealerReplicas);
-
-        if(RebalanceUtils.containsNode(cluster, stealerId)) {
-            replicasAddedInTarget.removeAll(cluster.getNodeById(stealerId).getPartitionIds());
-        }
-        return replicasAddedInTarget;
+        return RebalanceUtils.getAddedInTarget(clusterStealerReplicas, targetStealerReplicas);
     }
 
     /**
@@ -531,19 +541,19 @@ public class RebalanceUtils {
      * @param includePrimary Include the primary partition?
      * @return Map of node id to set of "all" partitions
      */
-    public static Map<Integer, Set<Integer>> getNodeIdToAllPartitions(final Cluster cluster,
-                                                                      final List<StoreDefinition> storeDefs,
-                                                                      boolean includePrimary) {
+    public static Map<Integer, Set<Pair<Integer, Integer>>> getNodeIdToAllPartitions(final Cluster cluster,
+                                                                                     final List<StoreDefinition> storeDefs,
+                                                                                     boolean includePrimary) {
         final StoreDefinition maxReplicationStore = RebalanceUtils.getMaxReplicationStore(storeDefs);
         final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(maxReplicationStore,
                                                                                                    cluster);
 
-        final Map<Integer, Set<Integer>> nodeIdToReplicas = new HashMap<Integer, Set<Integer>>();
+        final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = new HashMap<Integer, Set<Pair<Integer, Integer>>>();
         final Map<Integer, Integer> partitionToNodeIdMap = getCurrentPartitionMapping(cluster);
 
         // Map initialization.
         for(Node node: cluster.getNodes()) {
-            nodeIdToReplicas.put(node.getId(), new TreeSet<Integer>());
+            nodeIdToReplicas.put(node.getId(), new HashSet<Pair<Integer, Integer>>());
         }
 
         // Loops through all nodes
@@ -561,15 +571,20 @@ public class RebalanceUtils {
                                                  + ") is less than the required replication factor ("
                                                  + maxReplicationStore.getReplicationFactor() + ")");
 
-                if(!includePrimary)
+                int replicaType = 0;
+                if(!includePrimary) {
                     replicaPartitionList.remove(primary);
+                    replicaType = 1;
+                }
 
                 // Get the node that this replicating partition belongs to.
                 for(Integer replicaPartition: replicaPartitionList) {
                     Integer replicaNodeId = partitionToNodeIdMap.get(replicaPartition);
 
                     // The replicating node will have a copy of primary.
-                    nodeIdToReplicas.get(replicaNodeId).add(primary);
+                    nodeIdToReplicas.get(replicaNodeId).add(Pair.create(replicaType, primary));
+
+                    replicaType++;
                 }
             }
         }
@@ -619,74 +634,51 @@ public class RebalanceUtils {
     }
 
     /**
-     * Returns a set of partitions that were added to the target list
+     * Returns a set of objects that were added to the target list
      * 
-     * getAddedInTarget(cluster, null) - nothing was added, returns null.
-     * 
-     * <br>
-     * 
+     * getAddedInTarget(current, null) - nothing was added, returns null. <br>
      * getAddedInTarget(null, target) - everything in target was added, return
-     * target.
+     * target. <br>
+     * getAddedInTarget(null, null) - neither added nor deleted, return null. <br>
+     * getAddedInTarget(current, target)) - returns new partition not found in
+     * current.
      * 
-     * <br>
-     * 
-     * getAddedInTarget(null, null) - neither added nor deleted, return null.
-     * 
-     * <br>
-     * 
-     * getAddedInTarget(cluster, target)) - returns new partition not found in
-     * cluster.
-     * 
-     * @param current Set of partitions present in current cluster for a given
-     *        node.
-     * @param target Set of partitions present in target cluster for a given
-     *        node.
-     * @return A set of added partitions in target cluster or empty set
+     * @param current Set of objects present in current
+     * @param target Set of partitions present in target
+     * @return A set of added partitions in target or empty set
      */
-    public static Set<Integer> getAddedInTarget(Set<Integer> current, Set<Integer> target) {
+    public static <T> Set<T> getAddedInTarget(Set<T> current, Set<T> target) {
         if(current == null || target == null) {
-            return new TreeSet<Integer>();
+            return new HashSet<T>();
         }
         return getDiff(target, current);
     }
 
     /**
-     * Returns a set of partitions that were deleted in the target set
+     * Returns a set of objects that were deleted in the target set
      * 
-     * getDeletedInTarget(cluster, null) - everything was deleted, returns
-     * cluster.
-     * 
-     * <br>
-     * 
+     * getDeletedInTarget(current, null) - everything was deleted, returns
+     * current. <br>
      * getDeletedInTarget(null, target) - everything in target was added, return
-     * target.
-     * 
-     * <br>
-     * 
-     * getDeletedInTarget(null, null) - neither added nor deleted, return null.
-     * 
-     * <br>
-     * 
-     * getDeletedInTarget(cluster, target)) - returns deleted partition not
+     * target. <br>
+     * getDeletedInTarget(null, null) - neither added nor deleted, return null. <br>
+     * getDeletedInTarget(current, target)) - returns deleted partition not
      * found in target.
      * 
-     * @param current Set of partitions present in current cluster for a given
-     *        node.
-     * @param target Set of partitions present in target cluster for a given
-     *        node.
-     * @return A set of deleted partitions in Target cluster or empty set
+     * @param current Set of objects currently present
+     * @param target Set of target objects
+     * @return A set of deleted objects in target or empty set
      */
-    public static Set<Integer> getDeletedInTarget(final Set<Integer> current,
-                                                  final Set<Integer> target) {
+    public static <T> Set<T> getDeletedInTarget(final Set<T> current, final Set<T> target) {
         if(current == null || target == null) {
-            return new TreeSet<Integer>();
+            return new HashSet<T>();
         }
         return getDiff(current, target);
     }
 
-    private static Set<Integer> getDiff(final Set<Integer> source, final Set<Integer> dest) {
-        Set<Integer> diff = new TreeSet<Integer>();
-        for(Integer id: source) {
+    private static <T> Set<T> getDiff(final Set<T> source, final Set<T> dest) {
+        Set<T> diff = new HashSet<T>();
+        for(T id: source) {
             if(!dest.contains(id)) {
                 diff.add(id);
             }

@@ -93,16 +93,21 @@ public class RebalanceUtilsTest extends TestCase {
     public void testRebalancePlanDeleteLastNode() {
 
         // Current Cluster:
-        // 0 - [3, 6, 9, 12, 15] + [1, 2, 4, 5, 7, 8, 10, 11, 13, 14]
-        // 1 - [1, 4, 7, 10, 13, 16] + [0, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17]
-        // 2 - [2, 5, 8, 11, 14, 17] + [0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 15, 16]
-        // 3 - [0] + [16, 17]
-        //
+        // 0 - [3, 6, 9, 12, 15] - [2, 5, 8, 11, 14] - [1, 4, 7, 10, 13]
+        // 1 - [1, 16, 4, 7, 10, 13] - [0, 3, 6, 9, 12, 15] - [17, 2, 5, 8, 11,
+        // 14]
+        // 2 - [17, 2, 5, 8, 11, 14] - [1, 16, 4, 7, 10, 13] - [0, 3, 6, 9, 12,
+        // 15]
+        // 3 - [0] - [17] - [16]
+
         // Target Cluster:
-        // 0 - [0, 3, 6, 9, 12, 15] + [1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 16, 17]
-        // 1 - [1, 4, 7, 10, 13, 16] + [0, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17]
-        // 2 - [2, 5, 8, 11, 14, 17] + [0, 1, 3, 4, 6, 7, 9, 10, 12, 13, 15, 16]
-        // 3 - [] + []
+        // 0 - [0, 3, 6, 9, 12, 15] - [17, 2, 5, 8, 11, 14] - [1, 16, 4, 7, 10,
+        // 13]
+        // 1 - [1, 16, 4, 7, 10, 13] - [0, 3, 6, 9, 12, 15] - [17, 2, 5, 8, 11,
+        // 14]
+        // 2 - [17, 2, 5, 8, 11, 14] - [1, 16, 4, 7, 10, 13] - [0, 3, 6, 9, 12,
+        // 15]
+        // 3 - empty
 
         currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 3, 6, 9, 12, 15 },
                 { 1, 4, 7, 10, 13, 16 }, { 2, 5, 8, 11, 14, 17 }, { 0 } });
@@ -160,6 +165,10 @@ public class RebalanceUtilsTest extends TestCase {
         List<RebalanceNodePlan> orderedRebalanceNodePlanList = createOrderedClusterTransition(currentCluster,
                                                                                               targetCluster,
                                                                                               storeDefList2).getOrderedRebalanceNodePlanList();
+
+        System.out.println(createOrderedClusterTransition(currentCluster,
+                                                          targetCluster,
+                                                          storeDefList2));
         assertEquals("There should have exactly 3 rebalancing node",
                      3,
                      orderedRebalanceNodePlanList.size());

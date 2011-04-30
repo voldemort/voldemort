@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.log4j.Logger;
@@ -156,23 +155,23 @@ public class RebalanceController {
     private void rebalancePerClusterTransition(Cluster currentCluster,
                                                final Cluster targetCluster,
                                                final List<StoreDefinition> storeDefs) {
-        final Map<Node, Set<Integer>> stealerToStolenPrimaryPartitions = new HashMap<Node, Set<Integer>>();
+        final Map<Node, List<Integer>> stealerToStolenPrimaryPartitions = new HashMap<Node, List<Integer>>();
 
         // Generate the number of tasks to compute percent completed
         int numTasks = 0;
         for(Node stealerNode: targetCluster.getNodes()) {
-            Set<Integer> stolenPrimaries = RebalanceUtils.getStolenPrimaries(currentCluster,
-                                                                             targetCluster,
-                                                                             stealerNode.getId());
-            numTasks += stolenPrimaries.size();
-            stealerToStolenPrimaryPartitions.put(stealerNode, stolenPrimaries);
+            List<Integer> stolenPrimaryPartitions = RebalanceUtils.getStolenPrimaryPartitions(currentCluster,
+                                                                                              targetCluster,
+                                                                                              stealerNode.getId());
+            numTasks += stolenPrimaryPartitions.size();
+            stealerToStolenPrimaryPartitions.put(stealerNode, stolenPrimaryPartitions);
         }
 
         int taskId = 0;
         for(Node stealerNode: targetCluster.getNodes()) {
 
             // If not stealing partition, ignore node
-            Set<Integer> stolenPrimaryPartitions = stealerToStolenPrimaryPartitions.get(stealerNode);
+            List<Integer> stolenPrimaryPartitions = stealerToStolenPrimaryPartitions.get(stealerNode);
 
             if(stolenPrimaryPartitions == null || stolenPrimaryPartitions.isEmpty()) {
                 RebalanceUtils.printLog(stealerNode.getId(), logger, "No partitions to steal");
