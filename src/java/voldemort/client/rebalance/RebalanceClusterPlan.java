@@ -1,15 +1,14 @@
 package voldemort.client.rebalance;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -23,7 +22,6 @@ import voldemort.utils.Utils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * Compares the current cluster configuration with the target cluster
@@ -49,23 +47,6 @@ public class RebalanceClusterPlan {
      */
     private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitions;
 
-    /**
-     * For the "target" cluster, creates a map of node-ids to tuple of <replica,
-     * partition> being deleted
-     */
-    private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllDeletedPartitions;
-
-    /**
-     * For the "target" cluster, creates a map of node-ids to tuple of <replica,
-     * partition> being donated
-     */
-    private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllStolenPartitions;
-
-    /**
-     * This map keeps track of already deleted partitions on a per node basis
-     */
-    private Map<Integer, Set<Pair<Integer, Integer>>> alreadyDeletedNodeIdToPartions = new TreeMap<Integer, Set<Pair<Integer, Integer>>>();
-
     private final Cluster currentCluster;
     private final Cluster targetCluster;
 
@@ -90,11 +71,19 @@ public class RebalanceClusterPlan {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         this.storeDefs = Collections.unmodifiableList(storeDefs);
 
+        // Number of partitions to remain same
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
             throw new VoldemortException("Total number of partitions should be equal [ Current cluster ("
                                          + currentCluster.getNumberOfPartitions()
                                          + ") not equal to Target cluster ("
                                          + targetCluster.getNumberOfPartitions() + ") ]");
+
+        // Similarly number of nodes to remain same
+        if(currentCluster.getNumberOfNodes() != targetCluster.getNumberOfNodes())
+            throw new VoldemortException("Total number of nodes should be equal [ Current cluster ("
+                                         + currentCluster.getNumberOfNodes()
+                                         + ") not equal to Target cluster ("
+                                         + targetCluster.getNumberOfNodes() + ") ]");
 
         // Create node id to all partitions mapping
         this.nodeIdToAllPartitions = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
@@ -103,9 +92,6 @@ public class RebalanceClusterPlan {
         this.targetNodeIdToAllPartitions = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
                                                                                                                storeDefs,
                                                                                                                true));
-
-        this.targetNodeIdToAllDeletedPartitions = Collections.unmodifiableMap(getTargetNodeIdToAllDeletePartitions());
-        this.targetNodeIdToAllStolenPartitions = Collections.unmodifiableMap(getTargetNodeIdToAllStolenPartitions());
 
         for(Node node: targetCluster.getNodes()) {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalancePartitionsInfo(currentCluster,
@@ -122,49 +108,6 @@ public class RebalanceClusterPlan {
 
     public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
         return rebalanceTaskQueue;
-    }
-
-    /**
-     * Creates a mapping of node id to the list of partitions that are going to
-     * be deleted as a result of rebalance. This is simply the difference of set
-     * of all partitions on node after rebalancing and all partitions before
-     * rebalancing
-     * 
-     * @return Map to all "target" nodes-to-lost <replica, partition> tuples
-     */
-    private Map<Integer, Set<Pair<Integer, Integer>>> getTargetNodeIdToAllDeletePartitions() {
-        final Map<Integer, Set<Pair<Integer, Integer>>> map = new TreeMap<Integer, Set<Pair<Integer, Integer>>>();
-        for(Integer targetNodeId: targetNodeIdToAllPartitions.keySet()) {
-            Set<Pair<Integer, Integer>> clusterAllPartitions = nodeIdToAllPartitions.get(targetNodeId);
-            Set<Pair<Integer, Integer>> targetAllPartitions = targetNodeIdToAllPartitions.get(targetNodeId);
-
-            Set<Pair<Integer, Integer>> deletedPartitions = RebalanceUtils.getDeletedInTarget(clusterAllPartitions,
-                                                                                              targetAllPartitions);
-            map.put(targetNodeId, deletedPartitions);
-        }
-        return map;
-    }
-
-    /**
-     * Generates a map of node ids to the corresponding partitions that will be
-     * stolen by this node
-     * 
-     * @return Map to all "target" nodes-to-stolen <replica, partition>
-     *         relationship.
-     */
-    private Map<Integer, Set<Pair<Integer, Integer>>> getTargetNodeIdToAllStolenPartitions() {
-        final Map<Integer, Set<Pair<Integer, Integer>>> map = new TreeMap<Integer, Set<Pair<Integer, Integer>>>();
-        for(int stealNodeId: targetNodeIdToAllPartitions.keySet()) {
-            Set<Pair<Integer, Integer>> donatedPartitions = RebalanceUtils.getStolenPrimaryPartitionTuples(currentCluster,
-                                                                                                           targetCluster,
-                                                                                                           stealNodeId);
-            donatedPartitions.addAll(RebalanceUtils.getStolenReplicaPartitionTuples(currentCluster,
-                                                                                    targetCluster,
-                                                                                    storeDefs,
-                                                                                    stealNodeId));
-            map.put(stealNodeId, donatedPartitions);
-        }
-        return map;
     }
 
     /**
@@ -192,20 +135,14 @@ public class RebalanceClusterPlan {
 
         final List<RebalancePartitionsInfo> result = new ArrayList<RebalancePartitionsInfo>();
 
-        // Separate the primary partitions from the replica partitions
-        final Set<Pair<Integer, Integer>> haveToStealPrimaries = RebalanceUtils.getStolenPrimaryPartitionTuples(currentCluster,
-                                                                                                                targetCluster,
-                                                                                                                stealerId);
+        // Separate the partitions being copied from those being deleted
+        final Set<Pair<Integer, Integer>> haveToStealTuples = RebalanceUtils.getStolenPartitionTuples(currentCluster,
+                                                                                                      targetCluster,
+                                                                                                      storeDefs,
+                                                                                                      stealerId);
 
-        final Set<Pair<Integer, Integer>> haveToStealReplicas = RebalanceUtils.getStolenReplicaPartitionTuples(currentCluster,
-                                                                                                               targetCluster,
-                                                                                                               storeDefs,
-                                                                                                               stealerId);
-        final Set<Pair<Integer, Integer>> haveToDeletePartitions = getDeletedPartitions(stealerId);
-
-        // If all of them are empty, done with this stealer node
-        if(haveToStealPrimaries.size() == 0 && haveToStealReplicas.size() == 0
-           && haveToDeletePartitions.size() == 0) {
+        // If empty, done with this stealer node
+        if(haveToStealTuples.size() == 0) {
             return result;
         }
 
@@ -217,38 +154,23 @@ public class RebalanceClusterPlan {
                 continue;
 
             // Finished treating all partitions?
-            if(haveFinishedPartitions(haveToStealPrimaries)
-               && haveFinishedPartitions(haveToStealReplicas)
-               && haveFinishedPartitions(haveToDeletePartitions)) {
+            if(haveFinishedPartitions(haveToStealTuples)) {
                 break;
             }
 
-            final Set<Pair<Integer, Integer>> trackStealMasterPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
-            final Set<Pair<Integer, Integer>> trackStealReplicaPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
-            final Set<Pair<Integer, Integer>> trackDeletePartitionsTuples = new HashSet<Pair<Integer, Integer>>();
+            final Set<Pair<Integer, Integer>> trackStealPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
 
-            // Checks if this donor can donate a primary partition
-            donatePrimary(donorNode, haveToStealPrimaries, trackStealMasterPartitionsTuples);
+            // Checks if this donor can donate any tuples
+            donatePartitionTuple(donorNode, haveToStealTuples, trackStealPartitionsTuples);
 
-            // Checks if this donor can donate a replica
-            donateReplicas(donorNode, haveToStealReplicas, trackStealReplicaPartitionsTuples);
-
-            // Delete partition if you have donated a primary or replica
-            deleteDonatedPartitions(donorNode,
-                                    trackDeletePartitionsTuples,
-                                    enableDeletePartition,
-                                    stealerId);
-
-            if(trackStealMasterPartitionsTuples.size() > 0
-               || trackStealReplicaPartitionsTuples.size() > 0
-               || trackDeletePartitionsTuples.size() > 0) {
+            if(trackStealPartitionsTuples.size() > 0) {
 
                 result.add(new RebalancePartitionsInfo(stealerId,
                                                        donorNode.getId(),
-                                                       new ArrayList<Integer>(getPartitions(trackStealMasterPartitionsTuples)),
-                                                       new ArrayList<Integer>(getPartitions(trackStealReplicaPartitionsTuples)),
-                                                       new ArrayList<Integer>(getPartitions(trackDeletePartitionsTuples)),
+                                                       flatten(trackStealPartitionsTuples),
                                                        storeNames,
+                                                       currentCluster,
+                                                       enableDeletePartition,
                                                        0));
             }
         }
@@ -257,216 +179,27 @@ public class RebalanceClusterPlan {
     }
 
     /**
-     * Given a list of tuples of <replica_type, partition>, flattens it and
-     * generates a map of replica_type to partition mapping
-     * 
-     * @param partitionTuples List of <replica_type, partition> tuples
-     * @return Map of replica_type to set of partitions
-     */
-    private TreeMap<Integer, Set<Integer>> flatten(Set<Pair<Integer, Integer>> partitionTuples) {
-        TreeMap<Integer, Set<Integer>> flattenedTuples = Maps.newTreeMap();
-        for(Pair<Integer, Integer> pair: partitionTuples) {
-            if(flattenedTuples.containsKey(pair.getFirst())) {
-                flattenedTuples.get(pair.getFirst()).add(pair.getSecond());
-            } else {
-                Set<Integer> newPartitions = Sets.newHashSet();
-                newPartitions.add(pair.getSecond());
-                flattenedTuples.put(pair.getFirst(), newPartitions);
-            }
-        }
-        return flattenedTuples;
-    }
-
-    /**
-     * Given a set of <replica_type, partition> tuples gets rid of the replica
-     * type and returns the partitions as a list
-     * 
-     * @param tuples Tuples of <replica_type, partition>
-     * @return List of partitions
-     */
-    private List<Integer> getPartitions(Set<Pair<Integer, Integer>> tuples) {
-        List<Integer> partitions = Lists.newArrayList();
-        for(Pair<Integer, Integer> tuple: tuples) {
-            partitions.add(tuple.getSecond());
-        }
-        return partitions;
-    }
-
-    /**
-     * Returns a list of partitions that remain to be deleted on this node.
-     * 
-     * @param nodeId Stealer node id
-     * @return List of remaining partitions to be deleted on this node.
-     */
-    private Set<Pair<Integer, Integer>> getDeletedPartitions(int nodeId) {
-        Set<Pair<Integer, Integer>> delPartitions = new HashSet<Pair<Integer, Integer>>();
-        if(targetNodeIdToAllDeletedPartitions.get(nodeId) != null
-           && targetNodeIdToAllDeletedPartitions.get(nodeId).size() > 0) {
-            // Get all the partitions to delete for this donor
-            delPartitions.addAll(targetNodeIdToAllDeletedPartitions.get(nodeId));
-
-            // How many have you deleted so far?
-            Set<Pair<Integer, Integer>> alreadyDeletedPartitions = alreadyDeletedNodeIdToPartions.get(nodeId);
-
-            // Why delete an already deleted partition?
-            if(alreadyDeletedPartitions != null)
-                delPartitions.removeAll(alreadyDeletedPartitions);
-
-        }
-
-        return delPartitions;
-    }
-
-    /**
-     * Given a donor node and a set of primary partitions that need to be
-     * stolen, checks if the donor can contribute any partitions
+     * Given a donor node and a set of tuples that need to be stolen, checks if
+     * the donor can contribute any
      * 
      * @param donorNode Donor node we are checking
-     * @param haveToStealPrimaries The partition tuples which we ideally want to
-     *        steal
-     * @param trackStealMasterPartitions Set of master partitions tuples already
-     *        stolen
+     * @param haveToStealPartitions The partition tuples which we ideally want
+     *        to steal
+     * @param trackStealPartitions Set of partitions tuples already stolen
      */
-    private void donatePrimary(final Node donorNode,
-                               Set<Pair<Integer, Integer>> haveToStealPrimaries,
-                               Set<Pair<Integer, Integer>> trackStealMasterPartitions) {
-        final List<Integer> donorPrimaryPartitionIds = Collections.unmodifiableList(donorNode.getPartitionIds());
-        final Iterator<Pair<Integer, Integer>> iter = haveToStealPrimaries.iterator();
+    private void donatePartitionTuple(final Node donorNode,
+                                      Set<Pair<Integer, Integer>> haveToStealPartitions,
+                                      Set<Pair<Integer, Integer>> trackStealPartitions) {
+        final Set<Pair<Integer, Integer>> donorPrimaryPartitionIds = nodeIdToAllPartitions.get(donorNode.getId());
+        final Iterator<Pair<Integer, Integer>> iter = haveToStealPartitions.iterator();
         while(iter.hasNext()) {
-            Pair<Integer, Integer> primaryPartitionTupleToSteal = iter.next();
-            if(donorPrimaryPartitionIds.contains(primaryPartitionTupleToSteal.getSecond())) {
-                trackStealMasterPartitions.add(primaryPartitionTupleToSteal);
+            Pair<Integer, Integer> partitionTupleToSteal = iter.next();
+            if(donorPrimaryPartitionIds.contains(partitionTupleToSteal)) {
+                trackStealPartitions.add(partitionTupleToSteal);
                 // This partition has been donated, let's remove it
                 iter.remove();
             }
         }
-    }
-
-    /**
-     * Given a donor node and a set of replica partitions that need to be
-     * stolen, checks if the donor can contribute any partitions
-     * 
-     * @param donorNode Donor node
-     * @param haveToStealReplicas The replica partitions we want to steal
-     * @param trackStealPartitions Set of replica partitions already stolen
-     */
-    private void donateReplicas(final Node donorNode,
-                                Set<Pair<Integer, Integer>> haveToStealReplicas,
-                                Set<Pair<Integer, Integer>> trackStealPartitions) {
-        final int donorId = donorNode.getId();
-        final Set<Pair<Integer, Integer>> donorAllPartitions = nodeIdToAllPartitions.get(donorId);
-        final Iterator<Pair<Integer, Integer>> iter = haveToStealReplicas.iterator();
-
-        while(iter.hasNext()) {
-            Pair<Integer, Integer> replicaPartitionTupleToSteal = iter.next();
-
-            boolean deletedInFuture = false;
-
-            // If going to be deleted, ignore
-            for(Node targetNode: targetCluster.getNodes()) {
-                if(targetNode.getId() == donorId)
-                    continue;
-
-                Set<Pair<Integer, Integer>> allDeletedPartitions = targetNodeIdToAllDeletedPartitions.get(targetNode.getId());
-                Set<Pair<Integer, Integer>> alreadyDeletedPartitions = alreadyDeletedNodeIdToPartions.get(targetNode.getId());
-                if(alreadyDeletedPartitions != null && !alreadyDeletedPartitions.isEmpty())
-                    allDeletedPartitions.removeAll(alreadyDeletedPartitions);
-
-                if(allDeletedPartitions.contains(replicaPartitionTupleToSteal)) {
-                    deletedInFuture = true;
-                }
-            }
-
-            if(deletedInFuture)
-                continue;
-
-            // Make sure that the partition is not previously donated
-            // to this donor
-            Set<Pair<Integer, Integer>> donorDonatedPartitions = targetNodeIdToAllStolenPartitions.get(donorId);
-            if(donorDonatedPartitions != null
-               && donorDonatedPartitions.contains(replicaPartitionTupleToSteal))
-                continue;
-
-            Set<Pair<Integer, Integer>> deletedPartitions = alreadyDeletedNodeIdToPartions.get(donorId);
-            boolean isDeletedPartition = false;
-            if(deletedPartitions != null
-               && deletedPartitions.contains(replicaPartitionTupleToSteal)) {
-                isDeletedPartition = true;
-            }
-
-            if(donorAllPartitions.contains(replicaPartitionTupleToSteal) && !isDeletedPartition) {
-                trackStealPartitions.add(replicaPartitionTupleToSteal);
-                iter.remove();
-            }
-        }
-
-    }
-
-    /**
-     * Given a donor node and a set of partitions which need to be deleted,
-     * checks if any partitions will be deleted on this donor
-     * 
-     * @param donor Donor node
-     * @param trackDeletePartitions Set of partitions already deleted
-     * @param enabledDeletePartition Do we want to delete?
-     * @param stealerId Stealer node id
-     */
-    private void deleteDonatedPartitions(final Node donor,
-                                         Set<Pair<Integer, Integer>> trackDeletePartitions,
-                                         boolean enabledDeletePartition,
-                                         int stealerId) {
-        final int donorId = donor.getId();
-
-        if(enabledDeletePartition) {
-            if(targetNodeIdToAllDeletedPartitions.get(donorId) != null
-               && targetNodeIdToAllDeletedPartitions.get(donorId).size() > 0) {
-                // Gets all partitions to be deleted for this donor
-                Set<Pair<Integer, Integer>> delPartitions = new HashSet<Pair<Integer, Integer>>(targetNodeIdToAllDeletedPartitions.get(donorId));
-
-                // Does this donor need to give this partition to somebody else
-                // in the future ? If yes, then don't delete it now. It will be
-                // deleted when it is given away to another stealer.
-                final Cluster sortedTargetCluster = sortCluster(targetCluster);
-                for(Node targetNode: sortedTargetCluster.getNodes()) {
-                    if(targetNode.getId() == donorId || targetNode.getId() <= stealerId)
-                        continue;
-
-                    Set<Pair<Integer, Integer>> stolenPartitions = targetNodeIdToAllStolenPartitions.get(targetNode.getId());
-                    Iterator<Pair<Integer, Integer>> iterator = delPartitions.iterator();
-                    while(iterator.hasNext()) {
-                        Pair<Integer, Integer> delPartition = iterator.next();
-                        if(stolenPartitions != null && stolenPartitions.contains(delPartition)) {
-                            // avoid the deletion.
-                            iterator.remove();
-                        }
-                    }
-                }
-
-                // How many have you deleted so far?
-                Set<Pair<Integer, Integer>> alreadyDeletedPartitions = alreadyDeletedNodeIdToPartions.get(donorId);
-
-                // Remove already deleted partitions
-                if(alreadyDeletedPartitions != null) {
-                    delPartitions.removeAll(alreadyDeletedPartitions);
-                }
-
-                // Add the remaining partitions to be deleted
-                trackDeletePartitions.addAll(delPartitions);
-
-                // Also add them to the global list of deleted partitions
-                for(Pair<Integer, Integer> delPartition: delPartitions) {
-                    if(alreadyDeletedNodeIdToPartions.containsKey(donorId)) {
-                        alreadyDeletedNodeIdToPartions.get(donorId).add(delPartition);
-                    } else {
-                        Set<Pair<Integer, Integer>> set = new HashSet<Pair<Integer, Integer>>();
-                        set.add(delPartition);
-                        alreadyDeletedNodeIdToPartions.put(donorId, set);
-                    }
-                }
-
-            }
-        }
-
     }
 
     private boolean haveFinishedPartitions(Set<Pair<Integer, Integer>> set) {
@@ -483,7 +216,7 @@ public class RebalanceClusterPlan {
      * 2 - [7, 8, 9] + [4, 5, 6]
      * </pre>
      * 
-     * @param nodeIdToAllPartitions Mapping of node id to all the partitions
+     * @param nodeIdToAllPartitions Mapping of node id to all tuples
      * @param cluster The cluster metadata
      * @return Returns a string representation of the cluster
      */
@@ -494,11 +227,11 @@ public class RebalanceClusterPlan {
             final Integer nodeId = entry.getKey();
             final Set<Pair<Integer, Integer>> allPartitions = entry.getValue();
 
-            final TreeMap<Integer, Set<Integer>> replicaTypeToPartitions = flatten(allPartitions);
+            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flatten(allPartitions);
 
             sb.append(nodeId);
             if(replicaTypeToPartitions.size() > 0) {
-                for(Entry<Integer, Set<Integer>> partitions: replicaTypeToPartitions.entrySet()) {
+                for(Entry<Integer, List<Integer>> partitions: replicaTypeToPartitions.entrySet()) {
                     sb.append(" - " + partitions.getValue());
                 }
             } else {
@@ -532,22 +265,31 @@ public class RebalanceClusterPlan {
             for(RebalancePartitionsInfo rebalancePartitionsInfo: nodePlan.getRebalanceTaskList()) {
                 builder.append("\t RebalancePartitionsInfo: " + rebalancePartitionsInfo)
                        .append(Utils.NEWLINE);
-                builder.append("\t\t Steal master partitions: "
-                               + rebalancePartitionsInfo.getStealMasterPartitions())
-                       .append(Utils.NEWLINE);
-                builder.append("\t\t Stealer replica partitions: "
-                               + rebalancePartitionsInfo.getStealReplicaPartitions())
-                       .append(Utils.NEWLINE);
-                builder.append("\t\t Delete partitions: "
-                               + rebalancePartitionsInfo.getDeletePartitionsList())
-                       .append(Utils.NEWLINE);
-                builder.append("\t\t getUnbalancedStoreList(): "
-                               + rebalancePartitionsInfo.getUnbalancedStoreList())
-                       .append(Utils.NEWLINE);
             }
         }
 
         return builder.toString();
+    }
+
+    /**
+     * Given a list of tuples of <replica_type, partition>, flattens it and
+     * generates a map of replica_type to partition mapping
+     * 
+     * @param partitionTuples List of <replica_type, partition> tuples
+     * @return Map of replica_type to set of partitions
+     */
+    private HashMap<Integer, List<Integer>> flatten(Set<Pair<Integer, Integer>> partitionTuples) {
+        HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
+        for(Pair<Integer, Integer> pair: partitionTuples) {
+            if(flattenedTuples.containsKey(pair.getFirst())) {
+                flattenedTuples.get(pair.getFirst()).add(pair.getSecond());
+            } else {
+                List<Integer> newPartitions = Lists.newArrayList();
+                newPartitions.add(pair.getSecond());
+                flattenedTuples.put(pair.getFirst(), newPartitions);
+            }
+        }
+        return flattenedTuples;
     }
 
     public String printPartitionDistribution() {
@@ -562,12 +304,4 @@ public class RebalanceClusterPlan {
         return sb.toString();
     }
 
-    private Cluster sortCluster(final Cluster cluster) {
-        Collection<Node> nodes = cluster.getNodes();
-        List<Node> deepCopy = new ArrayList<Node>(nodes);
-        Collections.sort(deepCopy);
-        return new Cluster(currentCluster.getName(),
-                           deepCopy,
-                           Lists.newArrayList(cluster.getZones()));
-    }
 }

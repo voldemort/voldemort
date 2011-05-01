@@ -484,30 +484,8 @@ public class RebalanceUtils {
     }
 
     /**
-     * For a particular stealer node find primary <replica, partition> tuples it
-     * will steal.
-     * 
-     * @param cluster Current cluster metadata
-     * @param target Target cluster metadata
-     * @param stealerId Stealer node id
-     * @return Set of <replica, partition> tuples stolen
-     */
-    public static Set<Pair<Integer, Integer>> getStolenPrimaryPartitionTuples(final Cluster currentCluster,
-                                                                              final Cluster targetCluster,
-                                                                              final int stealNodeId) {
-        Set<Pair<Integer, Integer>> primaryPartitionTuples = Sets.newHashSet();
-        List<Integer> primaryPartitions = getStolenPrimaryPartitions(currentCluster,
-                                                                     targetCluster,
-                                                                     stealNodeId);
-        for(int primaryPartition: primaryPartitions) {
-            primaryPartitionTuples.add(Pair.create(0, primaryPartition));
-        }
-        return primaryPartitionTuples;
-    }
-
-    /**
-     * For a particular stealer node find all replica <replica_type, partition>
-     * tuples it will steal.
+     * For a particular stealer node find all <replica_type, partition> tuples
+     * it will steal.
      * 
      * @param cluster Current cluster metadata
      * @param target Target cluster metadata
@@ -515,16 +493,16 @@ public class RebalanceUtils {
      * @param stealerId Stealer node id
      * @return Set of <replica, partition> tuples stolen
      */
-    public static Set<Pair<Integer, Integer>> getStolenReplicaPartitionTuples(final Cluster cluster,
-                                                                              final Cluster target,
-                                                                              final List<StoreDefinition> storeDefs,
-                                                                              final int stealerId) {
+    public static Set<Pair<Integer, Integer>> getStolenPartitionTuples(final Cluster cluster,
+                                                                       final Cluster target,
+                                                                       final List<StoreDefinition> storeDefs,
+                                                                       final int stealerId) {
         Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = getNodeIdToAllPartitions(cluster,
                                                                                               storeDefs,
-                                                                                              false);
+                                                                                              true);
         Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(target,
                                                                                                     storeDefs,
-                                                                                                    false);
+                                                                                                    true);
 
         Set<Pair<Integer, Integer>> clusterStealerReplicas = nodeIdToReplicas.get(stealerId);
         Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);

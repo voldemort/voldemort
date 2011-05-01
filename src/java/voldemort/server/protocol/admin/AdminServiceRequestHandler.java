@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +41,7 @@ import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -237,26 +239,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return null;
     }
 
-    /**
-     * Given a protobuf rebalance-partition info, converts it into our
-     * rebalance-partition info
-     * 
-     * @param rebalancePartitionInfoMap Proto-buff version of
-     *        rebalance-partition-info
-     * @return Rebalance-partition-info
-     */
-    private RebalancePartitionsInfo decodeRebalancePartitionInfoMap(VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap) {
-        RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
-                                                                                 rebalancePartitionInfoMap.getDonorId(),
-                                                                                 rebalancePartitionInfoMap.getStealMasterPartitionsList(),
-                                                                                 rebalancePartitionInfoMap.getStealReplicaPartitionsList(),
-                                                                                 rebalancePartitionInfoMap.getDeletePartitionsList(),
-                                                                                 rebalancePartitionInfoMap.getUnbalancedStoresList(),
-                                                                                 rebalancePartitionInfoMap.getAttempt());
-        return rebalanceStealInfo;
-    }
-
-    private VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
+    public VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
 
         VAdminProto.RebalanceStateChangeResponse.Builder response = VAdminProto.RebalanceStateChangeResponse.newBuilder();
 
@@ -264,7 +247,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             // Retrieve all values first
             List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
             for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
-                rebalancePartitionsInfo.add(decodeRebalancePartitionInfoMap(map));
+                rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
             }
 
             Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
@@ -305,7 +288,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 return response.build();
             }
 
-            RebalancePartitionsInfo rebalanceStealInfo = decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
+            RebalancePartitionsInfo rebalanceStealInfo = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
 
             int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
 
@@ -322,7 +305,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    private VAdminProto.GetROMetadataResponse handleGetROMetadata(VAdminProto.GetROMetadataRequest request) {
+    public VAdminProto.GetROMetadataResponse handleGetROMetadata(VAdminProto.GetROMetadataRequest request) {
         final List<String> storeNames = request.getStoreNameList();
         VAdminProto.GetROMetadataResponse.Builder response = VAdminProto.GetROMetadataResponse.newBuilder();
 
@@ -369,7 +352,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    private VAdminProto.FailedFetchStoreResponse handleFailedFetch(VAdminProto.FailedFetchStoreRequest request) {
+    public VAdminProto.FailedFetchStoreResponse handleFailedFetch(VAdminProto.FailedFetchStoreRequest request) {
         final String storeDir = request.getStoreDir();
         final String storeName = request.getStoreName();
         VAdminProto.FailedFetchStoreResponse.Builder response = VAdminProto.FailedFetchStoreResponse.newBuilder();
@@ -787,14 +770,20 @@ public class AdminServiceRequestHandler implements RequestHandler {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
         try {
             String storeName = request.getStore();
-            final List<Integer> partitions = request.getPartitionsList();
+            final HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
             StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                       storeName);
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter(),
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
                                                           : new DefaultVoldemortFilter();
-            RoutingStrategy routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
+            RoutingStrategy routingStrategy;
+            if(request.hasInitialCluster()) {
+                routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadataStore.getStoreDef(storeName),
+                                                                                     new ClusterMapper().readCluster(new StringReader(request.getInitialCluster())));
+            } else {
+                routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
+            }
 
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
             iterator = storageEngine.entries();
@@ -1109,17 +1098,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     /**
      * Check that the key belong to a delete partition.
-     * <p>
-     * return false if key is mastered at or replicated at any of the partitions
-     * belonging to the node not specified to be deleted specifically by the
-     * user. <br>
-     * Fix problem during rebalancing with accidental deletion of data due to
-     * changes in replication partition set.
-     * 
-     * TODO LOW: This assumes that the underlying storageEngines saves all
-     * partition together and there is no need to copy data from partition a -->
-     * b on the same machine. if this changes this will need to be made as an
-     * active copy here.
      * 
      * @param key
      * @param partitionList

@@ -18,6 +18,7 @@ package voldemort.store.metadata;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -32,6 +33,8 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
+
+import com.google.common.collect.Maps;
 
 public class MetadataStoreTest extends TestCase {
 
@@ -74,12 +77,12 @@ public class MetadataStoreTest extends TestCase {
             for(int i = 0; i < size; i++) {
                 partition.add((int) Math.random() * 10);
             }
+            HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+            replicaToPartitionList.put(0, partition);
 
             return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                                     (int) Math.random() * 5,
-                                                                                                    partition,
-                                                                                                    new ArrayList<Integer>(0),
-                                                                                                    new ArrayList<Integer>(0),
+                                                                                                    replicaToPartitionList,
                                                                                                     Arrays.asList("testStoreName"),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");

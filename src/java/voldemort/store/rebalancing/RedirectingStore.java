@@ -50,10 +50,10 @@ import com.google.common.collect.Multimap;
 /**
  * The RedirectingStore extends {@link DelegatingStore}
  * <p>
- * if current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
+ * If current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
  * then before serving any client request do a remote get() call, put it locally
  * ignoring any {@link ObsoleteVersionException} and then serve the client
- * requests.
+ * requests. This piece of code is run on the stealer nodes.
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 

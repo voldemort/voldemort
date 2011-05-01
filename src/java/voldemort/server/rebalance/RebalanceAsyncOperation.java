@@ -183,8 +183,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
                                                     storeName,
-                                                    stealInfo.getPartitions(),
-                                                    null);
+                                                    stealInfo.getReplicaToPartitionList(),
+                                                    stealInfo.getInitialCluster());
         rebalanceStatusList.add(asyncId);
 
         if(logger.isDebugEnabled()) {
@@ -198,12 +198,14 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         rebalanceStatusList.remove((Object) asyncId);
 
-        if(stealInfo.getDeletePartitionsList().size() > 0 && !isReadOnlyStore) {
+        if(stealInfo.getDeletePartitions() && !isReadOnlyStore) {
             logger.info("Deleting partitions for store " + storeName + " and steal info - "
                         + stealInfo);
+
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
-                                         stealInfo.getDeletePartitionsList(),
+                                         stealInfo.getReplicaToPartitionList(),
+                                         stealInfo.getInitialCluster(),
                                          null);
             logger.info("Deleting partitions for store " + storeName + " and steal info - "
                         + stealInfo);

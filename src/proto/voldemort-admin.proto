@@ -67,12 +67,13 @@ message FetchPartitionFilesRequest {
 }
 
 message FetchPartitionEntriesRequest {
-  repeated int32 partitions = 1;
+  repeated PartitionTuple replica_to_partition = 1;
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
   optional bool fetch_master_entries = 5;
   optional int64 skip_records = 6;
+  optional string initial_cluster = 7;
 }
 
 message FetchPartitionEntriesResponse {
@@ -83,8 +84,9 @@ message FetchPartitionEntriesResponse {
 
 message DeletePartitionEntriesRequest {
   required string store = 1;
-  repeated int32 partitions = 2;
+  repeated PartitionTuple replica_to_partition = 2;
   optional VoldemortFilter filter = 3; 
+  optional string initial_cluster = 4;
 }
 
 message DeletePartitionEntriesResponse {
@@ -94,10 +96,9 @@ message DeletePartitionEntriesResponse {
 
 message InitiateFetchAndUpdateRequest {
   required int32 node_id = 1;
-  repeated int32 partitions = 2;
-  required string store = 3;
-  optional VoldemortFilter filter = 4;
-  optional bool is_readonly = 5;
+  required string store = 2;
+  repeated PartitionTuple replica_to_partition = 3;
+  optional string initial_cluster = 4;
 }
 
 message AsyncOperationStatusRequest {
@@ -122,14 +123,19 @@ message AsyncOperationListResponse {
   optional Error error = 2;
 }
 
+message PartitionTuple {
+  required int32 replica_type = 1;
+  repeated int32 partitions = 2;
+}
+
 message RebalancePartitionInfoMap {
   required int32 stealer_id = 1;
   required int32 donor_id = 2;
-  repeated int32 steal_master_partitions = 3;
-  repeated int32 steal_replica_partitions = 4;
-  repeated int32 delete_partitions = 5;
-  repeated string unbalanced_stores = 6;
-  required int32 attempt = 7;
+  repeated PartitionTuple replica_to_partition = 3;
+  repeated string unbalanced_stores = 4;
+  required string initial_cluster = 5;
+  required int32 attempt = 6;
+  required bool delete_partitions = 7;
 }
 
 message InitiateRebalanceNodeRequest {
