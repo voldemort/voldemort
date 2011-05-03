@@ -3,6 +3,7 @@ package voldemort.store.rebalancing;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -90,7 +91,14 @@ public class RebootstrappingStoreTest {
 
         VoldemortConfig config = servers.get(0).getVoldemortConfig();
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 2, 4);
-        int req = adminClient.migratePartitions(0, 1, STORE_NAME, ImmutableList.of(0, 1), null);
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        replicaToPartitionList.put(0, ImmutableList.of(0, 1));
+        int req = adminClient.migratePartitions(0,
+                                                1,
+                                                STORE_NAME,
+                                                replicaToPartitionList,
+                                                null,
+                                                null);
         adminClient.waitForCompletion(1, req, 5, TimeUnit.SECONDS);
         Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(0);
         Node node0 = versionedCluster.getValue().getNodeById(0);

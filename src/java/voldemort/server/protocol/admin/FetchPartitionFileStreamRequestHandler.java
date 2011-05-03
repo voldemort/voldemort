@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -44,6 +45,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private final ReadOnlyStorageEngine storageEngine;
 
+    private final HashMap<Integer, List<Integer>> replicaToPartitionList;
+
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
                                                      VoldemortConfig voldemortConfig,
@@ -56,6 +59,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         if(!isReadOnly) {
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
+        this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
 
         this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                  storeRepository,
@@ -67,8 +71,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE,
-                                       request.getPartitionsList());
+        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE, replicaToPartitionList);
     }
 
     public StreamRequestDirection getDirection() {
@@ -85,32 +88,36 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                      + ")", e);
     }
 
-    @SuppressWarnings("unchecked")
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
-        List<Integer> partitionIds = request.getPartitionsList();
+        HashMap<Object, Integer> bucketToNumChunks = storageEngine.getChunkedFileSet()
+                                                                  .getChunkIdToNumChunks();
 
-        // Go over the buckets and check if the partition matches
-        for(Entry<Object, Integer> entry: storageEngine.getChunkedFileSet()
-                                                       .getChunkIdToNumChunks()
-                                                       .entrySet()) {
-            Pair<Integer, Integer> bucket = (Pair<Integer, Integer>) entry.getKey();
-            if(partitionIds.contains(bucket.getFirst())) {
+        for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
 
-                // Go over every chunk
-                for(int chunkId = 0; chunkId < entry.getValue(); chunkId++) {
-                    String fileName = Integer.toString(bucket.getFirst()) + "_"
-                                      + Integer.toString(bucket.getSecond()) + "_"
+            int replicaType = entry.getKey();
+
+            // Go over every partition for this replica type
+            for(int partitionId: entry.getValue()) {
+
+                // Check if this bucket exists
+                if(!bucketToNumChunks.containsKey(Pair.create(partitionId, replicaType))) {
+                    throw new VoldemortException("Bucket [ partition = " + partitionId
+                                                 + ", replica = " + replicaType
+                                                 + " ] does not exist for store "
+                                                 + request.getStore());
+                }
+
+                // Get number of chunks for this bucket
+                int numChunks = bucketToNumChunks.get(Pair.create(partitionId, replicaType));
+
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    String fileName = Integer.toString(partitionId) + "_"
+                                      + Integer.toString(replicaType) + "_"
                                       + Integer.toString(chunkId);
                     File index = new File(this.storeDir, fileName + ".index");
                     File data = new File(this.storeDir, fileName + ".data");
-
-                    if(!index.exists() && !data.exists()) {
-                        throw new VoldemortException("Could not find any data for partition "
-                                                     + bucket.getFirst() + ", replica-type "
-                                                     + bucket.getSecond() + ", chunk " + chunkId);
-                    }
 
                     // Both files in chunk exist, start streaming...
                     logger.info("Streaming " + data.getAbsolutePath());
@@ -123,7 +130,6 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                 }
 
             }
-
         }
         stats.closeHandle(handle);
         return StreamRequestHandlerState.COMPLETE;

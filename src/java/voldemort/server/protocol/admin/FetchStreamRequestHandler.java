@@ -2,6 +2,8 @@ package voldemort.server.protocol.admin;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -9,10 +11,10 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
-import voldemort.client.protocol.admin.filter.MasterOnlyVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
@@ -25,6 +27,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.xml.ClusterMapper;
 
 public abstract class FetchStreamRequestHandler implements StreamRequestHandler {
 
@@ -36,7 +39,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final EventThrottler throttler;
 
-    protected final List<Integer> partitionList;
+    protected final HashMap<Integer, List<Integer>> replicaToPartitionList;
 
     protected final VoldemortFilter filter;
 
@@ -68,31 +71,32 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
                                         StreamStats.Operation operation) {
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        partitionList = request.getPartitionsList();
+        this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
         this.stats = stats;
-        this.handle = stats.makeHandle(operation, partitionList);
-        storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
-                                                                    request.getStore());
-        routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
-        throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
-        if(request.hasFilter()) {
-            filter = AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
-                                                                     voldemortConfig,
-                                                                     networkClassLoader);
+        this.handle = stats.makeHandle(operation, replicaToPartitionList);
+        this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
+                                                                         request.getStore());
+        if(request.hasInitialCluster()) {
+            routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadataStore.getStoreDef(request.getStore()),
+                                                                                 new ClusterMapper().readCluster(new StringReader(request.getInitialCluster())));
         } else {
-            if(request.hasFetchMasterEntries() && request.getFetchMasterEntries()) {
-                filter = new MasterOnlyVoldemortFilter(routingStrategy, request.getPartitionsList());
-            } else {
-                filter = new DefaultVoldemortFilter();
-            }
+            routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
         }
-        keyIterator = storageEngine.keys();
-        startTime = System.currentTimeMillis();
-        counter = 0;
+        this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
+        if(request.hasFilter()) {
+            this.filter = AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
+                                                                          voldemortConfig,
+                                                                          networkClassLoader);
+        } else {
+            this.filter = new DefaultVoldemortFilter();
+        }
+        this.keyIterator = storageEngine.keys();
+        this.startTime = System.currentTimeMillis();
+        this.counter = 0;
 
-        skipRecords = 1;
+        this.skipRecords = 1;
         if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
-            skipRecords = request.getSkipRecords() + 1;
+            this.skipRecords = request.getSkipRecords() + 1;
         }
     }
 
@@ -117,17 +121,6 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         ProtoUtils.writeMessage(outputStream, response);
         logger.error("handleFetchPartitionEntries failed for request(" + request.toString() + ")",
                      e);
-    }
-
-    protected boolean validPartition(byte[] key) {
-        List<Integer> keyPartitions = routingStrategy.getPartitionList(key);
-
-        for(int p: partitionList) {
-            if(keyPartitions.contains(p))
-                return true;
-        }
-
-        return false;
     }
 
 }

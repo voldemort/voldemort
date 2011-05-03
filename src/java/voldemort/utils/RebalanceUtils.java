@@ -127,6 +127,32 @@ public class RebalanceUtils {
     }
 
     /**
+     * Check that the key belongs to one of the partitions in the map of replica
+     * type to partitions
+     * 
+     * @param key The key to check
+     * @param replicaToPartitionList Mapping of replica type to partition list
+     * @param routingStrategy The routing strategy to use
+     * @return Returns a boolean to indicate if this belongs to the map
+     */
+    public static boolean checkKeyBelongsToPartition(byte[] key,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                                     RoutingStrategy routingStrategy) {
+        List<Integer> keyPartitions = routingStrategy.getPartitionList(key);
+
+        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
+            List<Integer> partitions = replicaToPartitionList.get(replicaNum);
+            if(partitions != null && partitions.size() > 0) {
+                if(partitions.contains(keyPartitions.get(replicaNum))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check the execution state of the server by checking the state of
      * {@link MetadataStore.VoldemortState} <br>
      * 
@@ -512,12 +538,12 @@ public class RebalanceUtils {
 
     /**
      * For a particular cluster creates a mapping of node id to their
-     * corresponding list of primary and replica partitions
+     * corresponding list of [ replicaType, partition ] tuple
      * 
      * @param cluster The cluster metadata
      * @param storeDefs The store definitions
      * @param includePrimary Include the primary partition?
-     * @return Map of node id to set of "all" partitions
+     * @return Map of node id to set of [ replicaType, partition ] tuple
      */
     public static Map<Integer, Set<Pair<Integer, Integer>>> getNodeIdToAllPartitions(final Cluster cluster,
                                                                                      final List<StoreDefinition> storeDefs,
@@ -801,6 +827,63 @@ public class RebalanceUtils {
     }
 
     /**
+     * Returns a string representation of the cluster
+     * 
+     * <pre>
+     * Current Cluster:
+     * 0 - [0, 1, 2, 3] + [7, 8, 9]
+     * 1 - [4, 5, 6] + [0, 1, 2, 3]
+     * 2 - [7, 8, 9] + [4, 5, 6]
+     * </pre>
+     * 
+     * @param nodeIdToAllPartitions Mapping of node id to all tuples
+     * @param cluster The cluster metadata
+     * @return Returns a string representation of the cluster
+     */
+    public static String printMap(final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions,
+                                  final Cluster cluster) {
+        StringBuilder sb = new StringBuilder();
+        for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
+            final Integer nodeId = entry.getKey();
+            final Set<Pair<Integer, Integer>> allPartitions = entry.getValue();
+
+            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flatten(allPartitions);
+
+            sb.append(nodeId);
+            if(replicaTypeToPartitions.size() > 0) {
+                for(Entry<Integer, List<Integer>> partitions: replicaTypeToPartitions.entrySet()) {
+                    sb.append(" - " + partitions.getValue());
+                }
+            } else {
+                sb.append(" - empty");
+            }
+            sb.append(Utils.NEWLINE);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Given a list of tuples of [replica_type, partition], flattens it and
+     * generates a map of replica_type to partition mapping
+     * 
+     * @param partitionTuples List of <replica_type, partition> tuples
+     * @return Map of replica_type to set of partitions
+     */
+    public static HashMap<Integer, List<Integer>> flatten(Set<Pair<Integer, Integer>> partitionTuples) {
+        HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
+        for(Pair<Integer, Integer> pair: partitionTuples) {
+            if(flattenedTuples.containsKey(pair.getFirst())) {
+                flattenedTuples.get(pair.getFirst()).add(pair.getSecond());
+            } else {
+                List<Integer> newPartitions = Lists.newArrayList();
+                newPartitions.add(pair.getSecond());
+                flattenedTuples.put(pair.getFirst(), newPartitions);
+            }
+        }
+        return flattenedTuples;
+    }
+
+    /**
      * Given a list of partition plans and a set of stores, copies the store
      * names to every individual plan and creates a new list
      * 
@@ -821,6 +904,29 @@ public class RebalanceUtils {
         }
 
         return plans;
+    }
+
+    /**
+     * Given a store name and a list of store definitions, returns the
+     * appropriate store definition ( if it exists )
+     * 
+     * @param storeDefs List of store definitions
+     * @param storeName The store name whose store definition is required
+     * @return The store definition
+     */
+    public static StoreDefinition getStoreDefinitionWithName(List<StoreDefinition> storeDefs,
+                                                             String storeName) {
+        StoreDefinition def = null;
+        for(StoreDefinition storeDef: storeDefs) {
+            if(storeDef.getName().compareTo(storeName) == 0) {
+                def = storeDef;
+            }
+        }
+
+        if(def == null) {
+            throw new VoldemortException("Could not find " + storeName);
+        }
+        return def;
     }
 
     /**

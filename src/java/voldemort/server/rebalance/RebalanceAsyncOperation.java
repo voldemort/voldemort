@@ -184,6 +184,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                     metadataStore.getNodeId(),
                                                     storeName,
                                                     stealInfo.getReplicaToPartitionList(),
+                                                    null,
                                                     stealInfo.getInitialCluster());
         rebalanceStatusList.add(asyncId);
 

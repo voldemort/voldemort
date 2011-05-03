@@ -2,14 +2,12 @@ package voldemort.client.rebalance;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import voldemort.VoldemortException;
@@ -19,9 +17,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * Compares the current cluster configuration with the target cluster
@@ -37,13 +32,13 @@ public class RebalanceClusterPlan {
 
     /**
      * For the "current" cluster, creates a map of node-ids to corresponding
-     * list of <replica,partition> tuples (primary & replicas)
+     * list of [replica,partition] tuples (primary & replicas)
      */
     private final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions;
 
     /**
      * For the "target" cluster, creates a map of node-ids to corresponding list
-     * of <replica,partition> tuples (primary & replicas)
+     * of [replica,partition] tuples (primary & replicas)
      */
     private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitions;
 
@@ -167,7 +162,7 @@ public class RebalanceClusterPlan {
 
                 result.add(new RebalancePartitionsInfo(stealerId,
                                                        donorNode.getId(),
-                                                       flatten(trackStealPartitionsTuples),
+                                                       RebalanceUtils.flatten(trackStealPartitionsTuples),
                                                        storeNames,
                                                        currentCluster,
                                                        enableDeletePartition,
@@ -206,42 +201,6 @@ public class RebalanceClusterPlan {
         return (set == null || set.size() == 0);
     }
 
-    /**
-     * Returns a string representation of the cluster
-     * 
-     * <pre>
-     * Current Cluster:
-     * 0 - [0, 1, 2, 3] + [7, 8, 9]
-     * 1 - [4, 5, 6] + [0, 1, 2, 3]
-     * 2 - [7, 8, 9] + [4, 5, 6]
-     * </pre>
-     * 
-     * @param nodeIdToAllPartitions Mapping of node id to all tuples
-     * @param cluster The cluster metadata
-     * @return Returns a string representation of the cluster
-     */
-    private String printMap(final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions,
-                            final Cluster cluster) {
-        StringBuilder sb = new StringBuilder();
-        for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
-            final Integer nodeId = entry.getKey();
-            final Set<Pair<Integer, Integer>> allPartitions = entry.getValue();
-
-            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flatten(allPartitions);
-
-            sb.append(nodeId);
-            if(replicaTypeToPartitions.size() > 0) {
-                for(Entry<Integer, List<Integer>> partitions: replicaTypeToPartitions.entrySet()) {
-                    sb.append(" - " + partitions.getValue());
-                }
-            } else {
-                sb.append(" - empty");
-            }
-            sb.append(Utils.NEWLINE);
-        }
-        return sb.toString();
-    }
-
     @Override
     public String toString() {
         if(rebalanceTaskQueue.isEmpty()) {
@@ -271,36 +230,15 @@ public class RebalanceClusterPlan {
         return builder.toString();
     }
 
-    /**
-     * Given a list of tuples of <replica_type, partition>, flattens it and
-     * generates a map of replica_type to partition mapping
-     * 
-     * @param partitionTuples List of <replica_type, partition> tuples
-     * @return Map of replica_type to set of partitions
-     */
-    private HashMap<Integer, List<Integer>> flatten(Set<Pair<Integer, Integer>> partitionTuples) {
-        HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
-        for(Pair<Integer, Integer> pair: partitionTuples) {
-            if(flattenedTuples.containsKey(pair.getFirst())) {
-                flattenedTuples.get(pair.getFirst()).add(pair.getSecond());
-            } else {
-                List<Integer> newPartitions = Lists.newArrayList();
-                newPartitions.add(pair.getSecond());
-                flattenedTuples.put(pair.getFirst(), newPartitions);
-            }
-        }
-        return flattenedTuples;
-    }
-
     public String printPartitionDistribution() {
         StringBuilder sb = new StringBuilder();
         sb.append("Current Cluster: ")
           .append(Utils.NEWLINE)
-          .append(printMap(nodeIdToAllPartitions, currentCluster))
+          .append(RebalanceUtils.printMap(nodeIdToAllPartitions, currentCluster))
           .append(Utils.NEWLINE);
         sb.append("Target Cluster: ")
           .append(Utils.NEWLINE)
-          .append(printMap(targetNodeIdToAllPartitions, targetCluster));
+          .append(RebalanceUtils.printMap(targetNodeIdToAllPartitions, targetCluster));
         return sb.toString();
     }
 

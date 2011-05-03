@@ -18,7 +18,6 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,6 +74,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -297,20 +297,38 @@ public class AdminClient {
 
     private void initiateFetchRequest(DataOutputStream outputStream,
                                       String storeName,
-                                      List<Integer> partitionList,
+                                      HashMap<Integer, List<Integer>> replicaToPartitionList,
                                       VoldemortFilter filter,
                                       boolean fetchValues,
                                       boolean fetchMasterEntries,
+                                      Cluster initialCluster,
                                       long skipRecords) throws IOException {
+        HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
+        if(fetchMasterEntries) {
+            if(!replicaToPartitionList.containsKey(0)) {
+                throw new VoldemortException("Could not find any partitions for primary replica type");
+            } else {
+                filteredReplicaToPartitionList.put(0, replicaToPartitionList.get(0));
+            }
+        } else {
+            filteredReplicaToPartitionList.putAll(replicaToPartitionList);
+        }
         VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
-                                                                                                                .addAllPartitions(partitionList)
                                                                                                                 .setFetchValues(fetchValues)
-                                                                                                                .setFetchMasterEntries(fetchMasterEntries)
+                                                                                                                .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(filteredReplicaToPartitionList))
                                                                                                                 .setStore(storeName)
                                                                                                                 .setSkipRecords(skipRecords);
 
-        if(filter != null) {
-            fetchRequest.setFilter(encodeFilter(filter));
+        try {
+            if(filter != null) {
+                fetchRequest.setFilter(encodeFilter(filter));
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
+
+        if(initialCluster != null) {
+            fetchRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
 
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -334,17 +352,9 @@ public class AdminClient {
     }
 
     /**
-     * Fetch key/value entries belonging to partitionList from requested node.
-     * <p>
-     * 
-     * <b>this is a streaming API.</b> The server keeps sending the messages as
-     * it's iterating over the data. Once iteration has finished, the server
-     * sends an "end of stream" marker and flushes its buffer. A response
-     * indicating a {@link VoldemortException} may be sent at any time during
-     * the process.<br>
-     * 
-     * Entries are being streamed <em>as the iteration happens</em> the whole
-     * result set is <b>not</b> buffered in memory.
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
      * 
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
@@ -355,13 +365,75 @@ public class AdminClient {
      * @param skipRecords Number of records to skip
      * @return An iterator which allows entries to be streamed as they're being
      *         iterated over.
-     * @throws VoldemortException
      */
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
                                                                      String storeName,
                                                                      List<Integer> partitionList,
                                                                      VoldemortFilter filter,
                                                                      boolean fetchMasterEntries,
+                                                                     long skipRecords) {
+        return fetchEntries(nodeId,
+                            storeName,
+                            getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                            filter,
+                            fetchMasterEntries,
+                            null,
+                            skipRecords);
+    }
+
+    /**
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch an entry only if master replica
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitionList,
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries) {
+        return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
+    }
+
+    /**
+     * Fetch key/value tuples belonging to this map of replica type to partition
+     * list
+     * <p>
+     * 
+     * <b>Streaming API</b> - The server keeps sending the messages as it's
+     * iterating over the data. Once iteration has finished, the server sends an
+     * "end of stream" marker and flushes its buffer. A response indicating a
+     * {@link VoldemortException} may be sent at any time during the process.
+     * <br>
+     * 
+     * <p>
+     * Entries are being streamed <em>as the iteration happens</em> i.e. the
+     * whole result set is <b>not</b> buffered in memory.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch an entry only if master replica
+     * @param skipRecords Number of records to skip
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries,
+                                                                     Cluster initialCluster,
                                                                      long skipRecords) {
 
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
@@ -375,10 +447,11 @@ public class AdminClient {
         try {
             initiateFetchRequest(outputStream,
                                  storeName,
-                                 partitionList,
+                                 replicaToPartitionList,
                                  filter,
                                  true,
                                  fetchMasterEntries,
+                                 initialCluster,
                                  skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
@@ -420,38 +493,78 @@ public class AdminClient {
     }
 
     /**
-     * See documentation for
-     * {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
-     * . Kept for backwards compatibility
-     */
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                     String storeName,
-                                                                     List<Integer> partitionList,
-                                                                     VoldemortFilter filter,
-                                                                     boolean fetchMasterEntries) {
-        return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
-    }
-
-    /**
-     * Fetch All keys belonging to partitionList from requested node. Identical
-     * to {@link AdminClient#fetchEntries} but will <em>only fetch the keys</em>
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
      * 
-     * @param nodeId See documentation for {@link AdminClient#fetchEntries}
-     * @param storeName See documentation for {@link AdminClient#fetchEntries}
-     * @param partitionList See documentation for
-     *        {@link AdminClient#fetchEntries}
-     * @param filter See documentation for {@link AdminClient#fetchEntries}
-     * @param skipRecords See documentation for
-     *        {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
-     * @return See documentation for {@link AdminClient#fetchEntries}
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions to retrieve
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch a key only if master replica
+     * @param skipRecords Number of keys to skip
+     * @return An iterator which allows keys to be streamed as they're being
+     *         iterated over.
      */
-    // TODO: Add another method with Cluster and partition tuples ( Same for
-    // fetchEntries )
     public Iterator<ByteArray> fetchKeys(int nodeId,
                                          String storeName,
                                          List<Integer> partitionList,
                                          VoldemortFilter filter,
                                          boolean fetchMasterEntries,
+                                         long skipRecords) {
+        return fetchKeys(nodeId,
+                         storeName,
+                         getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                         filter,
+                         fetchMasterEntries,
+                         null,
+                         skipRecords);
+    }
+
+    /**
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions to retrieve
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch a key only if master replica
+     * @return An iterator which allows keys to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         List<Integer> partitionList,
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries) {
+        return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
+    }
+
+    /**
+     * Fetch all keys belonging to the map of replica type to partition list.
+     * Identical to {@link AdminClient#fetchEntries} but
+     * <em>only fetches the keys</em>
+     * 
+     * @param nodeId The node id from where to fetch the keys
+     * @param storeName The store name whose keys we want to retrieve
+     * @param replicaToPartitionList Map of replica type to corresponding
+     *        partition list
+     * @param filter Custom filter
+     * @param initialCluster Cluster to use for selecting a key. If null, use
+     *        the default metadata from the metadata store
+     * @param skipRecords Number of records to skip [ Used for sampling ]
+     * @return Returns an iterator of the keys
+     */
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries,
+                                         Cluster initialCluster,
                                          long skipRecords) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -464,10 +577,11 @@ public class AdminClient {
         try {
             initiateFetchRequest(outputStream,
                                  storeName,
-                                 partitionList,
+                                 replicaToPartitionList,
                                  filter,
                                  false,
                                  fetchMasterEntries,
+                                 initialCluster,
                                  skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
@@ -506,19 +620,6 @@ public class AdminClient {
     }
 
     /**
-     * See documentation for
-     * {@link AdminClient#fetchKeys(int, String, List, VoldemortFilter, boolean, long)}
-     * . Kept for backwards compatibility
-     */
-    public Iterator<ByteArray> fetchKeys(int nodeId,
-                                         String storeName,
-                                         List<Integer> partitionList,
-                                         VoldemortFilter filter,
-                                         boolean fetchMasterEntries) {
-        return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
-    }
-
-    /**
      * RestoreData from copies on other machines for the given nodeId
      * <p>
      * Recovery mechanism to recover and restore data actively from replicated
@@ -544,19 +645,27 @@ public class AdminClient {
 
             List<StoreDefinition> writableStores = Lists.newArrayList();
             for(StoreDefinition def: storeDefList) {
-                if(def.isView() || restoreStoreEngineBlackList.contains(def.getType())) {
-                    logger.info("Ignoring store " + def.getName() + " for restoring");
+                if(def.isView()) {
+                    logger.info("Ignoring store " + def.getName() + " since it is a view");
+                } else if(restoreStoreEngineBlackList.contains(def.getType())) {
+                    logger.info("Ignoring store " + def.getName()
+                                + " since we don't support restoring for " + def.getType()
+                                + " storage engine");
+                } else if(def.getReplicationFactor() == 1) {
+                    logger.info("Ignoring store " + def.getName()
+                                + " since replication factor is set to 1");
                 } else {
                     writableStores.add(def);
                 }
             }
             for(StoreDefinition def: writableStores) {
-                restoreStoreFromReplication(nodeId, cluster, def, executors);
+                if(def.getName().compareTo("test-recovery-data") == 0)
+                    restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
         } finally {
             executors.shutdown();
             try {
-                executors.awaitTermination(adminClientConfig.getRestoreDataTimeout(),
+                executors.awaitTermination(adminClientConfig.getRestoreDataTimeoutSec(),
                                            TimeUnit.SECONDS);
             } catch(InterruptedException e) {
                 logger.error("Interrupted while waiting restore operation to finish.");
@@ -565,15 +674,58 @@ public class AdminClient {
         }
     }
 
-    // TODO:
-    private Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(Cluster cluster,
-                                                                                int restoringNode,
-                                                                                RoutingStrategy routingStrategy) {
-        return null;
+    /**
+     * For a particular node, finds out all the [replica, partition] tuples it
+     * needs to steal in order to be brought back to normal state
+     * 
+     * @param restoringNode The id of the node which needs to be restored
+     * @param cluster The cluster definition
+     * @param storeDef The store definition to use
+     * @return Map of node id to map of replica type and corresponding partition
+     *         list
+     */
+    public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
+                                                                               Cluster cluster,
+                                                                               StoreDefinition storeDef) {
+
+        Map<Integer, Integer> partitionToNodeId = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        Map<Integer, HashMap<Integer, List<Integer>>> returnMap = Maps.newHashMap();
+
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                      cluster);
+        for(int partitionId: cluster.getNodeById(restoringNode).getPartitionIds()) {
+            List<Integer> replicatingPartitions = strategy.getReplicatingPartitionList(partitionId);
+            if(replicatingPartitions.size() <= 1) {
+                throw new VoldemortException("Store "
+                                             + storeDef.getName()
+                                             + " cannot be restored from replica because replication factor = 1");
+            }
+            int nodeId = partitionToNodeId.get(replicatingPartitions.get(1));
+
+            HashMap<Integer, List<Integer>> partitionTuples = null;
+            if(returnMap.containsKey(nodeId)) {
+                partitionTuples = returnMap.get(nodeId);
+            } else {
+                partitionTuples = Maps.newHashMap();
+                returnMap.put(nodeId, partitionTuples);
+            }
+
+            List<Integer> partitions = null;
+            if(partitionTuples.containsKey(1)) {
+                partitions = partitionTuples.get(1);
+            } else {
+                partitions = Lists.newArrayList();
+                partitionTuples.put(1, partitions);
+            }
+            partitions.add(partitionId);
+        }
+
+        return returnMap;
     }
 
     /**
-     * For a particular store and node, runs the replication job
+     * For a particular store and node, runs the replication job. This works
+     * only for read-write stores
      * 
      * @param restoringNodeId The node which we want to restore
      * @param cluster The cluster metadata
@@ -586,12 +738,10 @@ public class AdminClient {
                                              final ExecutorService executorService) {
         logger.info("Restoring data for store " + storeDef.getName() + " on node "
                     + restoringNodeId);
-        RoutingStrategyFactory factory = new RoutingStrategyFactory();
-        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
-        Map<Integer, HashMap<Integer, List<Integer>>> restoreMapping = getReplicationMapping(cluster,
-                                                                                             restoringNodeId,
-                                                                                             strategy);
+        Map<Integer, HashMap<Integer, List<Integer>>> restoreMapping = getReplicationMapping(restoringNodeId,
+                                                                                             cluster,
+                                                                                             storeDef);
         // migrate partition
         for(final Entry<Integer, HashMap<Integer, List<Integer>>> replicationEntry: restoreMapping.entrySet()) {
             final int donorNodeId = replicationEntry.getKey();
@@ -599,7 +749,7 @@ public class AdminClient {
 
                 public void run() {
                     try {
-                        logger.info("restoring data for store " + storeDef.getName() + " at node "
+                        logger.info("Restoring data for store " + storeDef.getName() + " at node "
                                     + restoringNodeId + " from node " + replicationEntry.getKey()
                                     + " partitions:" + replicationEntry.getValue());
 
@@ -607,16 +757,17 @@ public class AdminClient {
                                                                restoringNodeId,
                                                                storeDef.getName(),
                                                                replicationEntry.getValue(),
+                                                               null,
                                                                null);
                         waitForCompletion(restoringNodeId,
                                           migrateAsyncId,
-                                          adminClientConfig.getRestoreDataTimeout(),
+                                          adminClientConfig.getRestoreDataTimeoutSec(),
                                           TimeUnit.SECONDS);
 
-                        logger.info("restoring data for store:" + storeDef.getName()
+                        logger.info("Restoring data for store:" + storeDef.getName()
                                     + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
-                        logger.error("restore operation for store " + storeDef.getName()
+                        logger.error("Restore operation for store " + storeDef.getName()
                                      + "from node " + donorNodeId + " failed.", e);
                     }
                 }
@@ -650,18 +801,73 @@ public class AdminClient {
     }
 
     /**
-     * Migrate keys/values belonging to stealPartitionList from donorNode to
-     * stealerNode. <b>Does not delete the partitions from donorNode, merely
-     * copies them. </b>
+     * Converts list of partitions to map of replica type to partition list.
+     * 
+     * @param nodeId Node which is donating data
+     * @param storeName Name of store
+     * @param partitions List of partitions ( primary OR replicas ) to move
+     * @return Map of replica type to partitions
+     */
+    private HashMap<Integer, List<Integer>> getReplicaToPartitionMap(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitions) {
+
+        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(getRemoteStoreDefList(nodeId).getValue(),
+                                                                        storeName);
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
+            replicaToPartitionList.put(replicaNum, partitions);
+        }
+
+        return replicaToPartitionList;
+    }
+
+    /**
+     * Migrate keys/values belonging to stealPartitionList ( can be primary or
+     * replica ) from donor node to stealer node. <b>Does not delete the
+     * partitions from donorNode, merely copies them. </b>
+     * <p>
+     * See
+     * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster)}
+     * for more details.
+     * 
+     * 
+     * @param donorNodeId Node <em>from</em> which the partitions are to be
+     *        streamed.
+     * @param stealerNodeId Node <em>to</em> which the partitions are to be
+     *        streamed.
+     * @param storeName Name of the store to stream.
+     * @param stealPartitionList List of partitions to stream.
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be deleted.
+     * @return The value of the
+     *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
+     *         stealerNodeId which is performing the operation.
+     */
+    public int migratePartitions(int donorNodeId,
+                                 int stealerNodeId,
+                                 String storeName,
+                                 List<Integer> stealPartitionList,
+                                 VoldemortFilter filter) {
+        return migratePartitions(donorNodeId,
+                                 stealerNodeId,
+                                 storeName,
+                                 getReplicaToPartitionMap(donorNodeId,
+                                                          storeName,
+                                                          stealPartitionList),
+                                 filter,
+                                 null);
+    }
+
+    /**
+     * Migrate keys/values belonging to a map of replica type to partition list
+     * from donor node to stealer node. <b>Does not delete the partitions from
+     * donorNode, merely copies them. </b>
      * <p>
      * This is a background operation (see
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
-     * stealer node where updates are performed. See
-     * {@link AdminClient#updateEntries} for more information on the "streaming"
-     * mode.
+     * stealer node where updates are performed.
      * <p>
-     * This function should only be used for migration of read-write data
-     * 
      * 
      * @param donorNodeId Node <em>from</em> which the partitions are to be
      *        streamed.
@@ -670,6 +876,10 @@ public class AdminClient {
      * @param storeName Name of the store to stream.
      * @param replicaToPartitionList Mapping from replica type to partition to
      *        be stolen
+     * @param filter Voldemort post-filter
+     * @param initialCluster The cluster metadata to use for making the decision
+     *        if the key belongs to these partitions. If not specified, falls
+     *        back to the metadata stored on the box
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
      *         stealer node which is performing the operation.
@@ -678,14 +888,23 @@ public class AdminClient {
                                  int stealerNodeId,
                                  String storeName,
                                  HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                 Cluster currentCluster) {
+                                 VoldemortFilter filter,
+                                 Cluster initialCluster) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
                                                                                                                                    .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                                    .setStore(storeName);
 
-        if(currentCluster != null) {
-            initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(currentCluster));
+        try {
+            if(filter != null) {
+                initiateFetchAndUpdateRequest.setFilter(encodeFilter(filter));
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
+
+        if(initialCluster != null) {
+            initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
@@ -703,7 +922,7 @@ public class AdminClient {
     }
 
     /**
-     * Delete the store completely (<b>Deletes all Data</b>) from the remote
+     * Delete the store completely (<b>Deletes all data</b>) from the remote
      * node.
      * <p>
      * 
@@ -829,11 +1048,11 @@ public class AdminClient {
     }
 
     /**
-     * Delete all entries belonging to a list of primary partitions
+     * Delete all entries belonging to a list of partitions
      * 
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
-     * @param partitionList List of "primary" partitions to delete.
+     * @param partitionList List of partitions to delete.
      * @param filter Custom filter implementation to filter out entries which
      *        should not be deleted.
      * @return Number of entries deleted
@@ -842,9 +1061,11 @@ public class AdminClient {
                                 String storeName,
                                 List<Integer> partitionList,
                                 VoldemortFilter filter) {
-        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-        replicaToPartitionList.put(0, partitionList);
-        return deletePartitions(nodeId, storeName, replicaToPartitionList, null, filter);
+        return deletePartitions(nodeId,
+                                storeName,
+                                getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                                null,
+                                filter);
     }
 
     /**
@@ -858,7 +1079,6 @@ public class AdminClient {
      *        should not be deleted.
      * @return Number of entries deleted
      */
-    // TODO: Same as fetchKeys / fetchValues
     public int deletePartitions(int nodeId,
                                 String storeName,
                                 HashMap<Integer, List<Integer>> replicaToPartitionList,
@@ -1557,12 +1777,12 @@ public class AdminClient {
      * 
      * @param nodeId The node id from where to copy
      * @param storeName The name of the read-only store
-     * @param partitionIds The partition ids from whom to copy data
+     * @param replicaToPartitionList Map of replica type to partition list
      * @param destinationDirPath The destination path
      */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
-                                    List<Integer> partitionIds,
+                                    HashMap<Integer, List<Integer>> replicaToPartitionList,
                                     String destinationDirPath) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
@@ -1579,7 +1799,7 @@ public class AdminClient {
 
         try {
             VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
-                                                                                                                     .addAllPartitions(partitionIds)
+                                                                                                                     .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                      .setStore(storeName)
                                                                                                                      .build();
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -1594,10 +1814,9 @@ public class AdminClient {
 
                 try {
                     size = inputStream.readInt();
-                } catch(EOFException e) {
-                    logger.error("Received EOF Exception while fetching files", e);
-                    close(sands.getSocket());
-                    return;
+                } catch(IOException e) {
+                    logger.error("Received IOException while fetching files", e);
+                    throw e;
                 }
 
                 if(size == -1) {

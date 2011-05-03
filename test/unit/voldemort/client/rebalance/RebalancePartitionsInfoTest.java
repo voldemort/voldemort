@@ -55,6 +55,7 @@ public class RebalancePartitionsInfoTest {
         info2 = RebalancePartitionsInfo.create(jsonString);
         assertEquals(info, info2);
         assertEquals(info.getReplicaToPartitionList(), info2.getReplicaToPartitionList());
+
     }
 
 }

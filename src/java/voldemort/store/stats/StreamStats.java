@@ -2,6 +2,7 @@ package voldemort.store.stats;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,11 +35,12 @@ public class StreamStats {
         }
     }
 
-    public Handle makeHandle(Operation operation, List<Integer> partitionIds) {
+    public Handle makeHandle(Operation operation,
+                             HashMap<Integer, List<Integer>> replicaToPartitionList) {
         Handle handle = new Handle(handleIdGenerator.getAndIncrement(),
                                    operation,
                                    System.currentTimeMillis(),
-                                   partitionIds);
+                                   replicaToPartitionList);
         handles.put(handle.getId(), handle);
         return handle;
     }
@@ -116,17 +118,20 @@ public class StreamStats {
         private final long id;
         private final Operation operation;
         private final long startedMs;
-        private final List<Integer> partitionIds;
+        private final HashMap<Integer, List<Integer>> replicaToPartitionList;
         private final AtomicLong entriesScanned;
         private final AtomicLong timeNetworkNs;
         private final AtomicLong timeDiskNs;
         private volatile boolean finished;
 
-        private Handle(long id, Operation operation, long startedMs, List<Integer> partitionIds) {
+        private Handle(long id,
+                       Operation operation,
+                       long startedMs,
+                       HashMap<Integer, List<Integer>> replicaToPartitionList) {
             this.id = id;
             this.operation = operation;
             this.startedMs = startedMs;
-            this.partitionIds = partitionIds;
+            this.replicaToPartitionList = replicaToPartitionList;
             this.entriesScanned = new AtomicLong(0L);
             this.timeNetworkNs = new AtomicLong(0L);
             this.timeDiskNs = new AtomicLong(0L);
@@ -172,8 +177,8 @@ public class StreamStats {
             this.finished = finished;
         }
 
-        public List<Integer> getPartitionIds() {
-            return partitionIds;
+        public HashMap<Integer, List<Integer>> getReplicaToPartitionList() {
+            return replicaToPartitionList;
         }
 
         public void recordTimeNetwork(long deltaNs) {
@@ -205,11 +210,11 @@ public class StreamStats {
         @Override
         public String toString() {
             return "Handle{" + "id=" + id + ", operation=" + operation + ", startedMs=" + startedMs
-                   + ", partitionIds=" + partitionIds + ", entriesScanned=" + getEntriesScanned()
-                   + ", finished=" + finished + ", entriesPerSecond=" + getEntriesPerSecond()
-                   + ", timeDiskNs=" + getTimeDiskNs() + ", timeNetworkNs=" + getTimeNetworkNs()
-                   + ", percentDisk=" + getPercentDisk() + ", percentNetwork="
-                   + getPercentNetwork() + '}';
+                   + ", replicaToPartitionList=" + getReplicaToPartitionList()
+                   + ", entriesScanned=" + getEntriesScanned() + ", finished=" + finished
+                   + ", entriesPerSecond=" + getEntriesPerSecond() + ", timeDiskNs="
+                   + getTimeDiskNs() + ", timeNetworkNs=" + getTimeNetworkNs() + ", percentDisk="
+                   + getPercentDisk() + ", percentNetwork=" + getPercentNetwork() + '}';
         }
     }
 }

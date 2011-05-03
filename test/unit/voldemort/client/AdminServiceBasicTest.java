@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -68,7 +68,9 @@ import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -260,8 +262,6 @@ public class AdminServiceBasicTest extends TestCase {
         nodes.add(new Node(2, "localhost", 1, 2, 3, 1, Lists.newArrayList(2, 6, 10)));
         nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(3, 7, 11)));
 
-        RoutingStrategyFactory factory = new RoutingStrategyFactory();
-
         // Test 1 - With consistent routing strategy
         StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
                                                                2,
@@ -272,23 +272,41 @@ public class AdminServiceBasicTest extends TestCase {
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         Cluster newCluster = new Cluster("single_zone_cluster", nodes);
-        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, newCluster);
-        Map<Integer, List<Integer>> replicationMapping = adminClient.getReplicationMapping(newCluster,
-                                                                                           0,
-                                                                                           strategy);
-        Map<Integer, List<Integer>> expected = Maps.newHashMap();
-        expected.put(1, Lists.newArrayList(1, 5, 9));
-        expected.put(3, Lists.newArrayList(3, 7, 11));
-        assertEquals(replicationMapping, expected);
 
-        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
-        assertEquals(replicationMapping, expected);
+        // On node 0
+        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.getReplicationMapping(0,
+                                                                                                             newCluster,
+                                                                                                             storeDef);
 
-        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
-        expected = Maps.newHashMap();
-        expected.put(0, Lists.newArrayList(0, 4, 8));
-        expected.put(2, Lists.newArrayList(2, 6, 10));
-        assertEquals(replicationMapping, expected);
+        HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+        HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+        partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+        expectedMapping.put(1, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
+
+        // On node 1
+        replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+        expectedMapping.put(2, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
+
+        // On node 2
+        replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(2, 6, 10));
+        expectedMapping.put(3, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
+
+        // On node 3
+        replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
+        expectedMapping.put(0, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
 
         // Test 2 - With zone routing strategy
         List<Zone> zones = ServerTestUtils.getZones(2);
@@ -306,25 +324,39 @@ public class AdminServiceBasicTest extends TestCase {
                                                zoneReplicationFactors,
                                                HintedHandoffStrategyType.PROXIMITY_STRATEGY,
                                                RoutingStrategyType.ZONE_STRATEGY);
-        strategy = factory.updateRoutingStrategy(storeDef, newCluster);
         newCluster = new Cluster("multi_zone_cluster", nodes, zones);
 
-        replicationMapping = adminClient.getReplicationMapping(newCluster, 0, strategy);
-        expected = Maps.newHashMap();
-        expected.put(2, Lists.newArrayList(2, 6, 10));
-        expected.put(3, Lists.newArrayList(3, 7, 11));
-        assertEquals(replicationMapping, expected);
+        // On node 0
+        replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+        expectedMapping.put(2, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
 
-        replicationMapping = adminClient.getReplicationMapping(newCluster, 1, strategy);
-        expected = Maps.newHashMap();
-        expected.put(2, Lists.newArrayList(2, 6, 10));
-        assertEquals(replicationMapping, expected);
+        // On node 1
+        replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+        expectedMapping.put(2, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
 
-        replicationMapping = adminClient.getReplicationMapping(newCluster, 2, strategy);
-        expected = Maps.newHashMap();
-        expected.put(0, Lists.newArrayList(4, 8, 0));
-        expected.put(1, Lists.newArrayList(1, 5, 9));
-        assertEquals(replicationMapping, expected);
+        // On node 2
+        replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(2, 6, 10));
+        expectedMapping.put(0, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
+
+        // On node 3
+        replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+        expectedMapping.clear();
+        partitionTuple.clear();
+        partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
+        expectedMapping.put(0, partitionTuple);
+        assertEquals(replicationMapping, expectedMapping);
 
     }
 
@@ -498,7 +530,7 @@ public class AdminServiceBasicTest extends TestCase {
     private void generateROFiles(int numChunks,
                                  long indexSize,
                                  long dataSize,
-                                 List<Pair<Integer, Integer>> buckets,
+                                 HashMap<Integer, List<Integer>> buckets,
                                  File versionDir) throws IOException {
 
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
@@ -509,127 +541,63 @@ public class AdminServiceBasicTest extends TestCase {
         writer.write(metadata.toJsonString());
         writer.close();
 
-        for(Pair<Integer, Integer> bucket: buckets) {
-            for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                File index = new File(versionDir, Integer.toString(bucket.getFirst()) + "_"
-                                                  + Integer.toString(bucket.getSecond()) + "_"
-                                                  + Integer.toString(chunkId) + ".index");
-                File data = new File(versionDir, Integer.toString(bucket.getFirst()) + "_"
-                                                 + Integer.toString(bucket.getSecond()) + "_"
-                                                 + Integer.toString(chunkId) + ".data");
-                // write some random crap for index and data
-                FileOutputStream dataOs = new FileOutputStream(data);
-                for(int i = 0; i < dataSize; i++)
-                    dataOs.write(i);
-                dataOs.close();
-                FileOutputStream indexOs = new FileOutputStream(index);
-                for(int i = 0; i < indexSize; i++)
-                    indexOs.write(i);
-                indexOs.close();
-            }
-        }
-    }
-
-    /**
-     * Given the store name and node id, returns the buckets possible for the RO
-     * files
-     * 
-     * @param nodeId The node id
-     * @param storeName The name of the store
-     * @return List of buckets
-     */
-    private List<Pair<Integer, Integer>> getBuckets(int nodeId, String storeName) {
-
-        // Get store definition
-        StoreDefinition def = null;
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().compareTo(storeName) == 0) {
-                def = storeDef;
-                break;
-            }
-        }
-
-        if(def == null) {
-            throw new VoldemortException("Couldn't find store " + storeName
-                                         + " in the store definition list");
-        }
-
-        List<Integer> nodePartitionIds = cluster.getNodeById(nodeId).getPartitionIds();
-        List<Pair<Integer, Integer>> buckets = Lists.newArrayList();
-        RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(def,
-                                                                                             cluster);
-        for(Node node: cluster.getNodes()) {
-            for(int partitionId: node.getPartitionIds()) {
-                List<Integer> routingPartitionList = routingStrategy.getReplicatingPartitionList(partitionId);
-
-                for(int replicaType = 0; replicaType < routingPartitionList.size(); replicaType++) {
-                    if(nodePartitionIds.contains(routingPartitionList.get(replicaType))) {
-                        buckets.add(Pair.create(routingPartitionList.get(0), replicaType));
-                    }
+        for(Entry<Integer, List<Integer>> entry: buckets.entrySet()) {
+            int replicaType = entry.getKey();
+            for(int partitionId: entry.getValue()) {
+                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                    File index = new File(versionDir, Integer.toString(partitionId) + "_"
+                                                      + Integer.toString(replicaType) + "_"
+                                                      + Integer.toString(chunkId) + ".index");
+                    File data = new File(versionDir, Integer.toString(partitionId) + "_"
+                                                     + Integer.toString(replicaType) + "_"
+                                                     + Integer.toString(chunkId) + ".data");
+                    // write some random crap for index and data
+                    FileOutputStream dataOs = new FileOutputStream(data);
+                    for(int i = 0; i < dataSize; i++)
+                        dataOs.write(i);
+                    dataOs.close();
+                    FileOutputStream indexOs = new FileOutputStream(index);
+                    for(int i = 0; i < indexSize; i++)
+                        indexOs.write(i);
+                    indexOs.close();
                 }
             }
         }
-        return buckets;
-    }
-
-    /**
-     * Filters the buckets based on whether they are primary partition based or
-     * replica based
-     * 
-     * @param buckets The overall list of buckets
-     * @param primaryPartitions The list of primary partitions
-     * @param primaryOnly The boolean indicating whether we want primary or
-     *        replica?
-     * @return List of filtered buckets
-     */
-    private List<Pair<Integer, Integer>> filterBuckets(List<Pair<Integer, Integer>> buckets,
-                                                       List<Integer> primaryPartitions,
-                                                       boolean primaryOnly) {
-        List<Pair<Integer, Integer>> filteredBuckets = Lists.newArrayList();
-
-        for(Pair<Integer, Integer> bucket: buckets) {
-            if(primaryPartitions.contains(bucket.getFirst()) == primaryOnly) {
-                filteredBuckets.add(bucket);
-            }
-        }
-        return filteredBuckets;
     }
 
     @SuppressWarnings("unchecked")
     private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
             throws IOException {
+        Map<Integer, Set<Pair<Integer, Integer>>> buckets = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+                                                                                                    Lists.newArrayList(RebalanceUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                                                                                                 "test-readonly-fetchfiles")),
+                                                                                                    true);
         for(Node node: cluster.getNodes()) {
             ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStore(node.getId(),
                                                                            "test-readonly-fetchfiles");
 
-            // Create list of buckets
-            List<Pair<Integer, Integer>> buckets = getBuckets(node.getId(),
-                                                              "test-readonly-fetchfiles");
+            // Create list of buckets ( replica to partition )
+            Set<Pair<Integer, Integer>> nodeBucketsSet = buckets.get(node.getId());
+            HashMap<Integer, List<Integer>> nodeBuckets = RebalanceUtils.flatten(nodeBucketsSet);
 
             // Split the buckets into primary and replica buckets
-            List<Pair<Integer, Integer>> primaryBuckets = filterBuckets(buckets,
-                                                                        cluster.getNodeById(node.getId())
-                                                                               .getPartitionIds(),
-                                                                        true);
-            List<Pair<Integer, Integer>> replicaBuckets = filterBuckets(buckets,
-                                                                        cluster.getNodeById(node.getId())
-                                                                               .getPartitionIds(),
-                                                                        false);
-            // Generate list of replica partitions
-            List<Integer> replicaPartitions = Lists.newArrayList();
-            for(Pair<Integer, Integer> replicaBucket: replicaBuckets) {
-                replicaPartitions.add(replicaBucket.getFirst());
-            }
+            HashMap<Integer, List<Integer>> primaryNodeBuckets = Maps.newHashMap();
+            primaryNodeBuckets.put(0, nodeBuckets.get(0));
+            int primaryPartitions = nodeBuckets.get(0).size();
 
-            // Generate list of all partitions ( replica + native )
-            List<Integer> allPartitions = Lists.newArrayList(replicaPartitions);
-            allPartitions.addAll(node.getPartitionIds());
+            HashMap<Integer, List<Integer>> replicaNodeBuckets = Maps.newHashMap(nodeBuckets);
+            replicaNodeBuckets.remove(0);
+
+            int replicaPartitions = 0;
+            for(List<Integer> partitions: replicaNodeBuckets.values()) {
+                replicaPartitions += partitions.size();
+            }
 
             // Generate data...
             File newVersionDir = new File(store.getStoreDirPath(), "version-"
                                                                    + Long.toString(versionId));
             Utils.mkdirs(newVersionDir);
-            generateROFiles(numChunks, indexSize, dataSize, buckets, newVersionDir);
+            generateROFiles(numChunks, indexSize, dataSize, nodeBuckets, newVersionDir);
 
             // Swap it...
             store.swapFiles(newVersionDir.getAbsolutePath());
@@ -638,36 +606,54 @@ public class AdminServiceBasicTest extends TestCase {
             HashMap<Object, Integer> chunkIdToNumChunks = store.getChunkedFileSet()
                                                                .getChunkIdToNumChunks();
             for(Object bucket: chunkIdToNumChunks.keySet()) {
-                Pair<Integer, Integer> pairBucket = (Pair<Integer, Integer>) bucket;
-                assertTrue(buckets.contains(pairBucket));
+                Pair<Integer, Integer> partitionToReplicaBucket = (Pair<Integer, Integer>) bucket;
+                Pair<Integer, Integer> replicaToPartitionBucket = Pair.create(partitionToReplicaBucket.getSecond(),
+                                                                              partitionToReplicaBucket.getFirst());
+                assertTrue(nodeBucketsSet.contains(replicaToPartitionBucket));
             }
 
-            // Test 1) Fetch all the primary partitions...
+            // Test 0) Try to fetch a partition which doesn't exist
             File tempDir = TestUtils.createTempDir();
+
+            HashMap<Integer, List<Integer>> dumbMap = Maps.newHashMap();
+            dumbMap.put(100, Lists.newArrayList(0));
+            try {
+                getAdminClient().fetchPartitionFiles(node.getId(),
+                                                     "test-readonly-fetchfiles",
+                                                     dumbMap,
+                                                     tempDir.getAbsolutePath());
+                fail("Should throw exception since partition map passed is bad");
+            } catch(VoldemortException e) {}
+
+            // Test 1) Fetch all the primary partitions...
+            tempDir = TestUtils.createTempDir();
 
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
-                                                 node.getPartitionIds(),
+                                                 primaryNodeBuckets,
                                                  tempDir.getAbsolutePath());
 
             // Check it...
-            assertEquals(tempDir.list().length, 2 * node.getPartitionIds().size() * numChunks);
+            assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks);
 
-            for(Pair<Integer, Integer> bucket: primaryBuckets) {
-                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                       + Integer.toString(bucket.getSecond()) + "_"
-                                                       + Integer.toString(chunkId) + ".index");
-                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                      + Integer.toString(bucket.getSecond()) + "_"
-                                                      + Integer.toString(chunkId) + ".data");
+            for(Entry<Integer, List<Integer>> entry: primaryNodeBuckets.entrySet()) {
+                int replicaType = entry.getKey();
+                for(int partitionId: entry.getValue()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File indexFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                           + Integer.toString(replicaType) + "_"
+                                                           + Integer.toString(chunkId) + ".index");
+                        File dataFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                          + Integer.toString(replicaType) + "_"
+                                                          + Integer.toString(chunkId) + ".data");
 
-                    assertTrue(indexFile.exists());
-                    assertTrue(dataFile.exists());
-                    assertEquals(indexFile.length(), indexSize);
-                    assertEquals(dataFile.length(), dataSize);
+                        assertTrue(indexFile.exists());
+                        assertTrue(dataFile.exists());
+                        assertEquals(indexFile.length(), indexSize);
+                        assertEquals(dataFile.length(), dataSize);
+                    }
+
                 }
-
             }
 
             // Test 2) Fetch all the replica partitions...
@@ -675,54 +661,61 @@ public class AdminServiceBasicTest extends TestCase {
 
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
-                                                 replicaPartitions,
+                                                 replicaNodeBuckets,
                                                  tempDir.getAbsolutePath());
 
             // Check it...
-            assertEquals(tempDir.list().length, 2 * replicaPartitions.size() * numChunks);
+            assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks);
 
-            for(Pair<Integer, Integer> bucket: replicaBuckets) {
-                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                       + Integer.toString(bucket.getSecond()) + "_"
-                                                       + Integer.toString(chunkId) + ".index");
-                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                      + Integer.toString(bucket.getSecond()) + "_"
-                                                      + Integer.toString(chunkId) + ".data");
+            for(Entry<Integer, List<Integer>> entry: replicaNodeBuckets.entrySet()) {
+                int replicaType = entry.getKey();
+                for(int partitionId: entry.getValue()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File indexFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                           + Integer.toString(replicaType) + "_"
+                                                           + Integer.toString(chunkId) + ".index");
+                        File dataFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                          + Integer.toString(replicaType) + "_"
+                                                          + Integer.toString(chunkId) + ".data");
 
-                    assertTrue(indexFile.exists());
-                    assertTrue(dataFile.exists());
-                    assertEquals(indexFile.length(), indexSize);
-                    assertEquals(dataFile.length(), dataSize);
+                        assertTrue(indexFile.exists());
+                        assertTrue(dataFile.exists());
+                        assertEquals(indexFile.length(), indexSize);
+                        assertEquals(dataFile.length(), dataSize);
+                    }
+
                 }
-
             }
 
-            // Test 3) Fetch all the replica partitions...
+            // Test 3) Fetch all the partitions...
             tempDir = TestUtils.createTempDir();
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
-                                                 allPartitions,
+                                                 nodeBuckets,
                                                  tempDir.getAbsolutePath());
 
             // Check it...
-            assertEquals(tempDir.list().length, 2 * allPartitions.size() * numChunks);
+            assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)
+                                                * numChunks);
 
-            for(Pair<Integer, Integer> bucket: buckets) {
-                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                    File indexFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                       + Integer.toString(bucket.getSecond()) + "_"
-                                                       + Integer.toString(chunkId) + ".index");
-                    File dataFile = new File(tempDir, Integer.toString(bucket.getFirst()) + "_"
-                                                      + Integer.toString(bucket.getSecond()) + "_"
-                                                      + Integer.toString(chunkId) + ".data");
+            for(Entry<Integer, List<Integer>> entry: nodeBuckets.entrySet()) {
+                int replicaType = entry.getKey();
+                for(int partitionId: entry.getValue()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File indexFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                           + Integer.toString(replicaType) + "_"
+                                                           + Integer.toString(chunkId) + ".index");
+                        File dataFile = new File(tempDir, Integer.toString(partitionId) + "_"
+                                                          + Integer.toString(replicaType) + "_"
+                                                          + Integer.toString(chunkId) + ".data");
 
-                    assertTrue(indexFile.exists());
-                    assertTrue(dataFile.exists());
-                    assertEquals(indexFile.length(), indexSize);
-                    assertEquals(dataFile.length(), dataSize);
+                        assertTrue(indexFile.exists());
+                        assertTrue(dataFile.exists());
+                        assertEquals(indexFile.length(), indexSize);
+                        assertEquals(dataFile.length(), dataSize);
+                    }
+
                 }
-
             }
         }
     }
@@ -950,12 +943,15 @@ public class AdminServiceBasicTest extends TestCase {
         }
 
         List<Integer> rebalancePartitionList = Arrays.asList(1, 3);
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        replicaToPartitionList.put(0, rebalancePartitionList);
+
         RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
                                                                         0,
-                                                                        rebalancePartitionList,
-                                                                        new ArrayList<Integer>(),
-                                                                        rebalancePartitionList,
+                                                                        replicaToPartitionList,
                                                                         Arrays.asList(testStoreName),
+                                                                        cluster,
+                                                                        false,
                                                                         0);
         try {
             adminClient.rebalanceNode(stealInfo);
@@ -997,10 +993,14 @@ public class AdminServiceBasicTest extends TestCase {
         // use store with replication 2, required write 2 for this test.
         String testStoreName = "test-recovery-data";
 
-        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
+        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+        RoutingStrategy rStrategy = new RoutingStrategyFactory().updateRoutingStrategy(def, cluster);
+        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(5);
         // insert it into server-0 store
         Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
+            System.out.println("SERVER ENTRY - " + ByteUtils.toHexString(entry.getKey().get())
+                               + " - " + rStrategy.getPartitionList(entry.getKey().get()));
             store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
         }
 

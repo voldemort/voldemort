@@ -4,8 +4,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -75,7 +76,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                                       : new DefaultVoldemortFilter();
         startTime = System.currentTimeMillis();
         this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.UPDATE, ImmutableList.<Integer>of());
+        this.handle = stats.makeHandle(StreamStats.Operation.UPDATE,
+                                       new HashMap<Integer, List<Integer>>());
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,

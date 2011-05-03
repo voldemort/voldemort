@@ -399,26 +399,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
         boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
 
         if(fetchValues) {
-            boolean fetchMasterValues = request.hasFetchMasterEntries()
-                                        && request.getFetchMasterEntries();
-
-            if(fetchMasterValues) {
-                return new FetchMasterEntriesStreamRequestHandler(request,
-                                                                  metadataStore,
-                                                                  errorCodeMapper,
-                                                                  voldemortConfig,
-                                                                  storeRepository,
-                                                                  networkClassLoader,
-                                                                  stats);
-            } else {
-                return new FetchEntriesStreamRequestHandler(request,
-                                                            metadataStore,
-                                                            errorCodeMapper,
-                                                            voldemortConfig,
-                                                            storeRepository,
-                                                            networkClassLoader,
-                                                            stats);
-            }
+            return new FetchEntriesStreamRequestHandler(request,
+                                                        metadataStore,
+                                                        errorCodeMapper,
+                                                        voldemortConfig,
+                                                        storeRepository,
+                                                        networkClassLoader,
+                                                        stats);
         } else
             return new FetchKeysStreamRequestHandler(request,
                                                      metadataStore,
@@ -657,12 +644,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleFetchAndUpdate(VAdminProto.InitiateFetchAndUpdateRequest request) {
         final int nodeId = request.getNodeId();
-        final List<Integer> partitions = request.getPartitionsList();
+        final HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
         final VoldemortFilter filter = request.hasFilter() ? getFilterFromRequest(request.getFilter(),
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
+
+        final Cluster initialCluster = request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
+                                                                  : null;
 
         int requestId = asyncService.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
@@ -701,16 +691,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             String destinationDir = ((ReadOnlyStorageEngine) storageEngine).getCurrentDirPath();
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
-                                                            partitions,
+                                                            replicaToPartitionList,
                                                             destinationDir);
 
                         } else {
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                     storeName,
-                                                                                                                    partitions,
+                                                                                                                    replicaToPartitionList,
                                                                                                                     filter,
-                                                                                                                    false);
-
+                                                                                                                    false,
+                                                                                                                    initialCluster,
+                                                                                                                    0);
                             for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
                                 Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
@@ -725,7 +716,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
                                 if((i % 1000) == 0) {
-                                    updateStatus(i + " entries processed");
+                                    updateStatus(i + " entries copied from " + nodeId + " to "
+                                                 + metadataStore.getNodeId() + " for store "
+                                                 + storeName);
                                 }
                             }
                         }
@@ -784,7 +777,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
             } else {
                 routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
             }
-
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
             iterator = storageEngine.entries();
             int deleteSuccess = 0;
@@ -795,7 +787,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(checkKeyBelongsToDeletePartition(key.get(), partitions, routingStrategy)
+                if(RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                                                             replicaToPartitionList,
+                                                             routingStrategy)
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;
@@ -1096,34 +1090,4 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return storageEngine;
     }
 
-    /**
-     * Check that the key belong to a delete partition.
-     * 
-     * @param key
-     * @param partitionList
-     * @param routingStrategy
-     * @return
-     */
-    protected boolean checkKeyBelongsToDeletePartition(byte[] key,
-                                                       List<Integer> partitionList,
-                                                       RoutingStrategy routingStrategy) {
-        List<Integer> keyPartitions = routingStrategy.getPartitionList(key);
-        List<Integer> ownedPartitions = new ArrayList<Integer>(metadataStore.getCluster()
-                                                                            .getNodeById(metadataStore.getNodeId())
-                                                                            .getPartitionIds());
-
-        ownedPartitions.removeAll(partitionList);
-
-        for(int p: keyPartitions) {
-            if(ownedPartitions.contains(p)) {
-                return false;
-            }
-
-            if(partitionList.contains(p)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

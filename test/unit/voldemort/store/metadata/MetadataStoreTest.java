@@ -84,6 +84,8 @@ public class MetadataStoreTest extends TestCase {
                                                                                                     (int) Math.random() * 5,
                                                                                                     replicaToPartitionList,
                                                                                                     Arrays.asList("testStoreName"),
+                                                                                                    ServerTestUtils.getLocalCluster(1),
+                                                                                                    false,
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
