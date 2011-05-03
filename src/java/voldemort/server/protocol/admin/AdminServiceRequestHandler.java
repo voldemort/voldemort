@@ -40,8 +40,6 @@ import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -770,13 +768,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                   voldemortConfig,
                                                                                   networkClassLoader)
                                                           : new DefaultVoldemortFilter();
-            RoutingStrategy routingStrategy;
-            if(request.hasInitialCluster()) {
-                routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadataStore.getStoreDef(storeName),
-                                                                                     new ClusterMapper().readCluster(new StringReader(request.getInitialCluster())));
-            } else {
-                routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
-            }
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
             iterator = storageEngine.entries();
             int deleteSuccess = 0;
@@ -787,9 +778,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
-                if(RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                if(RebalanceUtils.checkKeyBelongsToPartition(metadataStore.getNodeId(),
+                                                             key.get(),
                                                              replicaToPartitionList,
-                                                             routingStrategy)
+                                                             request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
+                                                                                        : metadataStore.getCluster(),
+                                                             metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;

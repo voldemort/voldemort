@@ -15,7 +15,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
@@ -58,17 +57,17 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
 
-        if(RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                     key.get(),
                                                      replicaToPartitionList,
-                                                     routingStrategy)
+                                                     initialCluster,
+                                                     storeDef)
            && counter % skipRecords == 0) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             stats.recordDiskTime(handle, System.nanoTime() - startNs);
             for(Versioned<byte[]> value: values) {
                 throttler.maybeThrottle(key.length());
                 if(filter.accept(key, value)) {
-                    System.out.println("ENTRY - " + ByteUtils.toHexString(key.get()) + " - "
-                                       + routingStrategy.getPartitionList(key.get()));
                     fetched++;
                     handle.incrementEntriesScanned();
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();

@@ -58,6 +58,9 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 @RunWith(Parameterized.class)
 public class RedirectingStoreTest extends TestCase {
 
@@ -68,6 +71,7 @@ public class RedirectingStoreTest extends TestCase {
     VoldemortServer server0;
     VoldemortServer server1;
     Cluster targetCluster;
+    Cluster currentCluster;
     private final boolean useNio;
     private final SocketStoreFactory storeFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
@@ -86,15 +90,15 @@ public class RedirectingStoreTest extends TestCase {
     @Override
     @Before
     public void setUp() throws IOException {
-        Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { {}, { 0, 1 } });
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                            cluster.getNodeById(0),
-                                                            cluster.getNodeById(1),
+        currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] { {}, { 0, 1 } });
+        targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                            currentCluster.getNodeById(0),
+                                                            currentCluster.getNodeById(1),
                                                             Arrays.asList(1));
 
-        server0 = startServer(0, storesXmlfile, cluster);
+        server0 = startServer(0, storesXmlfile, currentCluster);
 
-        server1 = startServer(1, storesXmlfile, cluster);
+        server1 = startServer(1, storesXmlfile, currentCluster);
     }
 
     @Override
@@ -159,6 +163,9 @@ public class RedirectingStoreTest extends TestCase {
         server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
         server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
 
+        HashMap<Integer, List<Integer>> toMoveMap = Maps.newHashMap();
+        toMoveMap.put(0, Lists.newArrayList(1));
+
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.SERVER_STATE_KEY,
                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
@@ -166,10 +173,10 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.REBALANCING_STEAL_INFO,
                                new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                              1,
-                                                                                             Arrays.asList(1),
-                                                                                             new ArrayList<Integer>(0),
-                                                                                             new ArrayList<Integer>(0),
+                                                                                             toMoveMap,
                                                                                              Arrays.asList(testStoreName),
+                                                                                             currentCluster,
+                                                                                             false,
                                                                                              0))));
         checkGetAllEntries(entryMap, server0, getRedirectingStore(server0.getMetadataStore(),
                                                                   testStoreName), Arrays.asList(1));
@@ -194,6 +201,9 @@ public class RedirectingStoreTest extends TestCase {
         server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
         server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
 
+        HashMap<Integer, List<Integer>> toMoveMap = Maps.newHashMap();
+        toMoveMap.put(0, Lists.newArrayList(1));
+
         // set rebalancing 0 <-- 1 for partitions 2 only.
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.SERVER_STATE_KEY,
@@ -202,10 +212,10 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.REBALANCING_STEAL_INFO,
                                new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                              1,
-                                                                                             Arrays.asList(1),
-                                                                                             new ArrayList<Integer>(0),
-                                                                                             new ArrayList<Integer>(0),
+                                                                                             toMoveMap,
                                                                                              Arrays.asList(testStoreName),
+                                                                                             currentCluster,
+                                                                                             false,
                                                                                              0))));
 
         // for Rebalancing State we should see proxyGet()
@@ -232,6 +242,9 @@ public class RedirectingStoreTest extends TestCase {
         server0.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
         server1.getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
 
+        HashMap<Integer, List<Integer>> toMoveMap = Maps.newHashMap();
+        toMoveMap.put(0, Lists.newArrayList(1));
+
         // set rebalancing 0 <-- 1 for partitions 2 only.
         incrementVersionAndPut(server0.getMetadataStore(),
                                MetadataStore.SERVER_STATE_KEY,
@@ -240,10 +253,10 @@ public class RedirectingStoreTest extends TestCase {
                                MetadataStore.REBALANCING_STEAL_INFO,
                                new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                              1,
-                                                                                             Arrays.asList(1),
-                                                                                             new ArrayList<Integer>(0),
-                                                                                             new ArrayList<Integer>(0),
+                                                                                             toMoveMap,
                                                                                              Arrays.asList(testStoreName),
+                                                                                             currentCluster,
+                                                                                             false,
                                                                                              0))));
 
         // for Rebalancing State we should see proxyPut()

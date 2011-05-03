@@ -13,13 +13,13 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.filter.DefaultVoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
+import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Handle;
@@ -35,7 +35,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final ErrorCodeMapper errorCodeMapper;
 
-    protected final RoutingStrategy routingStrategy;
+    protected final Cluster initialCluster;
 
     protected final EventThrottler throttler;
 
@@ -61,6 +61,10 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final Logger logger = Logger.getLogger(getClass());
 
+    protected int nodeId;
+
+    protected StoreDefinition storeDef;
+
     protected FetchStreamRequestHandler(VAdminProto.FetchPartitionEntriesRequest request,
                                         MetadataStore metadataStore,
                                         ErrorCodeMapper errorCodeMapper,
@@ -69,6 +73,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
                                         NetworkClassLoader networkClassLoader,
                                         StreamStats stats,
                                         StreamStats.Operation operation) {
+        this.nodeId = metadataStore.getNodeId();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
@@ -76,11 +81,11 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.handle = stats.makeHandle(operation, replicaToPartitionList);
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
+        this.storeDef = metadataStore.getStoreDef(request.getStore());
         if(request.hasInitialCluster()) {
-            routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(metadataStore.getStoreDef(request.getStore()),
-                                                                                 new ClusterMapper().readCluster(new StringReader(request.getInitialCluster())));
+            this.initialCluster = new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()));
         } else {
-            routingStrategy = metadataStore.getRoutingStrategy(storageEngine.getName());
+            this.initialCluster = metadataStore.getCluster();
         }
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         if(request.hasFilter()) {

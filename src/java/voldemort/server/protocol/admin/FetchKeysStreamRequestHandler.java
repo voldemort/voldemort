@@ -49,9 +49,11 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         throttler.maybeThrottle(key.length());
-        if(RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                     key.get(),
                                                      replicaToPartitionList,
-                                                     routingStrategy)
+                                                     initialCluster,
+                                                     storeDef)
            && filter.accept(key, null) && counter % skipRecords == 0) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));

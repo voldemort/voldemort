@@ -693,33 +693,54 @@ public class AdminClient {
 
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                       cluster);
-        for(int partitionId: cluster.getNodeById(restoringNode).getPartitionIds()) {
-            List<Integer> replicatingPartitions = strategy.getReplicatingPartitionList(partitionId);
-            if(replicatingPartitions.size() <= 1) {
-                throw new VoldemortException("Store "
-                                             + storeDef.getName()
-                                             + " cannot be restored from replica because replication factor = 1");
-            }
-            int nodeId = partitionToNodeId.get(replicatingPartitions.get(1));
+        List<Integer> restoringNodePartition = cluster.getNodeById(restoringNode).getPartitionIds();
 
-            HashMap<Integer, List<Integer>> partitionTuples = null;
-            if(returnMap.containsKey(nodeId)) {
-                partitionTuples = returnMap.get(nodeId);
-            } else {
-                partitionTuples = Maps.newHashMap();
-                returnMap.put(nodeId, partitionTuples);
-            }
+        // Go over every partition. As long as one of them belongs to the
+        // current node list, find its replica
+        for(Node node: cluster.getNodes()) {
+            for(int partitionId: node.getPartitionIds()) {
+                List<Integer> replicatingPartitions = strategy.getReplicatingPartitionList(partitionId);
+                List<Integer> extraCopyReplicatingPartitions = Lists.newArrayList(replicatingPartitions);
 
-            List<Integer> partitions = null;
-            if(partitionTuples.containsKey(1)) {
-                partitions = partitionTuples.get(1);
-            } else {
-                partitions = Lists.newArrayList();
-                partitionTuples.put(1, partitions);
+                if(replicatingPartitions.size() <= 1) {
+                    throw new VoldemortException("Store "
+                                                 + storeDef.getName()
+                                                 + " cannot be restored from replica because replication factor = 1");
+                }
+
+                if(replicatingPartitions.removeAll(restoringNodePartition)) {
+                    if(replicatingPartitions.size() == 0) {
+                        throw new VoldemortException("Found a case where-in the overlap of "
+                                                     + "the node partition list results in no replicas "
+                                                     + "being left in replicating list");
+                    }
+
+                    // Pick the first element and find its position in the
+                    // origin replicating list
+                    int replicaType = extraCopyReplicatingPartitions.indexOf(replicatingPartitions.get(0));
+                    int partition = extraCopyReplicatingPartitions.get(0);
+                    int nodeId = partitionToNodeId.get(replicatingPartitions.get(0));
+
+                    HashMap<Integer, List<Integer>> replicaToPartitionList = null;
+                    if(returnMap.containsKey(nodeId)) {
+                        replicaToPartitionList = returnMap.get(nodeId);
+                    } else {
+                        replicaToPartitionList = Maps.newHashMap();
+                        returnMap.put(nodeId, replicaToPartitionList);
+                    }
+
+                    List<Integer> partitions = null;
+                    if(replicaToPartitionList.containsKey(replicaType)) {
+                        partitions = replicaToPartitionList.get(replicaType);
+                    } else {
+                        partitions = Lists.newArrayList();
+                        replicaToPartitionList.put(replicaType, partitions);
+                    }
+                    partitions.add(partition);
+                }
+
             }
-            partitions.add(partitionId);
         }
-
         return returnMap;
     }
 
