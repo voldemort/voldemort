@@ -83,9 +83,9 @@ public class MetadataStoreTest extends TestCase {
             return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                                     (int) Math.random() * 5,
                                                                                                     replicaToPartitionList,
+                                                                                                    replicaToPartitionList,
                                                                                                     Arrays.asList("testStoreName"),
                                                                                                     ServerTestUtils.getLocalCluster(1),
-                                                                                                    false,
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }

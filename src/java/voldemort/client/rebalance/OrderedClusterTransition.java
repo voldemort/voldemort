@@ -60,7 +60,7 @@ public class OrderedClusterTransition {
     public String toString() {
         if(printedContent == null) {
             StringBuilder sb = new StringBuilder();
-            sb.append("- Id : ").append(getId()).append(Utils.NEWLINE);
+            sb.append("- Rebalance Task Id : ").append(getId()).append(Utils.NEWLINE);
             sb.append("- Current cluster : ").append(getCurrentCluster()).append(Utils.NEWLINE);
             sb.append("- Target cluster : ").append(getTargetCluster()).append(Utils.NEWLINE);
             sb.append("- Partition distribution : ")

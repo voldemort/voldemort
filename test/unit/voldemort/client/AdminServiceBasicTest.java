@@ -45,15 +45,14 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
-import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -111,6 +110,7 @@ public class AdminServiceBasicTest extends TestCase {
     @Before
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
+
         servers = new VoldemortServer[2];
         storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
@@ -800,7 +800,7 @@ public class AdminServiceBasicTest extends TestCase {
 
             // Create list of buckets ( replica to partition )
             Set<Pair<Integer, Integer>> nodeBucketsSet = buckets.get(node.getId());
-            HashMap<Integer, List<Integer>> nodeBuckets = RebalanceUtils.flatten(nodeBucketsSet);
+            HashMap<Integer, List<Integer>> nodeBuckets = RebalanceUtils.flattenPartitionTuples(nodeBucketsSet);
 
             // Split the buckets into primary and replica buckets
             HashMap<Integer, List<Integer>> primaryNodeBuckets = Maps.newHashMap();
@@ -1148,68 +1148,6 @@ public class AdminServiceBasicTest extends TestCase {
         }
     }
 
-    // check the basic rebalanceNode call.
-    @Test
-    public void testRebalanceNode() {
-        HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
-        List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
-
-        // insert it into server-0 store
-        int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
-        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
-            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
-                fetchPartitionKeyCount++;
-            }
-        }
-
-        List<Integer> rebalancePartitionList = Arrays.asList(1, 3);
-        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-        replicaToPartitionList.put(0, rebalancePartitionList);
-
-        RebalancePartitionsInfo stealInfo = new RebalancePartitionsInfo(1,
-                                                                        0,
-                                                                        replicaToPartitionList,
-                                                                        Arrays.asList(testStoreName),
-                                                                        cluster,
-                                                                        false,
-                                                                        0);
-        try {
-            adminClient.rebalanceNode(stealInfo);
-            fail("Should have thrown an exception since the steal information is not on the server + not in rebalancing state");
-        } catch(VoldemortException e) {}
-
-        // Set the rebalance info on the stealer node
-        getServer(1).getMetadataStore().put(MetadataStore.REBALANCING_STEAL_INFO,
-                                            new RebalancerState(Lists.newArrayList(stealInfo)));
-
-        try {
-            adminClient.rebalanceNode(stealInfo);
-            fail("Should have thrown an exception since not in rebalancing state");
-        } catch(VoldemortException e) {}
-
-        getServer(1).getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-
-        int asyncId = adminClient.rebalanceNode(stealInfo);
-        assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
-
-        getAdminClient().waitForCompletion(1, asyncId, 120, TimeUnit.SECONDS);
-
-        // assert data is copied correctly
-        store = getStore(1, testStoreName);
-        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            if(isKeyPartition(entry.getKey(), 1, testStoreName, rebalancePartitionList)) {
-                assertSame("entry should be present at store", 1, store.get(entry.getKey(), null)
-                                                                       .size());
-                assertEquals("entry value should match",
-                             new String(entry.getValue()),
-                             new String(store.get(entry.getKey(), null).get(0).getValue()));
-            }
-        }
-    }
-
     @Test
     public void testRecoverData() {
         // use store with replication 2, required write 2 for this test.
@@ -1245,53 +1183,70 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     /**
-     * @throws IOException
+     * Tests the basic RW fetch and update
      */
     @Test
-    public void testFetchAndUpdate() throws IOException {
+    public void testFetchAndUpdateRW() {
         HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
-        List<Integer> fetchAndUpdatePartitionsList = Arrays.asList(0, 2);
+        List<Integer> primaryMoved = Arrays.asList(0, 2);
+        List<Integer> secondaryMoved = Arrays.asList(1, 4);
+
+        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
+                                                                    cluster.getNodeById(1),
+                                                                    cluster.getNodeById(0),
+                                                                    primaryMoved);
+        HashMap<Integer, List<Integer>> replicaToPartitions = Maps.newHashMap();
+        replicaToPartitions.put(0, primaryMoved);
+        replicaToPartitions.put(1, secondaryMoved);
+
+        HashMap<ByteArray, byte[]> keysMoved = Maps.newHashMap();
 
         // insert it into server-0 store
-        int fetchPartitionKeyCount = 0;
-        Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(RebalanceUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                                                                "test-recovery-data"),
+                                                                                      cluster);
+
+        Store<ByteArray, byte[], byte[]> store0 = getStore(0, "test-recovery-data");
+        Store<ByteArray, byte[], byte[]> store1 = getStore(1, "test-recovery-data");
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            store.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
-            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
-                fetchPartitionKeyCount++;
+            store0.put(entry.getKey(), new Versioned<byte[]>(entry.getValue()), null);
+            List<Integer> partitions = strategy.getPartitionList(entry.getKey().get());
+            if(primaryMoved.contains(partitions.get(0))
+               || (secondaryMoved.contains(partitions.get(0)) && cluster.getNodeById(0)
+                                                                        .getPartitionIds()
+                                                                        .contains(partitions.get(1)))) {
+                keysMoved.put(entry.getKey(), entry.getValue());
             }
         }
 
-        // assert that server1 is empty.
-        store = getStore(1, testStoreName);
+        // Assert that server1 is empty.
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet())
-            assertEquals("server1 should be empty at start.", 0, store.get(entry.getKey(), null)
-                                                                      .size());
+            assertEquals("server1 should be empty at start.", 0, store1.get(entry.getKey(), null)
+                                                                       .size());
 
-        // do fetch And update call server1 <-- server0
+        // Set some other metadata, so as to pick the right up later
+        getServer(0).getMetadataStore().put(MetadataStore.CLUSTER_KEY, targetCluster);
+
+        // Migrate the partition
         AdminClient client = getAdminClient();
-        int id = client.migratePartitions(0, 1, testStoreName, fetchAndUpdatePartitionsList, null);
-        client.waitForCompletion(1, id, 60, TimeUnit.SECONDS);
+        int id = client.migratePartitions(0,
+                                          1,
+                                          "test-recovery-data",
+                                          replicaToPartitions,
+                                          null,
+                                          cluster);
+        client.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
-        // check values
-        int count = 0;
-        store = getStore(1, testStoreName);
-        for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
-            if(isKeyPartition(entry.getKey(), 0, testStoreName, fetchAndUpdatePartitionsList)) {
-                assertEquals("server1 store should contain fetchAndupdated partitions.",
-                             1,
-                             store.get(entry.getKey(), null).size());
-                assertEquals("entry value should match",
-                             new String(entry.getValue()),
-                             new String(store.get(entry.getKey(), null).get(0).getValue()));
-                count++;
-            }
+        // Check the values
+        for(Entry<ByteArray, byte[]> entry: keysMoved.entrySet()) {
+            assertEquals("server1 store should contain fetchAndupdated partitions.",
+                         1,
+                         store1.get(entry.getKey(), null).size());
+            assertEquals("entry value should match",
+                         new String(entry.getValue()),
+                         new String(store1.get(entry.getKey(), null).get(0).getValue()));
         }
-
-        // assert all keys for asked partitions are returned.
-        assertEquals("All keys for asked partitions should be received",
-                     fetchPartitionKeyCount,
-                     count);
 
     }
+
 }

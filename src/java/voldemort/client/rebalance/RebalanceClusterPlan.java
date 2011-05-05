@@ -18,6 +18,8 @@ import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 
+import com.google.common.collect.Sets;
+
 /**
  * Compares the current cluster configuration with the target cluster
  * configuration. <br>
@@ -28,19 +30,24 @@ import voldemort.utils.Utils;
 public class RebalanceClusterPlan {
 
     private final Queue<RebalanceNodePlan> rebalanceTaskQueue;
-    private final List<StoreDefinition> storeDefs;
 
     /**
      * For the "current" cluster, creates a map of node-ids to corresponding
      * list of [replica,partition] tuples (primary & replicas)
      */
-    private final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions;
+    private final Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToAllPartitionTuples;
 
     /**
      * For the "target" cluster, creates a map of node-ids to corresponding list
      * of [replica,partition] tuples (primary & replicas)
      */
-    private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitions;
+    private final Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToAllPartitionTuples;
+
+    /**
+     * A map of all the stealer nodes to their corresponding stolen [replica,
+     * partition] tuples
+     */
+    private final Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeIdToStolenPartitionTuples;
 
     private final Cluster currentCluster;
     private final Cluster targetCluster;
@@ -64,7 +71,6 @@ public class RebalanceClusterPlan {
         this.targetCluster = targetCluster;
 
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
-        this.storeDefs = Collections.unmodifiableList(storeDefs);
 
         // Number of partitions to remain same
         if(currentCluster.getNumberOfPartitions() != targetCluster.getNumberOfPartitions())
@@ -80,13 +86,18 @@ public class RebalanceClusterPlan {
                                          + ") not equal to Target cluster ("
                                          + targetCluster.getNumberOfNodes() + ") ]");
 
-        // Create node id to all partitions mapping
-        this.nodeIdToAllPartitions = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
-                                                                                                         storeDefs,
-                                                                                                         true));
-        this.targetNodeIdToAllPartitions = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
-                                                                                                               storeDefs,
-                                                                                                               true));
+        // Create node id to all tuples mapping
+        this.currentNodeIdToAllPartitionTuples = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
+                                                                                                                     storeDefs,
+                                                                                                                     true));
+        this.targetNodeIdToAllPartitionTuples = Collections.unmodifiableMap(RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
+                                                                                                                    storeDefs,
+                                                                                                                    true));
+
+        // Create stealer node to stolen tuples mapping
+        this.stealerNodeIdToStolenPartitionTuples = Collections.unmodifiableMap(RebalanceUtils.getStolenPartitionTuples(currentCluster,
+                                                                                                                        targetCluster,
+                                                                                                                        storeDefs));
 
         for(Node node: targetCluster.getNodes()) {
             List<RebalancePartitionsInfo> rebalanceNodeList = getRebalancePartitionsInfo(currentCluster,
@@ -120,7 +131,6 @@ public class RebalanceClusterPlan {
      * @param storeNames List of store names
      * @param stealerId Id of the stealer node
      * @param enableDeletePartition To delete or not to delete?
-     * 
      */
     private List<RebalancePartitionsInfo> getRebalancePartitionsInfo(final Cluster currentCluster,
                                                                      final Cluster targetCluster,
@@ -130,16 +140,12 @@ public class RebalanceClusterPlan {
 
         final List<RebalancePartitionsInfo> result = new ArrayList<RebalancePartitionsInfo>();
 
-        // Separate the partitions being copied from those being deleted
-        final Set<Pair<Integer, Integer>> haveToStealTuples = RebalanceUtils.getStolenPartitionTuples(currentCluster,
-                                                                                                      targetCluster,
-                                                                                                      storeDefs,
-                                                                                                      stealerId);
-
-        // If empty, done with this stealer node
-        if(haveToStealTuples.size() == 0) {
+        // If null, done with this stealer node
+        if(stealerNodeIdToStolenPartitionTuples.get(stealerId) == null) {
             return result;
         }
+
+        final Set<Pair<Integer, Integer>> haveToStealTuples = Sets.newHashSet(stealerNodeIdToStolenPartitionTuples.get(stealerId));
 
         // Now we find out which donor can donate partitions to this stealer
         for(Node donorNode: currentCluster.getNodes()) {
@@ -154,18 +160,25 @@ public class RebalanceClusterPlan {
             }
 
             final Set<Pair<Integer, Integer>> trackStealPartitionsTuples = new HashSet<Pair<Integer, Integer>>();
+            final Set<Pair<Integer, Integer>> trackDeletePartitionsTuples = new HashSet<Pair<Integer, Integer>>();
 
-            // Checks if this donor can donate any tuples
+            // Checks if this donor node can donate any tuples
             donatePartitionTuple(donorNode, haveToStealTuples, trackStealPartitionsTuples);
 
-            if(trackStealPartitionsTuples.size() > 0) {
+            // Check if we can delete the partitions this donor just donated
+            donateDeletePartitionTuple(donorNode,
+                                       trackStealPartitionsTuples,
+                                       trackDeletePartitionsTuples,
+                                       enableDeletePartition);
+
+            if(trackStealPartitionsTuples.size() > 0 || trackDeletePartitionsTuples.size() > 0) {
 
                 result.add(new RebalancePartitionsInfo(stealerId,
                                                        donorNode.getId(),
-                                                       RebalanceUtils.flatten(trackStealPartitionsTuples),
+                                                       RebalanceUtils.flattenPartitionTuples(trackStealPartitionsTuples),
+                                                       RebalanceUtils.flattenPartitionTuples(trackDeletePartitionsTuples),
                                                        storeNames,
                                                        currentCluster,
-                                                       enableDeletePartition,
                                                        0));
             }
         }
@@ -178,21 +191,58 @@ public class RebalanceClusterPlan {
      * the donor can contribute any
      * 
      * @param donorNode Donor node we are checking
-     * @param haveToStealPartitions The partition tuples which we ideally want
-     *        to steal
-     * @param trackStealPartitions Set of partitions tuples already stolen
+     * @param haveToStealTuples The partition tuples which we ideally want to
+     *        steal
+     * @param trackStealPartitionsTuples Set of partitions tuples already stolen
      */
     private void donatePartitionTuple(final Node donorNode,
-                                      Set<Pair<Integer, Integer>> haveToStealPartitions,
-                                      Set<Pair<Integer, Integer>> trackStealPartitions) {
-        final Set<Pair<Integer, Integer>> donorPrimaryPartitionIds = nodeIdToAllPartitions.get(donorNode.getId());
-        final Iterator<Pair<Integer, Integer>> iter = haveToStealPartitions.iterator();
+                                      Set<Pair<Integer, Integer>> haveToStealTuples,
+                                      Set<Pair<Integer, Integer>> trackStealPartitionsTuples) {
+        final Set<Pair<Integer, Integer>> donorPartitionTuples = currentNodeIdToAllPartitionTuples.get(donorNode.getId());
+        final Iterator<Pair<Integer, Integer>> iter = haveToStealTuples.iterator();
+
+        // Iterate over the partition tuples to steal and check if this node can
+        // donate it
         while(iter.hasNext()) {
             Pair<Integer, Integer> partitionTupleToSteal = iter.next();
-            if(donorPrimaryPartitionIds.contains(partitionTupleToSteal)) {
-                trackStealPartitions.add(partitionTupleToSteal);
-                // This partition has been donated, let's remove it
+            if(donorPartitionTuples.contains(partitionTupleToSteal)) {
+                trackStealPartitionsTuples.add(partitionTupleToSteal);
+
+                // This partition has been donated, remove it
                 iter.remove();
+            }
+        }
+    }
+
+    /**
+     * We do not delete if this donor node is also the stealer node for another
+     * plan and is stealing data for the same partition ( irrespective of the
+     * replica type ). This is a problem only for BDB storage engine but has
+     * been placed at this level since for RO stores we don't delete the data
+     * anyways.
+     * 
+     * @param donor Donor node
+     * @param trackStealPartitionsTuples Partitions being stolen
+     * @param trackDeletePartitionsTuples Partitions going to be deleted
+     * @param enableDeletePartition Are we allowed to delete?
+     */
+    private void donateDeletePartitionTuple(final Node donor,
+                                            Set<Pair<Integer, Integer>> trackStealPartitionsTuples,
+                                            Set<Pair<Integer, Integer>> trackDeletePartitionsTuples,
+                                            boolean enableDeletePartition) {
+
+        // Are we allowed to delete AND do we have anything to check for
+        // deletion?
+        if(enableDeletePartition && trackStealPartitionsTuples.size() > 0) {
+
+            // Retrieve information about what this donor node will steal
+            List<Integer> partitionsStolenByDonor = RebalanceUtils.getPartitionsFromTuples(stealerNodeIdToStolenPartitionTuples.get(donor.getId()));
+
+            // Check if this stolen partitions overlap with those being donated
+            for(Pair<Integer, Integer> tuple: trackStealPartitionsTuples) {
+                if(!partitionsStolenByDonor.contains(tuple.getSecond())) {
+                    trackDeletePartitionsTuples.add(tuple);
+                }
             }
         }
     }
@@ -204,11 +254,11 @@ public class RebalanceClusterPlan {
     @Override
     public String toString() {
         if(rebalanceTaskQueue.isEmpty()) {
-            return "Rebalance task queue is empty, No rebalancing needed";
+            return "No rebalancing required since rebalance task is empty";
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("Cluster Rebalancing Plan:").append(Utils.NEWLINE);
+        builder.append("Cluster Rebalancing Plan : ").append(Utils.NEWLINE);
         builder.append(toString(getRebalancingTaskQueue()));
         return builder.toString();
     }
@@ -220,9 +270,9 @@ public class RebalanceClusterPlan {
 
         StringBuilder builder = new StringBuilder(Utils.NEWLINE);
         for(RebalanceNodePlan nodePlan: queue) {
-            builder.append("StealerNode:" + nodePlan.getStealerNode()).append(Utils.NEWLINE);
+            builder.append("StealerNode : " + nodePlan.getStealerNode()).append(Utils.NEWLINE);
             for(RebalancePartitionsInfo rebalancePartitionsInfo: nodePlan.getRebalanceTaskList()) {
-                builder.append("\t RebalancePartitionsInfo: " + rebalancePartitionsInfo)
+                builder.append("\t RebalancePartitionsInfo : " + rebalancePartitionsInfo)
                        .append(Utils.NEWLINE);
             }
         }
@@ -234,11 +284,11 @@ public class RebalanceClusterPlan {
         StringBuilder sb = new StringBuilder();
         sb.append("Current Cluster: ")
           .append(Utils.NEWLINE)
-          .append(RebalanceUtils.printMap(nodeIdToAllPartitions, currentCluster))
+          .append(RebalanceUtils.printMap(currentNodeIdToAllPartitionTuples, currentCluster))
           .append(Utils.NEWLINE);
         sb.append("Target Cluster: ")
           .append(Utils.NEWLINE)
-          .append(RebalanceUtils.printMap(targetNodeIdToAllPartitions, targetCluster));
+          .append(RebalanceUtils.printMap(targetNodeIdToAllPartitionTuples, targetCluster));
         return sb.toString();
     }
 

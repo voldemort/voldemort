@@ -99,7 +99,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                                    .getType()
                                                                    .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-                            logger.info("Working on store " + storeName + ", stealInfo: "
+                            logger.info("Working on store " + storeName + ", stealInfo "
                                         + stealInfo);
 
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
@@ -107,6 +107,9 @@ class RebalanceAsyncOperation extends AsyncOperation {
                             List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
                             tempUnbalancedStoreList.remove(storeName);
                             stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+
+                            logger.info("Completed working on store " + storeName + ", stealInfo "
+                                        + stealInfo);
 
                         } catch(Exception e) {
                             logger.error("Error while rebalancing " + stealInfo + " for store "
@@ -146,7 +149,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
     private void waitForShutdown() {
         try {
             executors.shutdown();
-            executors.awaitTermination(voldemortConfig.getAdminSocketTimeout(), TimeUnit.SECONDS);
+            executors.awaitTermination(voldemortConfig.getRebalancingTimeoutSec(), TimeUnit.SECONDS);
         } catch(InterruptedException e) {
             logger.error("Interrupted while awaiting termination for executors.", e);
         }
@@ -199,13 +202,13 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         rebalanceStatusList.remove((Object) asyncId);
 
-        if(stealInfo.getDeletePartitions() && !isReadOnlyStore) {
+        if(stealInfo.getReplicaToDeletePartitionList().size() > 0 && !isReadOnlyStore) {
             logger.info("Deleting partitions for store " + storeName + " and steal info - "
                         + stealInfo);
 
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
-                                         stealInfo.getReplicaToPartitionList(),
+                                         stealInfo.getReplicaToDeletePartitionList(),
                                          stealInfo.getInitialCluster(),
                                          null);
             logger.info("Deleting partitions for store " + storeName + " and steal info - "

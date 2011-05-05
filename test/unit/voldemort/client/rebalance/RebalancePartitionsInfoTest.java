@@ -19,9 +19,9 @@ public class RebalancePartitionsInfoTest {
         RebalancePartitionsInfo info = new RebalancePartitionsInfo(0,
                                                                    1,
                                                                    new HashMap<Integer, List<Integer>>(),
+                                                                   new HashMap<Integer, List<Integer>>(),
                                                                    Lists.newArrayList("test"),
                                                                    ServerTestUtils.getLocalCluster(1),
-                                                                   true,
                                                                    0);
         String jsonString = info.toJsonString();
         RebalancePartitionsInfo info2 = RebalancePartitionsInfo.create(jsonString);
@@ -33,9 +33,9 @@ public class RebalancePartitionsInfoTest {
         info = new RebalancePartitionsInfo(0,
                                            1,
                                            testMap,
+                                           testMap,
                                            Lists.newArrayList("test"),
                                            ServerTestUtils.getLocalCluster(1),
-                                           false,
                                            0);
         jsonString = info.toJsonString();
         info2 = RebalancePartitionsInfo.create(jsonString);
@@ -47,9 +47,9 @@ public class RebalancePartitionsInfoTest {
         info = new RebalancePartitionsInfo(0,
                                            1,
                                            testMap,
+                                           new HashMap<Integer, List<Integer>>(),
                                            Lists.newArrayList("test", "test2"),
                                            ServerTestUtils.getLocalCluster(1),
-                                           false,
                                            0);
         jsonString = info.toJsonString();
         info2 = RebalancePartitionsInfo.create(jsonString);

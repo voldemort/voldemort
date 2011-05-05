@@ -92,6 +92,7 @@ public class RebalancerState {
         return stealInfoMap.values();
     }
 
+    // TODO: Broken, to fix!
     public RebalancePartitionsInfo find(String store, List<Integer> partitionIds) {
         for(RebalancePartitionsInfo info: getAll()) {
             if(info.getUnbalancedStoreList().contains(store)) {

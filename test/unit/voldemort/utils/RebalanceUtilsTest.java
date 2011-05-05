@@ -28,15 +28,12 @@ import com.google.common.collect.Lists;
 
 public class RebalanceUtilsTest extends TestCase {
 
-    private Cluster currentCluster;
-    private Cluster targetCluster;
-
     public void testUpdateCluster() {
-        currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
-        targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 4, 5, 6, 7, 8 },
-                { 2, 3 } });
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
+                { 0, 1, 4, 5, 6, 7, 8 }, { 2, 3 } });
         Cluster updatedCluster = RebalanceUtils.updateCluster(currentCluster,
                                                               new ArrayList<Node>(targetCluster.getNodes()));
         assertEquals("updated cluster should match targetCluster", updatedCluster, targetCluster);
@@ -52,6 +49,34 @@ public class RebalanceUtilsTest extends TestCase {
         nodes.add(new Node(0, "localhost", 1, 2, 3, new ArrayList<Integer>()));
         assertEquals(RebalanceUtils.getNodeIds(nodes).size(), 1);
         assertEquals(RebalanceUtils.getNodeIds(nodes).get(0).intValue(), 0);
+    }
+
+    public void testGetClusterWithNewNodes() {
+        Cluster cluster = ServerTestUtils.getLocalCluster(2, 10, 1);
+
+        // Generate a new cluster which contains 4 nodes instead of 2
+        List<Node> nodes = Lists.newArrayList();
+        for(int nodeId = 0; nodeId < 4; nodeId++) {
+            List<Integer> partitionIds = Lists.newArrayList();
+            for(int partitionId = nodeId * 5; partitionId < (nodeId + 1) * 5; partitionId++) {
+                partitionIds.add(partitionId);
+            }
+            Node node = new Node(nodeId, "b", 0, 1, 2, 0, partitionIds);
+            nodes.add(node);
+        }
+        Cluster newCluster = new Cluster(cluster.getName(),
+                                         nodes,
+                                         Lists.newArrayList(cluster.getZones()));
+
+        Cluster generatedCluster = RebalanceUtils.getClusterWithNewNodes(cluster, newCluster);
+        assertEquals(generatedCluster.getNumberOfNodes(), 4);
+        assertEquals(Utils.compareList(generatedCluster.getNodeById(0).getPartitionIds(),
+                                       cluster.getNodeById(0).getPartitionIds()), true);
+        assertEquals(Utils.compareList(generatedCluster.getNodeById(1).getPartitionIds(),
+                                       cluster.getNodeById(1).getPartitionIds()), true);
+        assertEquals(generatedCluster.getNodeById(2).getPartitionIds().size(), 0);
+        assertEquals(generatedCluster.getNodeById(3).getPartitionIds().size(), 0);
+
     }
 
 }

@@ -30,6 +30,7 @@ import voldemort.ServerTestUtils;
 import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -72,6 +73,116 @@ public class RebalanceClusterPlanTest extends TestCase {
 
     }
 
+    public void testRebalancePlanDelete() {
+
+        // CASE 1
+        currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 },
+                { 4, 5, 6, 7 }, {} });
+
+        targetCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 1, 2, 3 },
+                { 4, 5, 6, 7 }, { 0 } });
+
+        List<RebalanceNodePlan> orderedRebalanceNodePlanList = createOrderedClusterTransition(currentCluster,
+                                                                                              targetCluster,
+                                                                                              Lists.newArrayList(ServerTestUtils.getStoreDef("test",
+                                                                                                                                             2,
+                                                                                                                                             1,
+                                                                                                                                             1,
+                                                                                                                                             1,
+                                                                                                                                             1,
+                                                                                                                                             RoutingStrategyType.CONSISTENT_STRATEGY))).getOrderedRebalanceNodePlanList();
+        assertEquals("There should be exactly 2 rebalancing node",
+                     2,
+                     orderedRebalanceNodePlanList.size());
+        assertEquals("Stealer 2 should have 1 entry",
+                     1,
+                     orderedRebalanceNodePlanList.get(0).getRebalanceTaskList().size());
+        HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
+        partitionsToMove.put(0, Lists.newArrayList(0));
+        partitionsToMove.put(1, Lists.newArrayList(5, 4, 7, 6));
+        HashMap<Integer, List<Integer>> partitionsToDelete = Maps.newHashMap();
+        partitionsToDelete.put(1, Lists.newArrayList(5, 4, 7, 6));
+
+        checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(0),
+                                     Arrays.asList(new RebalancePartitionsInfo(2,
+                                                                               0,
+                                                                               partitionsToMove,
+                                                                               partitionsToDelete,
+                                                                               Lists.newArrayList("test"),
+                                                                               currentCluster,
+                                                                               0)));
+
+        assertEquals("Stealer 0 should have 1 entry",
+                     1,
+                     orderedRebalanceNodePlanList.get(1).getRebalanceTaskList().size());
+        partitionsToMove = Maps.newHashMap();
+        partitionsToMove.put(1, Lists.newArrayList(0));
+        partitionsToDelete = Maps.newHashMap();
+        partitionsToDelete.put(1, Lists.newArrayList(0));
+
+        checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(1),
+                                     Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                               1,
+                                                                               partitionsToMove,
+                                                                               partitionsToDelete,
+                                                                               Lists.newArrayList("test"),
+                                                                               currentCluster,
+                                                                               0)));
+
+        // CASE 2
+
+        currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 },
+                { 4, 5, 6, 7 } });
+
+        targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 1, 2, 3 },
+                { 4, 5, 6, 7, 0 } });
+
+        orderedRebalanceNodePlanList = createOrderedClusterTransition(currentCluster,
+                                                                      targetCluster,
+                                                                      Lists.newArrayList(ServerTestUtils.getStoreDef("test",
+                                                                                                                     2,
+                                                                                                                     1,
+                                                                                                                     1,
+                                                                                                                     1,
+                                                                                                                     1,
+                                                                                                                     RoutingStrategyType.CONSISTENT_STRATEGY))).getOrderedRebalanceNodePlanList();
+        assertEquals("There should be exactly 2 rebalancing node",
+                     2,
+                     orderedRebalanceNodePlanList.size());
+        assertEquals("Stealer 1 should have 1 entry",
+                     1,
+                     orderedRebalanceNodePlanList.get(0).getRebalanceTaskList().size());
+        partitionsToMove = Maps.newHashMap();
+        partitionsToMove.put(0, Lists.newArrayList(0));
+        partitionsToDelete = Maps.newHashMap();
+
+        checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(0),
+                                     Arrays.asList(new RebalancePartitionsInfo(1,
+                                                                               0,
+                                                                               partitionsToMove,
+                                                                               partitionsToDelete,
+                                                                               Lists.newArrayList("test"),
+                                                                               currentCluster,
+                                                                               0)));
+
+        assertEquals("Stealer 1 should have 1 entry",
+                     1,
+                     orderedRebalanceNodePlanList.get(1).getRebalanceTaskList().size());
+        partitionsToMove = Maps.newHashMap();
+        partitionsToMove.put(1, Lists.newArrayList(0));
+        partitionsToDelete = Maps.newHashMap();
+
+        checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(1),
+                                     Arrays.asList(new RebalancePartitionsInfo(0,
+                                                                               1,
+                                                                               partitionsToMove,
+                                                                               partitionsToDelete,
+                                                                               Lists.newArrayList("test"),
+                                                                               currentCluster,
+                                                                               0)));
+
+    }
+
     /**
      * Tests the case where-in we delete all the partitions from the last node
      */
@@ -86,11 +197,11 @@ public class RebalanceClusterPlanTest extends TestCase {
         List<RebalanceNodePlan> orderedRebalanceNodePlanList = createOrderedClusterTransition(currentCluster,
                                                                                               targetCluster,
                                                                                               storeDefList2).getOrderedRebalanceNodePlanList();
-        assertEquals("There should have exactly 1 rebalancing node",
+        assertEquals("There should be exactly 1 rebalancing node",
                      1,
                      orderedRebalanceNodePlanList.size());
 
-        assertEquals("Stealer 3 should have 1 entry",
+        assertEquals("Stealer 0 should have 1 entry",
                      1,
                      orderedRebalanceNodePlanList.get(0).getRebalanceTaskList().size());
         HashMap<Integer, List<Integer>> partitionsToMove = Maps.newHashMap();
@@ -103,9 +214,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                3,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
     }
 
@@ -125,7 +236,8 @@ public class RebalanceClusterPlanTest extends TestCase {
         List<RebalanceNodePlan> orderedRebalanceNodePlanList = createOrderedClusterTransition(currentCluster,
                                                                                               targetCluster,
                                                                                               storeDefList2).getOrderedRebalanceNodePlanList();
-        assertEquals("There should have exactly 3 rebalancing node",
+
+        assertEquals("There should be exactly 3 rebalancing node",
                      3,
                      orderedRebalanceNodePlanList.size());
         assertEquals("Stealer 1 should have 1 entry",
@@ -142,9 +254,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(1,
                                                                                0,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
         assertEquals("Stealer 2 should have 1 entry",
                      1,
@@ -152,13 +264,14 @@ public class RebalanceClusterPlanTest extends TestCase {
         partitionsToMove.clear();
         partitionsToMove.put(1, Lists.newArrayList(0));
         partitionsToMove.put(2, Lists.newArrayList(7));
+        HashMap<Integer, List<Integer>> partitionsToDelete = Maps.newHashMap();
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(1),
                                      Arrays.asList(new RebalancePartitionsInfo(2,
                                                                                1,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         assertEquals("Stealer 3 should have 1 entry",
@@ -166,13 +279,14 @@ public class RebalanceClusterPlanTest extends TestCase {
                      orderedRebalanceNodePlanList.get(2).getRebalanceTaskList().size());
         partitionsToMove.clear();
         partitionsToMove.put(2, Lists.newArrayList(0));
+        partitionsToDelete.clear();
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(2),
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                2,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         // PHASE 2
@@ -201,9 +315,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(2,
                                                                                0,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
         assertEquals("Stealer 1 should have 1 entry",
                      1,
@@ -214,9 +328,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(1,
                                                                                0,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         assertEquals("Stealer 3 should have 1 entry",
@@ -224,13 +338,14 @@ public class RebalanceClusterPlanTest extends TestCase {
                      orderedRebalanceNodePlanList.get(2).getRebalanceTaskList().size());
         partitionsToMove.clear();
         partitionsToMove.put(2, Lists.newArrayList(4));
+        partitionsToDelete.clear();
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(2),
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                2,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
     }
@@ -260,22 +375,23 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(1,
                                                                                2,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
         assertEquals("Stealer 0 should have 1 entry",
                      1,
                      orderedRebalanceNodePlanList.get(1).getRebalanceTaskList().size());
         partitionsToMove.clear();
         partitionsToMove.put(2, Lists.newArrayList(1));
+        HashMap<Integer, List<Integer>> partitionsToDelete = Maps.newHashMap();
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(1),
                                      Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                3,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         assertEquals("Stealer 3 should have 1 entry",
@@ -288,9 +404,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                2,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 1, 5 },
@@ -318,9 +434,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                2,
                                                                                partitionsToMove,
+                                                                               partitionsToMove,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
         assertEquals("Stealer 0 should have 1 entry",
                      1,
@@ -328,13 +444,14 @@ public class RebalanceClusterPlanTest extends TestCase {
         partitionsToMove.clear();
         partitionsToMove.put(1, Lists.newArrayList(6));
         partitionsToMove.put(2, Lists.newArrayList(5));
+        partitionsToDelete.clear();
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(1),
                                      Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                3,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         assertEquals("Stealer 1 should have 1 entry",
@@ -346,9 +463,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(1,
                                                                                0,
                                                                                partitionsToMove,
+                                                                               partitionsToDelete,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
     }
 
@@ -371,31 +488,34 @@ public class RebalanceClusterPlanTest extends TestCase {
                      3,
                      orderedRebalanceNodePlanList.get(0).getRebalanceTaskList().size());
         HashMap<Integer, List<Integer>> partitionsToMove1 = Maps.newHashMap(), partitionsToMove2 = Maps.newHashMap(), partitionsToMove3 = Maps.newHashMap();
+        HashMap<Integer, List<Integer>> partitionsToDelete1 = Maps.newHashMap(), partitionsToDelete2 = Maps.newHashMap(), partitionsToDelete3 = Maps.newHashMap();
         partitionsToMove1.put(0, Lists.newArrayList(1));
         partitionsToMove2.put(0, Lists.newArrayList(5));
         partitionsToMove2.put(1, Lists.newArrayList(0));
         partitionsToMove3.put(1, Lists.newArrayList(4));
+        partitionsToDelete2.put(1, Lists.newArrayList(0));
+        partitionsToDelete3.put(1, Lists.newArrayList(4));
         checkAllRebalanceInfoPresent(orderedRebalanceNodePlanList.get(0),
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                0,
                                                                                partitionsToMove1,
+                                                                               partitionsToDelete1,
                                                                                RebalanceUtils.getStoreNames(storeDefList),
                                                                                currentCluster,
-                                                                               true,
                                                                                0),
                                                    new RebalancePartitionsInfo(3,
                                                                                1,
                                                                                partitionsToMove2,
+                                                                               partitionsToDelete2,
                                                                                RebalanceUtils.getStoreNames(storeDefList),
                                                                                currentCluster,
-                                                                               true,
                                                                                0),
                                                    new RebalancePartitionsInfo(3,
                                                                                2,
                                                                                partitionsToMove3,
+                                                                               partitionsToDelete3,
                                                                                RebalanceUtils.getStoreNames(storeDefList),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
         assertEquals("Stealer 0 should have 1 entry",
                      1,
@@ -406,9 +526,9 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                1,
                                                                                partitionsToMove1,
+                                                                               partitionsToMove1,
                                                                                RebalanceUtils.getStoreNames(storeDefList),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
         assertEquals("Stealer 1 should have 1 entry",
@@ -420,16 +540,15 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(1,
                                                                                2,
                                                                                partitionsToMove1,
+                                                                               partitionsToMove1,
                                                                                RebalanceUtils.getStoreNames(storeDefList),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
 
     }
 
     /**
      * Issue 288
-     * 
      */
     public void testRebalanceAllReplicasBeingMigrated() {
         currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 4 }, { 2, 3 },
@@ -457,16 +576,16 @@ public class RebalanceClusterPlanTest extends TestCase {
                                      Arrays.asList(new RebalancePartitionsInfo(3,
                                                                                0,
                                                                                partitionsToMove1,
+                                                                               partitionsToMove1,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0),
                                                    new RebalancePartitionsInfo(3,
                                                                                1,
                                                                                partitionsToMove2,
+                                                                               partitionsToMove2,
                                                                                RebalanceUtils.getStoreNames(storeDefList2),
                                                                                currentCluster,
-                                                                               true,
                                                                                0)));
     }
 

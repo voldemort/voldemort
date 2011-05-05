@@ -2,8 +2,6 @@ package voldemort.utils;
 
 import java.io.Serializable;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
-
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 
@@ -87,6 +85,8 @@ public final class Pair<F, S> implements Serializable, Function<F, S> {
 
     @Override
     public final String toString() {
-        return new ToStringBuilder(this).append("first", first).append("second", second).toString();
+        StringBuilder builder = new StringBuilder();
+        builder.append("[ " + first + ", " + second + " ]");
+        return builder.toString();
     }
 }

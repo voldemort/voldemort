@@ -135,7 +135,7 @@ message RebalancePartitionInfoMap {
   required int32 attempt = 7;
   repeated PartitionTuple replica_to_partition = 8;
   required string initial_cluster = 9;
-  required bool delete_partitions = 10;
+  repeated PartitionTuple replica_to_delete_partition = 10;
 }
 
 message InitiateRebalanceNodeRequest {

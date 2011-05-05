@@ -63,13 +63,12 @@ public class ProtoUtils {
      * @return Rebalance-partition-info
      */
     public static RebalancePartitionsInfo decodeRebalancePartitionInfoMap(VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap) {
-        HashMap<Integer, List<Integer>> replicaToPartitionList = decodePartitionTuple(rebalancePartitionInfoMap.getReplicaToPartitionList());
         RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
                                                                                  rebalancePartitionInfoMap.getDonorId(),
-                                                                                 replicaToPartitionList,
+                                                                                 decodePartitionTuple(rebalancePartitionInfoMap.getReplicaToPartitionList()),
+                                                                                 decodePartitionTuple(rebalancePartitionInfoMap.getReplicaToDeletePartitionList()),
                                                                                  rebalancePartitionInfoMap.getUnbalancedStoresList(),
                                                                                  new ClusterMapper().readCluster(new StringReader(rebalancePartitionInfoMap.getInitialCluster())),
-                                                                                 rebalancePartitionInfoMap.getDeletePartitions(),
                                                                                  rebalancePartitionInfoMap.getAttempt());
         return rebalanceStealInfo;
     }
@@ -79,10 +78,10 @@ public class ProtoUtils {
                                         .setStealerId(stealInfo.getStealerId())
                                         .setDonorId(stealInfo.getDonorId())
                                         .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(stealInfo.getReplicaToPartitionList()))
+                                        .addAllReplicaToDeletePartition(ProtoUtils.encodePartitionTuple(stealInfo.getReplicaToDeletePartitionList()))
                                         .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
                                         .setInitialCluster(new ClusterMapper().writeCluster(stealInfo.getInitialCluster()))
                                         .setAttempt(stealInfo.getAttempt())
-                                        .setDeletePartitions(stealInfo.getDeletePartitions())
                                         .build();
     }
 

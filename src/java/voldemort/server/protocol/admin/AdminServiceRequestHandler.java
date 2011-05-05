@@ -288,6 +288,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
             RebalancePartitionsInfo rebalanceStealInfo = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
 
+            // Check if we have the steal info
+            if(!metadataStore.getRebalancerState().getAll().contains(rebalanceStealInfo)) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper,
+                                                         new VoldemortException("Could not find plan "
+                                                                                + rebalanceStealInfo
+                                                                                + " in the server state on "
+                                                                                + metadataStore.getNodeId())));
+                return response.build();
+            }
+
             int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
 
             response.setRequestId(requestId)
@@ -704,6 +714,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
                                 ByteArray key = entry.getFirst();
+                                System.out.println("FetchAndUpdate (Migrate partitions) - "
+                                                   + ByteUtils.toHexString(key.get()) + " - "
+                                                   + metadataStore.getNodeId());
                                 Versioned<byte[]> value = entry.getSecond();
                                 try {
                                     storageEngine.put(key, value, null);
@@ -785,6 +798,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                         : metadataStore.getCluster(),
                                                              metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
+                    System.out.println("Delete partitions - " + ByteUtils.toHexString(key.get())
+                                       + " - " + metadataStore.getNodeId());
                     if(storageEngine.delete(key, value.getVersion()))
                         deleteSuccess++;
                 }

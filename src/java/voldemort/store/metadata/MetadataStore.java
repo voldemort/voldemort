@@ -98,11 +98,6 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         REBALANCING_MASTER_SERVER
     }
 
-    public static enum StoreState {
-        NORMAL,
-        REBALANCING
-    }
-
     private final Store<String, String, String> innerStore;
     private final Map<String, Versioned<Object>> metadataCache;
 
@@ -410,7 +405,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
                                                    + rebalancerState + " while deleting");
 
             if(rebalancerState.isEmpty()) {
-                logger.debug("stealInfoList empty, cleaning all rebalancing state");
+                logger.debug("Cleaning all rebalancing state");
                 cleanAllRebalancingState();
             } else {
                 put(REBALANCING_STEAL_INFO, rebalancerState);

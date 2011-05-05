@@ -30,9 +30,9 @@ public class RebalancePartitionsInfo {
     private List<String> unbalancedStoreList;
     private int attempt;
     private HashMap<Integer, List<Integer>> replicaToPartitionList;
+    private HashMap<Integer, List<Integer>> replicaToDeletePartitionList;
     private List<Integer> allPartitions;
     private int maxReplica;
-    private boolean deletePartitions;
     private Cluster initialCluster;
 
     /**
@@ -44,29 +44,30 @@ public class RebalancePartitionsInfo {
      * @param stealerNodeId Stealer node id
      * @param donorId Donor node id
      * @param replicaToPartitionList Map of replica type to partition list
+     * @param replicaToDeletePartitionList Map of replica type to partition
+     *        delete list
      * @param unbalancedStoreList List of stores which are unbalanced
      * @param initialCluster We require the state of the current metadata in
      *        order to determine correct key movement for RW stores. Otherwise
      *        we move keys on the basis of the updated metadata and hell breaks
      *        loose.
-     * @param deletePartitions Delete partitions after rebalancing
      * @param attempt Attempt number
      */
     public RebalancePartitionsInfo(int stealerNodeId,
                                    int donorId,
                                    HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                   HashMap<Integer, List<Integer>> replicaToDeletePartitionList,
                                    List<String> unbalancedStoreList,
                                    Cluster initialCluster,
-                                   boolean deletePartitions,
                                    int attempt) {
         this.stealerId = stealerNodeId;
         this.donorId = donorId;
         this.replicaToPartitionList = replicaToPartitionList;
+        this.replicaToDeletePartitionList = replicaToDeletePartitionList;
         this.attempt = attempt;
         this.unbalancedStoreList = unbalancedStoreList;
         this.allPartitions = Lists.newArrayList();
         this.maxReplica = 0;
-        this.deletePartitions = deletePartitions;
         for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
             this.allPartitions.addAll(entry.getValue());
             if(entry.getKey() > maxReplica) {
@@ -93,23 +94,28 @@ public class RebalancePartitionsInfo {
         List<String> unbalancedStoreList = Utils.uncheckedCast(map.get("unbalancedStoreList"));
         int attempt = (Integer) map.get("attempt");
         int maxReplicas = (Integer) map.get("maxReplicas");
-        boolean deletePartitions = (Boolean) map.get("deletePartitions");
         Cluster initialCluster = new ClusterMapper().readCluster(new StringReader((String) map.get("initialCluster")));
 
-        HashMap<Integer, List<Integer>> partitionMap = Maps.newHashMap();
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        HashMap<Integer, List<Integer>> replicaToDeletePartitionList = Maps.newHashMap();
         for(int replicaNo = 0; replicaNo <= maxReplicas; replicaNo++) {
             List<Integer> partitionList = Utils.uncheckedCast(map.get("replicaToPartitionList"
                                                                       + Integer.toString(replicaNo)));
             if(partitionList.size() > 0)
-                partitionMap.put(replicaNo, partitionList);
+                replicaToPartitionList.put(replicaNo, partitionList);
+
+            List<Integer> deletePartitionList = Utils.uncheckedCast(map.get("replicaToDeletePartitionList"
+                                                                            + Integer.toString(replicaNo)));
+            if(deletePartitionList.size() > 0)
+                replicaToDeletePartitionList.put(replicaNo, deletePartitionList);
         }
 
         return new RebalancePartitionsInfo(stealerId,
                                            donorId,
-                                           partitionMap,
+                                           replicaToPartitionList,
+                                           replicaToDeletePartitionList,
                                            unbalancedStoreList,
                                            initialCluster,
-                                           deletePartitions,
                                            attempt);
     }
 
@@ -119,8 +125,7 @@ public class RebalancePartitionsInfo {
         builder.put("stealerId", stealerId)
                .put("donorId", donorId)
                .put("unbalancedStoreList", unbalancedStoreList)
-               .put("attempt", attempt)
-               .put("deletePartitions", deletePartitions);
+               .put("attempt", attempt);
 
         int maxReplicas = 0;
         for(int replicaNum: replicaToPartitionList.keySet()) {
@@ -128,10 +133,18 @@ public class RebalancePartitionsInfo {
                 maxReplicas = replicaNum;
             }
         }
+
+        for(int replicaNum: replicaToDeletePartitionList.keySet()) {
+            if(replicaNum > maxReplicas) {
+                maxReplicas = replicaNum;
+            }
+        }
+
         builder.put("maxReplicas", maxReplicas);
         builder.put("initialCluster", new ClusterMapper().writeCluster(initialCluster));
 
         for(int replicaNum = 0; replicaNum <= maxReplicas; replicaNum++) {
+            // For partitions moved
             if(replicaToPartitionList.containsKey(replicaNum)) {
                 builder.put("replicaToPartitionList" + Integer.toString(replicaNum),
                             replicaToPartitionList.get(replicaNum));
@@ -139,12 +152,18 @@ public class RebalancePartitionsInfo {
                 builder.put("replicaToPartitionList" + Integer.toString(replicaNum),
                             Lists.newArrayList());
             }
+
+            // For partitions deleted
+            if(replicaToDeletePartitionList.containsKey(replicaNum)) {
+                builder.put("replicaToDeletePartitionList" + Integer.toString(replicaNum),
+                            replicaToDeletePartitionList.get(replicaNum));
+            } else {
+                builder.put("replicaToDeletePartitionList" + Integer.toString(replicaNum),
+                            Lists.newArrayList());
+            }
+
         }
         return builder.build();
-    }
-
-    public boolean getDeletePartitions() {
-        return this.deletePartitions;
     }
 
     public void setAttempt(int attempt) {
@@ -179,6 +198,18 @@ public class RebalancePartitionsInfo {
         return replicaToPartitionList;
     }
 
+    public void setReplicaToPartitionList(HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        this.replicaToPartitionList = replicaToPartitionList;
+    }
+
+    public HashMap<Integer, List<Integer>> getReplicaToDeletePartitionList() {
+        return replicaToDeletePartitionList;
+    }
+
+    public void setReplicaToDeletePartitionList(HashMap<Integer, List<Integer>> replicaToDeletePartitionList) {
+        this.replicaToDeletePartitionList = replicaToDeletePartitionList;
+    }
+
     public List<Integer> getStealMasterPartitions() {
         return replicaToPartitionList.get(0);
     }
@@ -193,7 +224,7 @@ public class RebalancePartitionsInfo {
     @Override
     public String toString() {
         StringBuffer sb = new StringBuffer();
-        sb.append("RebalancingStealInfo(" + getStealerId() + " <--- " + getDonorId()
+        sb.append("RebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId()
                   + ", partitions moved ");
         for(int replicaNum = 0; replicaNum <= maxReplica; replicaNum++) {
             if(replicaToPartitionList.containsKey(replicaNum))
@@ -201,7 +232,14 @@ public class RebalancePartitionsInfo {
             else
                 sb.append(" - []");
         }
-        sb.append(", stores: " + getUnbalancedStoreList() + ", delete - " + deletePartitions + ")");
+        sb.append(", partitions deleted ");
+        for(int replicaNum = 0; replicaNum <= maxReplica; replicaNum++) {
+            if(replicaToDeletePartitionList.containsKey(replicaNum))
+                sb.append(" - " + replicaToDeletePartitionList.get(replicaNum));
+            else
+                sb.append(" - []");
+        }
+        sb.append(", stores: " + getUnbalancedStoreList() + ")");
         return sb.toString();
     }
 
@@ -229,12 +267,13 @@ public class RebalancePartitionsInfo {
             return false;
         if(stealerId != that.stealerId)
             return false;
-        if(deletePartitions != that.deletePartitions)
-            return false;
         if(!initialCluster.equals(that.initialCluster))
             return false;
         if(replicaToPartitionList != null ? !replicaToPartitionList.equals(that.replicaToPartitionList)
                                          : that.replicaToPartitionList != null)
+            return false;
+        if(replicaToDeletePartitionList != null ? !replicaToDeletePartitionList.equals(that.replicaToDeletePartitionList)
+                                               : that.replicaToDeletePartitionList != null)
             return false;
         if(unbalancedStoreList != null ? !unbalancedStoreList.equals(that.unbalancedStoreList)
                                       : that.unbalancedStoreList != null)
@@ -250,6 +289,10 @@ public class RebalancePartitionsInfo {
         result = 31 * result + initialCluster.hashCode();
         result = 31 * result
                  + (replicaToPartitionList != null ? replicaToPartitionList.hashCode() : 0);
+        result = 31
+                 * result
+                 + (replicaToDeletePartitionList != null ? replicaToDeletePartitionList.hashCode()
+                                                        : 0);
         result = 31 * result + (unbalancedStoreList != null ? unbalancedStoreList.hashCode() : 0);
         result = 31 * result + attempt;
         return result;

@@ -36,6 +36,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -146,7 +147,6 @@ public class RebalanceUtils {
                                                                                          cluster)
                                                                   .getPartitionList(key);
         List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-
         for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
 
             // If this partition belongs to node partitions + master is in
@@ -522,30 +522,37 @@ public class RebalanceUtils {
     }
 
     /**
-     * For a particular stealer node find all <replica_type, partition> tuples
-     * it will steal.
+     * Find all [replica_type, partition] tuples to be stolen
      * 
-     * @param cluster Current cluster metadata
-     * @param target Target cluster metadata
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata
      * @param storeDefs List of store definitions
-     * @param stealerId Stealer node id
-     * @return Set of <replica, partition> tuples stolen
+     * @return Map of stealer node id to sets of [ replica_type, partition ]
+     *         tuples
      */
-    public static Set<Pair<Integer, Integer>> getStolenPartitionTuples(final Cluster cluster,
-                                                                       final Cluster target,
-                                                                       final List<StoreDefinition> storeDefs,
-                                                                       final int stealerId) {
-        Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = getNodeIdToAllPartitions(cluster,
-                                                                                              storeDefs,
-                                                                                              true);
-        Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(target,
+    public static Map<Integer, Set<Pair<Integer, Integer>>> getStolenPartitionTuples(final Cluster currentCluster,
+                                                                                     final Cluster targetCluster,
+                                                                                     final List<StoreDefinition> storeDefs) {
+        Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToReplicas = getNodeIdToAllPartitions(currentCluster,
+                                                                                                     storeDefs,
+                                                                                                     true);
+        Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(targetCluster,
                                                                                                     storeDefs,
                                                                                                     true);
 
-        Set<Pair<Integer, Integer>> clusterStealerReplicas = nodeIdToReplicas.get(stealerId);
-        Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
+        Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
+        for(int stealerId: RebalanceUtils.getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
+            Set<Pair<Integer, Integer>> clusterStealerReplicas = currentNodeIdToReplicas.get(stealerId);
+            Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
 
-        return RebalanceUtils.getAddedInTarget(clusterStealerReplicas, targetStealerReplicas);
+            Set<Pair<Integer, Integer>> diff = RebalanceUtils.getAddedInTarget(clusterStealerReplicas,
+                                                                               targetStealerReplicas);
+
+            if(diff != null && diff.size() > 0) {
+                stealerNodeToStolenPartitionTuples.put(stealerId, diff);
+            }
+        }
+        return stealerNodeToStolenPartitionTuples;
     }
 
     /**
@@ -677,7 +684,8 @@ public class RebalanceUtils {
      * current. <br>
      * getDeletedInTarget(null, target) - everything in target was added, return
      * target. <br>
-     * getDeletedInTarget(null, null) - neither added nor deleted, return null. <br>
+     * getDeletedInTarget(null, null) - neither added nor deleted, return empty
+     * set. <br>
      * getDeletedInTarget(current, target)) - returns deleted partition not
      * found in target.
      * 
@@ -859,7 +867,7 @@ public class RebalanceUtils {
             final Integer nodeId = entry.getKey();
             final Set<Pair<Integer, Integer>> allPartitions = entry.getValue();
 
-            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flatten(allPartitions);
+            final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flattenPartitionTuples(allPartitions);
 
             sb.append(nodeId);
             if(replicaTypeToPartitions.size() > 0) {
@@ -881,7 +889,7 @@ public class RebalanceUtils {
      * @param partitionTuples List of <replica_type, partition> tuples
      * @return Map of replica_type to set of partitions
      */
-    public static HashMap<Integer, List<Integer>> flatten(Set<Pair<Integer, Integer>> partitionTuples) {
+    public static HashMap<Integer, List<Integer>> flattenPartitionTuples(Set<Pair<Integer, Integer>> partitionTuples) {
         HashMap<Integer, List<Integer>> flattenedTuples = Maps.newHashMap();
         for(Pair<Integer, Integer> pair: partitionTuples) {
             if(flattenedTuples.containsKey(pair.getFirst())) {
@@ -893,6 +901,40 @@ public class RebalanceUtils {
             }
         }
         return flattenedTuples;
+    }
+
+    /**
+     * Given a list of node plans flattens it into a list of partitions info
+     * 
+     * @param rebalanceNodePlanList Complete list of rebalance node plan
+     * @return Flattened list of partition plans
+     */
+    public static List<RebalancePartitionsInfo> flattenNodePlans(List<RebalanceNodePlan> rebalanceNodePlanList) {
+        List<RebalancePartitionsInfo> list = new ArrayList<RebalancePartitionsInfo>();
+        for(RebalanceNodePlan rebalanceNodePlan: rebalanceNodePlanList) {
+            for(final RebalancePartitionsInfo stealInfo: rebalanceNodePlan.getRebalanceTaskList()) {
+                list.add(stealInfo);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Given a set of [ replica, partition ] tuples, flatten it to retrieve only
+     * the partitions
+     * 
+     * @param tuples The [ replica, partition ] tuples
+     * @return List of partitions
+     */
+    public static List<Integer> getPartitionsFromTuples(Set<Pair<Integer, Integer>> tuples) {
+        List<Integer> partitions = Lists.newArrayList();
+
+        if(tuples != null) {
+            for(Pair<Integer, Integer> tuple: tuples) {
+                partitions.add(tuple.getSecond());
+            }
+        }
+        return partitions;
     }
 
     /**

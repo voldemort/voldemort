@@ -105,7 +105,7 @@ public class VoldemortTestConstants {
     private static String readString(String filename) {
         try {
             return IOUtils.toString(VoldemortTestConstants.class.getResourceAsStream(filename));
-        } catch (IOException e) {
+        } catch(IOException e) {
             throw new RuntimeException(e);
         }
     }
