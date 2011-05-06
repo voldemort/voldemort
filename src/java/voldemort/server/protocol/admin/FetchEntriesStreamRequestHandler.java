@@ -62,6 +62,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                                                      replicaToPartitionList,
                                                      initialCluster,
                                                      storeDef)
+
            && counter % skipRecords == 0) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             stats.recordDiskTime(handle, System.nanoTime() - startNs);

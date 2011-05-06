@@ -173,7 +173,9 @@ public class RebalanceController {
             List<Integer> stolenPrimaryPartitions = stealerToStolenPrimaryPartitions.get(stealerNode);
 
             if(stolenPrimaryPartitions == null || stolenPrimaryPartitions.isEmpty()) {
-                RebalanceUtils.printLog(stealerNode.getId(), logger, "No partitions to steal");
+                RebalanceUtils.printLog(stealerNode.getId(),
+                                        logger,
+                                        "No primary partitions to steal");
                 continue;
             }
 
@@ -255,10 +257,8 @@ public class RebalanceController {
                 return;
             }
 
-            RebalanceUtils.printLog(globalStealerNodeId,
-                                    logger,
-                                    "Starting rebalance task "
-                                            + orderedClusterTransition.toString());
+            RebalanceUtils.printLog(globalStealerNodeId, logger, "Starting rebalance task id "
+                                                                 + orderedClusterTransition.getId());
 
             // Flatten the node plans to partition plans
             List<RebalancePartitionsInfo> rebalancePartitionPlanList = RebalanceUtils.flattenNodePlans(rebalanceNodePlanList);

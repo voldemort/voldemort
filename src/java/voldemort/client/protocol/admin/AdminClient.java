@@ -1091,7 +1091,7 @@ public class AdminClient {
 
     /**
      * Delete all entries belonging to all the partitions passed as a map of
-     * replica_type to partition list
+     * replica_type to partition list. Works only for RW stores.
      * 
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries

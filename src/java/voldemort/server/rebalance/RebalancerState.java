@@ -26,6 +26,7 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.serialization.json.JsonReader;
 import voldemort.serialization.json.JsonWriter;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.RebalanceUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -92,16 +93,25 @@ public class RebalancerState {
         return stealInfoMap.values();
     }
 
-    // TODO: Broken, to fix!
-    public RebalancePartitionsInfo find(String store, List<Integer> partitionIds) {
+    public RebalancePartitionsInfo find(String store,
+                                        List<Integer> keyPartitions,
+                                        List<Integer> nodePartitions) {
         for(RebalancePartitionsInfo info: getAll()) {
+
+            // First check if the store exists
             if(info.getUnbalancedStoreList().contains(store)) {
-                List<Integer> unbalancedPartitions = Lists.newArrayList(info.getPartitions());
-                // Any change = overlap
-                if(unbalancedPartitions.removeAll(partitionIds))
+
+                // If yes, check if the key belongs to one of the partitions
+                // being moved
+                if(RebalanceUtils.checkKeyBelongsToPartition(keyPartitions,
+                                                             nodePartitions,
+                                                             info.getReplicaToPartitionList())) {
                     return info;
+                }
             }
         }
+
+        // If none of them match, null
         return null;
     }
 

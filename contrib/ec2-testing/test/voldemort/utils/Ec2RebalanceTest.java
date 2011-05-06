@@ -204,9 +204,9 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
                                                                                       0,
                                                                                       toMoveMap,
+                                                                                      new HashMap<Integer, List<Integer>>(),
                                                                                       Arrays.asList(testStoreNameRW),
                                                                                       currentCluster,
-                                                                                      false,
                                                                                       0);
         int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
         logger.info("started rebalanceNode, request id = " + requestId);

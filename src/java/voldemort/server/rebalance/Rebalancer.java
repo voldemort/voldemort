@@ -16,12 +16,10 @@
 
 package voldemort.server.rebalance;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -29,10 +27,10 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
 
 /**
@@ -51,11 +49,14 @@ public class Rebalancer implements Runnable {
     private final MetadataStore metadataStore;
     private final AsyncOperationService asyncService;
     private final VoldemortConfig voldemortConfig;
+    private final StoreRepository storeRepository;
     private final Set<Integer> rebalancePermits = Collections.synchronizedSet(new HashSet<Integer>());
 
-    public Rebalancer(MetadataStore metadataStore,
+    public Rebalancer(StoreRepository storeRepository,
+                      MetadataStore metadataStore,
                       VoldemortConfig voldemortConfig,
                       AsyncOperationService asyncService) {
+        this.storeRepository = storeRepository;
         this.metadataStore = metadataStore;
         this.asyncService = asyncService;
         this.voldemortConfig = voldemortConfig;
@@ -112,66 +113,9 @@ public class Rebalancer implements Runnable {
     }
 
     /**
-     * This is triggered only once when a node comes back up from a failure (
-     * down node ) and tries to complete rebalancing
+     * This is called only once at startup
      */
-    public void run() {
-        logger.debug("rebalancer run() called.");
-        VoldemortState voldemortState;
-        RebalancerState rebalancerState;
-
-        metadataStore.readLock.lock();
-        try {
-            voldemortState = metadataStore.getServerState();
-            rebalancerState = metadataStore.getRebalancerState();
-        } catch(Exception e) {
-            logger.error("Error determining state", e);
-            return;
-        } finally {
-            metadataStore.readLock.unlock();
-        }
-
-        final List<Exception> failures = new ArrayList<Exception>();
-
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       metadataStore.getCluster(),
-                                                                       4,
-                                                                       2);
-
-        if(VoldemortState.REBALANCING_MASTER_SERVER.equals(voldemortState)) {
-            for(RebalancePartitionsInfo stealInfo: rebalancerState.getAll()) {
-
-                if(stealInfo.getUnbalancedStoreList().size() > 0) {
-                    try {
-                        logger.warn("Rebalance server found incomplete rebalancing attempt, restarting rebalancing task "
-                                    + stealInfo);
-                        if(stealInfo.getAttempt() < voldemortConfig.getMaxRebalancingAttempt()) {
-                            stealInfo.setAttempt(stealInfo.getAttempt() + 1);
-
-                            int rebalanceAsyncId = rebalanceNode(stealInfo);
-                            adminClient.waitForCompletion(stealInfo.getStealerId(),
-                                                          rebalanceAsyncId,
-                                                          voldemortConfig.getRebalancingTimeoutSec(),
-                                                          TimeUnit.SECONDS);
-                        } else {
-                            logger.warn("Rebalancing for rebalancing task " + stealInfo
-                                        + " failed multiple times (max. attemps:"
-                                        + voldemortConfig.getMaxRebalancingAttempt()
-                                        + "), Aborting more trials.");
-
-                            metadataStore.deleteRebalancingState(stealInfo);
-                        }
-                    } catch(Exception e) {
-                        logger.error("RebalanceService rebalancing attempt " + stealInfo
-                                     + " failed with exception - " + e.getMessage(), e);
-                        failures.add(e);
-                    }
-                } else {
-                    metadataStore.deleteRebalancingState(stealInfo);
-                }
-            }
-        }
-    }
+    public void run() {}
 
     /**
      * Every rebalance state change comes with a couple of requests ( swap ro,
@@ -223,7 +167,10 @@ public class Rebalancer implements Runnable {
                                                                  : RebalanceChangeStatus.NOT_REQUIRED;
 
         Cluster currentCluster = metadataStore.getCluster();
-
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                                       currentCluster,
+                                                                       1,
+                                                                       1);
         try {
             // CHANGE CLUSTER METADATA
             if(changeClusterMetadataStatus == RebalanceChangeStatus.STARTED) {
@@ -231,9 +178,9 @@ public class Rebalancer implements Runnable {
                 changeClusterMetadataStatus = RebalanceChangeStatus.COMPLETED;
             }
 
-            // SWAP RO DATA
+            // SWAP RO DATA FOR ALL STORES
             if(swapROStatus == RebalanceChangeStatus.STARTED) {
-                // TODO: Put swap code
+                swapROStores(rebalancePartitionsInfo);
                 swapROStatus = RebalanceChangeStatus.COMPLETED;
             }
 
@@ -261,11 +208,12 @@ public class Rebalancer implements Runnable {
                 }
             }
 
+            // SWAP RO DATA FOR ALL STORES
             if(swapROStatus == RebalanceChangeStatus.COMPLETED) {
                 try {
-                    // TODO:
+                    swapROStores(rebalancePartitionsInfo);
                 } catch(Exception exception) {
-                    logger.error("Error while rolling back cluster metadata ");
+                    logger.error("Error while swapping back to old state ");
                 }
             }
 
@@ -273,12 +221,26 @@ public class Rebalancer implements Runnable {
                 try {
                     // TODO:
                 } catch(Exception exception) {
-                    logger.error("Error while rolling back cluster metadata ");
+                    logger.error("Error while changing back rebalance state");
                 }
             }
 
             throw e;
+        } finally {
+            if(adminClient != null) {
+                adminClient.stop();
+                adminClient = null;
+            }
         }
+
+    }
+
+    /**
+     * Goes through all the RO Stores in the plan and swaps it
+     * 
+     * @param rebalancePartitionsInfo List of rebalance partition plans
+     */
+    private void swapROStores(List<RebalancePartitionsInfo> rebalancePartitionsInfo) {
 
     }
 

@@ -838,7 +838,7 @@ public class AdminServiceBasicTest extends TestCase {
             File tempDir = TestUtils.createTempDir();
 
             HashMap<Integer, List<Integer>> dumbMap = Maps.newHashMap();
-            dumbMap.put(100, Lists.newArrayList(0));
+            dumbMap.put(0, Lists.newArrayList(100));
             try {
                 getAdminClient().fetchPartitionFiles(node.getId(),
                                                      "test-readonly-fetchfiles",

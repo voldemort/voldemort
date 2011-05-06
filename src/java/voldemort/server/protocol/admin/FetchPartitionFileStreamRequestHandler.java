@@ -20,12 +20,15 @@ import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.stats.StreamStats;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
+
+import com.google.common.collect.Maps;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
@@ -53,14 +56,24 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                                                      StoreRepository storeRepository,
                                                      StreamStats stats) {
         this.request = request;
-        boolean isReadOnly = metadataStore.getStoreDef(request.getStore())
-                                          .getType()
-                                          .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+
+        StoreDefinition storeDef = metadataStore.getStoreDef(request.getStore());
+        boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
         if(!isReadOnly) {
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
-        this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
 
+        HashMap<Integer, List<Integer>> localReplicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+
+        // Filter the replica to partition mapping so as to include only till
+        // the number of replicas
+        this.replicaToPartitionList = Maps.newHashMap();
+        for(int replicaType = 0; replicaType < storeDef.getReplicationFactor(); replicaType++) {
+            if(localReplicaToPartitionList.containsKey(replicaType)) {
+                this.replicaToPartitionList.put(replicaType,
+                                                localReplicaToPartitionList.get(replicaType));
+            }
+        }
         this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                  storeRepository,
                                                                                  request.getStore());

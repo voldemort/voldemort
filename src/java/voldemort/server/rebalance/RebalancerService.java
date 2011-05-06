@@ -1,42 +1,36 @@
 package voldemort.server.rebalance;
 
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.server.AbstractService;
 import voldemort.server.ServiceType;
+import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.Time;
 
 /**
  */
-@JmxManaged(description = "Rebalancer service to check if server is in rebalancing state only during startup")
+@JmxManaged(description = "Rebalancer service to help with rebalancing")
 public class RebalancerService extends AbstractService {
 
-    private final long periodMs;
     private final SchedulerService schedulerService;
     private final Rebalancer rebalancer;
 
-    public RebalancerService(MetadataStore metadataStore,
+    public RebalancerService(StoreRepository storeRepository,
+                             MetadataStore metadataStore,
                              VoldemortConfig voldemortConfig,
                              AsyncOperationService asyncService,
                              SchedulerService service) {
         super(ServiceType.REBALANCE);
         schedulerService = service;
-        rebalancer = new Rebalancer(metadataStore, voldemortConfig, asyncService);
-        periodMs = voldemortConfig.getRebalancingStartMs();
+        rebalancer = new Rebalancer(storeRepository, metadataStore, voldemortConfig, asyncService);
     }
 
     @Override
     protected void startInner() {
         rebalancer.start();
-        GregorianCalendar cal = new GregorianCalendar();
-        cal.add(Calendar.SECOND, (int) (periodMs / Time.MS_PER_SECOND));
-        schedulerService.schedule("rebalancer", rebalancer, cal.getTime());
+        schedulerService.scheduleNow(rebalancer);
     }
 
     @Override

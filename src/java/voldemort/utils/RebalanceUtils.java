@@ -131,6 +131,34 @@ public class RebalanceUtils {
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions
      * 
+     * @param keyPartitions Preference list of the key
+     * @param nodePartitions Partition list on this node
+     * @param replicaToPartitionList Mapping of replica type to partition list
+     * @return Returns a boolean to indicate if this belongs to the map
+     */
+    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
+                                                     List<Integer> nodePartitions,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
+
+            // If this partition belongs to node partitions + master is in
+            // replicaToPartitions list -> match
+            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
+                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
+                if(partitionsToMove != null && partitionsToMove.size() > 0) {
+                    if(partitionsToMove.contains(keyPartitions.get(0))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check that the key belongs to one of the partitions in the map of replica
+     * type to partitions
+     * 
      * @param nodeId Node on which this is running
      * @param key The key to check
      * @param replicaToPartitionList Mapping of replica type to partition list
@@ -147,21 +175,7 @@ public class RebalanceUtils {
                                                                                          cluster)
                                                                   .getPartitionList(key);
         List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
-
-            // If this partition belongs to node partitions + master is in
-            // replicaToPartitions list -> match
-            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
-                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
-                if(partitionsToMove != null && partitionsToMove.size() > 0) {
-                    if(partitionsToMove.contains(keyPartitions.get(0))) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
+        return checkKeyBelongsToPartition(keyPartitions, nodePartitions, replicaToPartitionList);
     }
 
     /**

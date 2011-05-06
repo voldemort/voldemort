@@ -94,7 +94,10 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
         return metadata.getRebalancerState().find(getName(),
                                                   metadata.getRoutingStrategy(getName())
-                                                          .getPartitionList(key.get()));
+                                                          .getPartitionList(key.get()),
+                                                  metadata.getCluster()
+                                                          .getNodeById(metadata.getNodeId())
+                                                          .getPartitionIds());
     }
 
     @Override
