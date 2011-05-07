@@ -158,16 +158,20 @@ public class Rebalancer implements Runnable {
 
             // CHANGE REBALANCING STATE
             if(changeRebalanceState) {
-                if(!rollback) {
-                    for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
-                        metadataStore.addRebalancingState(info);
-                        completedRebalancePartitionsInfo.add(info);
+                try {
+                    if(!rollback) {
+                        for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                            metadataStore.addRebalancingState(info);
+                            completedRebalancePartitionsInfo.add(info);
+                        }
+                    } else {
+                        for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
+                            metadataStore.deleteRebalancingState(info);
+                            completedRebalancePartitionsInfo.add(info);
+                        }
                     }
-                } else {
-                    for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
-                        metadataStore.deleteRebalancingState(info);
-                        completedRebalancePartitionsInfo.add(info);
-                    }
+                } catch(Exception e) {
+                    throw new VoldemortException(e);
                 }
             }
         } catch(VoldemortException e) {
@@ -233,30 +237,34 @@ public class Rebalancer implements Runnable {
      */
     private void swapROStores(List<String> swappedStoreNames, boolean useSwappedStoreNames) {
 
-        for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
+        try {
+            for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
 
-            // Only pick up the RO stores
-            if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+                // Only pick up the RO stores
+                if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
 
-                if(useSwappedStoreNames && !swappedStoreNames.contains(storeDef.getName())) {
-                    continue;
+                    if(useSwappedStoreNames && !swappedStoreNames.contains(storeDef.getName())) {
+                        continue;
+                    }
+
+                    ReadOnlyStorageEngine engine = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeDef.getName());
+
+                    if(engine == null) {
+                        throw new VoldemortException("Could not find storage engine for "
+                                                     + storeDef.getName() + " to swap ");
+                    }
+
+                    // Time to swap this store - Could have used admin client,
+                    // but why incur the overhead?
+                    engine.swapFiles(engine.getCurrentDirPath());
+
+                    // Add to list of stores already swapped
+                    if(!useSwappedStoreNames)
+                        swappedStoreNames.add(storeDef.getName());
                 }
-
-                ReadOnlyStorageEngine engine = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeDef.getName());
-
-                if(engine == null) {
-                    throw new VoldemortException("Could not find storage engine for "
-                                                 + storeDef.getName() + " to swap ");
-                }
-
-                // Time to swap this store - Could have used admin client, but
-                // why incur the overhead?
-                engine.swapFiles(engine.getCurrentDirPath());
-
-                // Add to list of stores already swapped
-                if(!useSwappedStoreNames)
-                    swappedStoreNames.add(storeDef.getName());
             }
+        } catch(Exception e) {
+            throw new VoldemortException(e);
         }
     }
 
@@ -266,12 +274,16 @@ public class Rebalancer implements Runnable {
      * @param cluster The cluster metadata information
      */
     private void changeCluster(final Cluster cluster) {
-        metadataStore.writeLock.lock();
         try {
-            logger.info("Switching metadata to " + cluster);
-            metadataStore.put(MetadataStore.CLUSTER_KEY, cluster);
-        } finally {
-            metadataStore.writeLock.unlock();
+            metadataStore.writeLock.lock();
+            try {
+                logger.info("Switching metadata to " + cluster);
+                metadataStore.put(MetadataStore.CLUSTER_KEY, cluster);
+            } finally {
+                metadataStore.writeLock.unlock();
+            }
+        } catch(Exception e) {
+            throw new VoldemortException(e);
         }
     }
 

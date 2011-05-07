@@ -2,6 +2,7 @@ package voldemort.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -23,7 +24,10 @@ import com.google.common.collect.Maps;
 
 public class KeyDistributionGenerator {
 
+    private final static DecimalFormat formatter = new DecimalFormat("#.##");
+
     public static void main(String args[]) throws IOException {
+
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
         parser.accepts("cluster-xml", "[REQUIRED] cluster xml file location")
@@ -78,6 +82,35 @@ public class KeyDistributionGenerator {
         System.out.println("Overall distribution ");
         printDistribution(overallDistribution);
         System.out.println("Std dev - " + getStdDeviation(overallDistribution));
+    }
+
+    /**
+     * Given the cluster metadata and list of store definitions, presents a
+     * string of the distribution and standard deviation
+     * 
+     * @param cluster The cluster metadata
+     * @param storeDefs List of store definitions
+     * @return String representation
+     */
+    public static String printOverallDistribution(Cluster cluster, List<StoreDefinition> storeDefs) {
+
+        StringBuilder builder = new StringBuilder();
+        HashMap<Integer, Double> distribution = generateOverallDistribution(cluster,
+                                                                            storeDefs,
+                                                                            1000);
+
+        builder.append("Cluster('");
+        builder.append(cluster.getName());
+        builder.append("', [ ");
+        for(Node n: cluster.getNodes()) {
+            builder.append(n.toString());
+            builder.append(" (" + formatter.format(distribution.get(n.getId())) + ")");
+            builder.append(", ");
+        }
+        builder.append("])");
+
+        return builder.toString();
+
     }
 
     public static HashMap<Integer, Double> generateOverallDistribution(Cluster cluster,
@@ -207,7 +240,8 @@ public class KeyDistributionGenerator {
 
     public static void printDistribution(HashMap<Integer, Double> distribution) {
         for(int nodeId: distribution.keySet()) {
-            System.out.println("Node " + nodeId + " - " + distribution.get(nodeId));
+            System.out.println("Node " + nodeId + " - "
+                               + formatter.format(distribution.get(nodeId)));
         }
     }
 
@@ -222,8 +256,8 @@ public class KeyDistributionGenerator {
         return getStdDeviation(distribution, expectedDistribution);
     }
 
-    public static double getStdDeviation(HashMap<Integer, Double> distribution,
-                                         HashMap<Integer, Double> expectedDistribution) {
+    private static double getStdDeviation(HashMap<Integer, Double> distribution,
+                                          HashMap<Integer, Double> expectedDistribution) {
         HashMap<Integer, Double> offBy = Maps.newHashMap();
 
         for(Integer nodeId: distribution.keySet()) {

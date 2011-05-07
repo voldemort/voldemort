@@ -1851,6 +1851,9 @@ public class AdminClient {
                                                                        .mergeFrom(input)
                                                                        .build();
                 logger.info("Receiving file " + fileEntry.getFileName());
+
+                // TODO: Add some checks here. Check that the file is not one of
+                // the mmap-ed files
                 FileChannel fileChannel = new FileOutputStream(new File(destinationDirPath,
                                                                         fileEntry.getFileName())).getChannel();
                 ReadableByteChannel channelIn = Channels.newChannel(inputStream);

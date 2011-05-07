@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Utils;
 
 /**
@@ -61,8 +62,14 @@ public class OrderedClusterTransition {
         if(printedContent == null) {
             StringBuilder sb = new StringBuilder();
             sb.append("- Rebalance Task Id : ").append(getId()).append(Utils.NEWLINE);
-            sb.append("- Current cluster : ").append(getCurrentCluster()).append(Utils.NEWLINE);
-            sb.append("- Target cluster : ").append(getTargetCluster()).append(Utils.NEWLINE);
+            sb.append("- Current cluster : ")
+              .append(KeyDistributionGenerator.printOverallDistribution(getCurrentCluster(),
+                                                                        getStoreDefs()))
+              .append(Utils.NEWLINE);
+            sb.append("- Target cluster : ")
+              .append(KeyDistributionGenerator.printOverallDistribution(getTargetCluster(),
+                                                                        getStoreDefs()))
+              .append(Utils.NEWLINE);
             sb.append("- Partition distribution : ")
               .append(Utils.NEWLINE)
               .append(getRebalanceClusterPlan().printPartitionDistribution())

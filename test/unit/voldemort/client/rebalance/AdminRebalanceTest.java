@@ -903,13 +903,14 @@ public class AdminRebalanceTest extends TestCase {
             // Clean-up everything
             cleanUpAllState();
 
-            System.out.println("=======================================");
             // Test 2 ) Add another store to trigger a failure
             servers[2].getMetadataStore()
                       .put(MetadataStore.STORES_KEY,
                            Lists.newArrayList(storeDef1,
                                               storeDef2,
-                                              new StoreDefinitionBuilder().setName("test3")
+                                              storeDef3,
+                                              storeDef4,
+                                              new StoreDefinitionBuilder().setName("test5")
                                                                           .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                                           .setKeySerializer(new SerializerDefinition("string"))
                                                                           .setValueSerializer(new SerializerDefinition("string"))
@@ -938,37 +939,41 @@ public class AdminRebalanceTest extends TestCase {
 
             // Clean-up everything
             cleanUpAllState();
-            //
-            // // Test 3) Everything should work
-            // adminClient.rebalanceStateChange(cluster, targetCluster, plans,
-            // true, true, true);
-            //
-            // List<Integer> nodesChecked = Lists.newArrayList();
-            // for(RebalancePartitionsInfo plan: plans) {
-            // nodesChecked.add(plan.getStealerId());
-            // assertEquals(servers[plan.getStealerId()].getMetadataStore().getRebalancerState(),
-            // new RebalancerState(Lists.newArrayList(plan)));
-            // assertEquals(servers[plan.getStealerId()].getMetadataStore().getServerState(),
-            // MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-            // assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
-            // targetCluster);
-            // }
-            //
-            // List<Integer> allNodes =
-            // Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
-            // allNodes.removeAll(nodesChecked);
-            //
-            // // Check all other nodes
-            // for(int nodeId: allNodes) {
-            // assertEquals(servers[nodeId].getMetadataStore().getRebalancerState(),
-            // new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
-            // assertEquals(servers[nodeId].getMetadataStore().getServerState(),
-            // MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
-            // assertEquals(servers[nodeId].getMetadataStore().getCluster(),
-            // targetCluster);
-            // }
-            //
-            // checkRO(targetCluster);
+
+            // Put back server 2 back to normal state
+            servers[2].getMetadataStore().put(MetadataStore.STORES_KEY,
+                                              Lists.newArrayList(storeDef1,
+                                                                 storeDef2,
+                                                                 storeDef3,
+                                                                 storeDef4));
+
+            // Test 3) Everything should work
+            adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, true);
+
+            List<Integer> nodesChecked = Lists.newArrayList();
+            for(RebalancePartitionsInfo plan: plans) {
+                nodesChecked.add(plan.getStealerId());
+                assertEquals(servers[plan.getStealerId()].getMetadataStore().getRebalancerState(),
+                             new RebalancerState(Lists.newArrayList(plan)));
+                assertEquals(servers[plan.getStealerId()].getMetadataStore().getServerState(),
+                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                assertEquals(servers[plan.getStealerId()].getMetadataStore().getCluster(),
+                             targetCluster);
+            }
+
+            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            allNodes.removeAll(nodesChecked);
+
+            // Check all other nodes
+            for(int nodeId: allNodes) {
+                assertEquals(servers[nodeId].getMetadataStore().getRebalancerState(),
+                             new RebalancerState(new ArrayList<RebalancePartitionsInfo>()));
+                assertEquals(servers[nodeId].getMetadataStore().getServerState(),
+                             MetadataStore.VoldemortState.NORMAL_SERVER);
+                assertEquals(servers[nodeId].getMetadataStore().getCluster(), targetCluster);
+            }
+
+            checkRO(targetCluster);
         } finally {
             shutDown();
         }
@@ -1230,6 +1235,17 @@ public class AdminRebalanceTest extends TestCase {
                     indexOs.close();
                 }
             }
+        }
+    }
+
+    @Test
+    public void testRebalancePerTaskTransition() throws IOException {
+
+        try {
+            startFourNodeRO();
+
+        } finally {
+            shutDown();
         }
     }
 }
