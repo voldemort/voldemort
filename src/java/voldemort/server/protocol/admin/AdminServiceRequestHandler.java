@@ -288,16 +288,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
             RebalancePartitionsInfo rebalanceStealInfo = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfo());
 
-            // Check if we have the steal info
-            if(!metadataStore.getRebalancerState().getAll().contains(rebalanceStealInfo)) {
-                response.setError(ProtoUtils.encodeError(errorCodeMapper,
-                                                         new VoldemortException("Could not find plan "
-                                                                                + rebalanceStealInfo
-                                                                                + " in the server state on "
-                                                                                + metadataStore.getNodeId())));
-                return response.build();
-            }
-
             int requestId = rebalancer.rebalanceNode(rebalanceStealInfo);
 
             response.setRequestId(requestId)

@@ -24,14 +24,17 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
+import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.utils.RebalanceUtils;
+import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageEngine;
+
+import com.google.common.collect.Lists;
 
 /**
  * Service responsible for rebalancing
@@ -71,18 +74,9 @@ public class Rebalancer implements Runnable {
     public void stop() {}
 
     /**
-     * Has rebalancing permit
-     * 
-     * @param nodeId The node id for which we want to check if we have a permit
-     * @return Returns true if permit has been taken
+     * This is called only once at startup
      */
-    public synchronized boolean hasRebalancingPermit(int nodeId) {
-        boolean contained = rebalancePermits.contains(nodeId);
-        if(logger.isInfoEnabled())
-            logger.info("hasRebalancingPermit for nodeId: " + nodeId + ", returned: " + contained);
-
-        return contained;
-    }
+    public void run() {}
 
     /**
      * Acquire a permit for a particular node id so as to allow rebalancing
@@ -94,7 +88,8 @@ public class Rebalancer implements Runnable {
     public synchronized boolean acquireRebalancingPermit(int nodeId) {
         boolean added = rebalancePermits.add(nodeId);
         if(logger.isInfoEnabled())
-            logger.info("acquireRebalancingPermit for nodeId: " + nodeId + ", returned: " + added);
+            logger.info("Acquiring rebalancing permit for nodeId: " + nodeId + ", returned: "
+                        + added);
 
         return added;
     }
@@ -106,27 +101,10 @@ public class Rebalancer implements Runnable {
      */
     public synchronized void releaseRebalancingPermit(int nodeId) {
         boolean removed = rebalancePermits.remove(nodeId);
-        logger.info("releaseRebalancingPermit for nodeId: " + nodeId + ", returned: " + removed);
+        logger.info("Releasing rebalancing permit for nodeId: " + nodeId + ", returned: " + removed);
         if(!removed)
             throw new VoldemortException(new IllegalStateException("Invalid state, must hold a "
                                                                    + "permit to release"));
-    }
-
-    /**
-     * This is called only once at startup
-     */
-    public void run() {}
-
-    /**
-     * Every rebalance state change comes with a couple of requests ( swap ro,
-     * change the cluster metadata or change rebalance state ). We need to track
-     * the progress of these operations in order to rollback in case of failures
-     * 
-     */
-    private enum RebalanceChangeStatus {
-        NOT_REQUIRED,
-        STARTED,
-        COMPLETED
     }
 
     /**
@@ -159,78 +137,89 @@ public class Rebalancer implements Runnable {
                                      boolean changeClusterMetadata,
                                      boolean changeRebalanceState,
                                      boolean rollback) {
-        RebalanceChangeStatus changeClusterMetadataStatus = swapRO ? RebalanceChangeStatus.STARTED
-                                                                  : RebalanceChangeStatus.NOT_REQUIRED;
-        RebalanceChangeStatus swapROStatus = swapRO ? RebalanceChangeStatus.STARTED
-                                                   : RebalanceChangeStatus.NOT_REQUIRED;
-        RebalanceChangeStatus changeRebalanceStateStatus = swapRO ? RebalanceChangeStatus.STARTED
-                                                                 : RebalanceChangeStatus.NOT_REQUIRED;
-
         Cluster currentCluster = metadataStore.getCluster();
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
-                                                                       currentCluster,
-                                                                       1,
-                                                                       1);
+
+        // Variables to track what has completed
+        List<RebalancePartitionsInfo> completedRebalancePartitionsInfo = Lists.newArrayList();
+        List<String> swappedStoreNames = Lists.newArrayList();
+        boolean completedClusterChange = false;
+
         try {
             // CHANGE CLUSTER METADATA
-            if(changeClusterMetadataStatus == RebalanceChangeStatus.STARTED) {
+            if(changeClusterMetadata) {
                 changeCluster(cluster);
-                changeClusterMetadataStatus = RebalanceChangeStatus.COMPLETED;
+                completedClusterChange = true;
             }
 
             // SWAP RO DATA FOR ALL STORES
-            if(swapROStatus == RebalanceChangeStatus.STARTED) {
-                swapROStores(rebalancePartitionsInfo);
-                swapROStatus = RebalanceChangeStatus.COMPLETED;
+            if(swapRO) {
+                swapROStores(swappedStoreNames, false);
             }
 
             // CHANGE REBALANCING STATE
-            if(changeRebalanceStateStatus == RebalanceChangeStatus.STARTED) {
+            if(changeRebalanceState) {
                 if(!rollback) {
                     for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
                         metadataStore.addRebalancingState(info);
+                        completedRebalancePartitionsInfo.add(info);
                     }
                 } else {
                     for(RebalancePartitionsInfo info: rebalancePartitionsInfo) {
                         metadataStore.deleteRebalancingState(info);
+                        completedRebalancePartitionsInfo.add(info);
                     }
                 }
-                changeRebalanceStateStatus = RebalanceChangeStatus.COMPLETED;
             }
         } catch(VoldemortException e) {
 
+            logger.error("Got exception while changing state, now rolling back changes", e);
+
             // ROLLBACK CLUSTER CHANGE
-            if(changeClusterMetadataStatus == RebalanceChangeStatus.COMPLETED) {
+            if(completedClusterChange) {
                 try {
                     changeCluster(currentCluster);
                 } catch(Exception exception) {
-                    logger.error("Error while rolling back cluster metadata ");
+                    logger.error("Error while rolling back cluster metadata ", exception);
                 }
             }
 
-            // SWAP RO DATA FOR ALL STORES
-            if(swapROStatus == RebalanceChangeStatus.COMPLETED) {
+            // SWAP RO DATA FOR ALL COMPLETED STORES
+            if(swappedStoreNames.size() > 0) {
                 try {
-                    swapROStores(rebalancePartitionsInfo);
+                    swapROStores(swappedStoreNames, true);
                 } catch(Exception exception) {
-                    logger.error("Error while swapping back to old state ");
+                    logger.error("Error while swapping back to old state ", exception);
                 }
             }
 
-            if(changeRebalanceStateStatus == RebalanceChangeStatus.COMPLETED) {
-                try {
-                    // TODO:
-                } catch(Exception exception) {
-                    logger.error("Error while changing back rebalance state");
+            // CHANGE BACK ALL REBALANCING STATES FOR COMPLETED ONES
+            if(completedRebalancePartitionsInfo.size() > 0) {
+
+                if(!rollback) {
+                    for(RebalancePartitionsInfo info: completedRebalancePartitionsInfo) {
+                        try {
+                            metadataStore.deleteRebalancingState(info);
+                        } catch(Exception exception) {
+                            logger.error("Error while deleting back rebalance info during error rollback "
+                                                 + info,
+                                         exception);
+                        }
+                    }
+                } else {
+                    for(RebalancePartitionsInfo info: completedRebalancePartitionsInfo) {
+                        try {
+                            metadataStore.addRebalancingState(info);
+                        } catch(Exception exception) {
+                            logger.error("Error while adding back rebalance info during error rollback "
+                                                 + info,
+                                         exception);
+                        }
+                    }
                 }
+
             }
 
             throw e;
-        } finally {
-            if(adminClient != null) {
-                adminClient.stop();
-                adminClient = null;
-            }
         }
 
     }
@@ -238,10 +227,37 @@ public class Rebalancer implements Runnable {
     /**
      * Goes through all the RO Stores in the plan and swaps it
      * 
-     * @param rebalancePartitionsInfo List of rebalance partition plans
+     * @param swappedStoreNames Names of stores already swapped
+     * @param useSwappedStoreNames Swap only the previously swapped stores (
+     *        Happens during error )
      */
-    private void swapROStores(List<RebalancePartitionsInfo> rebalancePartitionsInfo) {
+    private void swapROStores(List<String> swappedStoreNames, boolean useSwappedStoreNames) {
 
+        for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
+
+            // Only pick up the RO stores
+            if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+
+                if(useSwappedStoreNames && !swappedStoreNames.contains(storeDef.getName())) {
+                    continue;
+                }
+
+                ReadOnlyStorageEngine engine = (ReadOnlyStorageEngine) storeRepository.getStorageEngine(storeDef.getName());
+
+                if(engine == null) {
+                    throw new VoldemortException("Could not find storage engine for "
+                                                 + storeDef.getName() + " to swap ");
+                }
+
+                // Time to swap this store - Could have used admin client, but
+                // why incur the overhead?
+                engine.swapFiles(engine.getCurrentDirPath());
+
+                // Add to list of stores already swapped
+                if(!useSwappedStoreNames)
+                    swappedStoreNames.add(storeDef.getName());
+            }
+        }
     }
 
     /**
@@ -252,6 +268,7 @@ public class Rebalancer implements Runnable {
     private void changeCluster(final Cluster cluster) {
         metadataStore.writeLock.lock();
         try {
+            logger.info("Switching metadata to " + cluster);
             metadataStore.put(MetadataStore.CLUSTER_KEY, cluster);
         } finally {
             metadataStore.writeLock.unlock();
@@ -272,25 +289,34 @@ public class Rebalancer implements Runnable {
      */
     public int rebalanceNode(final RebalancePartitionsInfo stealInfo) {
 
-        // Acquire a lock for the donor node
-        if(!acquireRebalancingPermit(stealInfo.getDonorId())) {
-            final RebalancerState rebalancerState = metadataStore.getRebalancerState();
-            final RebalancePartitionsInfo info = rebalancerState.find(stealInfo.getDonorId());
-            if(info != null) {
-                throw new AlreadyRebalancingException("Node " + metadataStore.getNodeId()
-                                                      + " is already rebalancing from donor "
-                                                      + info.getDonorId() + " with info :" + info);
-            }
+        final RebalancePartitionsInfo info = metadataStore.getRebalancerState()
+                                                          .find(stealInfo.getDonorId());
+
+        // Do we have the plan in the state?
+        if(info == null) {
+            throw new VoldemortException("Could not find plan " + stealInfo
+                                         + " in the server state on " + metadataStore.getNodeId());
+        } else if(!info.equals(stealInfo)) {
+            // If we do have the plan, is it the same
+            throw new VoldemortException("The plan in server state " + info
+                                         + " is not the same as the process passed " + stealInfo);
+        } else if(!acquireRebalancingPermit(stealInfo.getDonorId())) {
+            // Both are same, now try to acquire a lock for the donor node
+            throw new AlreadyRebalancingException("Node " + metadataStore.getNodeId()
+                                                  + " is already rebalancing from donor "
+                                                  + info.getDonorId() + " with info " + info);
         }
 
         // Acquired lock successfully, start rebalancing...
         int requestId = asyncService.getUniqueRequestId();
 
+        // Why do we pass 'info' instead of 'stealInfo'? So that we can change
+        // the state as the stores finish rebalance
         asyncService.submitOperation(requestId, new RebalanceAsyncOperation(this,
                                                                             voldemortConfig,
                                                                             metadataStore,
                                                                             requestId,
-                                                                            stealInfo));
+                                                                            info));
 
         return requestId;
     }

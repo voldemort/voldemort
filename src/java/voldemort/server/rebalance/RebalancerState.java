@@ -82,7 +82,7 @@ public class RebalancerState {
     }
 
     public boolean update(RebalancePartitionsInfo rebalancePartitionsInfo) {
-        if(!stealInfoMap.containsKey(rebalancePartitionsInfo.getDonorId()))
+        if(stealInfoMap.containsKey(rebalancePartitionsInfo.getDonorId()))
             return false;
 
         stealInfoMap.put(rebalancePartitionsInfo.getDonorId(), rebalancePartitionsInfo);

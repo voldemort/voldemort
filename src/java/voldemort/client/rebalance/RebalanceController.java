@@ -243,6 +243,7 @@ public class RebalanceController {
      * @param orderedClusterTransition The ordered cluster transition we are
      *        going to run
      */
+    // TODO : Make this public and write some tests against it
     private void rebalancePerPartitionTransition(final int globalStealerNodeId,
                                                  final OrderedClusterTransition orderedClusterTransition) {
         try {

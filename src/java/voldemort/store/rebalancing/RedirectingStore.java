@@ -43,7 +43,6 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
@@ -136,20 +135,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        int maxLength = Iterables.size(keys);
-        List<ByteArray> redirectingKeys = Lists.newArrayListWithExpectedSize(maxLength);
-        List<RebalancePartitionsInfo> rebalancePartitionsInfos = Lists.newArrayListWithExpectedSize(maxLength);
+        Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey = Maps.newHashMapWithExpectedSize(Iterables.size(keys));
         for(ByteArray key: keys) {
-            RebalancePartitionsInfo info;
-            info = redirectingKey(key);
+            RebalancePartitionsInfo info = redirectingKey(key);
             if(info != null) {
-                redirectingKeys.add(key);
-                rebalancePartitionsInfos.add(info);
+                rebalancePartitionsInfoPerKey.put(key, info);
             }
         }
 
-        if(!redirectingKeys.isEmpty()) {
-            proxyGetAllAndLocalPut(redirectingKeys, rebalancePartitionsInfos, transforms);
+        if(!rebalancePartitionsInfoPerKey.isEmpty()) {
+            proxyGetAllAndLocalPut(rebalancePartitionsInfoPerKey, transforms);
         }
 
         return getInnerStore().getAll(keys, transforms);
@@ -214,38 +209,33 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * {@link voldemort.client.rebalance.RebalancePartitionsInfo#getDonorId()
      * getDonorId}
      * 
-     * @param keys List of keys
+     * @param rebalancePartitionsInfoPerKey Map of keys to corresponding
+     *        partition info
+     * @param transforms Map of keys to their corresponding transforms
      * @throws ProxyUnreachableException if donor node can't be reached
      */
-    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(List<ByteArray> keys,
-                                                                List<RebalancePartitionsInfo> stealInfoList,
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey,
                                                                 Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        Multimap<Integer, ByteArray> scatterMap = HashMultimap.create(stealInfoList.size(),
-                                                                      keys.size());
+        Multimap<Integer, ByteArray> donorNodeToKeys = HashMultimap.create();
         int numKeys = 0;
-        for(ByteArray key: keys) {
-            numKeys++;
-            for(RebalancePartitionsInfo stealInfo: stealInfoList) {
-                byte[] keyBytes = key.get();
 
-                for(int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
-                    if(stealInfo.getPartitions().contains(p))
-                        scatterMap.put(stealInfo.getDonorId(), key);
-                }
-            }
+        // Transform the map of key to plan to a map of donor node id to keys
+        for(Map.Entry<ByteArray, RebalancePartitionsInfo> entry: rebalancePartitionsInfoPerKey.entrySet()) {
+            numKeys++;
+            donorNodeToKeys.put(entry.getValue().getDonorId(), entry.getKey());
         }
 
         Map<ByteArray, List<Versioned<byte[]>>> gatherMap = Maps.newHashMapWithExpectedSize(numKeys);
 
-        for(int donorNodeId: scatterMap.keySet()) {
+        for(int donorNodeId: donorNodeToKeys.keySet()) {
             Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
             checkNodeAvailable(donorNode);
             long startNs = System.nanoTime();
 
             try {
                 Map<ByteArray, List<Versioned<byte[]>>> resultsForNode = getRedirectingSocketStore(getName(),
-                                                                                                   donorNodeId).getAll(scatterMap.get(donorNodeId),
+                                                                                                   donorNodeId).getAll(donorNodeToKeys.get(donorNodeId),
                                                                                                                        transforms);
                 recordSuccess(donorNode, startNs);
 
@@ -294,17 +284,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * Similar to {@link #proxyGetAndLocalPut(ByteArray, int)} but meant for
      * {@link #getAll(Iterable)}
      * 
-     * @param keys Iterable collection of keys of keys
-     * @param stealInfoList List of rebalance operations
+     * @param rebalancePartitionsInfoPerKey Map of keys which are being routed
+     *        to their corresponding plan
+     * @param transforms Map of key to their corresponding transforms
      * @return Returns a map of key to its corresponding list of values
      * @throws VoldemortException if {@link #proxyGetAll(List, List)} fails
      */
-    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAllAndLocalPut(List<ByteArray> keys,
-                                                                           List<RebalancePartitionsInfo> stealInfoList,
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAllAndLocalPut(Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey,
                                                                            Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys,
-                                                                             stealInfoList,
+        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(rebalancePartitionsInfoPerKey,
                                                                              transforms);
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
             for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {

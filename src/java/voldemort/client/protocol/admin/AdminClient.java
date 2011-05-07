@@ -1919,6 +1919,7 @@ public class AdminClient {
         int nodeId = 0;
         try {
             while(nodeId < transitionCluster.getNumberOfNodes()) {
+
                 individualStateChange(nodeId,
                                       transitionCluster,
                                       stealerNodeToPlan.get(nodeId),
@@ -1933,7 +1934,8 @@ public class AdminClient {
         } catch(Exception e) {
 
             // Fail early
-            logger.error("Got exceptions from node " + nodeId + " while changing state", e);
+            logger.error("Got exceptions from node " + nodeId
+                         + " while changing state. Rolling back state on " + completedNodeIds, e);
 
             // Rollback changes on completed nodes
             for(int completedNodeId: completedNodeIds) {
@@ -1953,7 +1955,8 @@ public class AdminClient {
             }
 
             throw new VoldemortRebalancingException("Got exceptions from node " + nodeId
-                                                    + " while changing state");
+                                                            + " while changing state",
+                                                    Lists.newArrayList(e));
         }
 
     }
@@ -1988,6 +1991,16 @@ public class AdminClient {
             return;
         }
 
+        logger.info("Node "
+                    + nodeId
+                    + "] Performing "
+                    + (rollback ? "rollback" : "normal")
+                    + " rebalance state change "
+                    + (swapRO ? "<swap RO>" : "")
+                    + (changeClusterMetadata ? "<change cluster - " + cluster + ">" : "")
+                    + (changeRebalanceState ? "<change rebalance state - "
+                                              + rebalancePartitionPlanList + ">" : ""));
+
         VAdminProto.RebalanceStateChangeRequest.Builder getRebalanceStateChangeRequestBuilder = VAdminProto.RebalanceStateChangeRequest.newBuilder();
 
         if(rebalancePartitionPlanList != null) {
@@ -2017,6 +2030,13 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Given a list of partition infos, generates a map of stealer node to list
+     * of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @return Flattens it into a map on a per stealer node basis
+     */
     private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
         for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
