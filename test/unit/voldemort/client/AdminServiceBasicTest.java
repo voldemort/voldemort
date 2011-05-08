@@ -843,7 +843,8 @@ public class AdminServiceBasicTest extends TestCase {
                 getAdminClient().fetchPartitionFiles(node.getId(),
                                                      "test-readonly-fetchfiles",
                                                      dumbMap,
-                                                     tempDir.getAbsolutePath());
+                                                     tempDir.getAbsolutePath(),
+                                                     null);
                 fail("Should throw exception since partition map passed is bad");
             } catch(VoldemortException e) {}
 
@@ -853,7 +854,8 @@ public class AdminServiceBasicTest extends TestCase {
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
                                                  primaryNodeBuckets,
-                                                 tempDir.getAbsolutePath());
+                                                 tempDir.getAbsolutePath(),
+                                                 null);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks);
@@ -884,7 +886,8 @@ public class AdminServiceBasicTest extends TestCase {
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
                                                  replicaNodeBuckets,
-                                                 tempDir.getAbsolutePath());
+                                                 tempDir.getAbsolutePath(),
+                                                 null);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks);
@@ -914,7 +917,8 @@ public class AdminServiceBasicTest extends TestCase {
             getAdminClient().fetchPartitionFiles(node.getId(),
                                                  "test-readonly-fetchfiles",
                                                  nodeBuckets,
-                                                 tempDir.getAbsolutePath());
+                                                 tempDir.getAbsolutePath(),
+                                                 null);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)

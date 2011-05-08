@@ -686,11 +686,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
 
                         if(isReadOnlyStore) {
-                            String destinationDir = ((ReadOnlyStorageEngine) storageEngine).getCurrentDirPath();
+                            ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
+                            String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
+
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
                                                             replicaToPartitionList,
-                                                            destinationDir);
+                                                            destinationDir,
+                                                            readOnlyStorageEngine.getChunkedFileSet()
+                                                                                 .getChunkIdToNumChunks()
+                                                                                 .keySet());
 
                         } else {
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,

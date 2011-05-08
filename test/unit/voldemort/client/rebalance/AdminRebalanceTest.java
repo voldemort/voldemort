@@ -446,7 +446,7 @@ public class AdminRebalanceTest extends TestCase {
             for(RebalancePartitionsInfo partitionPlan: plans) {
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                            new RebalancerState(Lists.newArrayList(partitionPlan)));
+                                                            new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
             }
 
             // Update the cluster metadata on all three nodes
@@ -576,7 +576,7 @@ public class AdminRebalanceTest extends TestCase {
                                                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                            new RebalancerState(Lists.newArrayList(partitionPlan)));
+                                                            new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
             }
 
             // Update the cluster metadata on all three nodes
@@ -725,7 +725,7 @@ public class AdminRebalanceTest extends TestCase {
                                                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                            new RebalancerState(Lists.newArrayList(partitionPlan)));
+                                                            new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
             }
 
             // Actually run it
@@ -821,6 +821,27 @@ public class AdminRebalanceTest extends TestCase {
             adminClient.rebalanceStateChange(cluster, targetCluster, plans, true, true, false);
 
             checkRO(targetCluster);
+
+            // Test 3) Now try fetching files again even though they are
+            // mmap-ed. Should fail...
+            for(RebalancePartitionsInfo partitionPlan: plans) {
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.SERVER_STATE_KEY,
+                                                            MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
+                getServer(partitionPlan.getStealerId()).getMetadataStore()
+                                                       .put(MetadataStore.REBALANCING_STEAL_INFO,
+                                                            new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
+            }
+
+            // Actually run it
+            try {
+                int asyncId = adminClient.rebalanceNode(plans.get(0));
+                getAdminClient().waitForCompletion(plans.get(0).getStealerId(),
+                                                   asyncId,
+                                                   300,
+                                                   TimeUnit.SECONDS);
+                fail("Should throw an exception");
+            } catch(Exception e) {}
         } finally {
             shutDown();
         }
@@ -844,7 +865,7 @@ public class AdminRebalanceTest extends TestCase {
                                                             MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
                 getServer(partitionPlan.getStealerId()).getMetadataStore()
                                                        .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                            new RebalancerState(Lists.newArrayList(partitionPlan)));
+                                                            new RebalancerState(Lists.newArrayList(RebalancePartitionsInfo.create(partitionPlan.toJsonString()))));
             }
 
             // Actually run it
@@ -1238,14 +1259,4 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
-    public void testRebalancePerTaskTransition() throws IOException {
-
-        try {
-            startFourNodeRO();
-
-        } finally {
-            shutDown();
-        }
-    }
 }

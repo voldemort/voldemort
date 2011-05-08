@@ -1794,17 +1794,22 @@ public class AdminClient {
     }
 
     /**
-     * Fetch read-only store files to a specified directory
+     * Fetch read-only store files to a specified directory. This is run on the
+     * stealer node side
      * 
      * @param nodeId The node id from where to copy
      * @param storeName The name of the read-only store
      * @param replicaToPartitionList Map of replica type to partition list
      * @param destinationDirPath The destination path
+     * @param notAcceptedBuckets These are Pair< partition, replica > which we
+     *        cannot copy AT all. This is because these are current mmap-ed and
+     *        are serving traffic.
      */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                    String destinationDirPath) {
+                                    String destinationDirPath,
+                                    Set<Object> notAcceptedBuckets) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
                                          + ") to store " + storeName + " does not exist");
@@ -1819,6 +1824,7 @@ public class AdminClient {
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
+
             VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
                                                                                                                      .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                      .setStore(storeName)
@@ -1850,10 +1856,16 @@ public class AdminClient {
                 VAdminProto.FileEntry fileEntry = VAdminProto.FileEntry.newBuilder()
                                                                        .mergeFrom(input)
                                                                        .build();
+
+                if(notAcceptedBuckets != null) {
+                    Pair<Integer, Integer> partitionReplicaTuple = ReadOnlyUtils.getPartitionReplicaTuple(fileEntry.getFileName());
+                    if(notAcceptedBuckets.contains(partitionReplicaTuple)) {
+                        throw new VoldemortException("Cannot copy file " + fileEntry.getFileName()
+                                                     + " since it is one of the mmap-ed files");
+                    }
+                }
                 logger.info("Receiving file " + fileEntry.getFileName());
 
-                // TODO: Add some checks here. Check that the file is not one of
-                // the mmap-ed files
                 FileChannel fileChannel = new FileOutputStream(new File(destinationDirPath,
                                                                         fileEntry.getFileName())).getChannel();
                 ReadableByteChannel channelIn = Channels.newChannel(inputStream);

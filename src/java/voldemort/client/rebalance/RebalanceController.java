@@ -450,10 +450,10 @@ public class RebalanceController {
      * | Case | hasRO | hasRW | finishedRO | Action |
      * | 0 | t | t | t | rollback cluster change + swap + rebalance state change |
      * | 1 | t | t | f | rollback rebalance state change |
-     * | 2 | t | f | t | not possible |
+     * | 2 | t | f | t | won't be triggered since hasRW is false |
      * | 3 | t | f | f | rollback rebalance state change |
      * | 4 | f | t | t | rollback cluster change + rebalance state change |
-     * | 5 | f | t | f | not possible |
+     * | 5 | f | t | f | won't be triggered |
      * | 6 | f | f | t | not possible | 
      * | 7 | f | f | f | not possible |
      * </pre>
