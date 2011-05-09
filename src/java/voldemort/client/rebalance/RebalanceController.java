@@ -466,12 +466,12 @@ public class RebalanceController {
      * @param finishedReadOnlyStores Have we finished rebalancing of read-only
      *        stores?
      */
-    public void rebalancePerTaskTransition(final int globalStealerNodeId,
-                                           final Cluster currentCluster,
-                                           final List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                           boolean hasReadOnlyStores,
-                                           boolean hasReadWriteStores,
-                                           boolean finishedReadOnlyStores) {
+    private void rebalancePerTaskTransition(final int globalStealerNodeId,
+                                            final Cluster currentCluster,
+                                            final List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                            boolean hasReadOnlyStores,
+                                            boolean hasReadWriteStores,
+                                            boolean finishedReadOnlyStores) {
         // Get an ExecutorService in place used for submitting our tasks
         ExecutorService service = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 

@@ -992,7 +992,7 @@ public class RebalanceUtils {
         }
 
         if(def == null) {
-            throw new VoldemortException("Could not find " + storeName);
+            throw new VoldemortException("Could not find store " + storeName);
         }
         return def;
     }
