@@ -297,7 +297,6 @@ public class AdminServiceBasicTest extends TestCase {
             HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
             partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
             expectedMapping.put(3, partitionTuple2);
-            System.out.println(replicationMapping);
             // {1={1=[0, 4, 8]}, 3={0=[3, 7, 11]}}
             assertEquals(replicationMapping, expectedMapping);
         }
@@ -374,7 +373,6 @@ public class AdminServiceBasicTest extends TestCase {
             expectedMapping.put(3, partitionTuple2);
             // {2={0=[2, 6, 10], 1=[0, 4, 8]}, 3={0=[3, 7, 11]}}
             assertEquals(replicationMapping, expectedMapping);
-            System.out.println("0) Replication mapping " + replicationMapping);
         }
         {
             // On node 1

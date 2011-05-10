@@ -1,6 +1,5 @@
 package voldemort.client;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -10,21 +9,32 @@ import org.junit.Test;
 
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
-    private static String testStoreName = "test-replication-memory";
+    protected static String testStoreName = "test-replication-memory";
 
     protected abstract AdminClient getAdminClient();
 
     protected abstract Set<Pair<ByteArray, Versioned<byte[]>>> createEntries();
 
     protected abstract Store<ByteArray, byte[], byte[]> getStore(int nodeId, String storeName);
+
+    protected abstract Cluster getCluster();
+
+    protected abstract StoreDefinition getStoreDef();
 
     @Test
     public void testFetchAsStreamWithFilter() {
@@ -34,19 +44,22 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
         VoldemortFilter filter = new VoldemortFilterImpl();
         int shouldFilterCount = 0;
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
+                                                                                      getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: createEntries()) {
-            store.put(pair.getFirst(), pair.getSecond(), null);
-            if(!filter.accept(pair.getFirst(), pair.getSecond())) {
-                shouldFilterCount++;
+            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0)) {
+                store.put(pair.getFirst(), pair.getSecond(), null);
+                if(!filter.accept(pair.getFirst(), pair.getSecond())) {
+                    shouldFilterCount++;
+                }
             }
         }
-
-        assertNotSame("should be filtered key count shoud not be 0.", 0, shouldFilterCount);
 
         // make fetch stream call with filter
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
                                                                                                    testStoreName,
-                                                                                                   Arrays.asList(new Integer[] { 0 }),
+                                                                                                   getCluster().getNodeById(0)
+                                                                                                               .getPartitionIds(),
                                                                                                    filter,
                                                                                                    false);
 
@@ -68,29 +81,31 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         VoldemortFilter filter = new VoldemortFilterImpl();
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
+                                                                                      getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: entrySet) {
-            store.put(pair.getFirst(), pair.getSecond(), null);
+            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0))
+                store.put(pair.getFirst(), pair.getSecond(), null);
         }
 
         // make delete stream call with filter
-        getAdminClient().deletePartitions(0,
-                                          testStoreName,
-                                          Arrays.asList(new Integer[] { 0, 1, 2, 3 }),
-                                          filter);
+        getAdminClient().deletePartitions(0, testStoreName, Lists.newArrayList(0, 1), filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
-            if(filter.accept(entry.getFirst(), entry.getSecond())) {
-                assertEquals("All entries should be deleted except the filtered ones.",
-                             0,
-                             store.get(entry.getFirst(), null).size());
-            } else {
-                assertNotSame("filtered entry should be still present.",
-                              0,
-                              store.get(entry.getFirst(), null).size());
-                assertEquals("values should match",
-                             new String(entry.getSecond().getValue()),
-                             new String(store.get(entry.getFirst(), null).get(0).getValue()));
+            if(RebalanceUtils.getNodeIds(strategy.routeRequest(entry.getFirst().get())).contains(0)) {
+                if(filter.accept(entry.getFirst(), entry.getSecond())) {
+                    assertEquals("All entries should be deleted except the filtered ones.",
+                                 0,
+                                 store.get(entry.getFirst(), null).size());
+                } else {
+                    assertNotSame("filtered entry should be still present.",
+                                  0,
+                                  store.get(entry.getFirst(), null).size());
+                    assertEquals("values should match",
+                                 new String(entry.getSecond().getValue()),
+                                 new String(store.get(entry.getFirst(), null).get(0).getValue()));
+                }
             }
         }
     }

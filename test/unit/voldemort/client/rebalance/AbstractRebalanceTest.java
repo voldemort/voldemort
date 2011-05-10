@@ -464,8 +464,6 @@ public abstract class AbstractRebalanceTest {
                                                                                                  factory,
                                                                                                  3);
 
-        final boolean[] masterNodeResponded = { false, false };
-
         // start get operation.
         executors.execute(new Runnable() {
 
@@ -486,10 +484,6 @@ public abstract class AbstractRebalanceTest {
                             assertEquals("Value returned should be good",
                                          new Versioned<String>(testEntries.get(keys.get(index))),
                                          value);
-                            int masterNode = storeClientRW.getResponsibleNodes(keys.get(index))
-                                                          .get(0)
-                                                          .getId();
-                            masterNodeResponded[masterNode] = true;
 
                             value = storeClientRO.get(keys.get(index));
                             assertNotSame("StoreClient get() should not return null.", null, value);
@@ -542,11 +536,6 @@ public abstract class AbstractRebalanceTest {
 
         executors.shutdown();
         executors.awaitTermination(300, TimeUnit.SECONDS);
-
-        assertEquals("Client should see values returned master at both (0,1):("
-                             + masterNodeResponded[0] + "," + masterNodeResponded[1] + ")",
-                     true,
-                     masterNodeResponded[0] && masterNodeResponded[1]);
 
         // check No Exception
         if(exceptions.size() > 0) {
@@ -731,8 +720,6 @@ public abstract class AbstractRebalanceTest {
 
                 // Go over every node
                 for(int nodeId: preferenceNodes) {
-                    System.out.println("KEY -  " + ByteUtils.toHexString(keyBytes.get()) + " - "
-                                       + nodeId + " - " + routing.getPartitionList(keyBytes.get()));
                     try {
                         storeMap.get(nodeId)
                                 .put(keyBytes,
@@ -836,11 +823,9 @@ public abstract class AbstractRebalanceTest {
 
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
 
-            System.out.print("Key " + ByteUtils.toHexString(keyBytes.get()));
             if(RebalanceUtils.checkKeyBelongsToPartition(partitions,
                                                          node.getPartitionIds(),
                                                          flattenedPresentTuples)) {
-                System.out.println(" - present ");
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);
 
                 // expecting exactly one version
