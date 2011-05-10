@@ -37,11 +37,21 @@ public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigura
             int replicaType = (int) ByteUtils.readBytes(value.get(),
                                                         2 * ByteUtils.SIZE_OF_INT,
                                                         ByteUtils.SIZE_OF_BYTE);
-            return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
-                    + (replicaType * getNumChunks()) + chunkId)
-                   % numReduceTasks;
+            if(getReducerPerBucket()) {
+                return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
+                       % numReduceTasks;
+            } else {
+                return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
+                        + (replicaType * getNumChunks()) + chunkId)
+                       % numReduceTasks;
+            }
         } else {
-            return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            if(getReducerPerBucket()) {
+                return partitionId % numReduceTasks;
+            } else {
+                return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            }
+
         }
     }
 }

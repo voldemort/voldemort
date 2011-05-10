@@ -177,7 +177,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             outputDir,
                                                             inputPath,
                                                             checkSumType,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            false);
 
         builder.build();
         return 0;

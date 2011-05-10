@@ -77,6 +77,7 @@ public class HadoopStoreBuilder {
     private final Path tempDir;
     private CheckSumType checkSumType = CheckSumType.NONE;
     private boolean saveKeys = false;
+    private boolean reducerPerBucket = false;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -209,7 +210,10 @@ public class HadoopStoreBuilder {
      * @param outputDir The directory in which to place the built stores
      * @param inputPath The path from which to read input data
      * @param checkSumType The checksum algorithm to use
-     * @PARAM saveKeys Boolean to signify if we want to save the key as well
+     * @param saveKeys Boolean to signify if we want to save the key as well
+     * @param reducerPerBucket Boolean to signify whether we want to have a
+     *        single reducer for a bucket ( thereby resulting in all chunk files
+     *        for a bucket being generated in a single reducer )
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
@@ -222,7 +226,8 @@ public class HadoopStoreBuilder {
                               Path outputDir,
                               Path inputPath,
                               CheckSumType checkSumType,
-                              boolean saveKeys) {
+                              boolean saveKeys,
+                              boolean reducerPerBucket) {
         this(conf,
              mapperClass,
              inputFormatClass,
@@ -234,6 +239,7 @@ public class HadoopStoreBuilder {
              inputPath,
              checkSumType);
         this.saveKeys = saveKeys;
+        this.reducerPerBucket = reducerPerBucket;
     }
 
     /**
@@ -247,11 +253,16 @@ public class HadoopStoreBuilder {
             conf.set("stores.xml",
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
             conf.setBoolean("save.keys", saveKeys);
+            conf.setBoolean("reducer.per.bucket", reducerPerBucket);
             conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
             conf.setMapperClass(mapperClass);
             conf.setMapOutputKeyClass(BytesWritable.class);
             conf.setMapOutputValueClass(BytesWritable.class);
-            conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            if(reducerPerBucket) {
+                conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
+            } else {
+                conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
             conf.setOutputKeyClass(BytesWritable.class);
@@ -277,24 +288,32 @@ public class HadoopStoreBuilder {
                         + storeDef.getReplicationFactor() + ", numNodes = "
                         + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
 
-            // Derive number of chunks and reducers
+            // Derive "rough" number of chunks and reducers
             int numChunks, numReducers;
             if(saveKeys) {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions()
                                             / storeDef.getReplicationFactor() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
-                              * numChunks;
+                if(reducerPerBucket) {
+                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
+                } else {
+                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
+                                  * numChunks;
+                }
             } else {
                 numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                             / cluster.getNumberOfPartitions() / chunkSizeBytes), 1);
-                numReducers = cluster.getNumberOfPartitions() * numChunks;
+                if(reducerPerBucket) {
+                    numReducers = cluster.getNumberOfPartitions();
+                } else {
+                    numReducers = cluster.getNumberOfPartitions() * numChunks;
+                }
             }
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
 
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
-                        + ", save keys: " + saveKeys);
+                        + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
             logger.info("Building store...");
             RunningJob job = JobClient.runJob(conf);
 
@@ -302,10 +321,17 @@ public class HadoopStoreBuilder {
             Counters counters = job.getCounters();
 
             if(saveKeys) {
-                logger.info("Number of collisions in the job - "
-                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
-                logger.info("Maximum number of collisions for one entry - "
-                            + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+                if(reducerPerBucket) {
+                    logger.info("Number of collisions in the job - "
+                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.NUM_COLLISIONS));
+                    logger.info("Maximum number of collisions for one entry - "
+                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.MAX_COLLISIONS));
+                } else {
+                    logger.info("Number of collisions in the job - "
+                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
+                    logger.info("Maximum number of collisions for one entry - "
+                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+                }
             }
 
             // Do a CheckSumOfCheckSum - Similar to HDFS

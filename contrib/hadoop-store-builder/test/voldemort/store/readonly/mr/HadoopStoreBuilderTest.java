@@ -159,7 +159,8 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            false);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
@@ -222,7 +223,8 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir2.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            false);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),
@@ -235,7 +237,8 @@ public class HadoopStoreBuilderTest {
                                          new Path(outputDir.getAbsolutePath()),
                                          new Path(inputFile.getAbsolutePath()),
                                          CheckSumType.MD5,
-                                         saveKeys);
+                                         saveKeys,
+                                         false);
         builder.build();
 
         // Check if checkSum is generated in outputDir
