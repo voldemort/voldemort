@@ -55,6 +55,7 @@ import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.rebalance.RebalancerState;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -99,7 +100,7 @@ public class RedirectingStoreTest extends TestCase {
 
     @Override
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws IOException, InterruptedException {
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1 }, { 2, 3 }, {} });
         targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
                                                             currentCluster.getNodeById(2),
@@ -156,6 +157,10 @@ public class RedirectingStoreTest extends TestCase {
                 secondaryEntriesMoved.put(entry.getKey(), entry.getValue());
             }
         }
+
+        // Sleep a while for the queries to go through...
+        // Hope the 'God of perfect timing' is on our side
+        Thread.sleep(500);
 
         RebalanceClusterPlan plan = new RebalanceClusterPlan(currentCluster,
                                                              targetCluster,
@@ -347,6 +352,8 @@ public class RedirectingStoreTest extends TestCase {
                 fail("Should see obsoleteVersionException here.");
             } catch(ObsoleteVersionException e) {
                 // ignore
+            } catch(InvalidMetadataException e) {
+
             }
 
         }
