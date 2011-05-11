@@ -88,7 +88,7 @@ public class Rebalancer implements Runnable {
     public synchronized boolean acquireRebalancingPermit(int nodeId) {
         boolean added = rebalancePermits.add(nodeId);
         if(logger.isInfoEnabled())
-            logger.info("Acquiring rebalancing permit for nodeId: " + nodeId + ", returned: "
+            logger.info("Acquiring rebalancing permit for node id " + nodeId + ", returned: "
                         + added);
 
         return added;
@@ -101,7 +101,7 @@ public class Rebalancer implements Runnable {
      */
     public synchronized void releaseRebalancingPermit(int nodeId) {
         boolean removed = rebalancePermits.remove(nodeId);
-        logger.info("Releasing rebalancing permit for nodeId: " + nodeId + ", returned: " + removed);
+        logger.info("Releasing rebalancing permit for node id " + nodeId + ", returned: " + removed);
         if(!removed)
             throw new VoldemortException(new IllegalStateException("Invalid state, must hold a "
                                                                    + "permit to release"));

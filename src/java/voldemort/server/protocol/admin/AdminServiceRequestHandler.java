@@ -682,13 +682,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     try {
                         StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                                   storeName);
-                        updateStatus("Initated fetchPartitionEntries");
+
                         EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxWriteBytesPerSec());
 
                         if(isReadOnlyStore) {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
-
+                            updateStatus("Initated fetching of files for RO store " + storeName
+                                         + " from node " + nodeId);
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
                                                             replicaToPartitionList,
@@ -698,6 +699,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                  .keySet());
 
                         } else {
+                            updateStatus("Initated fetching of entries for RW store " + storeName
+                                         + " from node " + nodeId);
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                     storeName,
                                                                                                                     replicaToPartitionList,
@@ -719,9 +722,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
                                 if((i % 1000) == 0) {
-                                    updateStatus(i + " entries copied from " + nodeId + " to "
-                                                 + metadataStore.getNodeId() + " for store "
-                                                 + storeName);
+                                    updateStatus(i + " entries copied from " + nodeId
+                                                 + " for store " + storeName);
                                 }
                             }
                         }

@@ -128,6 +128,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
             if(unbalancedStores.isEmpty()) {
                 logger.info(getHeader(stealInfo) + "Rebalance of " + stealInfo
                             + " completed successfully.");
+                updateStatus(getHeader(stealInfo) + "Rebalance of " + stealInfo
+                             + " completed successfully.");
                 metadataStore.deleteRebalancingState(stealInfo);
             } else {
                 throw new VoldemortRebalancingException(getHeader(stealInfo)
@@ -138,10 +140,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         } finally {
             // free the permit in all cases.
-            if(logger.isInfoEnabled()) {
-                logger.info(getHeader(stealInfo) + "Releasing permit for donor node "
-                            + stealInfo.getDonorId());
-            }
+            logger.info(getHeader(stealInfo) + "Releasing permit for donor node "
+                        + stealInfo.getDonorId());
 
             rebalancer.releaseRebalancingPermit(stealInfo.getDonorId());
             adminClient.stop();
@@ -186,8 +186,10 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                 final AdminClient adminClient,
                                 RebalancePartitionsInfo stealInfo,
                                 boolean isReadOnlyStore) {
-        logger.info(getHeader(stealInfo) + "Starting partitions migration for store " + storeName);
-        updateStatus(getHeader(stealInfo) + "Started partition migration for store " + storeName);
+        logger.info(getHeader(stealInfo) + "Starting partitions migration for store " + storeName
+                    + " from donor node " + stealInfo.getDonorId());
+        updateStatus(getHeader(stealInfo) + "Started partition migration for store " + storeName
+                     + " from donor node " + stealInfo.getDonorId());
 
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
@@ -204,22 +206,34 @@ class RebalanceAsyncOperation extends AsyncOperation {
         adminClient.waitForCompletion(metadataStore.getNodeId(),
                                       asyncId,
                                       voldemortConfig.getRebalancingTimeoutSec(),
-                                      TimeUnit.SECONDS);
+                                      TimeUnit.SECONDS,
+                                      getStatus());
 
         rebalanceStatusList.remove((Object) asyncId);
 
+        logger.info(getHeader(stealInfo) + "Completed partition migration for store " + storeName
+                    + " from donor node " + stealInfo.getDonorId());
+        updateStatus(getHeader(stealInfo) + "Completed partition migration for store " + storeName
+                     + " from donor node " + stealInfo.getDonorId());
+
         if(stealInfo.getReplicaToDeletePartitionList().size() > 0 && !isReadOnlyStore) {
-            logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName);
+            logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
+                        + " on donor node " + stealInfo.getDonorId());
+            updateStatus(getHeader(stealInfo) + "Deleting partitions for store " + storeName
+                         + " on donor node " + stealInfo.getDonorId());
 
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
                                          stealInfo.getReplicaToDeletePartitionList(),
                                          stealInfo.getInitialCluster(),
                                          null);
-            logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName);
+            logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
+                        + " on donor node " + stealInfo.getDonorId());
+            updateStatus(getHeader(stealInfo) + "Deleted partitions for store " + storeName
+                         + " on donor node " + stealInfo.getDonorId());
         }
 
-        logger.info(getHeader(stealInfo) + "Completed partition migration for store " + storeName);
-        updateStatus(getHeader(stealInfo) + "Completed partition migration for store " + storeName);
+        logger.info(getHeader(stealInfo) + "Finished all migration for store " + storeName);
+        updateStatus(getHeader(stealInfo) + "Finished all migration for store " + storeName);
     }
 }

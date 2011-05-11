@@ -58,15 +58,17 @@ class RebalanceTask implements Runnable {
             nTries++;
             try {
 
-                logger.debug("Rebalancing node for plan: " + stealInfo);
+                logger.info("Starting on node " + stealInfo.getStealerId() + " rebalancing task "
+                            + stealInfo);
                 int asyncOperationId = adminClient.rebalanceNode(stealInfo);
-                logger.debug("Async operation id: " + asyncOperationId + " for plan: " + stealInfo);
                 return asyncOperationId;
 
             } catch(AlreadyRebalancingException e) {
                 RebalanceUtils.printLog(stealInfo.getStealerId(),
                                         logger,
-                                        "Node is currently rebalancing. Waiting till completion");
+                                        "Node "
+                                                + stealInfo.getStealerId()
+                                                + " is currently rebalancing. Waiting till completion");
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               MetadataStore.SERVER_STATE_KEY,
                                               VoldemortState.NORMAL_SERVER.toString(),

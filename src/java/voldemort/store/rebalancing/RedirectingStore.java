@@ -322,8 +322,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
             synchronized(storeRepository) {
                 if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
                     Node donorNode = getNodeIfPresent(donorNodeId);
-                    logger.info("Creating redirectingSocketStore for donorNode " + donorNode
-                                + " store " + storeName);
+                    logger.info("Creating new redirecting store for donor node "
+                                + donorNode.getId() + " and store " + storeName);
                     storeRepository.addRedirectingSocketStore(donorNode.getId(),
                                                               storeFactory.create(storeName,
                                                                                   donorNode.getHost(),

@@ -1166,11 +1166,18 @@ public class AdminClient {
      * @param maxWait Maximum time we'll keep checking a request until we give
      *        up
      * @param timeUnit Unit in which maxWait is expressed.
-     * @return description The description attached with the response
+     * @param higherStatus A higher level async operation object. If this
+     *        waiting is being run another async operation this helps us
+     *        propagate the status all the way up.
+     * @return description The final description attached with the response
      * @throws VoldemortException if task failed to finish in specified maxWait
      *         time.
      */
-    public String waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+    public String waitForCompletion(int nodeId,
+                                    int requestId,
+                                    long maxWait,
+                                    TimeUnit timeUnit,
+                                    AsyncOperationStatus higherStatus) {
         long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
@@ -1180,6 +1187,10 @@ public class AdminClient {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
                 logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
                             + status.getStatus());
+                if(higherStatus != null) {
+                    higherStatus.setStatus("Status from node " + nodeId + " ("
+                                           + status.getDescription() + ") - " + status.getStatus());
+                }
                 description = status.getDescription();
                 if(status.hasException())
                     throw status.getException();
@@ -1196,12 +1207,32 @@ public class AdminClient {
                     Thread.currentThread().interrupt();
                 }
             } catch(Exception e) {
-                throw new VoldemortException("Failed while waiting for async task " + description
-                                             + " at node " + nodeId + " to finish", e);
+                throw new VoldemortException("Failed while waiting for async task (" + description
+                                             + ") at node " + nodeId + " to finish", e);
             }
         }
         throw new VoldemortException("Failed to finish task requestId: " + requestId
                                      + " in maxWait " + maxWait + " " + timeUnit.toString());
+    }
+
+    /**
+     * Wait for async task at (remote) nodeId to finish completion, using
+     * exponential backoff to poll the task completion status.
+     * <p>
+     * 
+     * <i>Logs the status at each status check if debug is enabled.</i>
+     * 
+     * @param nodeId Id of the node to poll
+     * @param requestId Id of the request to check
+     * @param maxWait Maximum time we'll keep checking a request until we give
+     *        up
+     * @param timeUnit Unit in which maxWait is expressed.
+     * @return description The final description attached with the response
+     * @throws VoldemortException if task failed to finish in specified maxWait
+     *         time.
+     */
+    public String waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+        return waitForCompletion(nodeId, requestId, maxWait, timeUnit, null);
     }
 
     /**
