@@ -58,6 +58,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -122,7 +123,7 @@ public class VoldemortAdminTool {
               .ofType(String.class);
         parser.accepts("add-stores", "Add stores in this stores.xml")
               .withRequiredArg()
-              .describedAs("stores.xml")
+              .describedAs("stores.xml containing just the new stores")
               .ofType(String.class);
         parser.accepts("delete-store", "Delete store")
               .withRequiredArg()
@@ -170,6 +171,7 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
+        parser.accepts("key-distribution", "Prints the current key distribution of the cluster");
 
         OptionSet options = parser.parse(args);
 
@@ -185,7 +187,8 @@ public class VoldemortAdminTool {
                                                              || options.has("delete-store")
                                                              || options.has("ro-version")
                                                              || options.has("set-metadata")
-                                                             || options.has("get-metadata") || options.has("check-metadata")))) {
+                                                             || options.has("get-metadata")
+                                                             || options.has("check-metadata") || options.has("key-distribution")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -235,8 +238,11 @@ public class VoldemortAdminTool {
         if(options.has("check-metadata")) {
             ops += "c";
         }
+        if(options.has("key-distribution")) {
+            ops += "y";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata, check-metadata) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata, check-metadata, key-distribution) must be specified");
         }
 
         List<String> storeNames = null;
@@ -352,10 +358,19 @@ public class VoldemortAdminTool {
                 }
 
             }
+            if(ops.contains("y")) {
+                executeKeyDistribution(adminClient);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
         }
+    }
+
+    private static void executeKeyDistribution(AdminClient adminClient) {
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
+                                                                             adminClient.getRemoteStoreDefList(0)
+                                                                                        .getValue()));
     }
 
     private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
