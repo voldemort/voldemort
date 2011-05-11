@@ -5,7 +5,7 @@
     <description>Test store</description>
     <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
     <routing>client</routing>
-    <replication-factor>3</replication-factor>
+    <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>
     <required-writes>1</required-writes>
     <key-serializer>

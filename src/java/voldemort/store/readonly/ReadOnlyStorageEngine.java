@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -131,6 +132,20 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
      */
     public ChunkedFileSet getChunkedFileSet() {
         return this.fileSet;
+    }
+
+    /**
+     * Returns a string representation of map of chunk id to number of chunks
+     * 
+     * @return String of map of chunk id to number of chunks
+     */
+    @JmxGetter(name = "getChunkIdToNumChunks", description = "Returns a string representation of the map of chunk id to number of chunks")
+    public String getChunkIdToNumChunks() {
+        StringBuilder builder = new StringBuilder();
+        for(Entry<Object, Integer> entry: fileSet.getChunkIdToNumChunks().entrySet()) {
+            builder.append(entry.getKey().toString() + " - " + entry.getValue().toString() + ", ");
+        }
+        return builder.toString();
     }
 
     /**
