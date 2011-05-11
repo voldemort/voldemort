@@ -29,6 +29,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Iterator;
 import java.util.List;
@@ -69,6 +70,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Provides a command line interface to the
@@ -76,6 +78,7 @@ import com.google.common.collect.Maps;
  */
 public class VoldemortAdminTool {
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
@@ -136,6 +139,13 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
+        parser.accepts("check-metadata",
+                       "retreive metadata information from all nodes and checks if they are consistent across [ "
+                               + MetadataStore.CLUSTER_KEY + " | " + MetadataStore.STORES_KEY
+                               + " | " + MetadataStore.SERVER_STATE_KEY + " ]")
+              .withRequiredArg()
+              .describedAs("metadata-key")
+              .ofType(String.class);
         parser.accepts("ro-version", "retrieve version information [current | max]")
               .withRequiredArg()
               .describedAs("version-type")
@@ -174,7 +184,8 @@ public class VoldemortAdminTool {
             if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
                                                              || options.has("delete-store")
                                                              || options.has("ro-version")
-                                                             || options.has("set-metadata") || options.has("get-metadata")))) {
+                                                             || options.has("set-metadata")
+                                                             || options.has("get-metadata") || options.has("check-metadata")))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 parser.printHelpOn(System.err);
                 System.exit(1);
@@ -221,16 +232,16 @@ public class VoldemortAdminTool {
         if(options.has("set-metadata")) {
             ops += "m";
         }
+        if(options.has("check-metadata")) {
+            ops += "c";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata, check-metadata) must be specified");
         }
 
         List<String> storeNames = null;
 
         if(options.has("stores")) {
-            // For some reason one can't just do @SuppressWarnings without
-            // identifier following it
-            @SuppressWarnings("unchecked")
             List<String> temp = (List<String>) options.valuesOf("stores");
             storeNames = temp;
         }
@@ -238,7 +249,6 @@ public class VoldemortAdminTool {
         try {
             if(ops.contains("d")) {
                 System.out.println("Starting delete-partitions");
-                @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("delete-partitions");
                 executeDeletePartitions(nodeId, adminClient, partitionIdList, storeNames);
                 System.out.println("Finished delete-partitions");
@@ -255,7 +265,6 @@ public class VoldemortAdminTool {
                 }
                 boolean useAscii = options.has("ascii");
                 System.out.println("Starting fetch keys");
-                @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
                 executeFetchKeys(nodeId,
                                  adminClient,
@@ -270,7 +279,6 @@ public class VoldemortAdminTool {
                     outputDir = (String) options.valueOf("outdir");
                 }
                 boolean useAscii = options.has("ascii");
-                @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-entries");
                 executeFetchEntries(nodeId,
                                     adminClient,
@@ -303,6 +311,10 @@ public class VoldemortAdminTool {
             if(ops.contains("t")) {
                 String storeName = (String) options.valueOf("truncate");
                 executeTruncateStore(nodeId, adminClient, storeName);
+            }
+            if(ops.contains("c")) {
+                String metadataKey = (String) options.valueOf("check-metadata");
+                executeCheckMetadata(adminClient, metadataKey);
             }
             if(ops.contains("m")) {
                 String metadataKey = (String) options.valueOf("set-metadata");
@@ -346,6 +358,37 @@ public class VoldemortAdminTool {
         }
     }
 
+    private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
+
+        Set<Object> metadataValues = Sets.newHashSet();
+        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            System.out.println(node.getHost() + ":" + node.getId());
+            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(), metadataKey);
+            if(versioned == null || versioned.getValue() == null) {
+                throw new VoldemortException("Value returned from node " + node.getId()
+                                             + " was null");
+            } else {
+
+                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                    metadataValues.add(new ClusterMapper().readCluster(new StringReader(versioned.getValue())));
+                } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                    metadataValues.add(new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue())));
+                } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
+                    metadataValues.add(VoldemortState.valueOf(versioned.getValue()));
+                } else {
+                    throw new VoldemortException("Incorrect metadata key");
+                }
+
+            }
+        }
+
+        if(metadataValues.size() == 1) {
+            System.out.println("true");
+        } else {
+            System.out.println("false");
+        }
+    }
+
     private static void executeSetMetadata(Integer nodeId,
                                            AdminClient adminClient,
                                            String key,
@@ -371,13 +414,10 @@ public class VoldemortAdminTool {
                                             .getNodeById(currentNodeId)
                                             .getId());
             Versioned<String> currentValue = adminClient.getRemoteMetadata(currentNodeId, key);
-            if(!value.equals(currentValue.getValue())) {
-                VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
-                                                                                                   System.currentTimeMillis());
-                adminClient.updateRemoteMetadata(currentNodeId,
-                                                 key,
-                                                 Versioned.value(value.toString(), updatedVersion));
-            }
+            VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
+                                                                                               System.currentTimeMillis());
+            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
+                                                                                 updatedVersion));
         }
     }
 
