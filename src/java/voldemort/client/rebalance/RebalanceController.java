@@ -395,6 +395,7 @@ public class RebalanceController {
                                                  false,
                                                  true,
                                                  true,
+                                                 true,
                                                  true);
             } else if(hasReadOnlyStores && !finishedReadOnlyStores) {
                 // Case 1 / 3 - rebalance state change
@@ -404,6 +405,7 @@ public class RebalanceController {
                                                  rebalancePartitionPlanList,
                                                  false,
                                                  false,
+                                                 true,
                                                  true,
                                                  true);
             } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
@@ -417,6 +419,7 @@ public class RebalanceController {
                                                  true,
                                                  true,
                                                  false,
+                                                 true,
                                                  true);
             } else {
                 // Case 0 - swap + cluster change + rebalance state change
@@ -426,6 +429,7 @@ public class RebalanceController {
                 adminClient.rebalanceStateChange(currentCluster,
                                                  transitionCluster,
                                                  rebalancePartitionPlanList,
+                                                 true,
                                                  true,
                                                  true,
                                                  true,
@@ -523,6 +527,7 @@ public class RebalanceController {
                                                  true,
                                                  true,
                                                  false,
+                                                 false,
                                                  false);
             } else if(hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 4
@@ -531,6 +536,7 @@ public class RebalanceController {
                                                  null,
                                                  false,
                                                  true,
+                                                 false,
                                                  false,
                                                  false);
             }

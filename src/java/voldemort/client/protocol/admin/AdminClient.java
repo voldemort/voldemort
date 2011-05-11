@@ -1952,6 +1952,7 @@ public class AdminClient {
      *        cluster metadata
      * @param changeRebalanceState Boolean indicating if we need to change
      *        rebalancing state
+     * @param rollback Do we want to do a rollback step in case of failures?
      */
     public void rebalanceStateChange(Cluster existingCluster,
                                      Cluster transitionCluster,
@@ -1959,29 +1960,44 @@ public class AdminClient {
                                      boolean swapRO,
                                      boolean changeClusterMetadata,
                                      boolean changeRebalanceState,
-                                     boolean rollback) {
+                                     boolean rollback,
+                                     boolean failEarly) {
         HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
         Set<Integer> completedNodeIds = Sets.newHashSet();
 
         int nodeId = 0;
+        HashMap<Integer, Exception> exceptions = Maps.newHashMap();
+
         try {
             while(nodeId < transitionCluster.getNumberOfNodes()) {
 
-                individualStateChange(nodeId,
-                                      transitionCluster,
-                                      stealerNodeToPlan.get(nodeId),
-                                      swapRO,
-                                      changeClusterMetadata,
-                                      changeRebalanceState,
-                                      false);
-                completedNodeIds.add(nodeId);
+                try {
+                    individualStateChange(nodeId,
+                                          transitionCluster,
+                                          stealerNodeToPlan.get(nodeId),
+                                          swapRO,
+                                          changeClusterMetadata,
+                                          changeRebalanceState,
+                                          false);
+                    completedNodeIds.add(nodeId);
+                } catch(Exception e) {
+                    exceptions.put(nodeId, e);
+                    if(failEarly) {
+                        throw e;
+                    }
+                }
                 nodeId++;
 
+            }
+
+            if(exceptions.size() > 0) {
+                throw new VoldemortRebalancingException("Got exceptions from nodes "
+                                                        + exceptions.keySet());
             }
         } catch(Exception e) {
 
             if(rollback) {
-                logger.error("Got exceptions from node " + nodeId
+                logger.error("Got exceptions from nodes " + exceptions.keySet()
                              + " while changing state. Rolling back state on " + completedNodeIds);
 
                 // Rollback changes on completed nodes
@@ -1996,15 +2012,17 @@ public class AdminClient {
                                               true);
                     } catch(Exception exception) {
                         logger.error("Error while reverting back state change for completed node "
-                                     + completedNodeIds, exception);
+                                     + completedNodeId, exception);
                     }
                 }
             } else {
-                logger.error("Got exceptions from node " + nodeId + " while changing state");
+                logger.error("Got exceptions from nodes " + exceptions.keySet()
+                             + " while changing state");
             }
-            throw new VoldemortRebalancingException("Got exceptions from node " + nodeId
+            throw new VoldemortRebalancingException("Got exceptions from nodes "
+                                                            + exceptions.keySet()
                                                             + " while changing state",
-                                                    Lists.newArrayList(e));
+                                                    Lists.newArrayList(exceptions.values()));
         }
 
     }
