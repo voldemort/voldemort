@@ -150,29 +150,35 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     void streamFile(File fileToStream, DataOutputStream stream) throws IOException {
         FileChannel dataChannel = new FileInputStream(fileToStream).getChannel();
-        VAdminProto.FileEntry response = VAdminProto.FileEntry.newBuilder()
-                                                              .setFileName(fileToStream.getName())
-                                                              .setFileSizeBytes(dataChannel.size())
-                                                              .build();
-        // Write header
-        ProtoUtils.writeMessage(stream, response);
-        throttler.maybeThrottle(response.getSerializedSize());
+        try {
+            VAdminProto.FileEntry response = VAdminProto.FileEntry.newBuilder()
+                                                                  .setFileName(fileToStream.getName())
+                                                                  .setFileSizeBytes(dataChannel.size())
+                                                                  .build();
+            // Write header
+            ProtoUtils.writeMessage(stream, response);
+            throttler.maybeThrottle(response.getSerializedSize());
 
-        // Write rest of file
-        WritableByteChannel channelOut = Channels.newChannel(stream);
+            // Write rest of file
+            WritableByteChannel channelOut = Channels.newChannel(stream);
 
-        // Send chunks to help with throttling
-        boolean completedFile = false;
-        long chunkSize = 0;
-        for(long chunkStart = 0; chunkStart < dataChannel.size() && !completedFile; chunkStart += blockSize) {
-            if(dataChannel.size() - chunkStart < blockSize) {
-                chunkSize = dataChannel.size() - chunkStart;
-                completedFile = true;
-            } else {
-                chunkSize = blockSize;
+            // Send chunks to help with throttling
+            boolean completedFile = false;
+            long chunkSize = 0;
+            for(long chunkStart = 0; chunkStart < dataChannel.size() && !completedFile; chunkStart += blockSize) {
+                if(dataChannel.size() - chunkStart < blockSize) {
+                    chunkSize = dataChannel.size() - chunkStart;
+                    completedFile = true;
+                } else {
+                    chunkSize = blockSize;
+                }
+                dataChannel.transferTo(chunkStart, chunkSize, channelOut);
+                throttler.maybeThrottle((int) chunkSize);
             }
-            dataChannel.transferTo(chunkStart, chunkSize, channelOut);
-            throttler.maybeThrottle((int) chunkSize);
+        } finally {
+            if(dataChannel != null) {
+                dataChannel.close();
+            }
         }
     }
 }
