@@ -1224,14 +1224,7 @@ public class AdminClient {
      * @param def the definition of the store to add
      */
     public void addStore(StoreDefinition def) {
-        String value = storeMapper.writeStore(def);
-
-        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
-                                                                                         .setStoreDefinition(value);
-        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                     .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                                                     .setAddStore(addStoreRequest)
-                                                                                     .build();
+        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
         for(Node node: currentCluster.getNodes()) {
             logger.info("Adding on node " + node.getHost() + ":" + node.getId());
             VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
@@ -1241,6 +1234,31 @@ public class AdminClient {
                 throwException(response.getError());
             logger.info("Successfully added on node " + node.getHost() + ":" + node.getId());
         }
+    }
+
+    public void addStore(StoreDefinition def, int nodeId) {
+        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
+        Node node = currentCluster.getNodeById(nodeId);
+        if(null == node)
+            throw new VoldemortException("Invalid node id (" + nodeId +") specified");
+        logger.info("Adding on node " + node.getHost() + ":" + node.getId());
+        VAdminProto.AddStoreResponse.Builder response = sendAndReceive(nodeId,
+                                                                       request,
+                                                                       VAdminProto.AddStoreResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+        logger.info("Succesfully added on node " + node.getHost() + ": " + node.getId());
+    }
+
+    private VAdminProto.VoldemortAdminRequest createAddStoreRequest(StoreDefinition def) {
+        String value = storeMapper.writeStore(def);
+
+        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                         .setStoreDefinition(value);
+        return VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                .setAddStore(addStoreRequest)
+                                                .build();
     }
 
     /**

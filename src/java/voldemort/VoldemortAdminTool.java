@@ -285,7 +285,8 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
-                executeAddStores(adminClient, storesXml, storeNames);
+                executeAddStores(adminClient, storesXml, storeNames, nodeId);
+
             }
             if(ops.contains("u")) {
                 String inputDir = (String) options.valueOf("update-entries");
@@ -467,7 +468,8 @@ public class VoldemortAdminTool {
 
     public static void executeAddStores(AdminClient adminClient,
                                         String storesXml,
-                                        List<String> storeNames) throws IOException {
+                                        List<String> storeNames,
+                                        int nodeId) throws IOException {
         List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
@@ -480,7 +482,10 @@ public class VoldemortAdminTool {
         }
         for(String store: stores) {
             System.out.println("Adding " + store);
-            adminClient.addStore(storeDefinitionMap.get(store));
+            if(-1 != nodeId)
+                adminClient.addStore(storeDefinitionMap.get(store), nodeId);
+            else
+                adminClient.addStore(storeDefinitionMap.get(store));
         }
     }
 
