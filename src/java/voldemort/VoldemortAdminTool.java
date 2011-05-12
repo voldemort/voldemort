@@ -39,6 +39,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -51,6 +52,7 @@ import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerFactory;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -352,6 +354,15 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+                    } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Rebalancing steal info file path incorrect");
+                        String rebalancingStealInfoJsonString = FileUtils.readFileToString(new File(metadataValue));
+                        RebalancerState state = RebalancerState.create(rebalancingStealInfoJsonString);
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.REBALANCING_STEAL_INFO,
+                                           state.toJsonString());
                     } else {
                         throw new VoldemortException("Incorrect metadata key");
                     }
@@ -494,9 +505,17 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
+            Versioned<String> versioned = null;
+            try {
+                versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
+            } catch(Exception e) {
+                System.out.println("Error in retrieving " + e.getMessage());
+                System.out.println();
+                continue;
+            }
             if(versioned == null) {
                 System.out.println("null");
+                System.out.println();
             } else {
                 System.out.println(versioned.getVersion());
                 System.out.print(": ");

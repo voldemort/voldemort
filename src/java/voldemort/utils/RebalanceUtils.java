@@ -106,10 +106,9 @@ public class RebalanceUtils {
                 }
             } catch(Exception e) {
                 if(null != requiredNodes && requiredNodes.contains(node.getId()))
-                    throw new VoldemortException("Failed to get Cluster version from node:" + node,
-                                                 e);
+                    throw new VoldemortException("Failed to get cluster version from " + node, e);
                 else
-                    logger.info("Failed to get Cluster version from node:" + node, e);
+                    logger.info("Failed to get cluster version from node " + node, e);
             }
         }
 

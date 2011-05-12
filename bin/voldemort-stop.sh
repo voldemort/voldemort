@@ -21,8 +21,6 @@ usage="Usage: voldemort-stop.sh"
 bin=`dirname "$0"`
 bin=`cd "$bin"; pwd`
 
-.  "$bin/voldemort-config.sh"
-
 if [ "$#" != "0" ]
 then
 	echo $usage
