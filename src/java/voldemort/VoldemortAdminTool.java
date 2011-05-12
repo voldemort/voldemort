@@ -49,8 +49,11 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -770,14 +773,24 @@ public class VoldemortAdminTool {
         }
     }
 
+    private static CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
+        return new CompressionStrategyFactory().get(serializerDef.getCompression());
+    }
+
     private static void writeKeysAscii(Iterator<ByteArray> keyIterator,
                                        File outputFile,
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
+        CompressionStrategy keysCompressionStrategy = null;
         if(outputFile != null) {
             writer = new BufferedWriter(new FileWriter(outputFile));
         } else {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
+        }
+
+        if(storeDefinition.getKeySerializer().hasCompression()) {
+            keysCompressionStrategy = new CompressionStrategyFactory().get(storeDefinition.getKeySerializer()
+                                                                                          .getCompression());
         }
 
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -789,7 +802,8 @@ public class VoldemortAdminTool {
             while(keyIterator.hasNext()) {
                 // Ugly hack to be able to separate text by newlines vs. spaces
                 byte[] keyBytes = keyIterator.next().get();
-                Object keyObject = serializer.toObject(keyBytes);
+                Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
+                                                                                        : keysCompressionStrategy.inflate(keyBytes));
                 generator.writeObject(keyObject);
                 StringBuffer buf = stringWriter.getBuffer();
                 if(buf.charAt(0) == ' ') {
