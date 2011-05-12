@@ -748,9 +748,19 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         }
+
+        StoreDefinition storeDefinition = null;
         for(String store: stores) {
-            System.out.println("Fetching keys in partitions "
-                               + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            storeDefinition = storeDefinitionMap.get(store);
+
+            if(null == storeDefinition) {
+                System.out.println("No store found under the name \'" + store + "\'");
+                continue;
+            } else {
+                System.out.println("Fetching keys in partitions "
+                                   + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            }
+
             Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
                                                                     store,
                                                                     partitionIdList,
@@ -762,7 +772,6 @@ public class VoldemortAdminTool {
             }
 
             if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(store);
                 writeKeysAscii(keyIterator, outputFile, storeDefinition);
             } else {
                 writeKeysBinary(keyIterator, outputFile);
@@ -771,10 +780,6 @@ public class VoldemortAdminTool {
             if(outputFile != null)
                 System.out.println("Fetched keys from " + store + " to " + outputFile);
         }
-    }
-
-    private static CompressionStrategy getCompressionStrategy(SerializerDefinition serializerDef) {
-        return new CompressionStrategyFactory().get(serializerDef.getCompression());
     }
 
     private static void writeKeysAscii(Iterator<ByteArray> keyIterator,
@@ -788,9 +793,9 @@ public class VoldemortAdminTool {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
         }
 
-        if(storeDefinition.getKeySerializer().hasCompression()) {
-            keysCompressionStrategy = new CompressionStrategyFactory().get(storeDefinition.getKeySerializer()
-                                                                                          .getCompression());
+        SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
+        if(null != serializerDef && serializerDef.hasCompression()) {
+            keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
         }
 
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
