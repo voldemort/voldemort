@@ -1078,10 +1078,10 @@ public class AdminClient {
      *        should not be deleted.
      * @return Number of entries deleted
      */
-    public int deletePartitions(int nodeId,
-                                String storeName,
-                                List<Integer> partitionList,
-                                VoldemortFilter filter) {
+    public long deletePartitions(int nodeId,
+                                 String storeName,
+                                 List<Integer> partitionList,
+                                 VoldemortFilter filter) {
         return deletePartitions(nodeId,
                                 storeName,
                                 getReplicaToPartitionMap(nodeId, storeName, partitionList),
@@ -1100,11 +1100,11 @@ public class AdminClient {
      *        should not be deleted.
      * @return Number of entries deleted
      */
-    public int deletePartitions(int nodeId,
-                                String storeName,
-                                HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                Cluster initialCluster,
-                                VoldemortFilter filter) {
+    public long deletePartitions(int nodeId,
+                                 String storeName,
+                                 HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                 Cluster initialCluster,
+                                 VoldemortFilter filter) {
         VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
                                                                                                                    .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                    .setStore(storeName);

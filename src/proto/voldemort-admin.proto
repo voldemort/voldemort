@@ -89,7 +89,7 @@ message DeletePartitionEntriesRequest {
 }
 
 message DeletePartitionEntriesResponse {
-  optional int32 count = 1;
+  optional int64 count = 1;
   optional Error error = 2;
 }
 

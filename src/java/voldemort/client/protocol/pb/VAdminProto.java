@@ -5979,12 +5979,12 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_DeletePartitionEntriesResponse_fieldAccessorTable;
     }
     
-    // optional int32 count = 1;
+    // optional int64 count = 1;
     public static final int COUNT_FIELD_NUMBER = 1;
     private boolean hasCount;
-    private int count_ = 0;
+    private long count_ = 0L;
     public boolean hasCount() { return hasCount; }
-    public int getCount() { return count_; }
+    public long getCount() { return count_; }
     
     // optional .voldemort.Error error = 2;
     public static final int ERROR_FIELD_NUMBER = 2;
@@ -6007,7 +6007,7 @@ public final class VAdminProto {
                         throws java.io.IOException {
       getSerializedSize();
       if (hasCount()) {
-        output.writeInt32(1, getCount());
+        output.writeInt64(1, getCount());
       }
       if (hasError()) {
         output.writeMessage(2, getError());
@@ -6023,7 +6023,7 @@ public final class VAdminProto {
       size = 0;
       if (hasCount()) {
         size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(1, getCount());
+          .computeInt64Size(1, getCount());
       }
       if (hasError()) {
         size += com.google.protobuf.CodedOutputStream
@@ -6219,7 +6219,7 @@ public final class VAdminProto {
               break;
             }
             case 8: {
-              setCount(input.readInt32());
+              setCount(input.readInt64());
               break;
             }
             case 18: {
@@ -6236,21 +6236,21 @@ public final class VAdminProto {
       }
       
       
-      // optional int32 count = 1;
+      // optional int64 count = 1;
       public boolean hasCount() {
         return result.hasCount();
       }
-      public int getCount() {
+      public long getCount() {
         return result.getCount();
       }
-      public Builder setCount(int value) {
+      public Builder setCount(long value) {
         result.hasCount = true;
         result.count_ = value;
         return this;
       }
       public Builder clearCount() {
         result.hasCount = false;
-        result.count_ = 0;
+        result.count_ = 0L;
         return this;
       }
       
@@ -18312,7 +18312,7 @@ public final class VAdminProto {
       "\002 \003(\0132\031.voldemort.PartitionTuple\022*\n\006filt" +
       "er\030\003 \001(\0132\032.voldemort.VoldemortFilter\022\027\n\017" +
       "initial_cluster\030\004 \001(\t\"P\n\036DeletePartition",
-      "EntriesResponse\022\r\n\005count\030\001 \001(\005\022\037\n\005error\030" +
+      "EntriesResponse\022\r\n\005count\030\001 \001(\003\022\037\n\005error\030" +
       "\002 \001(\0132\020.voldemort.Error\"\275\001\n\035InitiateFetc" +
       "hAndUpdateRequest\022\017\n\007node_id\030\001 \002(\005\022\r\n\005st" +
       "ore\030\003 \002(\t\022*\n\006filter\030\004 \001(\0132\032.voldemort.Vo" +

@@ -688,8 +688,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         if(isReadOnlyStore) {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
-                            updateStatus("Initated fetching of files for RO store " + storeName
-                                         + " from node " + nodeId);
+                            logger.info("Fetching files for RO store " + storeName + " from node "
+                                        + nodeId);
+                            updateStatus("Fetching files for RO store " + storeName + " from node "
+                                         + nodeId);
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
                                                             replicaToPartitionList,
@@ -699,7 +701,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                  .keySet());
 
                         } else {
-                            updateStatus("Initated fetching of entries for RW store " + storeName
+                            logger.info("Fetching entries for RW store " + storeName
+                                        + " from node " + nodeId);
+                            updateStatus("Fetching entries for RW store " + storeName
                                          + " from node " + nodeId);
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                     storeName,
@@ -722,7 +726,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
                                 if((i % 1000) == 0) {
-                                    updateStatus(i + " entries copied from " + nodeId
+                                    updateStatus(i + " entries copied from node " + nodeId
                                                  + " for store " + storeName);
                                 }
                             }
@@ -769,6 +773,17 @@ public class AdminServiceRequestHandler implements RequestHandler {
         try {
             String storeName = request.getStore();
             final HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+
+            final boolean isReadWriteStore = metadataStore.getStoreDef(storeName)
+                                                          .getType()
+                                                          .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) != 0;
+
+            if(!isReadWriteStore) {
+                throw new VoldemortException("Cannot delete partitions for store " + storeName
+                                             + " on node " + metadataStore.getNodeId()
+                                             + " since it is not a RW store");
+            }
+
             StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                       storeName);
             VoldemortFilter filter = (request.hasFilter()) ? getFilterFromRequest(request.getFilter(),
@@ -777,7 +792,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
             EventThrottler throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
             iterator = storageEngine.entries();
-            int deleteSuccess = 0;
+            long deleteSuccess = 0;
+            logger.info("Deleting entries for RW store " + storeName + " from node "
+                        + metadataStore.getNodeId());
 
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();
@@ -792,10 +809,16 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                         : metadataStore.getCluster(),
                                                              metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
-                    if(storageEngine.delete(key, value.getVersion()))
+                    if(storageEngine.delete(key, value.getVersion())) {
                         deleteSuccess++;
+                        if((deleteSuccess % 1000) == 0) {
+                            logger.info(deleteSuccess + " entries deleted from node "
+                                        + metadataStore.getNodeId() + " for store " + storeName);
+                        }
+                    }
                 }
             }
+
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));

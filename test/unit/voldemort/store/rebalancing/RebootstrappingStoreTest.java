@@ -115,7 +115,7 @@ public class RebootstrappingStoreTest {
                                  node1.getSocketPort(),
                                  node1.getAdminPort(),
                                  ImmutableList.of(0, 1));
-        int deleted = adminClient.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
+        long deleted = adminClient.deletePartitions(0, STORE_NAME, ImmutableList.of(0, 1), null);
         assert deleted > 0;
         Cluster newCluster = new Cluster(cluster.getName(),
                                          ImmutableList.of(newNode0, newNode1),
