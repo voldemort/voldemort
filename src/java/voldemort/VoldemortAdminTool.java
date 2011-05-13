@@ -51,9 +51,12 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -297,7 +300,8 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
-                executeAddStores(adminClient, storesXml, storeNames);
+                executeAddStores(adminClient, storesXml, storeNames, nodeId);
+
             }
             if(ops.contains("u")) {
                 String inputDir = (String) options.valueOf("update-entries");
@@ -537,7 +541,8 @@ public class VoldemortAdminTool {
 
     public static void executeAddStores(AdminClient adminClient,
                                         String storesXml,
-                                        List<String> storeNames) throws IOException {
+                                        List<String> storeNames,
+                                        int nodeId) throws IOException {
         List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
@@ -550,7 +555,10 @@ public class VoldemortAdminTool {
         }
         for(String store: stores) {
             System.out.println("Adding " + store);
-            adminClient.addStore(storeDefinitionMap.get(store));
+            if(-1 != nodeId)
+                adminClient.addStore(storeDefinitionMap.get(store), nodeId);
+            else
+                adminClient.addStore(storeDefinitionMap.get(store));
         }
     }
 
@@ -818,9 +826,19 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         }
+
+        StoreDefinition storeDefinition = null;
         for(String store: stores) {
-            System.out.println("Fetching keys in partitions "
-                               + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            storeDefinition = storeDefinitionMap.get(store);
+
+            if(null == storeDefinition) {
+                System.out.println("No store found under the name \'" + store + "\'");
+                continue;
+            } else {
+                System.out.println("Fetching keys in partitions "
+                                   + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            }
+
             Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
                                                                     store,
                                                                     partitionIdList,
@@ -832,7 +850,6 @@ public class VoldemortAdminTool {
             }
 
             if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(store);
                 writeKeysAscii(keyIterator, outputFile, storeDefinition);
             } else {
                 writeKeysBinary(keyIterator, outputFile);
@@ -847,10 +864,16 @@ public class VoldemortAdminTool {
                                        File outputFile,
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
+        CompressionStrategy keysCompressionStrategy = null;
         if(outputFile != null) {
             writer = new BufferedWriter(new FileWriter(outputFile));
         } else {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
+        }
+
+        SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
+        if(null != serializerDef && serializerDef.hasCompression()) {
+            keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
         }
 
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -862,7 +885,8 @@ public class VoldemortAdminTool {
             while(keyIterator.hasNext()) {
                 // Ugly hack to be able to separate text by newlines vs. spaces
                 byte[] keyBytes = keyIterator.next().get();
-                Object keyObject = serializer.toObject(keyBytes);
+                Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
+                                                                                        : keysCompressionStrategy.inflate(keyBytes));
                 generator.writeObject(keyObject);
                 StringBuffer buf = stringWriter.getBuffer();
                 if(buf.charAt(0) == ' ') {
