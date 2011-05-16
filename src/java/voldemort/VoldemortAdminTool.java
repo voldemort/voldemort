@@ -589,9 +589,19 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         }
+
+        StoreDefinition storeDefinition = null;
         for(String store: stores) {
-            System.out.println("Fetching entries in partitions "
-                               + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            storeDefinition = storeDefinitionMap.get(store);
+
+            if(null == storeDefinition) {
+                System.out.println("No store found under the name \'" + store + "\'");
+                continue;
+            } else {
+                System.out.println("Fetching entries in partitions "
+                                   + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            }
+
             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                     store,
                                                                                                     partitionIdList,
@@ -603,7 +613,6 @@ public class VoldemortAdminTool {
             }
 
             if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(store);
                 writeEntriesAscii(entriesIterator, outputFile, storeDefinition);
             } else {
                 writeEntriesBinary(entriesIterator, outputFile);
@@ -732,6 +741,9 @@ public class VoldemortAdminTool {
                                           File outputFile,
                                           StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
+        CompressionStrategy keyCompressionStrategy = null;
+        CompressionStrategy valueCompressionStrategy = null;
+
         if(outputFile != null) {
             writer = new BufferedWriter(new FileWriter(outputFile));
         } else {
@@ -740,6 +752,16 @@ public class VoldemortAdminTool {
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
         StringWriter stringWriter = new StringWriter();
         JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
+
+        SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
+        if(null != keySerializerDef && keySerializerDef.hasCompression()) {
+            keyCompressionStrategy = new CompressionStrategyFactory().get(keySerializerDef.getCompression());
+        }
+
+        SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
+        if(null != valueSerializerDef && valueSerializerDef.hasCompression()) {
+            valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
+        }
 
         @SuppressWarnings("unchecked")
         Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
@@ -753,8 +775,10 @@ public class VoldemortAdminTool {
                 VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
                 byte[] valueBytes = kvPair.getSecond().getValue();
 
-                Object keyObject = keySerializer.toObject(keyBytes);
-                Object valueObject = valueSerializer.toObject(valueBytes);
+                Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
+                                                                                          : keyCompressionStrategy.inflate(keyBytes));
+                Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
+                                                                                                : valueCompressionStrategy.inflate(valueBytes));
 
                 generator.writeObject(keyObject);
                 stringWriter.write(' ');
