@@ -138,6 +138,9 @@ public class RebalanceUtils {
     public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
                                                      List<Integer> nodePartitions,
                                                      HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        // Check for null
+        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
+
         for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
 
             // If this partition belongs to node partitions + master is in
@@ -539,18 +542,18 @@ public class RebalanceUtils {
      * 
      * @param currentCluster Current cluster metadata
      * @param targetCluster Target cluster metadata
-     * @param storeDefs List of store definitions
+     * @param storeDef Store Definition
      * @return Map of stealer node id to sets of [ replica_type, partition ]
      *         tuples
      */
     public static Map<Integer, Set<Pair<Integer, Integer>>> getStolenPartitionTuples(final Cluster currentCluster,
                                                                                      final Cluster targetCluster,
-                                                                                     final List<StoreDefinition> storeDefs) {
+                                                                                     final StoreDefinition storeDef) {
         Map<Integer, Set<Pair<Integer, Integer>>> currentNodeIdToReplicas = getNodeIdToAllPartitions(currentCluster,
-                                                                                                     storeDefs,
+                                                                                                     storeDef,
                                                                                                      true);
         Map<Integer, Set<Pair<Integer, Integer>>> targetNodeIdToReplicas = getNodeIdToAllPartitions(targetCluster,
-                                                                                                    storeDefs,
+                                                                                                    storeDef,
                                                                                                     true);
 
         Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
@@ -569,19 +572,42 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given a mapping of existing node ids to their partition tuples and
+     * another new set of node ids to partition tuples, combines them together
+     * and puts it into the existing partition tuples
+     * 
+     * @param existingPartitionTuples Existing partition tuples ( Will include
+     *        the new partition tuples at the end of this function )
+     * @param newPartitionTuples New partition tuples
+     */
+    public static void combinePartitionTuples(Map<Integer, Set<Pair<Integer, Integer>>> existingPartitionTuples,
+                                              Map<Integer, Set<Pair<Integer, Integer>>> newPartitionTuples) {
+
+        for(int nodeId: newPartitionTuples.keySet()) {
+            Set<Pair<Integer, Integer>> tuples = null;
+            if(existingPartitionTuples.containsKey(nodeId)) {
+                tuples = existingPartitionTuples.get(nodeId);
+            } else {
+                tuples = Sets.newHashSet();
+                existingPartitionTuples.put(nodeId, tuples);
+            }
+            tuples.addAll(newPartitionTuples.get(nodeId));
+        }
+    }
+
+    /**
      * For a particular cluster creates a mapping of node id to their
      * corresponding list of [ replicaType, partition ] tuple
      * 
      * @param cluster The cluster metadata
-     * @param storeDefs The store definitions
+     * @param storeDef The store definition
      * @param includePrimary Include the primary partition?
      * @return Map of node id to set of [ replicaType, partition ] tuple
      */
     public static Map<Integer, Set<Pair<Integer, Integer>>> getNodeIdToAllPartitions(final Cluster cluster,
-                                                                                     final List<StoreDefinition> storeDefs,
+                                                                                     final StoreDefinition storeDef,
                                                                                      boolean includePrimary) {
-        final StoreDefinition maxReplicationStore = RebalanceUtils.getMaxReplicationStore(storeDefs);
-        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(maxReplicationStore,
+        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                    cluster);
 
         final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = new HashMap<Integer, Set<Pair<Integer, Integer>>>();
@@ -601,11 +627,11 @@ public class RebalanceUtils {
                 // Gets the list of replicating partitions.
                 List<Integer> replicaPartitionList = routingStrategy.getReplicatingPartitionList(primary);
 
-                if(replicaPartitionList.size() != maxReplicationStore.getReplicationFactor())
+                if(replicaPartitionList.size() != storeDef.getReplicationFactor())
                     throw new VoldemortException("Number of replicas returned ("
                                                  + replicaPartitionList.size()
                                                  + ") is less than the required replication factor ("
-                                                 + maxReplicationStore.getReplicationFactor() + ")");
+                                                 + storeDef.getReplicationFactor() + ")");
 
                 int replicaType = 0;
                 if(!includePrimary) {
@@ -797,26 +823,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given a list of store definitions, returns the store definition with the
-     * max replication factor
-     * 
-     * @param storeDefList List of store definitions
-     * @return The store definition with the max replication factor
-     */
-    public static StoreDefinition getMaxReplicationStore(List<StoreDefinition> storeDefList) {
-        int maxReplication = 0;
-        StoreDefinition maxStore = null;
-        for(StoreDefinition def: storeDefList) {
-            if(maxReplication < def.getReplicationFactor()) {
-                maxReplication = def.getReplicationFactor();
-                maxStore = def;
-            }
-        }
-
-        return maxStore;
-    }
-
-    /**
      * Given a list of store definitions, cluster and admin client returns a
      * boolean indicating if all RO stores are in the correct format.
      * 
@@ -870,11 +876,9 @@ public class RebalanceUtils {
      * </pre>
      * 
      * @param nodeIdToAllPartitions Mapping of node id to all tuples
-     * @param cluster The cluster metadata
      * @return Returns a string representation of the cluster
      */
-    public static String printMap(final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions,
-                                  final Cluster cluster) {
+    public static String printMap(final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions) {
         StringBuilder sb = new StringBuilder();
         for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
             final Integer nodeId = entry.getKey();
@@ -958,14 +962,30 @@ public class RebalanceUtils {
      * @param storeDefs List of store names we are rebalancing
      * @return List of updated partition plan
      */
-    public static List<RebalancePartitionsInfo> updatePartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
+    public static List<RebalancePartitionsInfo> filterPartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
                                                                               List<StoreDefinition> storeDefs) {
         List<RebalancePartitionsInfo> plans = Lists.newArrayList();
+        List<String> storeNames = RebalanceUtils.getStoreNames(storeDefs);
+
         for(RebalancePartitionsInfo existingPlan: existingPlanList) {
             RebalancePartitionsInfo info = RebalancePartitionsInfo.create(existingPlan.toJsonString());
 
-            // Copy over the new stores then
-            info.setUnbalancedStoreList(RebalanceUtils.getStoreNames(storeDefs));
+            // Filter the plans only for stores given
+            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitions = info.getStoreToReplicaToAddPartitionList();
+            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitions = info.getStoreToReplicaToDeletePartitionList();
+
+            HashMap<String, HashMap<Integer, List<Integer>>> newStoreToReplicaToAddPartitions = Maps.newHashMap();
+            HashMap<String, HashMap<Integer, List<Integer>>> newStoreToReplicaToDeletePartitions = Maps.newHashMap();
+            for(String storeName: storeNames) {
+                if(storeToReplicaToAddPartitions.containsKey(storeName))
+                    newStoreToReplicaToAddPartitions.put(storeName,
+                                                         storeToReplicaToAddPartitions.get(storeName));
+                if(storeToReplicaToDeletePartitions.containsKey(storeName))
+                    newStoreToReplicaToDeletePartitions.put(storeName,
+                                                            storeToReplicaToDeletePartitions.get(storeName));
+            }
+            info.setStoreToReplicaToAddPartitionList(newStoreToReplicaToAddPartitions);
+            info.setStoreToReplicaToDeletePartitionList(newStoreToReplicaToDeletePartitions);
 
             plans.add(info);
         }

@@ -425,7 +425,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationListResponse handleAsyncOperationList(VAdminProto.AsyncOperationListRequest request) {
         VAdminProto.AsyncOperationListResponse.Builder response = VAdminProto.AsyncOperationListResponse.newBuilder();
-        boolean showComplete = request.hasShowComplete() && request.getShowComplete();
+        boolean showComplete = request.getShowComplete();
         try {
             response.addAllRequestIds(asyncService.getAsyncOperationList(showComplete));
         } catch(VoldemortException e) {
@@ -689,7 +689,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
                             logger.info("Fetching files for RO store " + storeName + " from node "
-                                        + nodeId);
+                                        + nodeId + " ( " + replicaToPartitionList + " )");
                             updateStatus("Fetching files for RO store " + storeName + " from node "
                                          + nodeId);
                             adminClient.fetchPartitionFiles(nodeId,
@@ -702,7 +702,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                         } else {
                             logger.info("Fetching entries for RW store " + storeName
-                                        + " from node " + nodeId);
+                                        + " from node " + nodeId + " ( " + replicaToPartitionList
+                                        + " )");
                             updateStatus("Fetching entries for RW store " + storeName
                                          + " from node " + nodeId);
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
@@ -794,7 +795,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
             iterator = storageEngine.entries();
             long deleteSuccess = 0;
             logger.info("Deleting entries for RW store " + storeName + " from node "
-                        + metadataStore.getNodeId());
+                        + metadataStore.getNodeId() + " ( " + replicaToPartitionList + " )");
 
             while(iterator.hasNext()) {
                 Pair<ByteArray, Versioned<byte[]>> entry = iterator.next();

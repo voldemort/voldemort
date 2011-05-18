@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -37,7 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 /**
- * Individual Rebalancing Operation
+ * Individual rebalancing operation run on the server side as an async operation
  */
 class RebalanceAsyncOperation extends AsyncOperation {
 
@@ -70,7 +70,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                    MetadataStore metadataStore,
                                    int requestId,
                                    RebalancePartitionsInfo stealInfo) {
-        super(requestId, "Rebalance Operation: " + stealInfo.toString());
+        super(requestId, "Rebalance operation: " + stealInfo.toString());
         this.rebalancer = rebalancer;
         this.voldemortConfig = voldemortConfig;
         this.metadataStore = metadataStore;
@@ -103,9 +103,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
-                            List<String> tempUnbalancedStoreList = new ArrayList<String>(stealInfo.getUnbalancedStoreList());
-                            tempUnbalancedStoreList.remove(storeName);
-                            stealInfo.setUnbalancedStoreList(tempUnbalancedStoreList);
+                            // We finished the store, delete it
+                            stealInfo.removeStore(storeName);
 
                             logger.info(getHeader(stealInfo) + "Completed working on store "
                                         + storeName);
@@ -194,7 +193,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
                                                     storeName,
-                                                    stealInfo.getReplicaToPartitionList(),
+                                                    stealInfo.getReplicaToAddPartitionList(storeName),
                                                     null,
                                                     stealInfo.getInitialCluster());
         rebalanceStatusList.add(asyncId);
@@ -216,7 +215,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
         updateStatus(getHeader(stealInfo) + "Completed partition migration for store " + storeName
                      + " from donor node " + stealInfo.getDonorId());
 
-        if(stealInfo.getReplicaToDeletePartitionList().size() > 0 && !isReadOnlyStore) {
+        if(stealInfo.getReplicaToDeletePartitionList(storeName) != null
+           && stealInfo.getReplicaToDeletePartitionList(storeName).size() > 0 && !isReadOnlyStore) {
             logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
             updateStatus(getHeader(stealInfo) + "Deleting partitions for store " + storeName
@@ -224,7 +224,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
-                                         stealInfo.getReplicaToDeletePartitionList(),
+                                         stealInfo.getReplicaToDeletePartitionList(storeName),
                                          stealInfo.getInitialCluster(),
                                          null);
             logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName

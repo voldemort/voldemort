@@ -789,8 +789,8 @@ public class AdminServiceBasicTest extends TestCase {
     private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
             throws IOException {
         Map<Integer, Set<Pair<Integer, Integer>>> buckets = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                    Lists.newArrayList(RebalanceUtils.getStoreDefinitionWithName(storeDefs,
-                                                                                                                                                                 "test-readonly-fetchfiles")),
+                                                                                                    RebalanceUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                                                                              "test-readonly-fetchfiles"),
                                                                                                     true);
         for(Node node: cluster.getNodes()) {
             ReadOnlyStorageEngine store = (ReadOnlyStorageEngine) getStore(node.getId(),

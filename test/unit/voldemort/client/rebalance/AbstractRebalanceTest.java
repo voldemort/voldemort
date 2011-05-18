@@ -777,33 +777,33 @@ public abstract class AbstractRebalanceTest {
 
     private void rebalanceAndCheck(Cluster currentCluster,
                                    Cluster targetCluster,
-                                   List<StoreDefinition> storeDef,
+                                   List<StoreDefinition> storeDefs,
                                    RebalanceController rebalanceClient,
                                    List<Integer> nodeCheckList) {
         rebalanceClient.rebalance(targetCluster);
 
-        Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
-                                                                                                                         storeDef,
-                                                                                                                         true);
-        Map<Integer, Set<Pair<Integer, Integer>>> targetNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
-                                                                                                                        storeDef,
-                                                                                                                        true);
+        for(StoreDefinition storeDef: storeDefs) {
+            Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
+                                                                                                                             storeDef,
+                                                                                                                             true);
+            Map<Integer, Set<Pair<Integer, Integer>>> targetNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(targetCluster,
+                                                                                                                            storeDef,
+                                                                                                                            true);
 
-        for(int nodeId: nodeCheckList) {
-            Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
-            Set<Pair<Integer, Integer>> targetPartitionTuples = targetNodeToPartitionTuples.get(nodeId);
+            for(int nodeId: nodeCheckList) {
+                Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
+                Set<Pair<Integer, Integer>> targetPartitionTuples = targetNodeToPartitionTuples.get(nodeId);
 
-            HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(RebalanceUtils.getAddedInTarget(currentPartitionTuples,
-                                                                                                                                           targetPartitionTuples));
-            for(StoreDefinition def: storeDef) {
-                Store<ByteArray, byte[], byte[]> store = getSocketStore(def.getName(),
+                HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(RebalanceUtils.getAddedInTarget(currentPartitionTuples,
+                                                                                                                                               targetPartitionTuples));
+                Store<ByteArray, byte[], byte[]> store = getSocketStore(storeDef.getName(),
                                                                         targetCluster.getNodeById(nodeId)
                                                                                      .getHost(),
                                                                         targetCluster.getNodeById(nodeId)
                                                                                      .getSocketPort());
                 checkGetEntries(targetCluster.getNodeById(nodeId),
                                 targetCluster,
-                                def,
+                                storeDef,
                                 store,
                                 flattenedPresentTuples);
             }

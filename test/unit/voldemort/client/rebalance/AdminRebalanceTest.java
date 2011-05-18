@@ -419,18 +419,15 @@ public class AdminRebalanceTest extends TestCase {
 
             // Put a plan different from the plan that we actually want to
             // execute
-
             getServer(plans.get(0).getStealerId()).getMetadataStore()
                                                   .put(MetadataStore.REBALANCING_STEAL_INFO,
                                                        new RebalancerState(Lists.newArrayList(new RebalancePartitionsInfo(100,
                                                                                                                           plans.get(0)
                                                                                                                                .getDonorId(),
                                                                                                                           plans.get(0)
-                                                                                                                               .getReplicaToPartitionList(),
+                                                                                                                               .getStoreToReplicaToAddPartitionList(),
                                                                                                                           plans.get(0)
-                                                                                                                               .getReplicaToDeletePartitionList(),
-                                                                                                                          plans.get(0)
-                                                                                                                               .getUnbalancedStoreList(),
+                                                                                                                               .getStoreToReplicaToDeletePartitionList(),
                                                                                                                           plans.get(0)
                                                                                                                                .getInitialCluster(),
                                                                                                                           0))));
@@ -465,6 +462,7 @@ public class AdminRebalanceTest extends TestCase {
                         adminClient.rebalanceNode(currentPlan);
                         fail("Should have thrown an exception since it is already rebalancing");
                     } catch(AlreadyRebalancingException e) {}
+
                     assertNotSame("Got a valid rebalanceAsyncId", -1, asyncId);
                     getAdminClient().waitForCompletion(currentPlan.getStealerId(),
                                                        asyncId,
@@ -487,7 +485,8 @@ public class AdminRebalanceTest extends TestCase {
             Store<ByteArray, byte[], byte[]> storeTest1 = getStore(1, "test2");
             Store<ByteArray, byte[], byte[]> storeTest2 = getStore(2, "test2");
 
-            Store<ByteArray, byte[], byte[]> storeTest10 = getStore(0, "test");
+            Store<ByteArray, byte[], byte[]> storeTest00 = getStore(0, "test");
+            Store<ByteArray, byte[], byte[]> storeTest20 = getStore(2, "test");
 
             // Primary is on Node 0 and not on Node 1
             for(Entry<ByteArray, byte[]> entry: primaryEntriesMoved.entrySet()) {
@@ -501,10 +500,11 @@ public class AdminRebalanceTest extends TestCase {
                 // Check in other store
                 assertSame("entry should be present in store test2 ",
                            1,
-                           storeTest10.get(entry.getKey(), null).size());
+                           storeTest20.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
-                             new String(storeTest10.get(entry.getKey(), null).get(0).getValue()));
+                             new String(storeTest20.get(entry.getKey(), null).get(0).getValue()));
+                assertEquals(storeTest00.get(entry.getKey(), null).size(), 0);
             }
 
             // Secondary is on Node 2 and not on Node 0
@@ -611,7 +611,8 @@ public class AdminRebalanceTest extends TestCase {
             Store<ByteArray, byte[], byte[]> storeTest2 = getStore(2, "test2");
             Store<ByteArray, byte[], byte[]> storeTest3 = getStore(3, "test2");
 
-            Store<ByteArray, byte[], byte[]> storeTest10 = getStore(0, "test");
+            Store<ByteArray, byte[], byte[]> storeTest00 = getStore(0, "test");
+            Store<ByteArray, byte[], byte[]> storeTest10 = getStore(1, "test");
             Store<ByteArray, byte[], byte[]> storeTest30 = getStore(3, "test");
 
             // Primary
@@ -644,11 +645,11 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest10.get(entry.getKey(),
+                assertSame("entry should be present at store", 1, storeTest00.get(entry.getKey(),
                                                                                   null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
-                             new String(storeTest10.get(entry.getKey(), null).get(0).getValue()));
+                             new String(storeTest00.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
                 assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
@@ -656,6 +657,9 @@ public class AdminRebalanceTest extends TestCase {
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
+
+                // Not present on Node 1
+                assertEquals(storeTest10.get(entry.getKey(), null).size(), 0);
 
             }
 
@@ -679,6 +683,18 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Not present on Node 1
                 assertEquals(storeTest1.get(entry.getKey(), null).size(), 0);
+
+                // Test
+                // Present on Node 3
+                assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
+                                                                                  null).size());
+                assertEquals("entry value should match",
+                             new String(entry.getValue()),
+                             new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
+
+                // Not present on Node 0
+                assertEquals(storeTest00.get(entry.getKey(), null).size(), 0);
+
             }
 
             // Tertiary
@@ -715,7 +731,7 @@ public class AdminRebalanceTest extends TestCase {
 
             int numChunks = 5;
             for(StoreDefinition storeDef: Lists.newArrayList(storeDef1, storeDef2)) {
-                buildStore(storeDef, numChunks);
+                buildROStore(storeDef, numChunks);
             }
 
             // Set into rebalancing state
@@ -758,23 +774,23 @@ public class AdminRebalanceTest extends TestCase {
 
                     File currentDir = new File(((ReadOnlyStorageEngine) getStore(currentPlan.getStealerId(),
                                                                                  storeName)).getCurrentDirPath());
-                    for(Entry<Integer, List<Integer>> entry: currentPlan.getReplicaToPartitionList()
-                                                                        .entrySet()) {
-                        if(entry.getKey() < storeDef.getReplicationFactor()) {
-                            for(int partitionId: entry.getValue()) {
-                                for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                                    assertTrue(new File(currentDir, partitionId + "_"
-                                                                    + entry.getKey() + "_"
-                                                                    + chunkId + ".data").exists());
-                                    assertTrue(new File(currentDir, partitionId + "_"
-                                                                    + entry.getKey() + "_"
-                                                                    + chunkId + ".index").exists());
+                    if(currentPlan.getUnbalancedStoreList().contains(storeDef.getName())) {
+                        for(Entry<Integer, List<Integer>> entry: currentPlan.getReplicaToAddPartitionList(storeName)
+                                                                            .entrySet()) {
+                            if(entry.getKey() < storeDef.getReplicationFactor()) {
+                                for(int partitionId: entry.getValue()) {
+                                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                                        assertTrue(new File(currentDir, partitionId + "_"
+                                                                        + entry.getKey() + "_"
+                                                                        + chunkId + ".data").exists());
+                                        assertTrue(new File(currentDir, partitionId + "_"
+                                                                        + entry.getKey() + "_"
+                                                                        + chunkId + ".index").exists());
+                                    }
                                 }
                             }
                         }
-
                     }
-
                 }
             }
 
@@ -869,7 +885,7 @@ public class AdminRebalanceTest extends TestCase {
 
             int numChunks = 5;
             for(StoreDefinition storeDef: Lists.newArrayList(storeDef1, storeDef2)) {
-                buildStore(storeDef, numChunks);
+                buildROStore(storeDef, numChunks);
             }
 
             // Set into rebalancing state
@@ -911,9 +927,8 @@ public class AdminRebalanceTest extends TestCase {
                       .getRebalancerState()
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new ArrayList<String>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
                                                           cluster,
                                                           0));
 
@@ -1036,18 +1051,17 @@ public class AdminRebalanceTest extends TestCase {
     }
 
     private void checkRO(Cluster cluster) {
-        Map<Integer, Set<Pair<Integer, Integer>>> nodeToPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                             Lists.newArrayList(storeDef1,
-                                                                                                                                storeDef2),
-                                                                                                             true);
+        for(StoreDefinition storeDef: Lists.newArrayList(storeDef1, storeDef2)) {
+            Map<Integer, Set<Pair<Integer, Integer>>> nodeToPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
+                                                                                                                 storeDef,
+                                                                                                                 true);
 
-        for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeToPartitions.entrySet()) {
-            int nodeId = entry.getKey();
-            Set<Pair<Integer, Integer>> buckets = entry.getValue();
+            for(Map.Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeToPartitions.entrySet()) {
+                int nodeId = entry.getKey();
+                Set<Pair<Integer, Integer>> buckets = entry.getValue();
 
-            assertEquals(servers[nodeId].getMetadataStore().getCluster(), cluster);
+                assertEquals(servers[nodeId].getMetadataStore().getCluster(), cluster);
 
-            for(StoreDefinition storeDef: Lists.newArrayList(storeDef1, storeDef2)) {
                 ReadOnlyStorageEngine engine = (ReadOnlyStorageEngine) servers[nodeId].getStoreRepository()
                                                                                       .getStorageEngine(storeDef.getName());
                 HashMap<Object, Integer> storeBuckets = engine.getChunkedFileSet()
@@ -1103,9 +1117,8 @@ public class AdminRebalanceTest extends TestCase {
                       .getRebalancerState()
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new ArrayList<String>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
                                                           cluster,
                                                           0));
 
@@ -1206,9 +1219,8 @@ public class AdminRebalanceTest extends TestCase {
                       .getRebalancerState()
                       .update(new RebalancePartitionsInfo(3,
                                                           0,
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new HashMap<Integer, List<Integer>>(),
-                                                          new ArrayList<String>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
+                                                          new HashMap<String, HashMap<Integer, List<Integer>>>(),
                                                           cluster,
                                                           0));
 
@@ -1280,9 +1292,9 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    private void buildStore(StoreDefinition storeDef, int numChunks) throws IOException {
+    private void buildROStore(StoreDefinition storeDef, int numChunks) throws IOException {
         Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                                  Lists.newArrayList(storeDef),
+                                                                                                                  storeDef,
                                                                                                                   true);
         for(Entry<Integer, Set<Pair<Integer, Integer>>> entry: nodeIdToAllPartitions.entrySet()) {
             HashMap<Integer, List<Integer>> tuples = RebalanceUtils.flattenPartitionTuples(entry.getValue());

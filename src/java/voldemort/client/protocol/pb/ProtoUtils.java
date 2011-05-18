@@ -28,6 +28,7 @@ import java.util.Map.Entry;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.VAdminProto.PartitionTuple;
+import voldemort.client.protocol.pb.VAdminProto.PerStorePartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.ROMetadataMap;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -65,9 +66,8 @@ public class ProtoUtils {
     public static RebalancePartitionsInfo decodeRebalancePartitionInfoMap(VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap) {
         RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
                                                                                  rebalancePartitionInfoMap.getDonorId(),
-                                                                                 decodePartitionTuple(rebalancePartitionInfoMap.getReplicaToPartitionList()),
-                                                                                 decodePartitionTuple(rebalancePartitionInfoMap.getReplicaToDeletePartitionList()),
-                                                                                 rebalancePartitionInfoMap.getUnbalancedStoresList(),
+                                                                                 decodePerStorePartitionTuple(rebalancePartitionInfoMap.getReplicaToAddPartitionList()),
+                                                                                 decodePerStorePartitionTuple(rebalancePartitionInfoMap.getReplicaToDeletePartitionList()),
                                                                                  new ClusterMapper().readCluster(new StringReader(rebalancePartitionInfoMap.getInitialCluster())),
                                                                                  rebalancePartitionInfoMap.getAttempt());
         return rebalanceStealInfo;
@@ -77,9 +77,8 @@ public class ProtoUtils {
         return RebalancePartitionInfoMap.newBuilder()
                                         .setStealerId(stealInfo.getStealerId())
                                         .setDonorId(stealInfo.getDonorId())
-                                        .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(stealInfo.getReplicaToPartitionList()))
-                                        .addAllReplicaToDeletePartition(ProtoUtils.encodePartitionTuple(stealInfo.getReplicaToDeletePartitionList()))
-                                        .addAllUnbalancedStores(stealInfo.getUnbalancedStoreList())
+                                        .addAllReplicaToAddPartition(ProtoUtils.encodePerStorePartitionTuple(stealInfo.getStoreToReplicaToAddPartitionList()))
+                                        .addAllReplicaToDeletePartition(ProtoUtils.encodePerStorePartitionTuple(stealInfo.getStoreToReplicaToDeletePartitionList()))
                                         .setInitialCluster(new ClusterMapper().writeCluster(stealInfo.getInitialCluster()))
                                         .setAttempt(stealInfo.getAttempt())
                                         .build();
@@ -117,6 +116,26 @@ public class ProtoUtils {
             replicaToPartitionList.put(tuple.getReplicaType(), tuple.getPartitionsList());
         }
         return replicaToPartitionList;
+    }
+
+    public static List<PerStorePartitionTuple> encodePerStorePartitionTuple(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
+        List<PerStorePartitionTuple> perStorePartitionTuples = Lists.newArrayList();
+        for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToPartitionList.entrySet()) {
+            PerStorePartitionTuple.Builder tupleBuilder = PerStorePartitionTuple.newBuilder();
+            tupleBuilder.setStoreName(entry.getKey());
+            tupleBuilder.addAllReplicaToPartition(encodePartitionTuple(entry.getValue()));
+            perStorePartitionTuples.add(tupleBuilder.build());
+        }
+        return perStorePartitionTuples;
+    }
+
+    public static HashMap<String, HashMap<Integer, List<Integer>>> decodePerStorePartitionTuple(List<PerStorePartitionTuple> perStorePartitionTuples) {
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
+        for(PerStorePartitionTuple tuple: perStorePartitionTuples) {
+            storeToReplicaToPartitionList.put(tuple.getStoreName(),
+                                              decodePartitionTuple(tuple.getReplicaToPartitionList()));
+        }
+        return storeToReplicaToPartitionList;
     }
 
     public static VProto.Error.Builder encodeError(ErrorCodeMapper mapper, VoldemortException e) {

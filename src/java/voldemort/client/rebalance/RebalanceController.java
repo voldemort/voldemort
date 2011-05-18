@@ -274,14 +274,13 @@ public class RebalanceController {
 
             // STEP 1 - Cluster state change
             boolean finishedReadOnlyPhase = false;
-            rebalancePartitionPlanList = RebalanceUtils.updatePartitionPlanWithStores(rebalancePartitionPlanList,
-                                                                                      readOnlyStoreDefs);
-
+            List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
+                                                                                                                            readOnlyStoreDefs);
             if(!rebalanceConfig.isShowPlanEnabled()) {
                 rebalanceStateChange(globalStealerNodeId,
                                      orderedClusterTransition.getCurrentCluster(),
                                      orderedClusterTransition.getTargetCluster(),
-                                     rebalancePartitionPlanList,
+                                     filteredRebalancePartitionPlanList,
                                      hasReadOnlyStores,
                                      hasReadWriteStores,
                                      finishedReadOnlyPhase);
@@ -290,7 +289,7 @@ public class RebalanceController {
                 if(hasReadOnlyStores) {
                     rebalancePerTaskTransition(globalStealerNodeId,
                                                orderedClusterTransition.getCurrentCluster(),
-                                               rebalancePartitionPlanList,
+                                               filteredRebalancePartitionPlanList,
                                                hasReadOnlyStores,
                                                hasReadWriteStores,
                                                finishedReadOnlyPhase);
@@ -299,14 +298,14 @@ public class RebalanceController {
 
             // STEP 3 - Cluster change state
             finishedReadOnlyPhase = true;
-            rebalancePartitionPlanList = RebalanceUtils.updatePartitionPlanWithStores(rebalancePartitionPlanList,
-                                                                                      readWriteStoreDefs);
+            filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
+                                                                                              readWriteStoreDefs);
 
             if(!rebalanceConfig.isShowPlanEnabled()) {
                 rebalanceStateChange(globalStealerNodeId,
                                      orderedClusterTransition.getCurrentCluster(),
                                      orderedClusterTransition.getTargetCluster(),
-                                     rebalancePartitionPlanList,
+                                     filteredRebalancePartitionPlanList,
                                      hasReadOnlyStores,
                                      hasReadWriteStores,
                                      finishedReadOnlyPhase);
@@ -315,7 +314,7 @@ public class RebalanceController {
                 if(hasReadWriteStores) {
                     rebalancePerTaskTransition(globalStealerNodeId,
                                                orderedClusterTransition.getCurrentCluster(),
-                                               rebalancePartitionPlanList,
+                                               filteredRebalancePartitionPlanList,
                                                hasReadOnlyStores,
                                                hasReadWriteStores,
                                                finishedReadOnlyPhase);

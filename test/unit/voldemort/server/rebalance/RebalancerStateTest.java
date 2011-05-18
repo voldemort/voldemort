@@ -44,21 +44,23 @@ public class RebalancerStateTest {
         replicaToPartitionList2.put(1, Lists.newArrayList(3, 4));
         replicaToPartitionList2.put(3, Lists.newArrayList(5, 6));
 
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList = Maps.newHashMap();
+        storeToReplicaToAddPartitionList.put("test1", replicaToPartitionList);
+        storeToReplicaToAddPartitionList.put("test2", replicaToPartitionList2);
+
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitionList = Maps.newHashMap();
+        storeToReplicaToDeletePartitionList.put("test2", replicaToPartitionList);
+
         List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
                                                                                                            0,
-                                                                                                           replicaToPartitionList,
-                                                                                                           replicaToPartitionList2,
-                                                                                                           Arrays.asList("test1",
-                                                                                                                         "test2"),
+                                                                                                           storeToReplicaToAddPartitionList,
+                                                                                                           storeToReplicaToDeletePartitionList,
                                                                                                            ServerTestUtils.getLocalCluster(1),
                                                                                                            0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,
-                                                                                                           replicaToPartitionList2,
-                                                                                                           replicaToPartitionList,
-                                                                                                           Arrays.asList("test1",
-                                                                                                                         "test2",
-                                                                                                                         "test3"),
+                                                                                                           storeToReplicaToDeletePartitionList,
+                                                                                                           storeToReplicaToDeletePartitionList,
                                                                                                            ServerTestUtils.getLocalCluster(2),
                                                                                                            10));
 

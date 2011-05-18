@@ -138,7 +138,7 @@ public class Cluster implements Serializable {
         builder.append("', [");
         for(Node n: getNodes()) {
             builder.append(n.toString());
-            builder.append(", ");
+            builder.append('\n');
         }
         builder.append("])");
 

@@ -77,14 +77,17 @@ public class MetadataStoreTest extends TestCase {
             for(int i = 0; i < size; i++) {
                 partition.add((int) Math.random() * 10);
             }
-            HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
-            replicaToPartitionList.put(0, partition);
+
+            HashMap<Integer, List<Integer>> replicaToPartition = Maps.newHashMap();
+            replicaToPartition.put(0, partition);
+
+            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
+            storeToReplicaToPartitionList.put("test", replicaToPartition);
 
             return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                                     (int) Math.random() * 5,
-                                                                                                    replicaToPartitionList,
-                                                                                                    replicaToPartitionList,
-                                                                                                    Arrays.asList("testStoreName"),
+                                                                                                    storeToReplicaToPartitionList,
+                                                                                                    storeToReplicaToPartitionList,
                                                                                                     ServerTestUtils.getLocalCluster(1),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");

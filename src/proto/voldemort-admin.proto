@@ -62,8 +62,8 @@ message UpdateSlopEntriesResponse {
   optional Error error = 1;
 }
 message FetchPartitionFilesRequest {
-  required string store = 2;
-  repeated PartitionTuple replica_to_partition = 3;
+  required string store = 1;
+  repeated PartitionTuple replica_to_partition = 2;
 }
 
 message FetchPartitionEntriesRequest {
@@ -71,8 +71,8 @@ message FetchPartitionEntriesRequest {
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
-  optional int64 skip_records = 6;
-  optional string initial_cluster = 7;
+  optional int64 skip_records = 5;
+  optional string initial_cluster = 6;
 }
 
 message FetchPartitionEntriesResponse {
@@ -95,10 +95,10 @@ message DeletePartitionEntriesResponse {
 
 message InitiateFetchAndUpdateRequest {
   required int32 node_id = 1;
-  required string store = 3;
-  optional VoldemortFilter filter = 4;
-  repeated PartitionTuple replica_to_partition = 5;
-  optional string initial_cluster = 6;
+  required string store = 2;
+  optional VoldemortFilter filter = 3;
+  repeated PartitionTuple replica_to_partition = 4;
+  optional string initial_cluster = 5;
 }
 
 message AsyncOperationStatusRequest {
@@ -115,7 +115,7 @@ message AsyncOperationStopResponse {
 
 message AsyncOperationListRequest {
   required int32 request_id = 1;
-  required bool show_complete = 2 [default = false];
+  required bool show_complete = 2;
 }
 
 message AsyncOperationListResponse {
@@ -128,14 +128,18 @@ message PartitionTuple {
   repeated int32 partitions = 2;
 }
 
+message PerStorePartitionTuple {
+  required string store_name = 1;
+  repeated PartitionTuple replica_to_partition = 2;
+}
+
 message RebalancePartitionInfoMap {
   required int32 stealer_id = 1;
   required int32 donor_id = 2;
-  repeated string unbalanced_stores = 6;
-  required int32 attempt = 7;
-  repeated PartitionTuple replica_to_partition = 8;
-  required string initial_cluster = 9;
-  repeated PartitionTuple replica_to_delete_partition = 10;
+  required int32 attempt = 3;
+  repeated PerStorePartitionTuple replica_to_add_partition = 4;
+  repeated PerStorePartitionTuple replica_to_delete_partition = 5;
+  required string initial_cluster = 6;
 }
 
 message InitiateRebalanceNodeRequest {

@@ -93,19 +93,19 @@ public class RebalancerState {
         return stealInfoMap.values();
     }
 
-    public RebalancePartitionsInfo find(String store,
+    public RebalancePartitionsInfo find(String storeName,
                                         List<Integer> keyPartitions,
                                         List<Integer> nodePartitions) {
         for(RebalancePartitionsInfo info: getAll()) {
 
             // First check if the store exists
-            if(info.getUnbalancedStoreList().contains(store)) {
+            if(info.getUnbalancedStoreList().contains(storeName)) {
 
                 // If yes, check if the key belongs to one of the partitions
                 // being moved
                 if(RebalanceUtils.checkKeyBelongsToPartition(keyPartitions,
                                                              nodePartitions,
-                                                             info.getReplicaToPartitionList())) {
+                                                             info.getReplicaToAddPartitionList(storeName))) {
                     return info;
                 }
             }
