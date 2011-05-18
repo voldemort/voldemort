@@ -878,7 +878,7 @@ public class AdminRebalanceTest extends TestCase {
     }
 
     @Test
-    public void testRebalanceNodeRORW() throws IOException {
+    public void testRebalanceNodeRORW() throws IOException, InterruptedException {
 
         try {
             startFourNodeRORW();
@@ -991,6 +991,8 @@ public class AdminRebalanceTest extends TestCase {
                                                  true);
                 fail("Should have thrown an exception since we added state before hand");
             } catch(VoldemortRebalancingException e) {}
+
+            Thread.sleep(1000);
 
             for(VoldemortServer server: servers) {
                 assertEquals(server.getMetadataStore().getRebalancerState(),
