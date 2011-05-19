@@ -48,7 +48,6 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.protocol.pb.VAdminProto.ROMetadataType;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
@@ -1649,7 +1648,26 @@ public class AdminClient {
      * @param Returns a map of store name to its corresponding RO storage format
      */
     public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
-        return getROMetadata(nodeId, storeNames, ROMetadataType.STORAGE_FORMAT);
+        VAdminProto.GetROStorageFormatRequest.Builder getRORequest = VAdminProto.GetROStorageFormatRequest.newBuilder()
+                                                                                                          .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoStorageFormat(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_STORAGE_FORMAT)
+                                                                                          .build();
+        VAdminProto.GetROStorageFormatResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROStorageFormatResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
     }
 
     /**
@@ -1663,7 +1681,26 @@ public class AdminClient {
      * @return Returns a map of store name to the respective store directory
      */
     public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
-        return getROMetadata(nodeId, storeNames, ROMetadataType.MAX_VERSION_DIR);
+        VAdminProto.GetROMaxVersionDirRequest.Builder getRORequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
+                                                                                                          .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoMaxVersionDir(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
+                                                                                          .build();
+        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
     }
 
     /**
@@ -1675,28 +1712,20 @@ public class AdminClient {
      *         directory
      */
     public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
-        return getROMetadata(nodeId, storeNames, ROMetadataType.CURRENT_VERSION_DIR);
-    }
-
-    private Map<String, String> getROMetadata(int nodeId,
-                                              List<String> storeNames,
-                                              ROMetadataType type) {
-        VAdminProto.GetROMetadataRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMetadataRequest.newBuilder()
-                                                                                                             .addAllStoreName(storeNames)
-                                                                                                             .setType(type);
+        VAdminProto.GetROCurrentVersionDirRequest.Builder getRORequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
+                                                                                                                  .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoMetadata(getROMaxVersionDirRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_METADATA)
+                                                                                          .setGetRoCurrentVersionDir(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
                                                                                           .build();
-        VAdminProto.GetROMetadataResponse.Builder response = sendAndReceive(nodeId,
-                                                                            adminRequest,
-                                                                            VAdminProto.GetROMetadataResponse.newBuilder());
+        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                     adminRequest,
+                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
 
-        // generate map of store-name to max version
-        Map<String, String> storeToValues = ProtoUtils.encodeROMetadataMap(response.getRoStoreMetadataList());
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
 
         if(storeToValues.size() != storeNames.size()) {
             storeNames.removeAll(storeToValues.keySet());

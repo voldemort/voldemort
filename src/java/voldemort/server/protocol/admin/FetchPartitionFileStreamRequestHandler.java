@@ -28,8 +28,6 @@ import voldemort.store.stats.StreamStats;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 
-import com.google.common.collect.Maps;
-
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
     private final VAdminProto.FetchPartitionFilesRequest request;
@@ -63,17 +61,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
 
-        HashMap<Integer, List<Integer>> localReplicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+        this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
 
-        // Filter the replica to partition mapping so as to include only till
-        // the number of replicas
-        this.replicaToPartitionList = Maps.newHashMap();
-        for(int replicaType = 0; replicaType < storeDef.getReplicationFactor(); replicaType++) {
-            if(localReplicaToPartitionList.containsKey(replicaType)) {
-                this.replicaToPartitionList.put(replicaType,
-                                                localReplicaToPartitionList.get(replicaType));
-            }
-        }
         this.storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                  storeRepository,
                                                                                  request.getStore());

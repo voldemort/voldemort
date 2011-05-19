@@ -29,7 +29,7 @@ import java.util.Map.Entry;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.pb.VAdminProto.PartitionTuple;
 import voldemort.client.protocol.pb.VAdminProto.PerStorePartitionTuple;
-import voldemort.client.protocol.pb.VAdminProto.ROMetadataMap;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.ErrorCodeMapper;
@@ -84,10 +84,10 @@ public class ProtoUtils {
                                         .build();
     }
 
-    public static Map<String, String> encodeROMetadataMap(List<ROMetadataMap> metadataMap) {
+    public static Map<String, String> encodeROMap(List<ROStoreVersionDirMap> metadataMap) {
         Map<String, String> storeToValue = Maps.newHashMap();
-        for(ROMetadataMap currentStore: metadataMap) {
-            storeToValue.put(currentStore.getStoreName(), currentStore.getValue());
+        for(ROStoreVersionDirMap currentStore: metadataMap) {
+            storeToValue.put(currentStore.getStoreName(), currentStore.getStoreDir());
         }
         return storeToValue;
     }
