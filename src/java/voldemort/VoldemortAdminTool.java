@@ -152,9 +152,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
-        parser.accepts("ro-version", "retrieve version information [current | max]")
+        parser.accepts("ro-metadata",
+                       "retrieve version information [current | max | storage-format]")
               .withRequiredArg()
-              .describedAs("version-type")
+              .describedAs("type")
               .ofType(String.class);
         parser.accepts("truncate", "truncate a store")
               .withRequiredArg()
@@ -190,7 +191,7 @@ public class VoldemortAdminTool {
             // Not the most elegant way to do this
             if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
                                                              || options.has("delete-store")
-                                                             || options.has("ro-version")
+                                                             || options.has("ro-metadata")
                                                              || options.has("set-metadata")
                                                              || options.has("get-metadata")
                                                              || options.has("check-metadata") || options.has("key-distribution")))) {
@@ -231,7 +232,7 @@ public class VoldemortAdminTool {
         if(options.has("get-metadata")) {
             ops += "g";
         }
-        if(options.has("ro-version")) {
+        if(options.has("ro-metadata")) {
             ops += "e";
         }
         if(options.has("truncate")) {
@@ -247,7 +248,7 @@ public class VoldemortAdminTool {
             ops += "y";
         }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata, check-metadata, key-distribution) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, set-metadata, check-metadata, key-distribution) must be specified");
         }
 
         List<String> storeNames = null;
@@ -317,8 +318,8 @@ public class VoldemortAdminTool {
                 executeGetMetadata(nodeId, adminClient, metadataKey);
             }
             if(ops.contains("e")) {
-                String versionType = (String) options.valueOf("ro-version");
-                executeROVersion(nodeId, adminClient, storeNames, versionType);
+                String type = (String) options.valueOf("ro-metadata");
+                executeROMetadata(nodeId, adminClient, storeNames, type);
             }
             if(ops.contains("t")) {
                 String storeName = (String) options.valueOf("truncate");
@@ -451,11 +452,11 @@ public class VoldemortAdminTool {
         }
     }
 
-    public static void executeROVersion(Integer nodeId,
-                                        AdminClient adminClient,
-                                        List<String> storeNames,
-                                        String versionType) {
-        Map<String, Long> storeToVersion = Maps.newHashMap();
+    public static void executeROMetadata(Integer nodeId,
+                                         AdminClient adminClient,
+                                         List<String> storeNames,
+                                         String type) {
+        Map<String, Long> storeToValue = Maps.newHashMap();
 
         if(storeNames == null) {
             // Retrieve list of read-only stores
@@ -469,24 +470,31 @@ public class VoldemortAdminTool {
         }
 
         if(nodeId < 0) {
-            if(versionType.compareTo("max") != 0) {
+            if(type.compareTo("max") != 0) {
                 System.err.println("Unsupported operation, only max allowed for all nodes");
                 return;
             }
-            storeToVersion = adminClient.getROMaxVersion(storeNames);
+            storeToValue = adminClient.getROMaxVersion(storeNames);
         } else {
-            if(versionType.compareTo("max") == 0) {
-                storeToVersion = adminClient.getROMaxVersion(nodeId, storeNames);
-            } else if(versionType.compareTo("current") == 0) {
-                storeToVersion = adminClient.getROCurrentVersion(nodeId, storeNames);
+            if(type.compareTo("max") == 0) {
+                storeToValue = adminClient.getROMaxVersion(nodeId, storeNames);
+            } else if(type.compareTo("current") == 0) {
+                storeToValue = adminClient.getROCurrentVersion(nodeId, storeNames);
+            } else if(type.compareTo("storage-format") == 0) {
+                Map<String, String> storeToStorageFormat = adminClient.getROStorageFormat(nodeId,
+                                                                                          storeNames);
+                for(String storeName: storeToStorageFormat.keySet()) {
+                    System.out.println(storeName + ":" + storeToStorageFormat.get(storeName));
+                }
+                return;
             } else {
-                System.err.println("Unsupported operation, only max OR current allowed for individual nodes");
+                System.err.println("Unsupported operation, only max, current or storage-format allowed for individual nodes");
                 return;
             }
         }
 
-        for(String storeName: storeToVersion.keySet()) {
-            System.out.println(storeName + ":" + storeToVersion.get(storeName));
+        for(String storeName: storeToValue.keySet()) {
+            System.out.println(storeName + ":" + storeToValue.get(storeName));
         }
     }
 
