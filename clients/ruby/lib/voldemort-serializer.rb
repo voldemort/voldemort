@@ -83,16 +83,26 @@ class VoldemortJsonBinarySerializer
     	end
     else
       case(type)
-        when 'string': bytes << write_string(object)
-        when 'int8': bytes << write_int8(object)
-        when 'int16': bytes << write_int16(object)
-        when 'int32': bytes << write_int32(object)
-        when 'int64': bytes << write_int64(object)
-        when 'float32': bytes << write_float32(object)
-        when 'float64': bytes << write_float64(object)
-        when 'date': bytes << write_date(object)
-        when 'bytes': bytes << write_bytes(object)
-        when 'boolean': bytes << write_boolean(object)
+        when 'string'
+          bytes << write_string(object)
+        when 'int8'
+          bytes << write_int8(object)
+        when 'int16'
+          bytes << write_int16(object)
+        when 'int32'
+          bytes << write_int32(object)
+        when 'int64'
+          bytes << write_int64(object)
+        when 'float32'
+          bytes << write_float32(object)
+        when 'float64'
+          bytes << write_float64(object)
+        when 'date'
+          bytes << write_date(object)
+        when 'bytes'
+          bytes << write_bytes(object)
+        when 'boolean'
+          bytes << write_boolean(object)
         else
           # TODO throw unsupported type exception
       end
@@ -329,16 +339,26 @@ class VoldemortJsonBinarySerializer
       return read_list(bytes, type)
     else
       case(type)
-        when 'string': return read_bytes(bytes)
-        when 'int8': return read_int8(bytes)
-        when 'int16': return read_int16(bytes)
-        when 'int32': return read_int32(bytes)
-        when 'int64': return read_int64(bytes)
-        when 'float32': return read_float32(bytes)
-        when 'float64': return read_float64(bytes)
-        when 'date': return read_date(bytes)
-        when 'bytes': return read_bytes(bytes)
-        when 'boolean': return read_boolean(bytes)
+        when 'string'
+          return read_bytes(bytes)
+        when 'int8'
+          return read_int8(bytes)
+        when 'int16'
+          return read_int16(bytes)
+        when 'int32'
+          return read_int32(bytes)
+        when 'int64'
+          return read_int64(bytes)
+        when 'float32'
+          return read_float32(bytes)
+        when 'float64'
+          return read_float64(bytes)
+        when 'date'
+          return read_date(bytes)
+        when 'bytes'
+          return read_bytes(bytes)
+        when 'boolean'
+          return read_boolean(bytes)
         # TODO default throw unknown type exception
       end
     end
