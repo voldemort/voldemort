@@ -744,7 +744,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testFetchPartitionFiles() throws IOException {
-        generateAndFetchFiles(1, 1, 1200, 1000);
+        generateAndFetchFiles(2, 1, 1200, 1000);
     }
 
     private void generateROFiles(int numChunks,

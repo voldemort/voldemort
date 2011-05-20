@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -903,7 +904,7 @@ public class RebalanceUtils {
      * Given a list of tuples of [replica_type, partition], flattens it and
      * generates a map of replica_type to partition mapping
      * 
-     * @param partitionTuples List of <replica_type, partition> tuples
+     * @param partitionTuples Set of <replica_type, partition> tuples
      * @return Map of replica_type to set of partitions
      */
     public static HashMap<Integer, List<Integer>> flattenPartitionTuples(Set<Pair<Integer, Integer>> partitionTuples) {
@@ -918,6 +919,25 @@ public class RebalanceUtils {
             }
         }
         return flattenedTuples;
+    }
+
+    /**
+     * Given a map of replica_type to partition mapping gives back a set of
+     * tuples of [replica_type, partition]
+     * 
+     * @param replicaToPartitionList Map of replica_type to set of partitions
+     * @return Set of <replica_type, partition> tuples
+     */
+    public static Set<Pair<Integer, Integer>> flattenPartitionTuples(HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        Set<Pair<Integer, Integer>> partitionTuples = Sets.newHashSet();
+
+        for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
+            for(Iterator<Integer> iter = entry.getValue().iterator(); iter.hasNext();) {
+                partitionTuples.add(new Pair<Integer, Integer>(entry.getKey(), iter.next()));
+            }
+        }
+
+        return partitionTuples;
     }
 
     /**

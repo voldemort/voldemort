@@ -11,10 +11,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -32,8 +31,6 @@ import voldemort.store.stats.StreamStats;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
-
-import com.google.common.collect.Lists;
 
 public class FetchPartitionFileStreamRequestHandler implements StreamRequestHandler {
 
@@ -57,6 +54,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private int currentChunkId;
 
+    private int numChunks;
+
     private Pair<Integer, Integer> currentPair;
 
     private File indexFile;
@@ -65,11 +64,17 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
 
     private ChunkedFileWriter chunkedFileWriter;
 
-    private final List<Pair<Integer, Integer>> replicaToPartitionList;
+    private final Set<Pair<Integer, Integer>> replicaToPartitionTuples;
 
     private final HashMap<Object, Integer> bucketToNumChunks;
 
     private final boolean nioEnabled;
+
+    private enum FetchStatus {
+        NEXT_PARTITION,
+        SEND_DATA_FILE,
+        SEND_INDEX_FILE
+    }
 
     protected FetchPartitionFileStreamRequestHandler(VAdminProto.FetchPartitionFilesRequest request,
                                                      MetadataStore metadataStore,
@@ -83,17 +88,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throw new VoldemortException("Should be fetching partition files only for read-only stores");
         }
 
-        HashMap<Integer, List<Integer>> localReplicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
-
-        // Filter the replica to partition mapping so as to include only till
-        // the number of replicas
-        this.replicaToPartitionList = Lists.newArrayList();
-        for(Entry<Integer, List<Integer>> entry: localReplicaToPartitionList.entrySet()) {
-            for(Iterator<Integer> it = entry.getValue().iterator(); it.hasNext();) {
-                this.replicaToPartitionList.add(new Pair<Integer, Integer>(entry.getKey(),
-                                                                           it.next()));
-            }
-        }
+        HashMap<Integer, List<Integer>> replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+        this.replicaToPartitionTuples = RebalanceUtils.flattenPartitionTuples(replicaToPartitionList);
 
         ReadOnlyStorageEngine storageEngine = AdminServiceRequestHandler.getReadOnlyStorageEngine(metadataStore,
                                                                                                   storeRepository,
@@ -105,14 +101,15 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         this.storeDir = new File(storageEngine.getCurrentDirPath());
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE,
-                                       RebalanceUtils.flattenPartitionTuples(new HashSet<Pair<Integer, Integer>>(replicaToPartitionList)));
-        this.partitionIterator = Collections.unmodifiableList(replicaToPartitionList).iterator();
+        this.handle = stats.makeHandle(StreamStats.Operation.FETCH_FILE, replicaToPartitionList);
+        this.partitionIterator = Collections.unmodifiableSet(replicaToPartitionTuples).iterator();
         this.fetchStatus = FetchStatus.NEXT_PARTITION;
         this.currentChunkId = 0;
         this.indexFile = null;
         this.dataFile = null;
         this.chunkedFileWriter = null;
+        this.numChunks = 0;
+
         this.nioEnabled = voldemortConfig.getUseNioConnector();
     }
 
@@ -146,60 +143,68 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                 handleSendIndexFile();
                 break;
             default:
-                throw new VoldemortException("Invalid fetch status: " + fetchStatus);
+                throw new VoldemortException("Invalid fetch status " + fetchStatus);
         }
 
         return handlerState;
     }
 
     private void handleSendIndexFile() throws IOException {
+
         if(0 == chunkedFileWriter.streamFile()) {
-            // we are done with the index file, move to next chunk
+
+            // We are done with the index file, move to next chunk
             logger.info("Completed streaming " + indexFile.getAbsolutePath());
             this.chunkedFileWriter.close();
             currentChunkId++;
             dataFile = indexFile = null;
             handle.incrementEntriesScanned();
-            fetchStatus = FetchStatus.SEND_DATA_FILE;
+            if(currentChunkId >= numChunks) {
+                fetchStatus = FetchStatus.NEXT_PARTITION;
+            } else {
+                fetchStatus = FetchStatus.SEND_DATA_FILE;
+            }
         } else {
-            // index file not done yet, keep sending
+
+            // Index file not done yet, keep sending
             fetchStatus = FetchStatus.SEND_INDEX_FILE;
+
         }
     }
 
     private void handleSendDataFile(DataOutputStream outputStream) throws IOException {
         if(null == dataFile && null == indexFile) {
-            // first time enter here, create files based on partition and
+
+            // First time enter here, create files based on partition and
             // chunk ids
-            String fileName = currentPair.getSecond().toString() + "_"
-                              + currentPair.getFirst().toString() + "_"
+            String fileName = Integer.toString(currentPair.getSecond()) + "_"
+                              + Integer.toString(currentPair.getFirst()) + "_"
                               + Integer.toString(currentChunkId);
             this.dataFile = new File(this.storeDir, fileName + ".data");
             this.indexFile = new File(this.storeDir, fileName + ".index");
-            validateFiles(currentPair);
-            if(isPartitionFinished()) {
-                // finished with this partition, move to next one
-                fetchStatus = FetchStatus.NEXT_PARTITION;
-                return;
-            }
 
-            // create a new writer for data file
+            // Create a new writer for data file
             this.chunkedFileWriter = new ChunkedFileWriter(dataFile, outputStream);
             logger.info("Streaming " + dataFile.getAbsolutePath());
             this.chunkedFileWriter.writeHeader();
+
         }
 
         if(0 == chunkedFileWriter.streamFile()) {
-            // we are done with the data file, move to index file
+
+            // We are done with the data file, move to index file
             logger.info("Completed streaming " + dataFile.getAbsolutePath());
             this.chunkedFileWriter.close();
             this.chunkedFileWriter = new ChunkedFileWriter(indexFile, outputStream);
             logger.info("Streaming " + indexFile.getAbsolutePath());
             this.chunkedFileWriter.writeHeader();
             fetchStatus = FetchStatus.SEND_INDEX_FILE;
+
         } else {
-            // data file not done yet, keep sending
+
+            // Data file not done yet, keep sending
             fetchStatus = FetchStatus.SEND_DATA_FILE;
+
         }
     }
 
@@ -208,47 +213,39 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         StreamRequestHandlerState handlerState = StreamRequestHandlerState.WRITING;
 
         if(partitionIterator.hasNext()) {
-            // start a new partition
+
+            // Start a new partition
             currentPair = partitionIterator.next();
             currentChunkId = 0;
+
+            // First check if bucket exists
+            if(!bucketToNumChunks.containsKey(Pair.create(currentPair.getSecond(),
+                                                          currentPair.getFirst()))) {
+                throw new VoldemortException("Bucket [ partition = " + currentPair.getSecond()
+                                             + ", replica = " + currentPair.getFirst()
+                                             + " ] does not exist for store " + request.getStore());
+            }
+
+            numChunks = bucketToNumChunks.get(Pair.create(currentPair.getSecond(),
+                                                          currentPair.getFirst()));
             dataFile = indexFile = null;
             fetchStatus = FetchStatus.SEND_DATA_FILE;
+
         } else {
-            // we are done since we have gone through the entire
+
+            // We are done since we have gone through the entire
             // partition list
-            logger.info("Finished streaming files for partitions: " + replicaToPartitionList);
+            logger.info("Finished streaming files for partitions tuples "
+                        + replicaToPartitionTuples);
             stats.closeHandle(handle);
             handlerState = StreamRequestHandlerState.COMPLETE;
+
         }
 
         return handlerState;
     }
 
-    private void validateFiles(Pair<Integer, Integer> replicaToPartitionTuple) {
-        if(!bucketToNumChunks.containsKey(Pair.create(replicaToPartitionTuple.getSecond(),
-                                                      replicaToPartitionTuple.getFirst()))) {
-            throw new VoldemortException("Bucket [ partition = "
-                                         + replicaToPartitionTuple.getSecond() + ", replica = "
-                                         + replicaToPartitionTuple.getFirst()
-                                         + " ] does not exist for store " + request.getStore());
-        }
-    }
-
-    private boolean isPartitionFinished() {
-        boolean finished = false;
-        if(!indexFile.exists() && !dataFile.exists() && currentChunkId > 0) {
-            finished = true;
-        }
-        return finished;
-    }
-
-    enum FetchStatus {
-        NEXT_PARTITION,
-        SEND_DATA_FILE,
-        SEND_INDEX_FILE
-    }
-
-    class ChunkedFileWriter {
+    private class ChunkedFileWriter {
 
         private final File fileToWrite;
         private final DataOutputStream outStream;
@@ -256,7 +253,8 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
         private final WritableByteChannel outChannel;
         private long currentPos;
 
-        ChunkedFileWriter(File fileToWrite, DataOutputStream stream) throws FileNotFoundException {
+        public ChunkedFileWriter(File fileToWrite, DataOutputStream stream)
+                                                                           throws FileNotFoundException {
             this.fileToWrite = fileToWrite;
             this.outStream = stream;
             this.dataChannel = new FileInputStream(fileToWrite).getChannel();
@@ -271,7 +269,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             }
         }
 
-        void writeHeader() throws IOException {
+        public void writeHeader() throws IOException {
             VAdminProto.FileEntry response = VAdminProto.FileEntry.newBuilder()
                                                                   .setFileName(fileToWrite.getName())
                                                                   .setFileSizeBytes(dataChannel.size())
@@ -281,14 +279,17 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
             throttler.maybeThrottle(response.getSerializedSize());
         }
 
-        // this function returns the number of bytes left, 0 means done
-        long streamFile() throws IOException {
+        /**
+         * This function returns the number of bytes left. Zero means everything
+         * is done
+         */
+        public long streamFile() throws IOException {
             long bytesRemaining = dataChannel.size() - currentPos;
             if(0 < bytesRemaining) {
                 long bytesToWrite = Math.min(bytesRemaining, blockSize);
                 long bytesWritten = dataChannel.transferTo(currentPos, bytesToWrite, outChannel);
                 currentPos += bytesWritten;
-                logger.info(bytesWritten + " of bytes sent");
+                logger.info(bytesWritten + "bytes written");
                 throttler.maybeThrottle((int) bytesWritten);
             }
             bytesRemaining = dataChannel.size() - currentPos;
