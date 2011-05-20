@@ -72,7 +72,7 @@ public class MetadataStoreTest extends TestCase {
             int i = (int) (Math.random() * VoldemortState.values().length);
             return ByteUtils.getBytes(VoldemortState.values()[i].toString(), "UTF-8");
         } else if(MetadataStore.REBALANCING_STEAL_INFO.equals(keyString)) {
-            int size = (int) (Math.random() * 10);
+            int size = (int) (Math.random() * 10) + 1;
             List<Integer> partition = new ArrayList<Integer>();
             for(int i = 0; i < size; i++) {
                 partition.add((int) Math.random() * 10);
