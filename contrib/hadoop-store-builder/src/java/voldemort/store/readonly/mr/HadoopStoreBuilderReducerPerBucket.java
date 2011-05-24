@@ -212,7 +212,6 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
             this.indexFileStream = new DataOutputStream[getNumChunks()];
             this.valueFileStream = new DataOutputStream[getNumChunks()];
 
-            FileSystem fs = null;
             for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
 
                 this.checkSumDigestIndex[chunkId] = CheckSum.getInstance(checkSumType);
@@ -228,8 +227,8 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
                                                                    + Integer.toString(chunkId)
                                                                    + "_" + this.taskId + ".data");
 
-                if(fs == null)
-                    fs = this.taskIndexFileName[chunkId].getFileSystem(job);
+                if(this.fs == null)
+                    this.fs = this.taskIndexFileName[chunkId].getFileSystem(job);
 
                 this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
                 this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
@@ -289,11 +288,11 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
                     Path checkSumIndexFile = new Path(nodeDir, chunkFileName + ".index.checksum");
                     Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
 
-                    FSDataOutputStream output = fs.create(checkSumIndexFile);
+                    FSDataOutputStream output = outputFs.create(checkSumIndexFile);
                     output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
                     output.close();
 
-                    output = fs.create(checkSumValueFile);
+                    output = outputFs.create(checkSumValueFile);
                     output.write(this.checkSumDigestValue[chunkId].getCheckSum());
                     output.close();
                 } else {
