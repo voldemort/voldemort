@@ -290,7 +290,7 @@ public class HadoopStoreBuilder {
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
         this.numChunks = numChunks;
-        if(numChunks > 0)
+        if(numChunks <= 0)
             throw new VoldemortException("Number of chunks should be greater than zero");
     }
 
@@ -344,11 +344,16 @@ public class HadoopStoreBuilder {
             int numReducers;
             if(saveKeys) {
 
-                if(this.numChunks == -1)
+                if(this.numChunks == -1) {
                     this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                                      / cluster.getNumberOfPartitions()
                                                      / storeDef.getReplicationFactor() / chunkSizeBytes),
                                               1);
+                } else {
+                    logger.info("Overriding chunk size byte and taking num chunks ("
+                                + this.numChunks + ") directly");
+                }
+
                 if(reducerPerBucket) {
                     numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
                 } else {
@@ -357,10 +362,15 @@ public class HadoopStoreBuilder {
                 }
             } else {
 
-                if(this.numChunks == -1)
+                if(this.numChunks == -1) {
                     this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
                                                      / cluster.getNumberOfPartitions() / chunkSizeBytes),
                                               1);
+                } else {
+                    logger.info("Overriding chunk size byte and taking num chunks ("
+                                + this.numChunks + ") directly");
+                }
+
                 if(reducerPerBucket) {
                     numReducers = cluster.getNumberOfPartitions();
                 } else {
