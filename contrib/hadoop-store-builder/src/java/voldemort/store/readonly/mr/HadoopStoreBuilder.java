@@ -260,7 +260,8 @@ public class HadoopStoreBuilder {
      * @param reducerPerBucket Boolean to signify whether we want to have a
      *        single reducer for a bucket ( thereby resulting in all chunk files
      *        for a bucket being generated in a single reducer )
-     *        @param numChunks Number of chunks per bucket ( partition or partition replica )
+     * @param numChunks Number of chunks per bucket ( partition or partition
+     *        replica )
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
@@ -275,19 +276,22 @@ public class HadoopStoreBuilder {
                               boolean saveKeys,
                               boolean reducerPerBucket,
                               int numChunks) {
-        this(conf,
-             mapperClass,
-             inputFormatClass,
-             cluster,
-             storeDef,
-             -1,
-             tempDir,
-             outputDir,
-             inputPath,
-             checkSumType);
+        super();
+        this.config = conf;
+        this.mapperClass = Utils.notNull(mapperClass);
+        this.inputFormatClass = Utils.notNull(inputFormatClass);
+        this.inputPath = inputPath;
+        this.cluster = Utils.notNull(cluster);
+        this.storeDef = Utils.notNull(storeDef);
+        this.chunkSizeBytes = -1;
+        this.tempDir = tempDir;
+        this.outputDir = Utils.notNull(outputDir);
+        this.checkSumType = checkSumType;
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
         this.numChunks = numChunks;
+        if(numChunks > 0)
+            throw new VoldemortException("Number of chunks should be greater than zero");
     }
 
     /**
@@ -342,9 +346,9 @@ public class HadoopStoreBuilder {
 
                 if(this.numChunks == -1)
                     this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                / cluster.getNumberOfPartitions()
-                                                / storeDef.getReplicationFactor() / chunkSizeBytes),
-                                         1);
+                                                     / cluster.getNumberOfPartitions()
+                                                     / storeDef.getReplicationFactor() / chunkSizeBytes),
+                                              1);
                 if(reducerPerBucket) {
                     numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
                 } else {
@@ -355,8 +359,8 @@ public class HadoopStoreBuilder {
 
                 if(this.numChunks == -1)
                     this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                / cluster.getNumberOfPartitions() / chunkSizeBytes),
-                                         1);
+                                                     / cluster.getNumberOfPartitions() / chunkSizeBytes),
+                                              1);
                 if(reducerPerBucket) {
                     numReducers = cluster.getNumberOfPartitions();
                 } else {
