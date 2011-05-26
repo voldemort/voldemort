@@ -107,9 +107,9 @@ public class RebalanceUtils {
                 }
             } catch(Exception e) {
                 if(null != requiredNodes && requiredNodes.contains(node.getId()))
-                    throw new VoldemortException("Failed to get cluster version from " + node, e);
+                    throw new VoldemortException("Failed on node " + node.getId(), e);
                 else
-                    logger.info("Failed to get cluster version from node " + node, e);
+                    logger.info("Failed on node " + node.getId(), e);
             }
         }
 
@@ -121,8 +121,8 @@ public class RebalanceUtils {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
             if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
-                throw new VoldemortException("Cluster is in inconsistent state got conflicting clocks "
-                                             + clock + " and " + newClock);
+                throw new VoldemortException("Cluster is in inconsistent state because we got conflicting clocks "
+                                             + clock + " and on current node " + newClock);
 
         }
     }
@@ -395,7 +395,7 @@ public class RebalanceUtils {
     public static Node addPartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
         List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
         deepCopy.addAll(donatedPartitions);
-        return RebalanceUtils.updateNode(node, deepCopy);
+        return updateNode(node, deepCopy);
     }
 
     /**
@@ -408,7 +408,7 @@ public class RebalanceUtils {
     public static Node removePartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
         List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
         deepCopy.removeAll(donatedPartitions);
-        return RebalanceUtils.updateNode(node, deepCopy);
+        return updateNode(node, deepCopy);
     }
 
     /**
@@ -529,7 +529,7 @@ public class RebalanceUtils {
                                                                        .getPartitionIds());
 
         List<Integer> currentList = new ArrayList<Integer>();
-        if(RebalanceUtils.containsNode(currentCluster, stealNodeId))
+        if(containsNode(currentCluster, stealNodeId))
             currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
 
         // remove all current partitions from targetList
@@ -558,12 +558,12 @@ public class RebalanceUtils {
                                                                                                     true);
 
         Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
-        for(int stealerId: RebalanceUtils.getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
+        for(int stealerId: getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
             Set<Pair<Integer, Integer>> clusterStealerReplicas = currentNodeIdToReplicas.get(stealerId);
             Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
 
-            Set<Pair<Integer, Integer>> diff = RebalanceUtils.getAddedInTarget(clusterStealerReplicas,
-                                                                               targetStealerReplicas);
+            Set<Pair<Integer, Integer>> diff = Utils.getAddedInTarget(clusterStealerReplicas,
+                                                                      targetStealerReplicas);
 
             if(diff != null && diff.size() > 0) {
                 stealerNodeToStolenPartitionTuples.put(stealerId, diff);
@@ -696,60 +696,6 @@ public class RebalanceUtils {
         return null;
     }
 
-    /**
-     * Returns a set of objects that were added to the target list
-     * 
-     * getAddedInTarget(current, null) - nothing was added, returns null. <br>
-     * getAddedInTarget(null, target) - everything in target was added, return
-     * target. <br>
-     * getAddedInTarget(null, null) - neither added nor deleted, return null. <br>
-     * getAddedInTarget(current, target)) - returns new partition not found in
-     * current.
-     * 
-     * @param current Set of objects present in current
-     * @param target Set of partitions present in target
-     * @return A set of added partitions in target or empty set
-     */
-    public static <T> Set<T> getAddedInTarget(Set<T> current, Set<T> target) {
-        if(current == null || target == null) {
-            return new HashSet<T>();
-        }
-        return getDiff(target, current);
-    }
-
-    /**
-     * Returns a set of objects that were deleted in the target set
-     * 
-     * getDeletedInTarget(current, null) - everything was deleted, returns
-     * current. <br>
-     * getDeletedInTarget(null, target) - everything in target was added, return
-     * target. <br>
-     * getDeletedInTarget(null, null) - neither added nor deleted, return empty
-     * set. <br>
-     * getDeletedInTarget(current, target)) - returns deleted partition not
-     * found in target.
-     * 
-     * @param current Set of objects currently present
-     * @param target Set of target objects
-     * @return A set of deleted objects in target or empty set
-     */
-    public static <T> Set<T> getDeletedInTarget(final Set<T> current, final Set<T> target) {
-        if(current == null || target == null) {
-            return new HashSet<T>();
-        }
-        return getDiff(current, target);
-    }
-
-    private static <T> Set<T> getDiff(final Set<T> source, final Set<T> dest) {
-        Set<T> diff = new HashSet<T>();
-        for(T id: source) {
-            if(!dest.contains(id)) {
-                diff.add(id);
-            }
-        }
-        return diff;
-    }
-
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
                                                     Cluster cluster,
                                                     int numThreads,
@@ -831,7 +777,7 @@ public class RebalanceUtils {
      * 
      * This function also takes into consideration nodes which are being
      * bootstrapped for the first time, in which case we can safely ignore
-     * checking them
+     * checking them ( as they will have default to ro0 )
      * 
      * @param cluster Cluster metadata
      * @param storeDefs Complete list of store definitions
@@ -847,7 +793,7 @@ public class RebalanceUtils {
             return;
         }
 
-        List<String> storeNames = RebalanceUtils.getStoreNames(readOnlyStores);
+        List<String> storeNames = getStoreNames(readOnlyStores);
         for(Node node: cluster.getNodes()) {
             if(node.getNumberOfPartitions() != 0) {
                 for(Entry<String, String> storeToStorageFormat: adminClient.getROStorageFormat(node.getId(),
@@ -985,7 +931,7 @@ public class RebalanceUtils {
     public static List<RebalancePartitionsInfo> filterPartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
                                                                               List<StoreDefinition> storeDefs) {
         List<RebalancePartitionsInfo> plans = Lists.newArrayList();
-        List<String> storeNames = RebalanceUtils.getStoreNames(storeDefs);
+        List<String> storeNames = getStoreNames(storeDefs);
 
         for(RebalancePartitionsInfo existingPlan: existingPlanList) {
             RebalancePartitionsInfo info = RebalancePartitionsInfo.create(existingPlan.toJsonString());

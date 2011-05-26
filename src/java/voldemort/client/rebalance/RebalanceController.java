@@ -236,7 +236,8 @@ public class RebalanceController {
      * <br>
      * 
      * Each operation is split into individual tasks depending on read-only or
-     * read-write migration.
+     * read-write migration. Read-only store migration is done first to avoid
+     * the overhead of redirecting stores
      * 
      * 
      * @param globalStealerNodeId The stealer node in picture
@@ -276,24 +277,23 @@ public class RebalanceController {
             boolean finishedReadOnlyPhase = false;
             List<RebalancePartitionsInfo> filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
                                                                                                                             readOnlyStoreDefs);
-            if(!rebalanceConfig.isShowPlanEnabled()) {
-                rebalanceStateChange(globalStealerNodeId,
-                                     orderedClusterTransition.getCurrentCluster(),
-                                     orderedClusterTransition.getTargetCluster(),
-                                     filteredRebalancePartitionPlanList,
-                                     hasReadOnlyStores,
-                                     hasReadWriteStores,
-                                     finishedReadOnlyPhase);
 
-                // STEP 2 - Move RO data
-                if(hasReadOnlyStores) {
-                    rebalancePerTaskTransition(globalStealerNodeId,
-                                               orderedClusterTransition.getCurrentCluster(),
-                                               filteredRebalancePartitionPlanList,
-                                               hasReadOnlyStores,
-                                               hasReadWriteStores,
-                                               finishedReadOnlyPhase);
-                }
+            rebalanceStateChange(globalStealerNodeId,
+                                 orderedClusterTransition.getCurrentCluster(),
+                                 orderedClusterTransition.getTargetCluster(),
+                                 filteredRebalancePartitionPlanList,
+                                 hasReadOnlyStores,
+                                 hasReadWriteStores,
+                                 finishedReadOnlyPhase);
+
+            // STEP 2 - Move RO data
+            if(hasReadOnlyStores) {
+                rebalancePerTaskTransition(globalStealerNodeId,
+                                           orderedClusterTransition.getCurrentCluster(),
+                                           filteredRebalancePartitionPlanList,
+                                           hasReadOnlyStores,
+                                           hasReadWriteStores,
+                                           finishedReadOnlyPhase);
             }
 
             // STEP 3 - Cluster change state
@@ -301,24 +301,22 @@ public class RebalanceController {
             filteredRebalancePartitionPlanList = RebalanceUtils.filterPartitionPlanWithStores(rebalancePartitionPlanList,
                                                                                               readWriteStoreDefs);
 
-            if(!rebalanceConfig.isShowPlanEnabled()) {
-                rebalanceStateChange(globalStealerNodeId,
-                                     orderedClusterTransition.getCurrentCluster(),
-                                     orderedClusterTransition.getTargetCluster(),
-                                     filteredRebalancePartitionPlanList,
-                                     hasReadOnlyStores,
-                                     hasReadWriteStores,
-                                     finishedReadOnlyPhase);
+            rebalanceStateChange(globalStealerNodeId,
+                                 orderedClusterTransition.getCurrentCluster(),
+                                 orderedClusterTransition.getTargetCluster(),
+                                 filteredRebalancePartitionPlanList,
+                                 hasReadOnlyStores,
+                                 hasReadWriteStores,
+                                 finishedReadOnlyPhase);
 
-                // STEP 4 - Move RW data
-                if(hasReadWriteStores) {
-                    rebalancePerTaskTransition(globalStealerNodeId,
-                                               orderedClusterTransition.getCurrentCluster(),
-                                               filteredRebalancePartitionPlanList,
-                                               hasReadOnlyStores,
-                                               hasReadWriteStores,
-                                               finishedReadOnlyPhase);
-                }
+            // STEP 4 - Move RW data
+            if(hasReadWriteStores) {
+                rebalancePerTaskTransition(globalStealerNodeId,
+                                           orderedClusterTransition.getCurrentCluster(),
+                                           filteredRebalancePartitionPlanList,
+                                           hasReadOnlyStores,
+                                           hasReadWriteStores,
+                                           finishedReadOnlyPhase);
             }
 
             RebalanceUtils.printLog(globalStealerNodeId,
@@ -388,51 +386,55 @@ public class RebalanceController {
                 RebalanceUtils.printLog(globalStealerNodeId,
                                         logger,
                                         "Cluster metadata change + rebalance state change");
-                adminClient.rebalanceStateChange(currentCluster,
-                                                 transitionCluster,
-                                                 rebalancePartitionPlanList,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                if(!rebalanceConfig.isShowPlanEnabled())
+                    adminClient.rebalanceStateChange(currentCluster,
+                                                     transitionCluster,
+                                                     rebalancePartitionPlanList,
+                                                     false,
+                                                     true,
+                                                     true,
+                                                     true,
+                                                     true);
             } else if(hasReadOnlyStores && !finishedReadOnlyStores) {
                 // Case 1 / 3 - rebalance state change
                 RebalanceUtils.printLog(globalStealerNodeId, logger, "Rebalance state change");
-                adminClient.rebalanceStateChange(currentCluster,
-                                                 transitionCluster,
-                                                 rebalancePartitionPlanList,
-                                                 false,
-                                                 false,
-                                                 true,
-                                                 true,
-                                                 true);
+                if(!rebalanceConfig.isShowPlanEnabled())
+                    adminClient.rebalanceStateChange(currentCluster,
+                                                     transitionCluster,
+                                                     rebalancePartitionPlanList,
+                                                     false,
+                                                     false,
+                                                     true,
+                                                     true,
+                                                     true);
             } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 2 - swap + cluster change
                 RebalanceUtils.printLog(globalStealerNodeId,
                                         logger,
                                         "Swap + Cluster metadata change");
-                adminClient.rebalanceStateChange(currentCluster,
-                                                 transitionCluster,
-                                                 rebalancePartitionPlanList,
-                                                 true,
-                                                 true,
-                                                 false,
-                                                 true,
-                                                 true);
+                if(!rebalanceConfig.isShowPlanEnabled())
+                    adminClient.rebalanceStateChange(currentCluster,
+                                                     transitionCluster,
+                                                     rebalancePartitionPlanList,
+                                                     true,
+                                                     true,
+                                                     false,
+                                                     true,
+                                                     true);
             } else {
                 // Case 0 - swap + cluster change + rebalance state change
                 RebalanceUtils.printLog(globalStealerNodeId,
                                         logger,
                                         "Swap + Cluster metadata change + rebalance state change");
-                adminClient.rebalanceStateChange(currentCluster,
-                                                 transitionCluster,
-                                                 rebalancePartitionPlanList,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true,
-                                                 true);
+                if(!rebalanceConfig.isShowPlanEnabled())
+                    adminClient.rebalanceStateChange(currentCluster,
+                                                     transitionCluster,
+                                                     rebalancePartitionPlanList,
+                                                     true,
+                                                     true,
+                                                     true,
+                                                     true,
+                                                     true);
             }
 
         } catch(VoldemortRebalancingException e) {
@@ -479,6 +481,14 @@ public class RebalanceController {
                                             boolean hasReadOnlyStores,
                                             boolean hasReadWriteStores,
                                             boolean finishedReadOnlyStores) {
+        RebalanceUtils.printLog(globalStealerNodeId, logger, "Submitting rebalance tasks for "
+                                                             + rebalancePartitionPlanList);
+
+        // If only show plan, done!
+        if(rebalanceConfig.isShowPlanEnabled()) {
+            return;
+        }
+
         // Get an ExecutorService in place used for submitting our tasks
         ExecutorService service = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 

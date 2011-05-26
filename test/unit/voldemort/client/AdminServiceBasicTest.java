@@ -856,7 +856,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                  null);
 
             // Check it...
-            assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks);
+            assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks + 1);
 
             for(Entry<Integer, List<Integer>> entry: primaryNodeBuckets.entrySet()) {
                 int replicaType = entry.getKey();
@@ -878,6 +878,10 @@ public class AdminServiceBasicTest extends TestCase {
                 }
             }
 
+            // Check if metadata file exists
+            File metadataFile = new File(tempDir, ".metadata");
+            assertEquals(metadataFile.exists(), true);
+
             // Test 2) Fetch all the replica partitions...
             tempDir = TestUtils.createTempDir();
 
@@ -888,7 +892,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                  null);
 
             // Check it...
-            assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks);
+            assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks + 1);
 
             for(Entry<Integer, List<Integer>> entry: replicaNodeBuckets.entrySet()) {
                 int replicaType = entry.getKey();
@@ -909,6 +913,9 @@ public class AdminServiceBasicTest extends TestCase {
 
                 }
             }
+            // Check if metadata file exists
+            metadataFile = new File(tempDir, ".metadata");
+            assertEquals(metadataFile.exists(), true);
 
             // Test 3) Fetch all the partitions...
             tempDir = TestUtils.createTempDir();
@@ -920,7 +927,7 @@ public class AdminServiceBasicTest extends TestCase {
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)
-                                                * numChunks);
+                                                * numChunks + 1);
 
             for(Entry<Integer, List<Integer>> entry: nodeBuckets.entrySet()) {
                 int replicaType = entry.getKey();
@@ -941,6 +948,10 @@ public class AdminServiceBasicTest extends TestCase {
 
                 }
             }
+
+            // Check if metadata file exists
+            metadataFile = new File(tempDir, ".metadata");
+            assertEquals(metadataFile.exists(), true);
         }
     }
 

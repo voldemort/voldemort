@@ -24,7 +24,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import voldemort.VoldemortException;
@@ -378,6 +380,60 @@ public class Utils {
             return Arrays.equals((double[]) o1, (double[]) o2);
         }
         throw new AssertionError();
+    }
+
+    /**
+     * Returns a set of objects that were added to the target list
+     * 
+     * getAddedInTarget(current, null) - nothing was added, returns null. <br>
+     * getAddedInTarget(null, target) - everything in target was added, return
+     * target. <br>
+     * getAddedInTarget(null, null) - neither added nor deleted, return null. <br>
+     * getAddedInTarget(current, target)) - returns new partition not found in
+     * current.
+     * 
+     * @param current Set of objects present in current
+     * @param target Set of partitions present in target
+     * @return A set of added partitions in target or empty set
+     */
+    public static <T> Set<T> getAddedInTarget(Set<T> current, Set<T> target) {
+        if(current == null || target == null) {
+            return new HashSet<T>();
+        }
+        return getDiff(target, current);
+    }
+
+    /**
+     * Returns a set of objects that were deleted in the target set
+     * 
+     * getDeletedInTarget(current, null) - everything was deleted, returns
+     * current. <br>
+     * getDeletedInTarget(null, target) - everything in target was added, return
+     * target. <br>
+     * getDeletedInTarget(null, null) - neither added nor deleted, return empty
+     * set. <br>
+     * getDeletedInTarget(current, target)) - returns deleted partition not
+     * found in target.
+     * 
+     * @param current Set of objects currently present
+     * @param target Set of target objects
+     * @return A set of deleted objects in target or empty set
+     */
+    public static <T> Set<T> getDeletedInTarget(final Set<T> current, final Set<T> target) {
+        if(current == null || target == null) {
+            return new HashSet<T>();
+        }
+        return getDiff(current, target);
+    }
+
+    private static <T> Set<T> getDiff(final Set<T> source, final Set<T> dest) {
+        Set<T> diff = new HashSet<T>();
+        for(T id: source) {
+            if(!dest.contains(id)) {
+                diff.add(id);
+            }
+        }
+        return diff;
     }
 
     /**

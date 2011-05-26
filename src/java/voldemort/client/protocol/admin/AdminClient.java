@@ -38,6 +38,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -64,6 +65,7 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
@@ -1459,7 +1461,7 @@ public class AdminClient {
         VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
         Node node = currentCluster.getNodeById(nodeId);
         if(null == node)
-            throw new VoldemortException("Invalid node id (" + nodeId +") specified");
+            throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
         logger.info("Adding on node " + node.getHost() + ":" + node.getId());
         VAdminProto.AddStoreResponse.Builder response = sendAndReceive(nodeId,
                                                                        request,
@@ -1902,6 +1904,17 @@ public class AdminClient {
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
+
+            // Add the metadata file if it doesn't exist - We do this because
+            // for new nodes the stores don't start with any metadata file
+
+            File metadataFile = new File(destinationDirPath, ".metadata");
+            if(!metadataFile.exists()) {
+                ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V2.getCode());
+                FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+            }
 
             VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
                                                                                                                      .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))

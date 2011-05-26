@@ -74,6 +74,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -794,8 +795,8 @@ public abstract class AbstractRebalanceTest {
                 Set<Pair<Integer, Integer>> currentPartitionTuples = currentNodeToPartitionTuples.get(nodeId);
                 Set<Pair<Integer, Integer>> targetPartitionTuples = targetNodeToPartitionTuples.get(nodeId);
 
-                HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(RebalanceUtils.getAddedInTarget(currentPartitionTuples,
-                                                                                                                                               targetPartitionTuples));
+                HashMap<Integer, List<Integer>> flattenedPresentTuples = RebalanceUtils.flattenPartitionTuples(Utils.getAddedInTarget(currentPartitionTuples,
+                                                                                                                                      targetPartitionTuples));
                 Store<ByteArray, byte[], byte[]> store = getSocketStore(storeDef.getName(),
                                                                         targetCluster.getNodeById(nodeId)
                                                                                      .getHost(),
