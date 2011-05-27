@@ -289,7 +289,7 @@ public class FetchPartitionFileStreamRequestHandler implements StreamRequestHand
                 long bytesToWrite = Math.min(bytesRemaining, blockSize);
                 long bytesWritten = dataChannel.transferTo(currentPos, bytesToWrite, outChannel);
                 currentPos += bytesWritten;
-                logger.info(bytesWritten + "bytes written");
+                logger.debug(bytesWritten + " bytes written");
                 throttler.maybeThrottle((int) bytesWritten);
             }
             bytesRemaining = dataChannel.size() - currentPos;

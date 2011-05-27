@@ -2101,13 +2101,13 @@ public class AdminClient {
      *        rebalancing state
      * @param rollback Are we doing a rollback or a normal state?
      */
-    public void individualStateChange(int nodeId,
-                                      Cluster cluster,
-                                      List<RebalancePartitionsInfo> rebalancePartitionPlanList,
-                                      boolean swapRO,
-                                      boolean changeClusterMetadata,
-                                      boolean changeRebalanceState,
-                                      boolean rollback) {
+    private void individualStateChange(int nodeId,
+                                       Cluster cluster,
+                                       List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                       boolean swapRO,
+                                       boolean changeClusterMetadata,
+                                       boolean changeRebalanceState,
+                                       boolean rollback) {
 
         // If we do not want to change the metadata and are not one of the
         // stealer nodes, nothing to do

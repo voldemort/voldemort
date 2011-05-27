@@ -33,6 +33,8 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.versioning.VectorClock;
+import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
@@ -183,7 +185,8 @@ public class Rebalancer implements Runnable {
                 try {
                     changeCluster(currentCluster);
                 } catch(Exception exception) {
-                    logger.error("Error while rolling back cluster metadata ", exception);
+                    logger.error("Error while rolling back cluster metadata to " + currentCluster,
+                                 exception);
                 }
             }
 
@@ -254,6 +257,8 @@ public class Rebalancer implements Runnable {
                                                      + storeDef.getName() + " to swap ");
                     }
 
+                    logger.info("Swapping RO store " + storeDef.getName());
+
                     // Time to swap this store - Could have used admin client,
                     // but why incur the overhead?
                     engine.swapFiles(engine.getCurrentDirPath());
@@ -264,6 +269,7 @@ public class Rebalancer implements Runnable {
                 }
             }
         } catch(Exception e) {
+            logger.error("Error while swapping RO store");
             throw new VoldemortException(e);
         }
     }
@@ -277,12 +283,19 @@ public class Rebalancer implements Runnable {
         try {
             metadataStore.writeLock.lock();
             try {
-                logger.info("Switching metadata to " + cluster);
-                metadataStore.put(MetadataStore.CLUSTER_KEY, cluster);
+                VectorClock updatedVectorClock = ((VectorClock) metadataStore.get(MetadataStore.CLUSTER_KEY,
+                                                                                  null)
+                                                                             .get(0)
+                                                                             .getVersion()).incremented(0,
+                                                                                                        System.currentTimeMillis());
+                logger.info("Switching metadata to " + cluster + " [ " + updatedVectorClock + " ]");
+                metadataStore.put(MetadataStore.CLUSTER_KEY, Versioned.value((Object) cluster,
+                                                                             updatedVectorClock));
             } finally {
                 metadataStore.writeLock.unlock();
             }
         } catch(Exception e) {
+            logger.info("Error while changing cluster to " + cluster);
             throw new VoldemortException(e);
         }
     }
