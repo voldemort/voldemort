@@ -426,11 +426,26 @@ public class VoldemortAdminTool {
                                            Object value) {
 
         List<Integer> nodeIds = Lists.newArrayList();
+        VectorClock updatedVersion = null;
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
                 nodeIds.add(node.getId());
+                if(updatedVersion == null) {
+                    updatedVersion = (VectorClock) adminClient.getRemoteMetadata(node.getId(), key)
+                                                              .getVersion();
+                } else {
+                    updatedVersion = updatedVersion.merge((VectorClock) adminClient.getRemoteMetadata(node.getId(),
+                                                                                                      key)
+                                                                                   .getVersion());
+                }
             }
+
+            // Bump up version on node 0
+            updatedVersion = updatedVersion.incremented(0, System.currentTimeMillis());
         } else {
+            Versioned<String> currentValue = adminClient.getRemoteMetadata(nodeId, key);
+            updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(nodeId,
+                                                                                   System.currentTimeMillis());
             nodeIds.add(nodeId);
         }
         for(Integer currentNodeId: nodeIds) {
@@ -444,9 +459,6 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> currentValue = adminClient.getRemoteMetadata(currentNodeId, key);
-            VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
-                                                                                               System.currentTimeMillis());
             adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
                                                                                  updatedVersion));
         }
