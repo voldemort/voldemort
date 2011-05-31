@@ -1457,6 +1457,13 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Add a new store definition to a particular node
+     * <p>
+     * 
+     * @param def the definition of the store to add
+     * @param nodeId Node on which to add the store
+     */
     public void addStore(StoreDefinition def, int nodeId) {
         VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
         Node node = currentCluster.getNodeById(nodeId);

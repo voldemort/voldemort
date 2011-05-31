@@ -159,6 +159,86 @@ public class RebalanceUtils {
     }
 
     /**
+     * Takes the current cluster metadata and target cluster metadata ( which
+     * contains all the nodes of current cluster + new nodes with empty
+     * partitions ), and generates a new cluster with some partitions moved to
+     * the new node
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster Target cluster metadata ( which contains old nodes +
+     *        new nodes [ empty partitions ])
+     * @return Cluster metadata which moves partitions to the new node
+     */
+    public static Cluster generateMinCluster(final Cluster currentCluster,
+                                             final Cluster targetCluster) {
+        int currentNumPartitions = currentCluster.getNumberOfPartitions();
+        int currentNumNodes = currentCluster.getNumberOfNodes();
+        int targetNumNodes = targetCluster.getNumberOfNodes();
+
+        // Find all the new nodes added + clone to a new list of nodes
+        List<Integer> newNodeIds = Lists.newArrayList();
+        List<Integer> donorNodeIds = Lists.newArrayList();
+        List<Node> allNodes = Lists.newArrayList();
+
+        for(Node node: targetCluster.getNodes()) {
+            if(node.getPartitionIds().isEmpty()) {
+                newNodeIds.add(node.getId());
+            } else {
+                donorNodeIds.add(node.getId());
+            }
+            allNodes.add(updateNode(node, Lists.newArrayList(node.getPartitionIds())));
+        }
+
+        Cluster returnCluster = updateCluster(targetCluster, allNodes);
+
+        if(currentNumNodes == targetNumNodes) {
+            // Number of nodes is the same, done!
+            return returnCluster;
+        }
+
+        // Every new node should have equal number of partitions
+        int targetNumPartitionPerNode = (int) Math.floor(currentNumPartitions * 1.0
+                                                         / targetNumNodes);
+
+        // Go over every new node and give it some partitions
+        for(int newNodeId: newNodeIds) {
+
+            int partitionsToSteal = targetNumPartitionPerNode;
+            for(int index = 0; index < donorNodeIds.size(); index++) {
+                int donorNodeId = donorNodeIds.get(index);
+                // Done stealing
+                if(partitionsToSteal <= 0)
+                    break;
+
+                // One of the valid donor nodes
+                int partitionsToDonate = Math.max((int) Math.floor(partitionsToSteal
+                                                                   / (donorNodeIds.size() - index)),
+                                                  1);
+
+                // Donor node can't donate since itself has few partitions
+                if(returnCluster.getNodeById(donorNodeId).getNumberOfPartitions() <= partitionsToDonate) {
+                    continue;
+                }
+
+                List<Integer> donorPartitions = Lists.newArrayList(returnCluster.getNodeById(donorNodeId)
+                                                                                .getPartitionIds());
+                Collections.shuffle(donorPartitions);
+
+                List<Integer> donorPartitionsToMove = donorPartitions.subList(0, partitionsToDonate);
+                returnCluster = createUpdatedCluster(returnCluster,
+                                                     returnCluster.getNodeById(newNodeId),
+                                                     returnCluster.getNodeById(donorNodeId),
+                                                     donorPartitionsToMove);
+
+                partitionsToSteal -= partitionsToDonate;
+
+            }
+        }
+
+        return returnCluster;
+    }
+
+    /**
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions
      * 

@@ -86,7 +86,33 @@ public class KeyDistributionGenerator {
 
     /**
      * Given the cluster metadata and list of store definitions, presents a
-     * string of the distribution and standard deviation
+     * string of the store wise distribution
+     * 
+     * @param cluster The cluster metadata
+     * @param storeDefs List of store definitions
+     * @return String representation
+     */
+    public static String printStoreWiseDistribution(Cluster cluster, List<StoreDefinition> storeDefs) {
+        StringBuilder builder = new StringBuilder();
+
+        // Print distribution for every store
+        for(StoreDefinition def: storeDefs) {
+            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, 1000);
+            builder.append("\nFor Store '" + def.getName() + "' \n");
+            for(int nodeId: storeDistribution.keySet()) {
+                builder.append("Node " + nodeId + " - "
+                               + formatter.format(storeDistribution.get(nodeId)) + " \n");
+            }
+            builder.append("Std dev - " + getStdDeviation(storeDistribution) + "\n");
+
+        }
+
+        return builder.toString();
+    }
+
+    /**
+     * Given the cluster metadata and list of store definitions, presents a
+     * string of the distribution
      * 
      * @param cluster The cluster metadata
      * @param storeDefs List of store definitions
@@ -107,7 +133,7 @@ public class KeyDistributionGenerator {
             builder.append(" (" + formatter.format(distribution.get(n.getId())) + ")");
             builder.append(", ");
         }
-        builder.append("])");
+        builder.append("], Std dev - " + getStdDeviation(distribution) + ")");
 
         return builder.toString();
 

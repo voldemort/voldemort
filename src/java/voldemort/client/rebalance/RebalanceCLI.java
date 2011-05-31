@@ -16,6 +16,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.RebalanceUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -56,6 +57,8 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("num-tries");
+            parser.accepts("optimize",
+                           "Optimize the target cluster which has new nodes with empty partitions");
             parser.accepts("no-delete",
                            "Do not delete after rebalancing (Valid only for RW Stores)");
             parser.accepts("show-plan",
@@ -84,6 +87,7 @@ public class RebalanceCLI {
                                                        "tries",
                                                        RebalanceClientConfig.MAX_TRIES);
             boolean enabledShowPlan = options.has("show-plan");
+
             RebalanceClientConfig config = new RebalanceClientConfig();
             config.setMaxParallelRebalancing(maxParallelRebalancing);
             config.setDeleteAfterRebalancingEnabled(deleteAfterRebalancing);
@@ -112,6 +116,13 @@ public class RebalanceCLI {
 
                 Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
                 List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
+
+                boolean optimize = options.has("optimize");
+                if(optimize) {
+                    System.out.println(new ClusterMapper().writeCluster(RebalanceUtils.generateMinCluster(currentCluster,
+                                                                                                          targetCluster)));
+                    return;
+                }
 
                 rebalanceController = new RebalanceController(currentCluster, config);
                 rebalanceController.rebalance(currentCluster, targetCluster, storeDefs);
@@ -143,8 +154,10 @@ public class RebalanceCLI {
 
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
         stream.println("Commands supported");
-        stream.println("a) --url <url> --target-cluster <path>");
-        stream.println("b) --current-cluster <path> --current-stores <path> --target-cluster <path> --show-plan");
+        stream.println("------------------");
+        stream.println("a) --url <url> --target-cluster <path> [ Run the actual rebalancing process ] ");
+        stream.println("b) --current-cluster <path> --current-stores <path> --target-cluster <path> --show-plan [ Generates the plan ]");
+        stream.println("c) --current-cluster <path> --current-stores <path> --target-cluster <path> --optimize [ Target cluster is current-cluster + new nodes ( with empty partitions ) ]");
         parser.printHelpOn(stream);
     }
 }

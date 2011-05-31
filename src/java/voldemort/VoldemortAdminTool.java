@@ -29,6 +29,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.PrintStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Iterator;
@@ -101,12 +102,12 @@ public class VoldemortAdminTool {
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
-        parser.accepts("restore", "Restore from replication");
-        parser.accepts("ascii", "Fetch keys as ASCII");
-        parser.accepts("parallelism", "Parallelism")
-              .withRequiredArg()
+        parser.accepts("restore",
+                       "Restore from replication [ Optional parallelism param - Default - 5 ]")
+              .withOptionalArg()
               .describedAs("parallelism")
               .ofType(Integer.class);
+        parser.accepts("ascii", "Fetch keys as ASCII");
         parser.accepts("fetch-keys", "Fetch keys")
               .withRequiredArg()
               .describedAs("partition-ids")
@@ -141,7 +142,7 @@ public class VoldemortAdminTool {
         parser.accepts("get-metadata",
                        "retreive metadata information [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " ]")
+                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -164,7 +165,7 @@ public class VoldemortAdminTool {
         parser.accepts("set-metadata",
                        "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " ]")
+                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
@@ -173,7 +174,8 @@ public class VoldemortAdminTool {
                                + MetadataStore.STORES_KEY + " ] - xml file location, [ "
                                + MetadataStore.SERVER_STATE_KEY + " ] - "
                                + MetadataStore.VoldemortState.NORMAL_SERVER + ","
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ", [ "
+                               + MetadataStore.REBALANCING_STEAL_INFO + " ] - json string")
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
@@ -182,28 +184,26 @@ public class VoldemortAdminTool {
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
-            parser.printHelpOn(System.out);
+            printHelp(System.out, parser);
             System.exit(0);
         }
 
         Set<String> missing = CmdUtils.missing(options, "url", "node");
         if(missing.size() > 0) {
             // Not the most elegant way to do this
-            if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
-                                                             || options.has("delete-store")
-                                                             || options.has("ro-metadata")
-                                                             || options.has("set-metadata")
-                                                             || options.has("get-metadata")
-                                                             || options.has("check-metadata") || options.has("key-distribution")))) {
+            if(!(missing.equals(ImmutableSet.of("node"))
+                 && (options.has("add-stores") || options.has("ro-metadata")
+                     || options.has("set-metadata") || options.has("get-metadata")
+                     || options.has("check-metadata") || options.has("key-distribution")) || options.has("truncate"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-                parser.printHelpOn(System.err);
+                printHelp(System.err, parser);
                 System.exit(1);
             }
         }
 
         String url = (String) options.valueOf("url");
         Integer nodeId = CmdUtils.valueOf(options, "node", -1);
-        Integer parallelism = CmdUtils.valueOf(options, "parallelism", 5);
+        int parallelism = CmdUtils.valueOf(options, "restore", 5);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
 
@@ -266,9 +266,13 @@ public class VoldemortAdminTool {
                 System.out.println("Finished delete-partitions");
             }
             if(ops.contains("r")) {
+                if(nodeId == -1) {
+                    System.err.println("Cannot run restore without node id");
+                    System.exit(1);
+                }
                 System.out.println("Starting restore");
                 adminClient.restoreDataFromReplications(nodeId, parallelism);
-                System.err.println("Finished restore");
+                System.out.println("Finished restore");
             }
             if(ops.contains("k")) {
                 String outputDir = null;
@@ -301,13 +305,11 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
-                executeAddStores(adminClient, storesXml, storeNames, nodeId);
-
+                executeAddStores(adminClient, storesXml, nodeId);
             }
             if(ops.contains("u")) {
                 String inputDir = (String) options.valueOf("update-entries");
-                boolean useAscii = options.has("ascii");
-                executeUpdateEntries(nodeId, adminClient, storeNames, inputDir, useAscii);
+                executeUpdateEntries(nodeId, adminClient, storeNames, inputDir);
             }
             if(ops.contains("s")) {
                 String storeName = (String) options.valueOf("delete-store");
@@ -383,7 +385,74 @@ public class VoldemortAdminTool {
         }
     }
 
+    public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
+        stream.println("Commands supported");
+        stream.println("------------------");
+        stream.println("a) Get / set metadata ");
+        stream.println("\t1) Get metadata from all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]");
+        stream.println("\t2) Get metadata from a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url] --node [node-id]");
+        stream.println("\t3) Set metadata on all nodes [ metadata-value is path to xml files for cluster.xml | stores.xml ]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url]");
+        stream.println("\t4) Set metadata for a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
+        stream.println("\t5) Check if metadata is same on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]");
+
+        stream.println("b) Add / delete stores ");
+        stream.println("\t1) Add store(s) on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url]");
+        stream.println("\t2) Add store(s) on single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url] --node [node-id]");
+        stream.println("\t3) Delete store on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]");
+        stream.println("\t4) Delete the contents of the store on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]");
+        stream.println("\t5) Delete the contents of the store on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node [node-id]");
+        stream.println("\t6) Delete the contents of some partitions on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id]");
+        stream.println("\t7) Delete the contents of some partitions ( of some stores ) on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+
+        stream.println("c) Stream data");
+        stream.println("\t1) Fetch keys from a set of partitions [ all stores ] on a node ( binary dump )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions with no space] --url [url] --node [node-id]");
+        stream.println("\t2) Fetch keys from a set of partitions [ all stores ] on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii");
+        stream.println("\t3) Fetch entries from a set of partitions [ all stores ] on a node ( binary dump )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id]");
+        stream.println("\t4) Fetch entries from a set of partitions [ all stores ] on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii");
+        stream.println("\t5) Fetch entries from a set of partitions [ all stores ] on a node ( ascii enabled ) and output to a folder");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --outdir [directory]");
+        stream.println("\t6) Fetch entries from a set of partitions and some stores on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --stores [comma-separated list of store names] ");
+        stream.println("\t7) Update entries for a set of stores using the output from a binary dump fetch entries");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+
+        stream.println("d) Read-only operations");
+        stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format] --url [url] --node [node-id]");
+        stream.println("\t2) Retrieve metadata information of read-only data for all nodes and a set of store");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format] --url [url] --stores [comma-separated list of store names]");
+
+        stream.println("e) Others");
+        stream.println("\t1) Restore a particular node completely from its replicas");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]");
+        stream.println("\t2) Restore a particular node completely from its replicas ( with increased parallelism - 10 ) ");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]");
+        stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url] --node [node-id] --ascii");
+
+        parser.printHelpOn(stream);
+    }
+
     private static void executeKeyDistribution(AdminClient adminClient) {
+        System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
+                                                                               adminClient.getRemoteStoreDefList(0)
+                                                                                          .getValue()));
         System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
                                                                              adminClient.getRemoteStoreDefList(0)
                                                                                         .getValue()));
@@ -481,33 +550,44 @@ public class VoldemortAdminTool {
             }
         }
 
+        List<Integer> nodeIds = Lists.newArrayList();
         if(nodeId < 0) {
-            if(type.compareTo("max") != 0) {
-                System.err.println("Unsupported operation, only max allowed for all nodes");
-                return;
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
             }
-            storeToValue = adminClient.getROMaxVersion(storeNames);
         } else {
+            nodeIds.add(nodeId);
+        }
+
+        for(int currentNodeId: nodeIds) {
+            System.out.println(adminClient.getAdminClientCluster()
+                                          .getNodeById(currentNodeId)
+                                          .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
             if(type.compareTo("max") == 0) {
-                storeToValue = adminClient.getROMaxVersion(nodeId, storeNames);
+                storeToValue = adminClient.getROMaxVersion(currentNodeId, storeNames);
             } else if(type.compareTo("current") == 0) {
-                storeToValue = adminClient.getROCurrentVersion(nodeId, storeNames);
+                storeToValue = adminClient.getROCurrentVersion(currentNodeId, storeNames);
             } else if(type.compareTo("storage-format") == 0) {
-                Map<String, String> storeToStorageFormat = adminClient.getROStorageFormat(nodeId,
+                Map<String, String> storeToStorageFormat = adminClient.getROStorageFormat(currentNodeId,
                                                                                           storeNames);
                 for(String storeName: storeToStorageFormat.keySet()) {
                     System.out.println(storeName + ":" + storeToStorageFormat.get(storeName));
                 }
-                return;
+                continue;
             } else {
-                System.err.println("Unsupported operation, only max, current or storage-format allowed for individual nodes");
+                System.err.println("Unsupported operation, only max, current or storage-format allowed");
                 return;
+            }
+
+            for(String storeName: storeToValue.keySet()) {
+                System.out.println(storeName + ":" + storeToValue.get(storeName));
             }
         }
 
-        for(String storeName: storeToValue.keySet()) {
-            System.out.println(storeName + ":" + storeToValue.get(storeName));
-        }
     }
 
     public static void executeGetMetadata(Integer nodeId,
@@ -555,30 +635,30 @@ public class VoldemortAdminTool {
     }
 
     public static void executeTruncateStore(int nodeId, AdminClient adminClient, String storeName) {
-        System.out.println("Truncating " + storeName + " on node " + nodeId);
-        adminClient.truncate(nodeId, storeName);
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
+        } else {
+            nodeIds.add(nodeId);
+        }
+
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println("Truncating " + storeName + " on node " + currentNodeId);
+            adminClient.truncate(currentNodeId, storeName);
+        }
     }
 
-    public static void executeAddStores(AdminClient adminClient,
-                                        String storesXml,
-                                        List<String> storeNames,
-                                        int nodeId) throws IOException {
+    public static void executeAddStores(AdminClient adminClient, String storesXml, int nodeId)
+            throws IOException {
         List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
-        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
-        for(StoreDefinition storeDefinition: storeDefinitionList) {
-            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
-        }
-        List<String> stores = storeNames;
-        if(stores == null) {
-            stores = Lists.newArrayList();
-            stores.addAll(storeDefinitionMap.keySet());
-        }
-        for(String store: stores) {
-            System.out.println("Adding " + store);
+        for(StoreDefinition storeDef: storeDefinitionList) {
+            System.out.println("Adding " + storeDef.getName());
             if(-1 != nodeId)
-                adminClient.addStore(storeDefinitionMap.get(store), nodeId);
+                adminClient.addStore(storeDef, nodeId);
             else
-                adminClient.addStore(storeDefinitionMap.get(store));
+                adminClient.addStore(storeDef);
         }
     }
 
@@ -647,8 +727,7 @@ public class VoldemortAdminTool {
     private static void executeUpdateEntries(Integer nodeId,
                                              AdminClient adminClient,
                                              List<String> storeNames,
-                                             String inputDirPath,
-                                             boolean useAscii) throws IOException {
+                                             String inputDirPath) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
@@ -673,39 +752,11 @@ public class VoldemortAdminTool {
         }
 
         for(String storeName: storeNames) {
-            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
-            if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(storeName);
-                if(storeDefinition == null) {
-                    throw new IllegalArgumentException("No definition found for " + storeName);
-                }
-                iterator = readEntriesAscii(inputDir, storeName);
-            } else {
-                iterator = readEntriesBinary(inputDir, storeName);
-            }
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = readEntriesBinary(inputDir,
+                                                                                      storeName);
             adminClient.updateEntries(nodeId, storeName, iterator, null);
         }
 
-    }
-
-    // TODO: implement this
-    private static Iterator<Pair<ByteArray, Versioned<byte[]>>> readEntriesAscii(File inputDir,
-                                                                                 String storeName)
-            throws IOException {
-        File inputFile = new File(inputDir, storeName + ".entries");
-        if(!inputFile.exists()) {
-            throw new FileNotFoundException("File " + inputFile.getAbsolutePath()
-                                            + " does not exist!");
-        }
-
-        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-
-            @Override
-            protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
-                System.err.println("Updating stores from ASCII/JSON data is not yet supported!");
-                return endOfData();
-            }
-        };
     }
 
     private static Iterator<Pair<ByteArray, Versioned<byte[]>>> readEntriesBinary(File inputDir,
