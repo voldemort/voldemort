@@ -28,6 +28,21 @@ public class HttpStoreSwapper extends StoreSwapper {
 
     private final HttpClient httpClient;
     private final String readOnlyMgmtPath;
+    private boolean deleteFailedFetch = false;
+    private boolean rollbackFailedSwap = false;
+
+    public HttpStoreSwapper(Cluster cluster,
+                            ExecutorService executor,
+                            HttpClient httpClient,
+                            String readOnlyMgmtPath,
+                            boolean deleteFailedFetch,
+                            boolean rollbackFailedSwap) {
+        super(cluster, executor);
+        this.httpClient = httpClient;
+        this.readOnlyMgmtPath = readOnlyMgmtPath;
+        this.deleteFailedFetch = deleteFailedFetch;
+        this.rollbackFailedSwap = rollbackFailedSwap;
+    }
 
     public HttpStoreSwapper(Cluster cluster,
                             ExecutorService executor,
@@ -86,28 +101,30 @@ public class HttpStoreSwapper extends StoreSwapper {
 
         if(!exceptions.isEmpty()) {
 
-            // Delete data from successful nodes
-            for(int successfulNodeId: results.keySet()) {
-                try {
-                    String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
-                                 + readOnlyMgmtPath;
-                    PostMethod post = new PostMethod(url);
-                    post.addParameter("operation", "failed-fetch");
-                    post.addParameter("dir", results.get(successfulNodeId));
-                    post.addParameter("store", storeName);
-                    logger.info("Deleting fetched data from node " + successfulNodeId);
+            if(deleteFailedFetch) {
+                // Delete data from successful nodes
+                for(int successfulNodeId: results.keySet()) {
+                    try {
+                        String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
+                                     + readOnlyMgmtPath;
+                        PostMethod post = new PostMethod(url);
+                        post.addParameter("operation", "failed-fetch");
+                        post.addParameter("dir", results.get(successfulNodeId));
+                        post.addParameter("store", storeName);
+                        logger.info("Deleting fetched data from node " + successfulNodeId);
 
-                    int responseCode = httpClient.executeMethod(post);
-                    String response = post.getStatusText();
+                        int responseCode = httpClient.executeMethod(post);
+                        String response = post.getStatusText();
 
-                    if(responseCode == 200) {
-                        logger.info("Deleted successfully on node " + successfulNodeId);
-                    } else {
-                        throw new VoldemortException(response);
+                        if(responseCode == 200) {
+                            logger.info("Deleted successfully on node " + successfulNodeId);
+                        } else {
+                            throw new VoldemortException(response);
+                        }
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during delete operation on node "
+                                     + successfulNodeId + " : ", e);
                     }
-                } catch(Exception e) {
-                    logger.error("Exception thrown during delete operation on node "
-                                 + successfulNodeId + " : ", e);
                 }
             }
 
@@ -156,31 +173,33 @@ public class HttpStoreSwapper extends StoreSwapper {
         }
 
         if(!exceptions.isEmpty()) {
-            // Rollback data on successful nodes
-            for(int successfulNodeId: previousDirs.keySet()) {
-                try {
-                    String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
-                                 + readOnlyMgmtPath;
-                    PostMethod post = new PostMethod(url);
-                    post.addParameter("operation", "rollback");
-                    post.addParameter("store", storeName);
-                    post.addParameter("pushVersion",
-                                      Long.toString(ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId)))));
+            if(rollbackFailedSwap) {
+                // Rollback data on successful nodes
+                for(int successfulNodeId: previousDirs.keySet()) {
+                    try {
+                        String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
+                                     + readOnlyMgmtPath;
+                        PostMethod post = new PostMethod(url);
+                        post.addParameter("operation", "rollback");
+                        post.addParameter("store", storeName);
+                        post.addParameter("pushVersion",
+                                          Long.toString(ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId)))));
 
-                    logger.info("Rolling back data on successful node " + successfulNodeId);
+                        logger.info("Rolling back data on successful node " + successfulNodeId);
 
-                    int responseCode = httpClient.executeMethod(post);
-                    String response = post.getStatusText();
+                        int responseCode = httpClient.executeMethod(post);
+                        String response = post.getStatusText();
 
-                    if(responseCode == 200) {
-                        logger.info("Rollback succeeded for node " + successfulNodeId);
-                    } else {
-                        throw new VoldemortException(response);
+                        if(responseCode == 200) {
+                            logger.info("Rollback succeeded for node " + successfulNodeId);
+                        } else {
+                            throw new VoldemortException(response);
+                        }
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during rollback ( after swap ) operation on node "
+                                             + successfulNodeId + " : ",
+                                     e);
                     }
-                } catch(Exception e) {
-                    logger.error("Exception thrown during rollback ( after swap ) operation on node "
-                                         + successfulNodeId + " : ",
-                                 e);
                 }
             }
 
