@@ -15,4 +15,18 @@
       <type>string</type>
     </value-serializer>
   </store>
+  <view>
+    <name>test-view</name>
+    <view-of>test</view-of>
+    <owners> ron@hogwarts.edu </owners>
+    <view-class>
+      voldemort.store.views.UpperCaseView
+    </view-class>
+    <value-serializer>
+      <type>string</type>
+    </value-serializer>
+    <transforms-serializer>
+    	<type>string</type>
+    </transforms-serializer>
+  </view>
 </stores>
