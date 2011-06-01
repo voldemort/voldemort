@@ -4,8 +4,9 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -53,7 +54,8 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
         this.errorCodeMapper = errorCodeMapper;
         this.storeRepository = storeRepository;
         this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.SLOP, ImmutableList.<Integer>of());
+        this.handle = stats.makeHandle(StreamStats.Operation.SLOP,
+                                       new HashMap<Integer, List<Integer>>());
         startTime = System.currentTimeMillis();
     }
 

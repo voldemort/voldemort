@@ -7,10 +7,14 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 
 public class ReadOnlyUtils {
@@ -28,6 +32,75 @@ public class ReadOnlyUtils {
         index.position(indexByteOffset);
         index.get(foundKey);
         return foundKey;
+    }
+
+    /**
+     * Given a file name and read-only storage format, tells whether the file
+     * name format is correct
+     * 
+     * @param fileName The name of the file
+     * @param format The RO format
+     * @return true if file format is correct, else false
+     */
+    public static boolean isFormatCorrect(String fileName, ReadOnlyStorageFormat format) {
+        switch(format) {
+            case READONLY_V0:
+            case READONLY_V1:
+                if(fileName.matches("^[\\d]+_[\\d]+\\.(data|index)")) {
+                    return true;
+                } else {
+                    return false;
+                }
+
+            case READONLY_V2:
+                if(fileName.matches("^[\\d]+_[\\d]+_[\\d]+\\.(data|index)")) {
+                    return true;
+                } else {
+                    return false;
+                }
+
+            default:
+                throw new VoldemortException("Format type not supported");
+        }
+    }
+
+    /**
+     * Given a file name first checks whether it belongs to storage format v2
+     * and then retieves the tuple of <partition, replica type> out of it.
+     * 
+     * @param fileName The name of the file
+     * @return Pair of partition id to replica type
+     */
+    public static Pair<Integer, Integer> getPartitionReplicaTuple(String fileName) {
+        if(!isFormatCorrect(fileName, ReadOnlyStorageFormat.READONLY_V2)) {
+            throw new VoldemortException("Filename " + fileName
+                                         + " does not comply with the format for storage format "
+                                         + ReadOnlyStorageFormat.READONLY_V2);
+        }
+        int firstUnderScore = fileName.indexOf('_');
+        int secondUnderScore = fileName.indexOf('_', firstUnderScore + 1);
+
+        return Pair.create(Integer.parseInt(fileName.substring(0, firstUnderScore)),
+                           Integer.parseInt(fileName.substring(firstUnderScore + 1,
+                                                               secondUnderScore)));
+
+    }
+
+    /**
+     * Returns the chunk id for the file name
+     * 
+     * @param fileName The file name
+     * @return Chunk id
+     */
+    public static int getChunkId(String fileName) {
+        Pattern pattern = Pattern.compile("_[\\d]+\\.");
+        Matcher matcher = pattern.matcher(fileName);
+
+        if(matcher.find()) {
+            return new Integer(fileName.substring(matcher.start() + 1, matcher.end() - 1));
+        } else {
+            throw new VoldemortException("Could not extract out chunk id from " + fileName);
+        }
     }
 
     /**

@@ -37,6 +37,8 @@ import org.apache.thrift.protocol.TType;
 public class MockMessage implements TBase<MockMessage, MockMessage._Fields>, java.io.Serializable,
         Cloneable {
 
+    private static final long serialVersionUID = 1L;
+
     private static final TStruct STRUCT_DESC = new TStruct("MockMessage");
 
     private static final TField NAME_FIELD_DESC = new TField("name", TType.STRING, (short) 1);

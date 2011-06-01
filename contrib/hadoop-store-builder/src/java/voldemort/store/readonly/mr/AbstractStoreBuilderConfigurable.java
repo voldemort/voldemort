@@ -41,6 +41,7 @@ public class AbstractStoreBuilderConfigurable {
     private Cluster cluster;
     private StoreDefinition storeDef;
     private boolean saveKeys;
+    private boolean reducerPerBucket;
 
     public void configure(JobConf conf) {
         this.cluster = new ClusterMapper().readCluster(new StringReader(conf.get("cluster.xml")));
@@ -54,6 +55,7 @@ public class AbstractStoreBuilderConfigurable {
             throw new VoldemortException("num.chunks not specified in the job conf.");
 
         this.saveKeys = conf.getBoolean("save.keys", false);
+        this.reducerPerBucket = conf.getBoolean("reducer.per.bucket", false);
     }
 
     @SuppressWarnings("unused")
@@ -66,6 +68,10 @@ public class AbstractStoreBuilderConfigurable {
 
     public boolean getSaveKeys() {
         return this.saveKeys;
+    }
+
+    public boolean getReducerPerBucket() {
+        return this.reducerPerBucket;
     }
 
     public StoreDefinition getStoreDef() {

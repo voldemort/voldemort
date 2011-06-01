@@ -64,7 +64,6 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
-import voldemort.store.grandfather.GrandfatheringStore;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.metadata.MetadataStore;
@@ -178,7 +177,7 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        registerEngine(metadata);
+        registerEngine(metadata, false);
 
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
@@ -196,11 +195,14 @@ public class StorageService extends AbstractService {
             logger.info("Initializing the slop store using " + voldemortConfig.getSlopStoreType());
             StorageConfiguration config = storageConfigs.get(voldemortConfig.getSlopStoreType());
             if(config == null)
-                throw new ConfigurationException("Attempt to get slop store failed");
+                throw new ConfigurationException("Attempt to open store "
+                                                 + SlopStorageEngine.SLOP_STORE_NAME + " but "
+                                                 + voldemortConfig.getSlopStoreType()
+                                                 + " storage engine has not been enabled.");
 
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
                                                                  metadata.getCluster());
-            registerEngine(slopEngine);
+            registerEngine(slopEngine, false);
             storeRepository.setSlopStore(slopEngine);
 
             if(voldemortConfig.isSlopPusherJobEnabled()) {
@@ -227,23 +229,18 @@ public class StorageService extends AbstractService {
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
 
-                /*
-                 * Register the repairer thread only if slop pusher job is also
-                 * enabled
-                 */
+                // Run the repair job only if slop pusher job is enabled
+                // Also run it only once
                 if(voldemortConfig.isRepairEnabled()) {
                     cal.add(Calendar.SECOND,
-                            (int) (voldemortConfig.getRepairFrequencyMs() / Time.MS_PER_SECOND));
+                            (int) (voldemortConfig.getRepairStartMs() / Time.MS_PER_SECOND));
                     nextRun = cal.getTime();
                     logger.info("Initializing repair job " + voldemortConfig.getPusherType()
                                 + " at " + nextRun);
                     RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
 
                     JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                    scheduler.schedule("repair",
-                                       job,
-                                       nextRun,
-                                       voldemortConfig.getRepairFrequencyMs());
+                    scheduler.schedule("repair", job, nextRun);
                 }
             }
         }
@@ -279,10 +276,10 @@ public class StorageService extends AbstractService {
         if(config == null)
             throw new ConfigurationException("Attempt to open store " + storeDef.getName()
                                              + " but " + storeDef.getType()
-                                             + " storage engine of type " + storeDef.getType()
-                                             + " has not been enabled.");
+                                             + " storage engine has not been enabled.");
 
-        if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
+        boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        if(isReadOnly) {
             final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                        metadata.getCluster());
             ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
@@ -301,7 +298,7 @@ public class StorageService extends AbstractService {
 
         // openStore() should have atomic semantics
         try {
-            registerEngine(engine);
+            registerEngine(engine, isReadOnly);
 
             if(voldemortConfig.isServerRoutingEnabled())
                 registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
@@ -360,8 +357,9 @@ public class StorageService extends AbstractService {
      * Register the given engine with the storage repository
      * 
      * @param engine Register the storage engine
+     * @param isReadOnly Boolean indicating if this store is read-only
      */
-    public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+    public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine, boolean isReadOnly) {
         Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
@@ -370,19 +368,13 @@ public class StorageService extends AbstractService {
 
         boolean isSlop = store.getName().compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
         boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
+
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(!isMetadata)
-                if(voldemortConfig.isGrandfatherEnabled())
-                    store = new GrandfatheringStore(store,
-                                                    metadata,
-                                                    storeRepository,
-                                                    clientThreadPool);
-
-            if(voldemortConfig.isRedirectRoutingEnabled())
+            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata)
                 store = new RedirectingStore(store,
                                              metadata,
                                              storeRepository,

@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -16,6 +14,7 @@ import org.apache.hadoop.fs.PathFilter;
 
 import voldemort.VoldemortException;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.chunk.DataFileChunk;
 import voldemort.store.readonly.chunk.DataFileChunkSet;
 import voldemort.utils.ByteUtils;
@@ -145,53 +144,6 @@ public class HadoopStoreBuilderUtils {
     }
 
     /**
-     * Given a file name and read-only storage format, tells whether the file
-     * name format is correct
-     * 
-     * @param fileName The name of the file
-     * @param format The RO format
-     * @return true if file format is correct, else false
-     */
-    public static boolean isFormatCorrect(String fileName, ReadOnlyStorageFormat format) {
-        switch(format) {
-            case READONLY_V0:
-            case READONLY_V1:
-                if(fileName.matches("^[\\d]+_[\\d]+\\.(data|index)")) {
-                    return true;
-                } else {
-                    return false;
-                }
-
-            case READONLY_V2:
-                if(fileName.matches("^[\\d]+_[\\d]+_[\\d]+\\.(data|index)")) {
-                    return true;
-                } else {
-                    return false;
-                }
-
-            default:
-                throw new VoldemortException("Format type not supported");
-        }
-    }
-
-    /**
-     * Returns the chunk id for the file name
-     * 
-     * @param fileName The file name
-     * @return Chunk id
-     */
-    public static int getChunkId(String fileName) {
-        Pattern pattern = Pattern.compile("_[\\d]+\\.");
-        Matcher matcher = pattern.matcher(fileName);
-
-        if(matcher.find()) {
-            return new Integer(fileName.substring(matcher.start() + 1, matcher.end() - 1));
-        } else {
-            throw new VoldemortException("Could not extract out chunk id from " + fileName);
-        }
-    }
-
-    /**
      * Convert list of FileStatus[] files to DataFileChunkSet. The input to this
      * is generally the output of getChunkFiles function.
      * 
@@ -208,7 +160,8 @@ public class HadoopStoreBuilderUtils {
         // Make sure it satisfies the partitionId_replicaType format
         List<FileStatus> fileList = Lists.newArrayList();
         for(FileStatus file: files) {
-            if(!isFormatCorrect(file.getPath().getName(), ReadOnlyStorageFormat.READONLY_V2)) {
+            if(!ReadOnlyUtils.isFormatCorrect(file.getPath().getName(),
+                                              ReadOnlyStorageFormat.READONLY_V2)) {
                 throw new VoldemortException("Incorrect data file name format for "
                                              + file.getPath().getName() + ". Unsupported by "
                                              + ReadOnlyStorageFormat.READONLY_V2);
@@ -220,8 +173,8 @@ public class HadoopStoreBuilderUtils {
         Collections.sort(fileList, new Comparator<FileStatus>() {
 
             public int compare(FileStatus f1, FileStatus f2) {
-                int chunkId1 = getChunkId(f1.getPath().getName());
-                int chunkId2 = getChunkId(f2.getPath().getName());
+                int chunkId1 = ReadOnlyUtils.getChunkId(f1.getPath().getName());
+                int chunkId2 = ReadOnlyUtils.getChunkId(f2.getPath().getName());
 
                 return chunkId1 - chunkId2;
             }

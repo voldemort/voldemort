@@ -16,6 +16,7 @@ import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.Message;
@@ -56,7 +57,13 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
 
-        if(validPartition(key.get()) && counter % skipRecords == 0) {
+        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                     key.get(),
+                                                     replicaToPartitionList,
+                                                     initialCluster,
+                                                     storeDef)
+
+           && counter % skipRecords == 0) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             stats.recordDiskTime(handle, System.nanoTime() - startNs);
             for(Versioned<byte[]> value: values) {
@@ -93,8 +100,9 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
             if(logger.isDebugEnabled())
                 logger.debug("fetchEntries() scanned " + counter + " entries, fetched " + fetched
-                             + " entries for store:" + storageEngine.getName() + " partition:"
-                             + partitionList + " in " + totalTime + " s");
+                             + " entries for store:" + storageEngine.getName()
+                             + " replicaToPartitionList:" + replicaToPartitionList + " in "
+                             + totalTime + " s");
         }
 
         if(keyIterator.hasNext())

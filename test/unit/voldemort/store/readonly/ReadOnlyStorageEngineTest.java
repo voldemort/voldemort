@@ -584,16 +584,7 @@ public class ReadOnlyStorageEngineTest {
     }
 
     private void createStoreFiles(File dir, int indexBytes, int dataBytes, Node node, int numChunks)
-            throws FileNotFoundException, IOException {
-        createStoreFiles(dir, indexBytes, dataBytes, node, numChunks, 1);
-    }
-
-    private void createStoreFiles(File dir,
-                                  int indexBytes,
-                                  int dataBytes,
-                                  Node node,
-                                  int numChunks,
-                                  int numReplicas) throws IOException, FileNotFoundException {
+            throws IOException, FileNotFoundException {
         ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
         metadata.add(ReadOnlyStorageMetadata.FORMAT, storageType.getCode());
 
@@ -640,25 +631,23 @@ public class ReadOnlyStorageEngineTest {
             }
                 break;
             case READONLY_V2: {
+                // Assuming number of replicas = 1, since all these tests use a
+                // store with replication factor of 1
                 for(Integer partitionId: node.getPartitionIds()) {
-                    for(int replicaType = 0; replicaType < numReplicas; replicaType++) {
-                        for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                            File index = createFile(dir, Integer.toString(partitionId) + "_"
-                                                         + Integer.toString(replicaType) + "_"
-                                                         + Integer.toString(chunkId) + ".index");
-                            File data = createFile(dir, Integer.toString(partitionId) + "_"
-                                                        + Integer.toString(replicaType) + "_"
-                                                        + Integer.toString(chunkId) + ".data");
-                            // write some random crap for index and data
-                            FileOutputStream dataOs = new FileOutputStream(data);
-                            for(int i = 0; i < dataBytes; i++)
-                                dataOs.write(i);
-                            dataOs.close();
-                            FileOutputStream indexOs = new FileOutputStream(index);
-                            for(int i = 0; i < indexBytes; i++)
-                                indexOs.write(i);
-                            indexOs.close();
-                        }
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File index = createFile(dir, Integer.toString(partitionId) + "_0_"
+                                                     + Integer.toString(chunkId) + ".index");
+                        File data = createFile(dir, Integer.toString(partitionId) + "_0_"
+                                                    + Integer.toString(chunkId) + ".data");
+                        // write some random crap for index and data
+                        FileOutputStream dataOs = new FileOutputStream(data);
+                        for(int i = 0; i < dataBytes; i++)
+                            dataOs.write(i);
+                        dataOs.close();
+                        FileOutputStream indexOs = new FileOutputStream(index);
+                        for(int i = 0; i < indexBytes; i++)
+                            indexOs.write(i);
+                        indexOs.close();
                     }
                 }
             }

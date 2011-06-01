@@ -19,6 +19,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 
 /**
  * Start VoldemortServer locally using ServerTestUtils and run rebalancing
@@ -38,7 +39,27 @@ public class RebalanceTest extends AbstractRebalanceTest {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { false } });
+        return Arrays.asList(new Object[][] { { false }, { true } });
+    }
+
+    @Override
+    protected VoldemortState getCurrentState(int nodeId) {
+        VoldemortServer server = serverMap.get(nodeId);
+        if(server == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            return server.getMetadataStore().getServerState();
+        }
+    }
+
+    @Override
+    protected Cluster getCurrentCluster(int nodeId) {
+        VoldemortServer server = serverMap.get(nodeId);
+        if(server == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            return server.getMetadataStore().getCluster();
+        }
     }
 
     @Override
@@ -81,4 +102,5 @@ public class RebalanceTest extends AbstractRebalanceTest {
             }
         }
     }
+
 }

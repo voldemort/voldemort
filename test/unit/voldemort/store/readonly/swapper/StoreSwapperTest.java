@@ -19,9 +19,9 @@ package voldemort.store.readonly.swapper;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -61,7 +61,7 @@ import com.google.common.collect.Maps;
  */
 public class StoreSwapperTest extends TestCase {
 
-    private static int NUM_NODES = 2;
+    private static int NUM_NODES = 3;
     private static String STORE_NAME = "test";
     private static SerializerDefinition serializerDef = new SerializerDefinition("json", "'string'");
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -137,7 +137,12 @@ public class StoreSwapperTest extends TestCase {
 
         try {
             // Use the admin store swapper
-            StoreSwapper swapper = new AdminStoreSwapper(cluster, executor, adminClient, 1000000);
+            StoreSwapper swapper = new AdminStoreSwapper(cluster,
+                                                         executor,
+                                                         adminClient,
+                                                         1000000,
+                                                         true,
+                                                         true);
             testFetchSwap(swapper);
         } finally {
             executor.shutdown();
@@ -155,8 +160,54 @@ public class StoreSwapperTest extends TestCase {
             manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
                                                          10);
             HttpClient client = new HttpClient(manager);
-            StoreSwapper swapper = new HttpStoreSwapper(cluster, executor, client, "read-only/mgmt");
+            StoreSwapper swapper = new HttpStoreSwapper(cluster,
+                                                        executor,
+                                                        client,
+                                                        "read-only/mgmt",
+                                                        true,
+                                                        true);
             testFetchSwap(swapper);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
+    public void testAdminStoreSwapperWithoutRollback() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        try {
+            // Use the admin store swapper
+            StoreSwapper swapper = new AdminStoreSwapper(cluster,
+                                                         executor,
+                                                         adminClient,
+                                                         1000000,
+                                                         false,
+                                                         false);
+            testFetchSwapWithoutRollback(swapper);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
+    public void testHttpStoreSwapperWithoutRollback() throws Exception {
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        try {
+            // Use the http store swapper
+            HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
+            manager.getParams().setMaxTotalConnections(10);
+            manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
+                                                         10);
+            HttpClient client = new HttpClient(manager);
+            StoreSwapper swapper = new HttpStoreSwapper(cluster,
+                                                        executor,
+                                                        client,
+                                                        "read-only/mgmt",
+                                                        false,
+                                                        false);
+            testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
         }
@@ -168,6 +219,56 @@ public class StoreSwapperTest extends TestCase {
             Utils.mkdirs(new File(tempFolder, "node-" + Integer.toString(i)));
         }
         return tempFolder;
+    }
+
+    public void testFetchSwapWithoutRollback(StoreSwapper swapper) throws Exception {
+
+        // 1) Fetch for all nodes are successful
+        File temporaryDir = createTempROFolder();
+
+        // Retrieve all the current versions
+        long currentVersion = adminClient.getROCurrentVersion(0, Lists.newArrayList(STORE_NAME))
+                                         .get(STORE_NAME);
+        for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
+            long newVersion = adminClient.getROCurrentVersion(nodeId,
+                                                              Lists.newArrayList(STORE_NAME))
+                                         .get(STORE_NAME);
+            if(newVersion != currentVersion)
+                fail("Current version (on " + nodeId + ") = " + newVersion
+                     + " is not equal to others");
+        }
+
+        swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 1);
+
+        // Check the directories and entries
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            File[] versionDirs = ReadOnlyUtils.getVersionDirs(baseDirs[nodeId]);
+            for(File versionDir: versionDirs) {
+                assertTrue(Lists.newArrayList(currentVersion + 1, currentVersion)
+                                .contains(ReadOnlyUtils.getVersionId(versionDir)));
+            }
+        }
+
+        // 2) Fetch fails on some nodes - Do this by creating a folder with
+        // version directory which exists
+        temporaryDir = createTempROFolder();
+
+        // Add version "currentVersion + 3" on node-1 ...
+        Utils.mkdirs(new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3)));
+
+        try {
+            swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 3);
+            fail("Should throw a VoldemortException during pushing to node 0");
+        } catch(VoldemortException e) {}
+
+        // ... check if "currentVersion + 3 " is NOT deleted
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            long maxVersion = adminClient.getROMaxVersion(nodeId, Lists.newArrayList(STORE_NAME))
+                                         .get(STORE_NAME);
+
+            assertTrue(maxVersion == (currentVersion + 3));
+        }
+
     }
 
     public void testFetchSwap(StoreSwapper swapper) throws Exception {
@@ -202,20 +303,22 @@ public class StoreSwapperTest extends TestCase {
         // version directory which exists
         temporaryDir = createTempROFolder();
 
-        // Add version "currentVersion + 3" on node-0 ...
-        Utils.mkdirs(new File(baseDirs[0], "version-" + Long.toString(currentVersion + 3)));
+        // Add version "currentVersion + 3" on node-1 ...
+        Utils.mkdirs(new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3)));
 
         try {
             swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 3);
             fail("Should throw a VoldemortException during pushing to node 0");
         } catch(VoldemortException e) {}
 
-        // ... check if "currentVersion + 2 " is deleted on other nodes
-        for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            File[] versionDirs = ReadOnlyUtils.getVersionDirs(baseDirs[nodeId]);
+        // ... check if "currentVersion + 3 " is deleted on other nodes
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            if(nodeId != 1) {
+                File[] versionDirs = ReadOnlyUtils.getVersionDirs(baseDirs[nodeId]);
 
-            for(File versionDir: versionDirs) {
-                assertTrue(ReadOnlyUtils.getVersionId(versionDir) != (currentVersion + 3));
+                for(File versionDir: versionDirs) {
+                    assertTrue(ReadOnlyUtils.getVersionId(versionDir) != (currentVersion + 3));
+                }
             }
         }
 
@@ -225,24 +328,27 @@ public class StoreSwapperTest extends TestCase {
 
         // Create "currentVersion + 2" for all other nodes
         // i.e. N0 [ latest -> v3 ], N<others> [ latest -> v2 ]
-        List<String> toSwap = Lists.newArrayList(new File(baseDirs[0],
-                                                          "version-"
-                                                                  + Long.toString(currentVersion + 3)).getAbsolutePath());
-        for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            File newVersion = new File(baseDirs[nodeId], "version-"
-                                                         + Long.toString(currentVersion + 2));
-            Utils.mkdirs(newVersion);
-            toSwap.add(newVersion.getAbsolutePath());
+        TreeMap<Integer, String> toSwap = Maps.newTreeMap();
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            if(nodeId != 1) {
+                File newVersion = new File(baseDirs[nodeId], "version-"
+                                                             + Long.toString(currentVersion + 2));
+                Utils.mkdirs(newVersion);
+                toSwap.put(nodeId, newVersion.getAbsolutePath());
+            }
         }
-        swapper.invokeSwap(STORE_NAME, toSwap);
+        toSwap.put(1,
+                   new File(baseDirs[1], "version-" + Long.toString(currentVersion + 3)).getAbsolutePath());
 
-        // Try to swap in v2, which should fail on all
+        swapper.invokeSwap(STORE_NAME, Lists.newArrayList(toSwap.values()));
+
+        // Try to fetch in v2, which should fail on all
         try {
             swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 2);
             fail("Should throw a VoldemortException during pushing to node 0, 1");
         } catch(VoldemortException e) {}
 
-        // 4) Move one node into grandfathering state and try swapping
+        // 4) Move one node into rebalancing state and try swapping
         temporaryDir = createTempROFolder();
         // Current version now should be same afterwards as well
         Map<Integer, Long> versionToNode = Maps.newHashMap();
@@ -254,8 +360,8 @@ public class StoreSwapperTest extends TestCase {
                                          .get(STORE_NAME));
         }
 
-        servers[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
-                                          MetadataStore.VoldemortState.GRANDFATHERING_SERVER);
+        servers[1].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
+                                          MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER);
 
         try {
             swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 4);
@@ -273,7 +379,7 @@ public class StoreSwapperTest extends TestCase {
 
         // 5) All swaps work correctly
         temporaryDir = createTempROFolder();
-        servers[0].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
+        servers[1].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
                                           MetadataStore.VoldemortState.NORMAL_SERVER);
 
         swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 5);

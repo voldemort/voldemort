@@ -20,8 +20,13 @@ import java.io.File;
 import java.io.IOException;
 
 import junit.framework.TestCase;
+
+import org.apache.log4j.Logger;
+import org.junit.Test;
+
 import voldemort.TestUtils;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 
 /**
@@ -30,6 +35,58 @@ import voldemort.utils.Utils;
  * 
  */
 public class ReadOnlyUtilsTest extends TestCase {
+
+    @Test
+    public void testGetPartitionReplicaTuple() {
+        try {
+            ReadOnlyUtils.getPartitionReplicaTuple("0_0.data");
+            fail("Should have thrown an exception");
+        } catch(Exception e) {}
+
+        assertEquals(ReadOnlyUtils.getPartitionReplicaTuple("0_0_0.data"), Pair.create(0, 0));
+        assertEquals(ReadOnlyUtils.getPartitionReplicaTuple("0_1_1.index"), Pair.create(0, 1));
+        assertEquals(ReadOnlyUtils.getPartitionReplicaTuple("10_31_1.index"), Pair.create(10, 31));
+        assertEquals(ReadOnlyUtils.getPartitionReplicaTuple("5_310_10.data"), Pair.create(5, 310));
+    }
+
+    @Test
+    public void testIsFormatCorrect() {
+        Logger.getRootLogger().removeAllAppenders();
+
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0.", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0index", ReadOnlyStorageFormat.READONLY_V0));
+        assertTrue(ReadOnlyUtils.isFormatCorrect("0_0.index", ReadOnlyStorageFormat.READONLY_V0));
+        assertTrue(ReadOnlyUtils.isFormatCorrect("10_0.data", ReadOnlyStorageFormat.READONLY_V0));
+        assertTrue(ReadOnlyUtils.isFormatCorrect("10_10.data", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_10.dat", ReadOnlyStorageFormat.READONLY_V0));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_10.inde", ReadOnlyStorageFormat.READONLY_V0));
+
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0.", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0.index", ReadOnlyStorageFormat.READONLY_V2));
+        assertTrue(ReadOnlyUtils.isFormatCorrect("0_0_0.index", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("0_0_0index", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_0.d", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_10.d", ReadOnlyStorageFormat.READONLY_V2));
+        assertTrue(ReadOnlyUtils.isFormatCorrect("10_10_0.index", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_10_0.inde", ReadOnlyStorageFormat.READONLY_V2));
+        assertFalse(ReadOnlyUtils.isFormatCorrect("10_10_0.dat", ReadOnlyStorageFormat.READONLY_V2));
+
+    }
+
+    @Test
+    public void testGetChunkId() {
+        assertEquals(ReadOnlyUtils.getChunkId("0_0.d"), 0);
+        assertEquals(ReadOnlyUtils.getChunkId("0_1.d"), 1);
+        assertEquals(ReadOnlyUtils.getChunkId("0_100.d"), 100);
+        assertEquals(ReadOnlyUtils.getChunkId("10_83_674.d"), 674);
+        assertEquals(ReadOnlyUtils.getChunkId("0_10_30.d"), 30);
+    }
 
     public void testMinIntegerBug() {
         byte[] keyBytes = new byte[4];

@@ -145,7 +145,8 @@ public class JsonStoreBuilder {
               .withRequiredArg()
               .describedAs("output directory");
         parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
-        parser.accepts("chunks", "number of chunks [per node, per partition]")
+        parser.accepts("chunks",
+                       "number of chunks [per node, per partition, per partition + replica]")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("io-buffer-size", "size of i/o buffers in bytes")

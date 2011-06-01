@@ -12,7 +12,6 @@ import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStatsJmx;
 import voldemort.utils.JmxUtils;

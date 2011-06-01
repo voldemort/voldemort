@@ -408,7 +408,7 @@ public class StoreDefinition implements Serializable {
     @Override
     public String toString() {
         return "StoreDefinition(name = " + getName() + ", type = " + getType() + ", description = "
-               + getDescription() + "key-serializer = " + getKeySerializer()
+               + getDescription() + ", key-serializer = " + getKeySerializer()
                + ", value-serializer = " + getValueSerializer() + ", routing = "
                + getRoutingPolicy() + ", routing-strategy = " + getRoutingStrategyType()
                + ", replication = " + getReplicationFactor() + ", required-reads = "

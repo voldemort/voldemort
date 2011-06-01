@@ -27,7 +27,40 @@ public class AdminStoreSwapper extends StoreSwapper {
 
     private AdminClient adminClient;
     private long timeoutMs;
+    private boolean deleteFailedFetch = false;
+    private boolean rollbackFailedSwap = false;
 
+    /**
+     * 
+     * @param cluster The cluster metadata
+     * @param executor Executor to use for running parallel fetch / swaps
+     * @param adminClient The admin client to use for querying
+     * @param timeoutMs Time out in ms
+     * @param deleteFailedFetch Boolean to indicate we want to delete data on
+     *        successful nodes after a fetch fails somewhere
+     * @param rollbackFailedSwap Boolean to indicate we want to rollback the
+     *        data on successful nodes after a swap fails somewhere
+     */
+    public AdminStoreSwapper(Cluster cluster,
+                             ExecutorService executor,
+                             AdminClient adminClient,
+                             long timeoutMs,
+                             boolean deleteFailedFetch,
+                             boolean rollbackFailedSwap) {
+        super(cluster, executor);
+        this.adminClient = adminClient;
+        this.timeoutMs = timeoutMs;
+        this.deleteFailedFetch = deleteFailedFetch;
+        this.rollbackFailedSwap = rollbackFailedSwap;
+    }
+
+    /**
+     * 
+     * @param cluster The cluster metadata
+     * @param executor Executor to use for running parallel fetch / swaps
+     * @param adminClient The admin client to use for querying
+     * @param timeoutMs Time out in ms
+     */
     public AdminStoreSwapper(Cluster cluster,
                              ExecutorService executor,
                              AdminClient adminClient,
@@ -100,17 +133,19 @@ public class AdminStoreSwapper extends StoreSwapper {
 
         if(!exceptions.isEmpty()) {
 
-            // Delete data from successful nodes
-            for(int successfulNodeId: results.keySet()) {
-                try {
-                    logger.info("Deleting fetched data from node " + successfulNodeId);
+            if(deleteFailedFetch) {
+                // Delete data from successful nodes
+                for(int successfulNodeId: results.keySet()) {
+                    try {
+                        logger.info("Deleting fetched data from node " + successfulNodeId);
 
-                    adminClient.failedFetchStore(successfulNodeId,
-                                                 storeName,
-                                                 results.get(successfulNodeId));
-                } catch(Exception e) {
-                    logger.error("Exception thrown during delete operation on node "
-                                 + successfulNodeId + " : ", e);
+                        adminClient.failedFetchStore(successfulNodeId,
+                                                     storeName,
+                                                     results.get(successfulNodeId));
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during delete operation on node "
+                                     + successfulNodeId + " : ", e);
+                    }
                 }
             }
 
@@ -146,18 +181,20 @@ public class AdminStoreSwapper extends StoreSwapper {
 
         if(!exceptions.isEmpty()) {
 
-            // Rollback data on successful nodes
-            for(int successfulNodeId: previousDirs.keySet()) {
-                try {
-                    logger.info("Rolling back data on successful node " + successfulNodeId);
-                    adminClient.rollbackStore(successfulNodeId,
-                                              storeName,
-                                              ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
-                    logger.info("Rollback succeeded for node " + successfulNodeId);
-                } catch(Exception e) {
-                    logger.error("Exception thrown during rollback ( after swap ) operation on node "
-                                         + successfulNodeId + ": ",
-                                 e);
+            if(rollbackFailedSwap) {
+                // Rollback data on successful nodes
+                for(int successfulNodeId: previousDirs.keySet()) {
+                    try {
+                        logger.info("Rolling back data on successful node " + successfulNodeId);
+                        adminClient.rollbackStore(successfulNodeId,
+                                                  storeName,
+                                                  ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
+                        logger.info("Rollback succeeded for node " + successfulNodeId);
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during rollback ( after swap ) operation on node "
+                                             + successfulNodeId + ": ",
+                                     e);
+                    }
                 }
             }
 

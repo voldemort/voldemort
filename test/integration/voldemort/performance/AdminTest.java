@@ -3,6 +3,7 @@ package voldemort.performance;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,6 +19,8 @@ import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 
 public class AdminTest {
@@ -144,17 +147,19 @@ public class AdminTest {
         }
     }
 
-    public void testFetchAndUpdate(final SetMultimap<Integer, Integer> from,
-                                   final int to) {
+    public void testFetchAndUpdate(final SetMultimap<Integer, Integer> from, final int to) {
         for(final Integer node: from.keySet()) {
             timeFunction(new Timed() {
 
                 public void apply() {
+                    HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+                    replicaToPartitionList.put(0, Lists.newArrayList(from.get(node)));
                     adminClient.migratePartitions(node,
-                                                      to,
-                                                      storeName,
-                                                      new ArrayList<Integer>(from.get(node)),
-                                                      null);
+                                                  to,
+                                                  storeName,
+                                                  replicaToPartitionList,
+                                                  null,
+                                                  null);
                 }
 
             }, 1);
@@ -192,7 +197,6 @@ public class AdminTest {
                                            + " to be specified");
         }
 
-
         AdminTest adminTest;
 
         adminTest = new AdminTest(bootstrapUrl, storeName);
@@ -202,9 +206,9 @@ public class AdminTest {
                                                                                    options.has("p") ? options.valuesOf("p")
                                                                                                    : null);
 
-        if (options.has("f"))
+        if(options.has("f"))
             adminTest.testFetch(nodePartitions);
-        if (options.has("fu"))
+        if(options.has("fu"))
             adminTest.testFetchAndUpdate(nodePartitions, (Integer) options.valueOf("fu"));
     }
 }

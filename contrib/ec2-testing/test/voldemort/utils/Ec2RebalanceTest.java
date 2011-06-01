@@ -1,13 +1,11 @@
 package voldemort.utils;
 
-import static org.junit.Assert.fail;
 import static voldemort.utils.Ec2RemoteTestUtils.createInstances;
 import static voldemort.utils.Ec2RemoteTestUtils.destroyInstances;
 import static voldemort.utils.RemoteTestUtils.cleanupCluster;
 import static voldemort.utils.RemoteTestUtils.deploy;
 import static voldemort.utils.RemoteTestUtils.generateClusterDescriptor;
 import static voldemort.utils.RemoteTestUtils.startClusterAsync;
-import static voldemort.utils.RemoteTestUtils.startClusterNode;
 import static voldemort.utils.RemoteTestUtils.stopCluster;
 import static voldemort.utils.RemoteTestUtils.stopClusterQuiet;
 import static voldemort.utils.RemoteTestUtils.toHostNames;
@@ -15,7 +13,6 @@ import static voldemort.utils.RemoteTestUtils.toHostNames;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,23 +23,20 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Test;
 
-import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.AbstractRebalanceTest;
-import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.RequestRoutingType;
-import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.versioning.Versioned;
 
 /**
  */
@@ -72,6 +66,30 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     public static void ec2TearDown() throws Exception {
         if(hostNames != null)
             destroyInstances(hostNames, ec2RebalanceTestConfig);
+    }
+
+    @Override
+    protected Cluster getCurrentCluster(int nodeId) {
+        String hostName = nodeIdsInv.get(nodeId);
+        if(hostName == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            return adminClient.getAdminClientCluster();
+        }
+    }
+
+    @Override
+    protected VoldemortState getCurrentState(int nodeId) {
+        String hostName = nodeIdsInv.get(nodeId);
+        if(hostName == null) {
+            throw new VoldemortException("Node id " + nodeId + " does not exist");
+        } else {
+            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            return VoldemortState.valueOf(adminClient.getRemoteMetadata(nodeId,
+                                                                        MetadataStore.SERVER_STATE_KEY)
+                                                     .getValue());
+        }
     }
 
     @After
@@ -166,84 +184,6 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
     }
 
-    @Test
-    public void testGracefulRecovery() throws Exception {
-        Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
-
-        Cluster targetCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
-                { 0, 1, 4, 5, 6, 7, 8 }, { 2, 3 } });
-
-        List<Integer> serverList = Arrays.asList(0, 1);
-        currentCluster = startServers(currentCluster, storeDefFile, serverList, null);
-        targetCluster = updateCluster(targetCluster);
-
-        AdminClient adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0),
-                                                  new AdminClientConfig());
-        populateData(currentCluster, Arrays.asList(0), adminClient);
-
-        RebalancePartitionsInfo rebalancePartitionsInfo = new RebalancePartitionsInfo(1,
-                                                                                      0,
-                                                                                      Arrays.asList(2,
-                                                                                                    3),
-                                                                                      Arrays.asList(2,
-                                                                                                    3),
-                                                                                      Arrays.asList(2,
-                                                                                                    3),
-                                                                                      Arrays.asList(testStoreNameRW),
-                                                                                      new HashMap<String, String>(),
-                                                                                      new HashMap<String, String>(),
-                                                                                      0);
-        int requestId = adminClient.rebalanceNode(rebalancePartitionsInfo);
-        logger.info("started rebalanceNode, request id = " + requestId);
-
-        Thread.sleep(25);
-        stopServer(Arrays.asList(1));
-        logger.info("waiting ten seconds after shutting down the node");
-
-        Thread.sleep(10000);
-
-        String hostName = currentCluster.getNodeById(1).getHost();
-        startClusterNode(hostName, ec2RebalanceTestConfig, 1);
-
-        adminClient.stop();
-        adminClient = new AdminClient(getBootstrapUrl(currentCluster, 0), new AdminClientConfig());
-        Versioned<MetadataStore.VoldemortState> serverState = adminClient.getRemoteServerState(1);
-
-        int delay = 250;
-        int maxDelay = 1000 * 30;
-        int timeout = 5 * 1000 * 60;
-        long start = System.currentTimeMillis();
-        while(System.currentTimeMillis() < start + timeout
-              && serverState.getValue() != MetadataStore.VoldemortState.NORMAL_SERVER) {
-            Thread.sleep(delay);
-            if(delay < maxDelay)
-                delay *= 2;
-            serverState = adminClient.getRemoteServerState(1);
-            logger.info("serverState -> " + serverState.getValue());
-        }
-
-        if(serverState.getValue() == MetadataStore.VoldemortState.NORMAL_SERVER) {
-            for(int nodeId: Arrays.asList(1)) {
-                List<Integer> availablePartitions = targetCluster.getNodeById(nodeId)
-                                                                 .getPartitionIds();
-                List<Integer> unavailablePartitions = getUnavailablePartitions(targetCluster,
-                                                                               availablePartitions);
-
-                try {
-                    checkGetEntries(currentCluster.getNodeById(nodeId),
-                                    targetCluster,
-                                    unavailablePartitions,
-                                    availablePartitions,
-                                    false);
-                } catch(InvalidMetadataException e) {
-                    logger.warn(e);
-                }
-            }
-        } else
-            fail("Server state never reached NORMAL_SERVER");
-    }
-
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {
 
         private String configDirName;
@@ -256,7 +196,8 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             numKeys = getIntProperty(properties, "ec2NumKeys", 1000);
 
             try {
-                FileUtils.copyFile(new File(storeDefFile), new File(configDirName + "/stores.xml"));
+                FileUtils.copyFile(new File(storeDefFileWithoutReplication),
+                                   new File(configDirName + "/stores.xml"));
             } catch(IOException e) {
                 throw new RuntimeException(e);
             }
@@ -270,4 +211,5 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             return requireds;
         }
     }
+
 }

@@ -18,7 +18,6 @@ package voldemort.client.protocol.admin;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,18 +26,19 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -49,8 +49,7 @@ import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VProto;
-import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
-import voldemort.client.protocol.pb.VAdminProto.UpdateGrandfatherMetadataRequest;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -58,12 +57,15 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.readonly.ReadOnlyStorageFormat;
+import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
@@ -84,6 +86,7 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
@@ -295,20 +298,38 @@ public class AdminClient {
 
     private void initiateFetchRequest(DataOutputStream outputStream,
                                       String storeName,
-                                      List<Integer> partitionList,
+                                      HashMap<Integer, List<Integer>> replicaToPartitionList,
                                       VoldemortFilter filter,
                                       boolean fetchValues,
                                       boolean fetchMasterEntries,
+                                      Cluster initialCluster,
                                       long skipRecords) throws IOException {
+        HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
+        if(fetchMasterEntries) {
+            if(!replicaToPartitionList.containsKey(0)) {
+                throw new VoldemortException("Could not find any partitions for primary replica type");
+            } else {
+                filteredReplicaToPartitionList.put(0, replicaToPartitionList.get(0));
+            }
+        } else {
+            filteredReplicaToPartitionList.putAll(replicaToPartitionList);
+        }
         VAdminProto.FetchPartitionEntriesRequest.Builder fetchRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
-                                                                                                                .addAllPartitions(partitionList)
                                                                                                                 .setFetchValues(fetchValues)
-                                                                                                                .setFetchMasterEntries(fetchMasterEntries)
+                                                                                                                .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(filteredReplicaToPartitionList))
                                                                                                                 .setStore(storeName)
                                                                                                                 .setSkipRecords(skipRecords);
 
-        if(filter != null) {
-            fetchRequest.setFilter(encodeFilter(filter));
+        try {
+            if(filter != null) {
+                fetchRequest.setFilter(encodeFilter(filter));
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
+
+        if(initialCluster != null) {
+            fetchRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
 
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -332,17 +353,9 @@ public class AdminClient {
     }
 
     /**
-     * Fetch key/value entries belonging to partitionList from requested node.
-     * <p>
-     * 
-     * <b>this is a streaming API.</b> The server keeps sending the messages as
-     * it's iterating over the data. Once iteration has finished, the server
-     * sends an "end of stream" marker and flushes its buffer. A response
-     * indicating a {@link VoldemortException} may be sent at any time during
-     * the process.<br>
-     * 
-     * Entries are being streamed <em>as the iteration happens</em> the whole
-     * result set is <b>not</b> buffered in memory.
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
      * 
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
@@ -353,13 +366,75 @@ public class AdminClient {
      * @param skipRecords Number of records to skip
      * @return An iterator which allows entries to be streamed as they're being
      *         iterated over.
-     * @throws VoldemortException
      */
     public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
                                                                      String storeName,
                                                                      List<Integer> partitionList,
                                                                      VoldemortFilter filter,
                                                                      boolean fetchMasterEntries,
+                                                                     long skipRecords) {
+        return fetchEntries(nodeId,
+                            storeName,
+                            getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                            filter,
+                            fetchMasterEntries,
+                            null,
+                            skipRecords);
+    }
+
+    /**
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch an entry only if master replica
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitionList,
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries) {
+        return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
+    }
+
+    /**
+     * Fetch key/value tuples belonging to this map of replica type to partition
+     * list
+     * <p>
+     * 
+     * <b>Streaming API</b> - The server keeps sending the messages as it's
+     * iterating over the data. Once iteration has finished, the server sends an
+     * "end of stream" marker and flushes its buffer. A response indicating a
+     * {@link VoldemortException} may be sent at any time during the process.
+     * <br>
+     * 
+     * <p>
+     * Entries are being streamed <em>as the iteration happens</em> i.e. the
+     * whole result set is <b>not</b> buffered in memory.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch an entry only if master replica
+     * @param skipRecords Number of records to skip
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
+                                                                     String storeName,
+                                                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                                                     VoldemortFilter filter,
+                                                                     boolean fetchMasterEntries,
+                                                                     Cluster initialCluster,
                                                                      long skipRecords) {
 
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
@@ -373,10 +448,11 @@ public class AdminClient {
         try {
             initiateFetchRequest(outputStream,
                                  storeName,
-                                 partitionList,
+                                 replicaToPartitionList,
                                  filter,
                                  true,
                                  fetchMasterEntries,
+                                 initialCluster,
                                  skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
@@ -418,36 +494,78 @@ public class AdminClient {
     }
 
     /**
-     * See documentation for
-     * {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
-     * . Kept for backwards compatibility
-     */
-    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchEntries(int nodeId,
-                                                                     String storeName,
-                                                                     List<Integer> partitionList,
-                                                                     VoldemortFilter filter,
-                                                                     boolean fetchMasterEntries) {
-        return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
-    }
-
-    /**
-     * Fetch All keys belonging to partitionList from requested node. Identical
-     * to {@link AdminClient#fetchEntries} but will <em>only fetch the keys</em>
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
      * 
-     * @param nodeId See documentation for {@link AdminClient#fetchEntries}
-     * @param storeName See documentation for {@link AdminClient#fetchEntries}
-     * @param partitionList See documentation for
-     *        {@link AdminClient#fetchEntries}
-     * @param filter See documentation for {@link AdminClient#fetchEntries}
-     * @param skipRecords See documentation for
-     *        {@link AdminClient#fetchEntries(int, String, List, VoldemortFilter, boolean, long)}
-     * @return See documentation for {@link AdminClient#fetchEntries}
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions to retrieve
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch a key only if master replica
+     * @param skipRecords Number of keys to skip
+     * @return An iterator which allows keys to be streamed as they're being
+     *         iterated over.
      */
     public Iterator<ByteArray> fetchKeys(int nodeId,
                                          String storeName,
                                          List<Integer> partitionList,
                                          VoldemortFilter filter,
                                          boolean fetchMasterEntries,
+                                         long skipRecords) {
+        return fetchKeys(nodeId,
+                         storeName,
+                         getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                         filter,
+                         fetchMasterEntries,
+                         null,
+                         skipRecords);
+    }
+
+    /**
+     * Legacy interface for fetching entries. See
+     * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
+     * for more information.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param partitionList List of the partitions to retrieve
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be fetched.
+     * @param fetchMasterEntries Fetch a key only if master replica
+     * @return An iterator which allows keys to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         List<Integer> partitionList,
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries) {
+        return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
+    }
+
+    /**
+     * Fetch all keys belonging to the map of replica type to partition list.
+     * Identical to {@link AdminClient#fetchEntries} but
+     * <em>only fetches the keys</em>
+     * 
+     * @param nodeId The node id from where to fetch the keys
+     * @param storeName The store name whose keys we want to retrieve
+     * @param replicaToPartitionList Map of replica type to corresponding
+     *        partition list
+     * @param filter Custom filter
+     * @param initialCluster Cluster to use for selecting a key. If null, use
+     *        the default metadata from the metadata store
+     * @param skipRecords Number of records to skip [ Used for sampling ]
+     * @return Returns an iterator of the keys
+     */
+    public Iterator<ByteArray> fetchKeys(int nodeId,
+                                         String storeName,
+                                         HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                         VoldemortFilter filter,
+                                         boolean fetchMasterEntries,
+                                         Cluster initialCluster,
                                          long skipRecords) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -460,10 +578,11 @@ public class AdminClient {
         try {
             initiateFetchRequest(outputStream,
                                  storeName,
-                                 partitionList,
+                                 replicaToPartitionList,
                                  filter,
                                  false,
                                  fetchMasterEntries,
+                                 initialCluster,
                                  skipRecords);
         } catch(IOException e) {
             close(sands.getSocket());
@@ -502,19 +621,6 @@ public class AdminClient {
     }
 
     /**
-     * See documentation for
-     * {@link AdminClient#fetchKeys(int, String, List, VoldemortFilter, boolean, long)}
-     * . Kept for backwards compatibility
-     */
-    public Iterator<ByteArray> fetchKeys(int nodeId,
-                                         String storeName,
-                                         List<Integer> partitionList,
-                                         VoldemortFilter filter,
-                                         boolean fetchMasterEntries) {
-        return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
-    }
-
-    /**
      * RestoreData from copies on other machines for the given nodeId
      * <p>
      * Recovery mechanism to recover and restore data actively from replicated
@@ -540,19 +646,27 @@ public class AdminClient {
 
             List<StoreDefinition> writableStores = Lists.newArrayList();
             for(StoreDefinition def: storeDefList) {
-                if(def.isView() || restoreStoreEngineBlackList.contains(def.getType())) {
-                    logger.info("Ignoring store " + def.getName() + " for restoring");
+                if(def.isView()) {
+                    logger.info("Ignoring store " + def.getName() + " since it is a view");
+                } else if(restoreStoreEngineBlackList.contains(def.getType())) {
+                    logger.info("Ignoring store " + def.getName()
+                                + " since we don't support restoring for " + def.getType()
+                                + " storage engine");
+                } else if(def.getReplicationFactor() == 1) {
+                    logger.info("Ignoring store " + def.getName()
+                                + " since replication factor is set to 1");
                 } else {
                     writableStores.add(def);
                 }
             }
             for(StoreDefinition def: writableStores) {
-                restoreStoreFromReplication(nodeId, cluster, def, executors);
+                if(def.getName().compareTo("test-recovery-data") == 0)
+                    restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
         } finally {
             executors.shutdown();
             try {
-                executors.awaitTermination(adminClientConfig.getRestoreDataTimeout(),
+                executors.awaitTermination(adminClientConfig.getRestoreDataTimeoutSec(),
                                            TimeUnit.SECONDS);
             } catch(InterruptedException e) {
                 logger.error("Interrupted while waiting restore operation to finish.");
@@ -562,7 +676,78 @@ public class AdminClient {
     }
 
     /**
-     * For a particular store and node, runs the replication job
+     * For a particular node, finds out all the [replica, partition] tuples it
+     * needs to steal in order to be brought back to normal state
+     * 
+     * @param restoringNode The id of the node which needs to be restored
+     * @param cluster The cluster definition
+     * @param storeDef The store definition to use
+     * @return Map of node id to map of replica type and corresponding partition
+     *         list
+     */
+    public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
+                                                                               Cluster cluster,
+                                                                               StoreDefinition storeDef) {
+
+        Map<Integer, Integer> partitionToNodeId = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        Map<Integer, HashMap<Integer, List<Integer>>> returnMap = Maps.newHashMap();
+
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                      cluster);
+        List<Integer> restoringNodePartition = cluster.getNodeById(restoringNode).getPartitionIds();
+
+        // Go over every partition. As long as one of them belongs to the
+        // current node list, find its replica
+        for(Node node: cluster.getNodes()) {
+            for(int partitionId: node.getPartitionIds()) {
+                List<Integer> replicatingPartitions = strategy.getReplicatingPartitionList(partitionId);
+                List<Integer> extraCopyReplicatingPartitions = Lists.newArrayList(replicatingPartitions);
+
+                if(replicatingPartitions.size() <= 1) {
+                    throw new VoldemortException("Store "
+                                                 + storeDef.getName()
+                                                 + " cannot be restored from replica because replication factor = 1");
+                }
+
+                if(replicatingPartitions.removeAll(restoringNodePartition)) {
+                    if(replicatingPartitions.size() == 0) {
+                        throw new VoldemortException("Found a case where-in the overlap of "
+                                                     + "the node partition list results in no replicas "
+                                                     + "being left in replicating list");
+                    }
+
+                    // Pick the first element and find its position in the
+                    // origin replicating list
+                    int replicaType = extraCopyReplicatingPartitions.indexOf(replicatingPartitions.get(0));
+                    int partition = extraCopyReplicatingPartitions.get(0);
+                    int nodeId = partitionToNodeId.get(replicatingPartitions.get(0));
+
+                    HashMap<Integer, List<Integer>> replicaToPartitionList = null;
+                    if(returnMap.containsKey(nodeId)) {
+                        replicaToPartitionList = returnMap.get(nodeId);
+                    } else {
+                        replicaToPartitionList = Maps.newHashMap();
+                        returnMap.put(nodeId, replicaToPartitionList);
+                    }
+
+                    List<Integer> partitions = null;
+                    if(replicaToPartitionList.containsKey(replicaType)) {
+                        partitions = replicaToPartitionList.get(replicaType);
+                    } else {
+                        partitions = Lists.newArrayList();
+                        replicaToPartitionList.put(replicaType, partitions);
+                    }
+                    partitions.add(partition);
+                }
+
+            }
+        }
+        return returnMap;
+    }
+
+    /**
+     * For a particular store and node, runs the replication job. This works
+     * only for read-write stores
      * 
      * @param restoringNodeId The node which we want to restore
      * @param cluster The cluster metadata
@@ -575,20 +760,18 @@ public class AdminClient {
                                              final ExecutorService executorService) {
         logger.info("Restoring data for store " + storeDef.getName() + " on node "
                     + restoringNodeId);
-        RoutingStrategyFactory factory = new RoutingStrategyFactory();
-        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
 
-        Map<Integer, List<Integer>> restoreMapping = getReplicationMapping(cluster,
-                                                                           restoringNodeId,
-                                                                           strategy);
+        Map<Integer, HashMap<Integer, List<Integer>>> restoreMapping = getReplicationMapping(restoringNodeId,
+                                                                                             cluster,
+                                                                                             storeDef);
         // migrate partition
-        for(final Entry<Integer, List<Integer>> replicationEntry: restoreMapping.entrySet()) {
+        for(final Entry<Integer, HashMap<Integer, List<Integer>>> replicationEntry: restoreMapping.entrySet()) {
             final int donorNodeId = replicationEntry.getKey();
             executorService.submit(new Runnable() {
 
                 public void run() {
                     try {
-                        logger.info("restoring data for store " + storeDef.getName() + " at node "
+                        logger.info("Restoring data for store " + storeDef.getName() + " at node "
                                     + restoringNodeId + " from node " + replicationEntry.getKey()
                                     + " partitions:" + replicationEntry.getValue());
 
@@ -596,16 +779,17 @@ public class AdminClient {
                                                                restoringNodeId,
                                                                storeDef.getName(),
                                                                replicationEntry.getValue(),
+                                                               null,
                                                                null);
                         waitForCompletion(restoringNodeId,
                                           migrateAsyncId,
-                                          adminClientConfig.getRestoreDataTimeout(),
+                                          adminClientConfig.getRestoreDataTimeoutSec(),
                                           TimeUnit.SECONDS);
 
-                        logger.info("restoring data for store:" + storeDef.getName()
+                        logger.info("Restoring data for store:" + storeDef.getName()
                                     + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
-                        logger.error("restore operation for store " + storeDef.getName()
+                        logger.error("Restore operation for store " + storeDef.getName()
                                      + "from node " + donorNodeId + " failed.", e);
                     }
                 }
@@ -614,101 +798,15 @@ public class AdminClient {
     }
 
     /**
-     * For a particular node and routing strategy, generates a mapping of node
-     * to their corresponding list of replica partitions.
+     * Rebalance a stealer-donor node pair for a set of stores
      * 
-     * @param cluster The cluster metadata
-     * @param nodeId The id of the node
-     * @param strategy The routing strategy used
-     * @return Mapping of node to replica partitions of nodeId
-     */
-    public Map<Integer, List<Integer>> getReplicationMapping(Cluster cluster,
-                                                             int nodeId,
-                                                             RoutingStrategy strategy) {
-        Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
-        HashMap<Integer, List<Integer>> restoreMapping = new HashMap<Integer, List<Integer>>();
-
-        for(int partition: getNodePartitions(cluster, nodeId, strategy)) {
-            List<Integer> replicationPartitionsList = strategy.getReplicatingPartitionList(partition);
-            if(replicationPartitionsList.size() > 1) {
-                int index = 0;
-                int replicatingPartition = replicationPartitionsList.get(index++);
-                while(partitionsToNodeMapping.get(replicatingPartition) == nodeId) {
-                    replicatingPartition = replicationPartitionsList.get(index++);
-                }
-
-                int replicatingNode = partitionsToNodeMapping.get(replicatingPartition);
-
-                if(!restoreMapping.containsKey(replicatingNode)) {
-                    restoreMapping.put(replicatingNode, new ArrayList<Integer>());
-                }
-
-                if(!restoreMapping.get(replicatingNode).contains(replicatingPartition))
-                    restoreMapping.get(replicatingNode).add(replicatingPartition);
-            }
-        }
-
-        return restoreMapping;
-    }
-
-    /**
-     * For a particular node id and routing strategy, finds all the partitions
-     * which are replicas to the partitions belonging to this particular node.
-     * This returned list includes the partitions belonging to the particular
-     * node as well. <br>
-     * 
-     * For example, say we have 4 nodes, N_0 => P_3, N_1 => P_0, N_2 => P_1 and
-     * N_3 => P_2 and if zone routing is being used then the replica mapping is
-     * P_3 => P_1, P_0 => P_1, P_1 => P_3 and P_2 => P_3. So if we're moving
-     * node N_0, the replicas of partition P_3 would be P_1 and P_2 ( in other
-     * words we need to read from nodes N_2 and N_3 respectively)
-     * 
-     * @param cluster The cluster metadata
-     * @param nodeId The id of the node
-     * @param strategy Routing strategy used
-     * @return List of replica partitions
-     */
-    private List<Integer> getNodePartitions(Cluster cluster, int nodeId, RoutingStrategy strategy) {
-        List<Integer> partitionsList = new ArrayList<Integer>(cluster.getNodeById(nodeId)
-                                                                     .getPartitionIds());
-        Map<Integer, Integer> partitionsToNodeMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
-
-        // add all partitions which nodeId replicates
-        for(Node node: cluster.getNodes()) {
-            if(node.getId() != nodeId) {
-                for(int partition: node.getPartitionIds()) {
-                    List<Integer> replicatedPartitions = strategy.getReplicatingPartitionList(partition);
-                    for(int replicationPartition: replicatedPartitions) {
-                        if(partitionsToNodeMapping.get(replicationPartition) == nodeId) {
-                            partitionsList.add(partition);
-                        }
-                    }
-                }
-            }
-        }
-
-        return partitionsList;
-    }
-
-    /**
-     * Rebalance a stealer,donor node pair for the given storeName.<br>
-     * stealInfo also have a storeName list, this is passed to client to persist
-     * in case of failure and start balancing all the stores in the list only.
-     * 
-     * @param stealInfo
+     * @param stealInfo Partition steal information
      * @return The request id of the async operation
      */
     public int rebalanceNode(RebalancePartitionsInfo stealInfo) {
+        VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfo);
         VAdminProto.InitiateRebalanceNodeRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                                                                .setAttempt(stealInfo.getAttempt())
-                                                                                                                .setDonorId(stealInfo.getDonorId())
-                                                                                                                .setStealerId(stealInfo.getStealerId())
-                                                                                                                .addAllPartitions(stealInfo.getPartitionList())
-                                                                                                                .addAllUnbalancedStore(stealInfo.getUnbalancedStoreList())
-                                                                                                                .addAllDeletePartitions(stealInfo.getDeletePartitionsList())
-                                                                                                                .addAllStealMasterPartitions(stealInfo.getStealMasterPartitions())
-                                                                                                                .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getStealerNodeROStoreToDir()))
-                                                                                                                .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(stealInfo.getDonorNodeROStoreToDir()))
+                                                                                                                .setRebalancePartitionInfo(rebalancePartitionInfoMap)
                                                                                                                 .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE)
@@ -725,15 +823,36 @@ public class AdminClient {
     }
 
     /**
-     * Migrate keys/values belonging to stealPartitionList from donorNode to
-     * stealerNode. <b>Does not delete the partitions from donorNode, merely
-     * copies them. </b>
+     * Converts list of partitions to map of replica type to partition list.
+     * 
+     * @param nodeId Node which is donating data
+     * @param storeName Name of store
+     * @param partitions List of partitions ( primary OR replicas ) to move
+     * @return Map of replica type to partitions
+     */
+    private HashMap<Integer, List<Integer>> getReplicaToPartitionMap(int nodeId,
+                                                                     String storeName,
+                                                                     List<Integer> partitions) {
+
+        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(getRemoteStoreDefList(nodeId).getValue(),
+                                                                        storeName);
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
+            replicaToPartitionList.put(replicaNum, partitions);
+        }
+
+        return replicaToPartitionList;
+    }
+
+    /**
+     * Migrate keys/values belonging to stealPartitionList ( can be primary or
+     * replica ) from donor node to stealer node. <b>Does not delete the
+     * partitions from donorNode, merely copies them. </b>
      * <p>
-     * This is a background operation (see
-     * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
-     * node on which the updates are performed (the "stealer" node). See
-     * {@link AdminClient#updateEntries} for more informaiton on the "streaming"
-     * mode.
+     * See
+     * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster)}
+     * for more details.
+     * 
      * 
      * @param donorNodeId Node <em>from</em> which the partitions are to be
      *        streamed.
@@ -752,10 +871,52 @@ public class AdminClient {
                                  String storeName,
                                  List<Integer> stealPartitionList,
                                  VoldemortFilter filter) {
+        return migratePartitions(donorNodeId,
+                                 stealerNodeId,
+                                 storeName,
+                                 getReplicaToPartitionMap(donorNodeId,
+                                                          storeName,
+                                                          stealPartitionList),
+                                 filter,
+                                 null);
+    }
+
+    /**
+     * Migrate keys/values belonging to a map of replica type to partition list
+     * from donor node to stealer node. <b>Does not delete the partitions from
+     * donorNode, merely copies them. </b>
+     * <p>
+     * This is a background operation (see
+     * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
+     * stealer node where updates are performed.
+     * <p>
+     * 
+     * @param donorNodeId Node <em>from</em> which the partitions are to be
+     *        streamed.
+     * @param stealerNodeId Node <em>to</em> which the partitions are to be
+     *        streamed.
+     * @param storeName Name of the store to stream.
+     * @param replicaToPartitionList Mapping from replica type to partition to
+     *        be stolen
+     * @param filter Voldemort post-filter
+     * @param initialCluster The cluster metadata to use for making the decision
+     *        if the key belongs to these partitions. If not specified, falls
+     *        back to the metadata stored on the box
+     * @return The value of the
+     *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
+     *         stealer node which is performing the operation.
+     */
+    public int migratePartitions(int donorNodeId,
+                                 int stealerNodeId,
+                                 String storeName,
+                                 HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                 VoldemortFilter filter,
+                                 Cluster initialCluster) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
-                                                                                                                                   .addAllPartitions(stealPartitionList)
+                                                                                                                                   .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                                    .setStore(storeName);
+
         try {
             if(filter != null) {
                 initiateFetchAndUpdateRequest.setFilter(encodeFilter(filter));
@@ -764,6 +925,9 @@ public class AdminClient {
             throw new VoldemortException(e);
         }
 
+        if(initialCluster != null) {
+            initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
+        }
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
@@ -780,7 +944,7 @@ public class AdminClient {
     }
 
     /**
-     * Delete the store completely (<b>Deletes all Data</b>) from the remote
+     * Delete the store completely (<b>Deletes all data</b>) from the remote
      * node.
      * <p>
      * 
@@ -906,22 +1070,44 @@ public class AdminClient {
     }
 
     /**
-     * Delete all entries belonging to partitionList at requested node.
+     * Delete all entries belonging to a list of partitions
      * 
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
      * @param partitionList List of partitions to delete.
      * @param filter Custom filter implementation to filter out entries which
      *        should not be deleted.
-     * @throws VoldemortException
-     * @return Number of partitions deleted
+     * @return Number of entries deleted
      */
-    public int deletePartitions(int nodeId,
-                                String storeName,
-                                List<Integer> partitionList,
-                                VoldemortFilter filter) {
+    public long deletePartitions(int nodeId,
+                                 String storeName,
+                                 List<Integer> partitionList,
+                                 VoldemortFilter filter) {
+        return deletePartitions(nodeId,
+                                storeName,
+                                getReplicaToPartitionMap(nodeId, storeName, partitionList),
+                                null,
+                                filter);
+    }
+
+    /**
+     * Delete all entries belonging to all the partitions passed as a map of
+     * replica_type to partition list. Works only for RW stores.
+     * 
+     * @param nodeId Node on which the entries to be deleted
+     * @param storeName Name of the store holding the entries
+     * @param replicaToPartitionList Map of replica type to partition list
+     * @param filter Custom filter implementation to filter out entries which
+     *        should not be deleted.
+     * @return Number of entries deleted
+     */
+    public long deletePartitions(int nodeId,
+                                 String storeName,
+                                 HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                 Cluster initialCluster,
+                                 VoldemortFilter filter) {
         VAdminProto.DeletePartitionEntriesRequest.Builder deleteRequest = VAdminProto.DeletePartitionEntriesRequest.newBuilder()
-                                                                                                                   .addAllPartitions(partitionList)
+                                                                                                                   .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                    .setStore(storeName);
 
         try {
@@ -930,6 +1116,10 @@ public class AdminClient {
             }
         } catch(IOException e) {
             throw new VoldemortException(e);
+        }
+
+        if(initialCluster != null) {
+            deleteRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
 
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -977,11 +1167,18 @@ public class AdminClient {
      * @param maxWait Maximum time we'll keep checking a request until we give
      *        up
      * @param timeUnit Unit in which maxWait is expressed.
-     * @return description The description attached with the response
+     * @param higherStatus A higher level async operation object. If this
+     *        waiting is being run another async operation this helps us
+     *        propagate the status all the way up.
+     * @return description The final description attached with the response
      * @throws VoldemortException if task failed to finish in specified maxWait
      *         time.
      */
-    public String waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+    public String waitForCompletion(int nodeId,
+                                    int requestId,
+                                    long maxWait,
+                                    TimeUnit timeUnit,
+                                    AsyncOperationStatus higherStatus) {
         long delay = INITIAL_DELAY;
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
@@ -991,6 +1188,10 @@ public class AdminClient {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
                 logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
                             + status.getStatus());
+                if(higherStatus != null) {
+                    higherStatus.setStatus("Status from node " + nodeId + " ("
+                                           + status.getDescription() + ") - " + status.getStatus());
+                }
                 description = status.getDescription();
                 if(status.hasException())
                     throw status.getException();
@@ -1007,12 +1208,32 @@ public class AdminClient {
                     Thread.currentThread().interrupt();
                 }
             } catch(Exception e) {
-                throw new VoldemortException("Failed while waiting for async task " + description
-                                             + " at node " + nodeId + " to finish", e);
+                throw new VoldemortException("Failed while waiting for async task (" + description
+                                             + ") at node " + nodeId + " to finish", e);
             }
         }
         throw new VoldemortException("Failed to finish task requestId: " + requestId
                                      + " in maxWait " + maxWait + " " + timeUnit.toString());
+    }
+
+    /**
+     * Wait for async task at (remote) nodeId to finish completion, using
+     * exponential backoff to poll the task completion status.
+     * <p>
+     * 
+     * <i>Logs the status at each status check if debug is enabled.</i>
+     * 
+     * @param nodeId Id of the node to poll
+     * @param requestId Id of the request to check
+     * @param maxWait Maximum time we'll keep checking a request until we give
+     *        up
+     * @param timeUnit Unit in which maxWait is expressed.
+     * @return description The final description attached with the response
+     * @throws VoldemortException if task failed to finish in specified maxWait
+     *         time.
+     */
+    public String waitForCompletion(int nodeId, int requestId, long maxWait, TimeUnit timeUnit) {
+        return waitForCompletion(nodeId, requestId, maxWait, timeUnit, null);
     }
 
     /**
@@ -1224,14 +1445,7 @@ public class AdminClient {
      * @param def the definition of the store to add
      */
     public void addStore(StoreDefinition def) {
-        String value = storeMapper.writeStore(def);
-
-        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
-                                                                                         .setStoreDefinition(value);
-        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                     .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                                                     .setAddStore(addStoreRequest)
-                                                                                     .build();
+        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
         for(Node node: currentCluster.getNodes()) {
             logger.info("Adding on node " + node.getHost() + ":" + node.getId());
             VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
@@ -1241,6 +1455,38 @@ public class AdminClient {
                 throwException(response.getError());
             logger.info("Successfully added on node " + node.getHost() + ":" + node.getId());
         }
+    }
+
+    /**
+     * Add a new store definition to a particular node
+     * <p>
+     * 
+     * @param def the definition of the store to add
+     * @param nodeId Node on which to add the store
+     */
+    public void addStore(StoreDefinition def, int nodeId) {
+        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
+        Node node = currentCluster.getNodeById(nodeId);
+        if(null == node)
+            throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+        logger.info("Adding on node " + node.getHost() + ":" + node.getId());
+        VAdminProto.AddStoreResponse.Builder response = sendAndReceive(nodeId,
+                                                                       request,
+                                                                       VAdminProto.AddStoreResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+        logger.info("Succesfully added on node " + node.getHost() + ": " + node.getId());
+    }
+
+    private VAdminProto.VoldemortAdminRequest createAddStoreRequest(StoreDefinition def) {
+        String value = storeMapper.writeStore(def);
+
+        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                         .setStoreDefinition(value);
+        return VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                .setAddStore(addStoreRequest)
+                                                .build();
     }
 
     /**
@@ -1403,27 +1649,115 @@ public class AdminClient {
     }
 
     /**
-     * Swap multiple read-only stores and clear the rebalancing state
+     * Returns the read-only storage format - {@link ReadOnlyStorageFormat} for
+     * a list of stores
      * 
-     * @param nodeId The node id on which to swap the stores
-     * @param storeToDir A map of read-only store names with their respective
-     *        directories
+     * @param nodeId The id of the node on which the stores are present
+     * @param storeNames List of all the store names
+     * @param Returns a map of store name to its corresponding RO storage format
      */
-    public void swapStoresAndCleanState(int nodeId, Map<String, String> storeToDir) {
-        VAdminProto.SwapStoresAndCleanStateRequest.Builder swapStoreRequest = VAdminProto.SwapStoresAndCleanStateRequest.newBuilder()
-                                                                                                                        .addAllRoStoreVersions(decodeROStoreVersionDirMap(storeToDir));
-
+    public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROStorageFormatRequest.Builder getRORequest = VAdminProto.GetROStorageFormatRequest.newBuilder()
+                                                                                                          .addAllStoreName(storeNames);
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setSwapStoresAndCleanState(swapStoreRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.SWAP_STORES_AND_CLEAN_STATE)
+                                                                                          .setGetRoStorageFormat(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_STORAGE_FORMAT)
                                                                                           .build();
-        VAdminProto.SwapStoresAndCleanStateResponse.Builder response = sendAndReceive(nodeId,
-                                                                                      adminRequest,
-                                                                                      VAdminProto.SwapStoresAndCleanStateResponse.newBuilder());
+        VAdminProto.GetROStorageFormatResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROStorageFormatResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
-        return;
+
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
+    }
+
+    /**
+     * Returns the max version of push currently being used by read-only store.
+     * Important to remember that this may not be the 'current' version since
+     * multiple pushes (with greater version numbers) may be in progress
+     * currently
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective store directory
+     */
+    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROMaxVersionDirRequest.Builder getRORequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
+                                                                                                          .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoMaxVersionDir(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
+                                                                                          .build();
+        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                 adminRequest,
+                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
+    }
+
+    /**
+     * Returns the 'current' versions of all RO stores provided
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the RO stores
+     * @return Returns a map of store name to the respective max version
+     *         directory
+     */
+    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
+        VAdminProto.GetROCurrentVersionDirRequest.Builder getRORequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
+                                                                                                                  .addAllStoreName(storeNames);
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setGetRoCurrentVersionDir(getRORequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
+                                                                                          .build();
+        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
+                                                                                     adminRequest,
+                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        Map<String, String> storeToValues = ProtoUtils.encodeROMap(response.getRoStoreVersionsList());
+
+        if(storeToValues.size() != storeNames.size()) {
+            storeNames.removeAll(storeToValues.keySet());
+            throw new VoldemortException("Did not retrieve values for " + storeNames);
+        }
+        return storeToValues;
+    }
+
+    /**
+     * Returns the 'current' version of RO store
+     * 
+     * @param nodeId The id of the node on which the store is present
+     * @param storeNames List of all the stores
+     * @return Returns a map of store name to the respective max version number
+     */
+    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
+        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
+        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
+        for(String storeName: versionDirs.keySet()) {
+            returnMap.put(storeName,
+                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        }
+        return returnMap;
     }
 
     /**
@@ -1444,109 +1778,6 @@ public class AdminClient {
                           ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
         }
         return returnMap;
-    }
-
-    /**
-     * Returns the max version of push currently being used by read-only store.
-     * Important to remember that this may not be the 'current' version since
-     * multiple pushes (with greater version numbers) may be in progress
-     * currently
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
-     * @return Returns a map of store name to the respective store directory
-     */
-    public Map<String, String> getROMaxVersionDir(int nodeId, List<String> storeNames) {
-
-        VAdminProto.GetROMaxVersionDirRequest.Builder getROMaxVersionDirRequest = VAdminProto.GetROMaxVersionDirRequest.newBuilder()
-                                                                                                                       .addAllStoreName(storeNames);
-        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoMaxVersionDir(getROMaxVersionDirRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_MAX_VERSION_DIR)
-                                                                                          .build();
-        VAdminProto.GetROMaxVersionDirResponse.Builder response = sendAndReceive(nodeId,
-                                                                                 adminRequest,
-                                                                                 VAdminProto.GetROMaxVersionDirResponse.newBuilder());
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        // generate map of store-name to max version
-        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
-
-        if(storeToVersionDir.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersionDir.keySet());
-            throw new VoldemortException("Did not retrieve max version id for " + storeNames);
-        }
-        return storeToVersionDir;
-    }
-
-    /**
-     * Returns the 'current' version of RO store
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
-     * @return Returns a map of store name to the respective max version
-     *         directory
-     */
-    public Map<String, String> getROCurrentVersionDir(int nodeId, List<String> storeNames) {
-        VAdminProto.GetROCurrentVersionDirRequest.Builder getROCurrentVersionDirRequest = VAdminProto.GetROCurrentVersionDirRequest.newBuilder()
-                                                                                                                                   .addAllStoreName(storeNames);
-        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setGetRoCurrentVersionDir(getROCurrentVersionDirRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.GET_RO_CURRENT_VERSION_DIR)
-                                                                                          .build();
-        VAdminProto.GetROCurrentVersionDirResponse.Builder response = sendAndReceive(nodeId,
-                                                                                     adminRequest,
-                                                                                     VAdminProto.GetROCurrentVersionDirResponse.newBuilder());
-        if(response.hasError()) {
-            throwException(response.getError());
-        }
-
-        // generate map of store-name to current version
-        Map<String, String> storeToVersionDir = encodeROStoreVersionDirMap(response.getRoStoreVersionsList());
-
-        if(storeToVersionDir.size() != storeNames.size()) {
-            storeNames.removeAll(storeToVersionDir.keySet());
-            throw new VoldemortException("Did not retrieve current version id for " + storeNames);
-        }
-        return storeToVersionDir;
-    }
-
-    /**
-     * Returns the 'current' version of RO store
-     * 
-     * @param nodeId The id of the node on which the store is present
-     * @param storeNames List of all the stores
-     * @return Returns a map of store name to the respective max version number
-     */
-    public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
-        Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
-        Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
-        for(String storeName: versionDirs.keySet()) {
-            returnMap.put(storeName,
-                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
-        }
-        return returnMap;
-    }
-
-    private List<ROStoreVersionDirMap> decodeROStoreVersionDirMap(Map<String, String> storeVersionDirMap) {
-        List<ROStoreVersionDirMap> storeToVersionDir = Lists.newArrayList();
-        for(String storeName: storeVersionDirMap.keySet()) {
-            storeToVersionDir.add(ROStoreVersionDirMap.newBuilder()
-                                                      .setStoreName(storeName)
-                                                      .setStoreDir(storeVersionDirMap.get(storeName))
-                                                      .build());
-        }
-        return storeToVersionDir;
-    }
-
-    private Map<String, String> encodeROStoreVersionDirMap(List<ROStoreVersionDirMap> storeVersionDirMap) {
-        Map<String, String> storeToVersionDir = Maps.newHashMap();
-        for(ROStoreVersionDirMap currentStore: storeVersionDirMap) {
-            storeToVersionDir.put(currentStore.getStoreName(), currentStore.getStoreDir());
-        }
-        return storeToVersionDir;
     }
 
     /**
@@ -1650,17 +1881,22 @@ public class AdminClient {
     }
 
     /**
-     * Fetch read-only store files to a specified directory
+     * Fetch read-only store files to a specified directory. This is run on the
+     * stealer node side
      * 
      * @param nodeId The node id from where to copy
      * @param storeName The name of the read-only store
-     * @param partitionIds The partition ids from whom to copy data
+     * @param replicaToPartitionList Map of replica type to partition list
      * @param destinationDirPath The destination path
+     * @param notAcceptedBuckets These are Pair< partition, replica > which we
+     *        cannot copy AT all. This is because these are current mmap-ed and
+     *        are serving traffic.
      */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
-                                    List<Integer> partitionIds,
-                                    String destinationDirPath) {
+                                    HashMap<Integer, List<Integer>> replicaToPartitionList,
+                                    String destinationDirPath,
+                                    Set<Object> notAcceptedBuckets) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
                                          + ") to store " + storeName + " does not exist");
@@ -1675,8 +1911,20 @@ public class AdminClient {
         final DataInputStream inputStream = sands.getInputStream();
 
         try {
+
+            // Add the metadata file if it doesn't exist - We do this because
+            // for new nodes the stores don't start with any metadata file
+
+            File metadataFile = new File(destinationDirPath, ".metadata");
+            if(!metadataFile.exists()) {
+                ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+                metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                             ReadOnlyStorageFormat.READONLY_V2.getCode());
+                FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
+            }
+
             VAdminProto.FetchPartitionFilesRequest fetchPartitionFileRequest = VAdminProto.FetchPartitionFilesRequest.newBuilder()
-                                                                                                                     .addAllPartitions(partitionIds)
+                                                                                                                     .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
                                                                                                                      .setStore(storeName)
                                                                                                                      .build();
             VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
@@ -1691,10 +1939,9 @@ public class AdminClient {
 
                 try {
                     size = inputStream.readInt();
-                } catch(EOFException e) {
-                    logger.error("Received EOF Exception while fetching files", e);
-                    close(sands.getSocket());
-                    return;
+                } catch(IOException e) {
+                    logger.error("Received IOException while fetching files", e);
+                    throw e;
                 }
 
                 if(size == -1) {
@@ -1707,7 +1954,16 @@ public class AdminClient {
                 VAdminProto.FileEntry fileEntry = VAdminProto.FileEntry.newBuilder()
                                                                        .mergeFrom(input)
                                                                        .build();
+
+                if(notAcceptedBuckets != null) {
+                    Pair<Integer, Integer> partitionReplicaTuple = ReadOnlyUtils.getPartitionReplicaTuple(fileEntry.getFileName());
+                    if(notAcceptedBuckets.contains(partitionReplicaTuple)) {
+                        throw new VoldemortException("Cannot copy file " + fileEntry.getFileName()
+                                                     + " since it is one of the mmap-ed files");
+                    }
+                }
                 logger.info("Receiving file " + fileEntry.getFileName());
+
                 FileChannel fileChannel = new FileOutputStream(new File(destinationDirPath,
                                                                         fileEntry.getFileName())).getChannel();
                 ReadableByteChannel channelIn = Channels.newChannel(inputStream);
@@ -1728,50 +1984,203 @@ public class AdminClient {
     }
 
     /**
-     * Updates the grandfather metadata on the remote machine and returns the
-     * current
+     * Used in rebalancing to indicate change in states. Groups the partition
+     * plans on the basis of stealer nodes and sends them over.
      * 
-     * @param donorNodeId The node id on which to update the metadata
-     * @param plan The list of all migrating partitions
-     * @return Returns the current state of the server. If we get back a state
-     *         other than rebalancing it means we have a problem
+     * The various combinations and their order of execution is given below
+     * 
+     * <pre>
+     * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
+     * | f | t | t | cluster -> rebalance | 
+     * | f | f | t | rebalance |
+     * | t | t | f | cluster -> swap |
+     * | t | t | t | cluster -> swap -> rebalance |
+     * </pre>
+     * 
+     * 
+     * Similarly for rollback:
+     * 
+     * <pre>
+     * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
+     * | f | t | t | remove from rebalance -> cluster  | 
+     * | f | f | t | remove from rebalance |
+     * | t | t | f | cluster -> swap |
+     * | t | t | t | remove from rebalance -> cluster -> swap  |
+     * </pre>
+     * 
+     * 
+     * @param existingCluster Current cluster
+     * @param transitionCluster Transition cluster
+     * @param rebalancePartitionPlanList The list of rebalance partition info
+     *        plans
+     * @param completedNodeIds Set of node ids which have completed successfully
+     * @param swapRO Boolean indicating if we need to swap RO stores
+     * @param changeClusterMetadata Boolean indicating if we need to change
+     *        cluster metadata
+     * @param changeRebalanceState Boolean indicating if we need to change
+     *        rebalancing state
+     * @param rollback Do we want to do a rollback step in case of failures?
      */
-    public Versioned<String> updateGrandfatherMetadata(int donorNodeId,
-                                                       List<RebalancePartitionsInfo> plans) {
-        List<VAdminProto.InitiateRebalanceNodeRequest> rebalanceRequests = Lists.newArrayList();
+    public void rebalanceStateChange(Cluster existingCluster,
+                                     Cluster transitionCluster,
+                                     List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                     boolean swapRO,
+                                     boolean changeClusterMetadata,
+                                     boolean changeRebalanceState,
+                                     boolean rollback,
+                                     boolean failEarly) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
+        Set<Integer> completedNodeIds = Sets.newHashSet();
 
-        for(RebalancePartitionsInfo plan: plans) {
-            rebalanceRequests.add(VAdminProto.InitiateRebalanceNodeRequest.newBuilder()
-                                                                          .setAttempt(plan.getAttempt())
-                                                                          .setDonorId(plan.getDonorId())
-                                                                          .setStealerId(plan.getStealerId())
-                                                                          .addAllPartitions(plan.getPartitionList())
-                                                                          .addAllUnbalancedStore(plan.getUnbalancedStoreList())
-                                                                          .addAllDeletePartitions(plan.getDeletePartitionsList())
-                                                                          .addAllStealMasterPartitions(plan.getStealMasterPartitions())
-                                                                          .addAllStealerRoStoreToDir(decodeROStoreVersionDirMap(plan.getStealerNodeROStoreToDir()))
-                                                                          .addAllDonorRoStoreToDir(decodeROStoreVersionDirMap(plan.getDonorNodeROStoreToDir()))
-                                                                          .build());
+        int nodeId = 0;
+        HashMap<Integer, Exception> exceptions = Maps.newHashMap();
+
+        try {
+            while(nodeId < transitionCluster.getNumberOfNodes()) {
+
+                try {
+                    individualStateChange(nodeId,
+                                          transitionCluster,
+                                          stealerNodeToPlan.get(nodeId),
+                                          swapRO,
+                                          changeClusterMetadata,
+                                          changeRebalanceState,
+                                          false);
+                    completedNodeIds.add(nodeId);
+                } catch(Exception e) {
+                    exceptions.put(nodeId, e);
+                    if(failEarly) {
+                        throw e;
+                    }
+                }
+                nodeId++;
+
+            }
+
+            if(exceptions.size() > 0) {
+                throw new VoldemortRebalancingException("Got exceptions from nodes "
+                                                        + exceptions.keySet());
+            }
+        } catch(Exception e) {
+
+            if(rollback) {
+                logger.error("Got exceptions from nodes " + exceptions.keySet()
+                             + " while changing state. Rolling back state on " + completedNodeIds);
+
+                // Rollback changes on completed nodes
+                for(int completedNodeId: completedNodeIds) {
+                    try {
+                        individualStateChange(completedNodeId,
+                                              existingCluster,
+                                              stealerNodeToPlan.get(completedNodeId),
+                                              swapRO,
+                                              changeClusterMetadata,
+                                              changeRebalanceState,
+                                              true);
+                    } catch(Exception exception) {
+                        logger.error("Error while reverting back state change for completed node "
+                                     + completedNodeId, exception);
+                    }
+                }
+            } else {
+                logger.error("Got exceptions from nodes " + exceptions.keySet()
+                             + " while changing state");
+            }
+            throw new VoldemortRebalancingException("Got exceptions from nodes "
+                                                            + exceptions.keySet()
+                                                            + " while changing state",
+                                                    Lists.newArrayList(exceptions.values()));
         }
 
-        UpdateGrandfatherMetadataRequest metadataRequest = VAdminProto.UpdateGrandfatherMetadataRequest.newBuilder()
-                                                                                                       .addAllPlan(rebalanceRequests)
-                                                                                                       .build();
-        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                     .setType(VAdminProto.AdminRequestType.UPDATE_GRANDFATHER_METADATA)
-                                                                                     .setUpdateGrandfatherMetadata(metadataRequest)
-                                                                                     .build();
+    }
 
-        VAdminProto.UpdateGrandfatherMetadataResponse.Builder response = sendAndReceive(donorNodeId,
-                                                                                        request,
-                                                                                        VAdminProto.UpdateGrandfatherMetadataResponse.newBuilder());
+    /**
+     * Single node rebalance state change
+     * 
+     * @param nodeId Stealer node id
+     * @param cluster Cluster information which we need to update
+     * @param rebalancePartitionPlanList The list of rebalance partition info
+     *        plans
+     * @param swapRO Boolean indicating if we need to swap RO stores
+     * @param changeClusterMetadata Boolean indicating if we need to change
+     *        cluster metadata
+     * @param changeRebalanceState Boolean indicating if we need to change
+     *        rebalancing state
+     * @param rollback Are we doing a rollback or a normal state?
+     */
+    private void individualStateChange(int nodeId,
+                                       Cluster cluster,
+                                       List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                       boolean swapRO,
+                                       boolean changeClusterMetadata,
+                                       boolean changeRebalanceState,
+                                       boolean rollback) {
 
+        // If we do not want to change the metadata and are not one of the
+        // stealer nodes, nothing to do
+        if(!changeClusterMetadata && rebalancePartitionPlanList == null) {
+            return;
+        }
+
+        logger.info("Node "
+                    + nodeId
+                    + "] Performing "
+                    + (rollback ? "rollback" : "normal")
+                    + " rebalance state change "
+                    + (swapRO ? "<swap RO>" : "")
+                    + (changeClusterMetadata ? "<change cluster - " + cluster + ">" : "")
+                    + (changeRebalanceState ? "<change rebalance state - "
+                                              + rebalancePartitionPlanList + ">" : ""));
+
+        VAdminProto.RebalanceStateChangeRequest.Builder getRebalanceStateChangeRequestBuilder = VAdminProto.RebalanceStateChangeRequest.newBuilder();
+
+        if(rebalancePartitionPlanList != null) {
+            List<RebalancePartitionInfoMap> map = Lists.newArrayList();
+            for(RebalancePartitionsInfo stealInfo: rebalancePartitionPlanList) {
+                RebalancePartitionInfoMap infoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfo);
+                map.add(infoMap);
+            }
+            getRebalanceStateChangeRequestBuilder.addAllRebalancePartitionInfoList(map);
+        }
+
+        VAdminProto.RebalanceStateChangeRequest getRebalanceStateChangeRequest = getRebalanceStateChangeRequestBuilder.setSwapRo(swapRO)
+                                                                                                                      .setChangeClusterMetadata(changeClusterMetadata)
+                                                                                                                      .setChangeRebalanceState(changeRebalanceState)
+                                                                                                                      .setClusterString(clusterMapper.writeCluster(cluster))
+                                                                                                                      .setRollback(rollback)
+                                                                                                                      .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setRebalanceStateChange(getRebalanceStateChangeRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.REBALANCE_STATE_CHANGE)
+                                                                                          .build();
+        VAdminProto.RebalanceStateChangeResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.RebalanceStateChangeResponse.newBuilder());
         if(response.hasError()) {
             throwException(response.getError());
         }
-
-        Versioned<byte[]> value = ProtoUtils.decodeVersioned(response.getVersion());
-        return new Versioned<String>(ByteUtils.getString(value.getValue(), "UTF-8"),
-                                     value.getVersion());
     }
+
+    /**
+     * Given a list of partition infos, generates a map of stealer node to list
+     * of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @return Flattens it into a map on a per stealer node basis
+     */
+    private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        if(rebalancePartitionPlanList != null) {
+            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
+                if(partitionInfos == null) {
+                    partitionInfos = Lists.newArrayList();
+                    stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
+                }
+                partitionInfos.add(partitionInfo);
+            }
+        }
+        return stealerNodeToPlan;
+    }
+
 }

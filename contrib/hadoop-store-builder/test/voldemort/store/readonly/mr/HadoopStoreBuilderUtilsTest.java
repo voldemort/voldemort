@@ -1,8 +1,6 @@
 package voldemort.store.readonly.mr;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -10,7 +8,6 @@ import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.log4j.Logger;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -20,63 +17,6 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.chunk.DataFileChunkSet;
 
 public class HadoopStoreBuilderUtilsTest {
-
-    @Test
-    public void testIsFormatCorrect() {
-        Logger.getRootLogger().removeAllAppenders();
-
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0", ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_", ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0",
-                                                            ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0.",
-                                                            ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0index",
-                                                            ReadOnlyStorageFormat.READONLY_V0));
-        assertTrue(HadoopStoreBuilderUtils.isFormatCorrect("0_0.index",
-                                                           ReadOnlyStorageFormat.READONLY_V0));
-        assertTrue(HadoopStoreBuilderUtils.isFormatCorrect("10_0.data",
-                                                           ReadOnlyStorageFormat.READONLY_V0));
-        assertTrue(HadoopStoreBuilderUtils.isFormatCorrect("10_10.data",
-                                                           ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_10.dat",
-                                                            ReadOnlyStorageFormat.READONLY_V0));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_10.inde",
-                                                            ReadOnlyStorageFormat.READONLY_V0));
-
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0", ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_", ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0.",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0.index",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertTrue(HadoopStoreBuilderUtils.isFormatCorrect("0_0_0.index",
-                                                           ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("0_0_0index",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_0.d",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_10.d",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertTrue(HadoopStoreBuilderUtils.isFormatCorrect("10_10_0.index",
-                                                           ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_10_0.inde",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-        assertFalse(HadoopStoreBuilderUtils.isFormatCorrect("10_10_0.dat",
-                                                            ReadOnlyStorageFormat.READONLY_V2));
-
-    }
-
-    @Test
-    public void testGetChunkId() {
-        assertEquals(HadoopStoreBuilderUtils.getChunkId("0_0.d"), 0);
-        assertEquals(HadoopStoreBuilderUtils.getChunkId("0_1.d"), 1);
-        assertEquals(HadoopStoreBuilderUtils.getChunkId("0_100.d"), 100);
-        assertEquals(HadoopStoreBuilderUtils.getChunkId("10_83_674.d"), 674);
-        assertEquals(HadoopStoreBuilderUtils.getChunkId("0_10_30.d"), 30);
-    }
 
     @Test
     public void testGetReplicaCount() throws IOException {

@@ -35,10 +35,8 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
-import voldemort.store.slop.HintedHandoff;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
-import voldemort.versioning.Version;
 
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         AbstractKeyBasedAction<ByteArray, V, PD> {
@@ -57,12 +55,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
     private final Event insufficientZonesEvent;
 
-    private final boolean enableHintedHandoff;
-
-    private final HintedHandoff hintedHandoff;
-
-    private final Version version;
-
     private byte[] transforms;
 
     public PerformParallelRequests(PD pipelineData,
@@ -74,8 +66,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                    int required,
                                    long timeoutMs,
                                    Map<Integer, NonblockingStore> nonblockingStores,
-                                   HintedHandoff hintedHandoff,
-                                   Version version,
                                    Event insufficientSuccessesEvent,
                                    Event insufficientZonesEvent) {
         super(pipelineData, completeEvent, key);
@@ -87,13 +77,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.nonblockingStores = nonblockingStores;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
         this.insufficientZonesEvent = insufficientZonesEvent;
-        this.enableHintedHandoff = hintedHandoff != null;
-        this.version = version;
-        this.hintedHandoff = hintedHandoff;
-    }
-
-    public boolean isHintedHandoffEnabled() {
-        return enableHintedHandoff;
     }
 
     public void execute(final Pipeline pipeline) {

@@ -15,6 +15,7 @@ import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.RebalanceUtils;
 
 import com.google.protobuf.Message;
 
@@ -48,7 +49,12 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         throttler.maybeThrottle(key.length());
-        if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
+        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                     key.get(),
+                                                     replicaToPartitionList,
+                                                     initialCluster,
+                                                     storeDef)
+           && filter.accept(key, null) && counter % skipRecords == 0) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
 
@@ -69,8 +75,9 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
 
             if(logger.isDebugEnabled())
                 logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
-                             + " keys for store:" + storageEngine.getName() + " partition:"
-                             + partitionList + " in " + totalTime + " s");
+                             + " keys for store:" + storageEngine.getName()
+                             + " replicaToPartitionList:" + replicaToPartitionList + " in "
+                             + totalTime + " s");
         }
 
         if(keyIterator.hasNext())
@@ -80,5 +87,4 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             return StreamRequestHandlerState.COMPLETE;
         }
     }
-
 }

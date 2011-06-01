@@ -42,10 +42,6 @@ public class VoldemortTestConstants {
         return readString("config/single-store.xml");
     }
 
-    public static String getTwoStoresDefinitionsXml() {
-        return readString("config/two-stores.xml");
-    }
-
     public static String getNoVersionStoreDefinitionsXml() {
         return readString("config/no-version-store.xml");
     }
@@ -117,4 +113,9 @@ public class VoldemortTestConstants {
     public static String getViewStoreDefinitionXml() {
         return readString("config/view-store.xml");
     }
+
+    public static String getSingleStore322Xml() {
+        return readString("config/single-store-322.xml");
+    }
+
 }

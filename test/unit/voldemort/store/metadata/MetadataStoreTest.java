@@ -25,7 +25,6 @@ import junit.framework.TestCase;
 import voldemort.ServerTestUtils;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.rebalance.RebalancerState;
-import voldemort.store.grandfather.GrandfatherState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -35,6 +34,8 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+import com.google.common.collect.Maps;
+
 public class MetadataStoreTest extends TestCase {
 
     private static int TEST_RUNS = 100;
@@ -43,8 +44,7 @@ public class MetadataStoreTest extends TestCase {
     private List<String> TEST_KEYS = Arrays.asList(MetadataStore.CLUSTER_KEY,
                                                    MetadataStore.STORES_KEY,
                                                    MetadataStore.REBALANCING_STEAL_INFO,
-                                                   MetadataStore.SERVER_STATE_KEY,
-                                                   MetadataStore.GRANDFATHERING_INFO);
+                                                   MetadataStore.SERVER_STATE_KEY);
 
     @Override
     public void setUp() throws Exception {
@@ -72,37 +72,24 @@ public class MetadataStoreTest extends TestCase {
             int i = (int) (Math.random() * VoldemortState.values().length);
             return ByteUtils.getBytes(VoldemortState.values()[i].toString(), "UTF-8");
         } else if(MetadataStore.REBALANCING_STEAL_INFO.equals(keyString)) {
-            int size = (int) (Math.random() * 10);
+            int size = (int) (Math.random() * 10) + 1;
             List<Integer> partition = new ArrayList<Integer>();
             for(int i = 0; i < size; i++) {
                 partition.add((int) Math.random() * 10);
             }
 
+            HashMap<Integer, List<Integer>> replicaToPartition = Maps.newHashMap();
+            replicaToPartition.put(0, partition);
+
+            HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
+            storeToReplicaToPartitionList.put("test", replicaToPartition);
+
             return ByteUtils.getBytes(new RebalancerState(Arrays.asList(new RebalancePartitionsInfo(0,
                                                                                                     (int) Math.random() * 5,
-                                                                                                    partition,
-                                                                                                    new ArrayList<Integer>(0),
-                                                                                                    new ArrayList<Integer>(0),
-                                                                                                    Arrays.asList("testStoreName"),
-                                                                                                    new HashMap<String, String>(),
-                                                                                                    new HashMap<String, String>(),
+                                                                                                    storeToReplicaToPartitionList,
+                                                                                                    storeToReplicaToPartitionList,
+                                                                                                    ServerTestUtils.getLocalCluster(1),
                                                                                                     (int) Math.random() * 3))).toJsonString(),
-                                      "UTF-8");
-        } else if(MetadataStore.GRANDFATHERING_INFO.equals(keyString)) {
-            int size = (int) (Math.random() * 10);
-            List<Integer> partition = new ArrayList<Integer>();
-            for(int i = 0; i < size; i++) {
-                partition.add((int) Math.random() * 10);
-            }
-            return ByteUtils.getBytes(new GrandfatherState(Arrays.asList(new RebalancePartitionsInfo(0,
-                                                                                                     (int) Math.random() * 5,
-                                                                                                     partition,
-                                                                                                     new ArrayList<Integer>(0),
-                                                                                                     new ArrayList<Integer>(0),
-                                                                                                     Arrays.asList("testStoreName"),
-                                                                                                     new HashMap<String, String>(),
-                                                                                                     new HashMap<String, String>(),
-                                                                                                     (int) Math.random() * 3))).toJsonString(),
                                       "UTF-8");
         }
 

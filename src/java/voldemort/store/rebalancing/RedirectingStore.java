@@ -28,15 +28,12 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
-import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.metadata.MetadataStore.StoreState;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -46,17 +43,16 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 
 /**
  * The RedirectingStore extends {@link DelegatingStore}
  * <p>
- * if current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
+ * If current server_state is {@link VoldemortState#REBALANCING_MASTER_SERVER} <br>
  * then before serving any client request do a remote get() call, put it locally
  * ignoring any {@link ObsoleteVersionException} and then serve the client
- * requests.
+ * requests. This piece of code is run on the stealer nodes.
  */
 public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]> {
 
@@ -65,7 +61,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     private final StoreRepository storeRepository;
     private final SocketStoreFactory storeFactory;
     private FailureDetector failureDetector;
-    private boolean isReadOnly;
 
     public RedirectingStore(Store<ByteArray, byte[], byte[]> innerStore,
                             MetadataStore metadata,
@@ -77,21 +72,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         this.storeRepository = storeRepository;
         this.storeFactory = storeFactory;
         this.failureDetector = detector;
-        try {
-            this.isReadOnly = metadata.getStoreDef(getName())
-                                      .getType()
-                                      .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
-        } catch(Exception e) {
-            this.isReadOnly = false;
-        }
     }
 
     @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
-        if(this.isReadOnly)
-            throw new UnsupportedOperationException("Put is not supported on this store, it is read-only.");
-
         RebalancePartitionsInfo stealInfo = redirectingKey(key);
 
         /**
@@ -106,15 +91,12 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     }
 
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
-        if(!getName().equals(MetadataStore.METADATA_STORE_NAME)
-           && StoreState.REBALANCING.equals(metadata.getStoreState(getName()))) {
-            List<Integer> partitionIds = metadata.getRoutingStrategy(getName())
-                                                 .getPartitionList(key.get());
-
-            return getRebalancePartitionsInfo(partitionIds);
-        }
-
-        return null;
+        return metadata.getRebalancerState().find(getName(),
+                                                  metadata.getRoutingStrategy(getName())
+                                                          .getPartitionList(key.get()),
+                                                  metadata.getCluster()
+                                                          .getNodeById(metadata.getNodeId())
+                                                          .getPartitionIds());
     }
 
     @Override
@@ -127,11 +109,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * {@link ObsoleteVersionException}
          */
         if(stealInfo != null) {
-            List<Versioned<byte[]>> proxyValues = proxyGetAndLocalPut(key,
-                                                                      stealInfo.getDonorId(),
-                                                                      transforms);
-            if(isReadOnly)
-                return proxyValues;
+            proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
         }
 
         return getInnerStore().get(key, transforms);
@@ -147,11 +125,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * {@link ObsoleteVersionException}.
          */
         if(stealInfo != null) {
-            List<Versioned<byte[]>> proxyValues = proxyGetAndLocalPut(key,
-                                                                      stealInfo.getDonorId(),
-                                                                      null);
-            if(isReadOnly)
-                return StoreUtils.getVersions(proxyValues);
+            proxyGetAndLocalPut(key, stealInfo.getDonorId(), null);
         }
 
         return getInnerStore().getVersions(key);
@@ -161,25 +135,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        int maxLength = Iterables.size(keys);
-        List<ByteArray> redirectingKeys = Lists.newArrayListWithExpectedSize(maxLength);
-        List<RebalancePartitionsInfo> rebalancePartitionsInfos = Lists.newArrayListWithExpectedSize(maxLength);
+        Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey = Maps.newHashMapWithExpectedSize(Iterables.size(keys));
         for(ByteArray key: keys) {
-            RebalancePartitionsInfo info;
-            info = redirectingKey(key);
+            RebalancePartitionsInfo info = redirectingKey(key);
             if(info != null) {
-                redirectingKeys.add(key);
-                rebalancePartitionsInfos.add(info);
+                rebalancePartitionsInfoPerKey.put(key, info);
             }
         }
 
-        if(!redirectingKeys.isEmpty()) {
-            Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAllAndLocalPut(redirectingKeys,
-                                                                                            rebalancePartitionsInfos,
-                                                                                            transforms);
-            if(isReadOnly) {
-                return proxyKeyValues;
-            }
+        if(!rebalancePartitionsInfoPerKey.isEmpty()) {
+            proxyGetAllAndLocalPut(rebalancePartitionsInfoPerKey, transforms);
         }
 
         return getInnerStore().getAll(keys, transforms);
@@ -204,26 +169,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      */
     @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
-        if(isReadOnly)
-            throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
-
         StoreUtils.assertValidKey(key);
         return getInnerStore().delete(key, version);
-    }
-
-    /**
-     * Finds the first
-     * {@link voldemort.client.rebalance.RebalancePartitionsInfo} containing any
-     * of supplied partitions ids for the store being redirected. Determines
-     * which rebalance operation (if any) happening to the present store impacts
-     * a partition in this list.
-     * 
-     * @param partitionIds List of partitions
-     * @return <code>null</code> if none found
-     */
-    private RebalancePartitionsInfo getRebalancePartitionsInfo(List<Integer> partitionIds) {
-        RebalancerState rebalancerState = metadata.getRebalancerState();
-        return rebalancerState.find(getName(), partitionIds);
     }
 
     /**
@@ -262,38 +209,33 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * {@link voldemort.client.rebalance.RebalancePartitionsInfo#getDonorId()
      * getDonorId}
      * 
-     * @param keys List of keys
+     * @param rebalancePartitionsInfoPerKey Map of keys to corresponding
+     *        partition info
+     * @param transforms Map of keys to their corresponding transforms
      * @throws ProxyUnreachableException if donor node can't be reached
      */
-    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(List<ByteArray> keys,
-                                                                List<RebalancePartitionsInfo> stealInfoList,
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAll(Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey,
                                                                 Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        Multimap<Integer, ByteArray> scatterMap = HashMultimap.create(stealInfoList.size(),
-                                                                      keys.size());
+        Multimap<Integer, ByteArray> donorNodeToKeys = HashMultimap.create();
         int numKeys = 0;
-        for(ByteArray key: keys) {
-            numKeys++;
-            for(RebalancePartitionsInfo stealInfo: stealInfoList) {
-                byte[] keyBytes = key.get();
 
-                for(int p: metadata.getRoutingStrategy(getName()).getPartitionList(keyBytes)) {
-                    if(stealInfo.getPartitionList().contains(p))
-                        scatterMap.put(stealInfo.getDonorId(), key);
-                }
-            }
+        // Transform the map of key to plan to a map of donor node id to keys
+        for(Map.Entry<ByteArray, RebalancePartitionsInfo> entry: rebalancePartitionsInfoPerKey.entrySet()) {
+            numKeys++;
+            donorNodeToKeys.put(entry.getValue().getDonorId(), entry.getKey());
         }
 
         Map<ByteArray, List<Versioned<byte[]>>> gatherMap = Maps.newHashMapWithExpectedSize(numKeys);
 
-        for(int donorNodeId: scatterMap.keySet()) {
+        for(int donorNodeId: donorNodeToKeys.keySet()) {
             Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
             checkNodeAvailable(donorNode);
             long startNs = System.nanoTime();
 
             try {
                 Map<ByteArray, List<Versioned<byte[]>>> resultsForNode = getRedirectingSocketStore(getName(),
-                                                                                                   donorNodeId).getAll(scatterMap.get(donorNodeId),
+                                                                                                   donorNodeId).getAll(donorNodeToKeys.get(donorNodeId),
                                                                                                                        transforms);
                 recordSuccess(donorNode, startNs);
 
@@ -328,13 +270,11 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
                                                         byte[] transforms)
             throws VoldemortException {
         List<Versioned<byte[]>> proxyValues = proxyGet(key, donorId, transforms);
-        if(!isReadOnly) {
-            for(Versioned<byte[]> proxyValue: proxyValues) {
-                try {
-                    getInnerStore().put(key, proxyValue, null);
-                } catch(ObsoleteVersionException e) {
-                    // ignore these
-                }
+        for(Versioned<byte[]> proxyValue: proxyValues) {
+            try {
+                getInnerStore().put(key, proxyValue, null);
+            } catch(ObsoleteVersionException e) {
+                // ignore these
             }
         }
         return proxyValues;
@@ -344,26 +284,23 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * Similar to {@link #proxyGetAndLocalPut(ByteArray, int)} but meant for
      * {@link #getAll(Iterable)}
      * 
-     * @param keys Iterable collection of keys of keys
-     * @param stealInfoList List of rebalance operations
+     * @param rebalancePartitionsInfoPerKey Map of keys which are being routed
+     *        to their corresponding plan
+     * @param transforms Map of key to their corresponding transforms
      * @return Returns a map of key to its corresponding list of values
      * @throws VoldemortException if {@link #proxyGetAll(List, List)} fails
      */
-    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAllAndLocalPut(List<ByteArray> keys,
-                                                                           List<RebalancePartitionsInfo> stealInfoList,
+    private Map<ByteArray, List<Versioned<byte[]>>> proxyGetAllAndLocalPut(Map<ByteArray, RebalancePartitionsInfo> rebalancePartitionsInfoPerKey,
                                                                            Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
-        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(keys,
-                                                                             stealInfoList,
+        Map<ByteArray, List<Versioned<byte[]>>> proxyKeyValues = proxyGetAll(rebalancePartitionsInfoPerKey,
                                                                              transforms);
-        if(!isReadOnly) {
-            for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
-                for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
-                    try {
-                        getInnerStore().put(keyValuePair.getKey(), proxyValue, null);
-                    } catch(ObsoleteVersionException e) {
-                        // ignore these
-                    }
+        for(Map.Entry<ByteArray, List<Versioned<byte[]>>> keyValuePair: proxyKeyValues.entrySet()) {
+            for(Versioned<byte[]> proxyValue: keyValuePair.getValue()) {
+                try {
+                    getInnerStore().put(keyValuePair.getKey(), proxyValue, null);
+                } catch(ObsoleteVersionException e) {
+                    // ignore these
                 }
             }
         }
@@ -385,8 +322,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
             synchronized(storeRepository) {
                 if(!storeRepository.hasRedirectingSocketStore(storeName, donorNodeId)) {
                     Node donorNode = getNodeIfPresent(donorNodeId);
-                    logger.info("Creating redirectingSocketStore for donorNode " + donorNode
-                                + " store " + storeName);
+                    logger.info("Creating new redirecting store for donor node "
+                                + donorNode.getId() + " and store " + storeName);
                     storeRepository.addRedirectingSocketStore(donorNode.getId(),
                                                               storeFactory.create(storeName,
                                                                                   donorNode.getHost(),

@@ -18,14 +18,17 @@ package voldemort.server.rebalance;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
 import org.junit.Test;
 
+import voldemort.ServerTestUtils;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Test for {@link RebalancerState}
@@ -34,39 +37,32 @@ public class RebalancerStateTest {
 
     @Test
     public void testToJson() {
-        HashMap<String, String> roToDir = new HashMap<String, String>();
-        roToDir.put("a", "b");
-        roToDir.put("c", "d");
-        roToDir.put("e", "f");
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        replicaToPartitionList.put(0, Lists.newArrayList(0, 1, 2));
+
+        HashMap<Integer, List<Integer>> replicaToPartitionList2 = Maps.newHashMap();
+        replicaToPartitionList2.put(1, Lists.newArrayList(3, 4));
+        replicaToPartitionList2.put(3, Lists.newArrayList(5, 6));
+
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToAddPartitionList = Maps.newHashMap();
+        storeToReplicaToAddPartitionList.put("test1", replicaToPartitionList);
+        storeToReplicaToAddPartitionList.put("test2", replicaToPartitionList2);
+
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToDeletePartitionList = Maps.newHashMap();
+        storeToReplicaToDeletePartitionList.put("test2", replicaToPartitionList);
+
         List<RebalancePartitionsInfo> rebalancePartitionsInfos = Arrays.asList(new RebalancePartitionsInfo(2,
                                                                                                            0,
-                                                                                                           Arrays.asList(1,
-                                                                                                                         2,
-                                                                                                                         3,
-                                                                                                                         4),
-                                                                                                           Arrays.asList(0,
-                                                                                                                         1),
-                                                                                                           Arrays.asList(0,
-                                                                                                                         1,
-                                                                                                                         2),
-                                                                                                           Arrays.asList("test1",
-                                                                                                                         "test2"),
-                                                                                                           roToDir,
-                                                                                                           roToDir,
+                                                                                                           storeToReplicaToAddPartitionList,
+                                                                                                           storeToReplicaToDeletePartitionList,
+                                                                                                           ServerTestUtils.getLocalCluster(1),
                                                                                                            0),
                                                                                new RebalancePartitionsInfo(3,
                                                                                                            1,
-                                                                                                           Arrays.asList(5,
-                                                                                                                         6,
-                                                                                                                         7,
-                                                                                                                         8),
-                                                                                                           new ArrayList<Integer>(0),
-                                                                                                           new ArrayList<Integer>(0),
-                                                                                                           Arrays.asList("test1",
-                                                                                                                         "test2"),
-                                                                                                           new HashMap<String, String>(),
-                                                                                                           new HashMap<String, String>(),
-                                                                                                           0));
+                                                                                                           storeToReplicaToDeletePartitionList,
+                                                                                                           storeToReplicaToDeletePartitionList,
+                                                                                                           ServerTestUtils.getLocalCluster(2),
+                                                                                                           10));
 
         RebalancerState in = new RebalancerState(rebalancePartitionsInfos);
         String jsonIn = in.toJsonString();

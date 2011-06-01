@@ -128,11 +128,9 @@ public class VoldemortConfig implements Serializable {
     private boolean enableStatTracking;
     private boolean enableServerRouting;
     private boolean enableMetadataChecking;
-    private boolean enableRedirectRouting;
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
-    private boolean enableGrandfather;
 
     private List<String> storageConfigurations;
 
@@ -141,7 +139,7 @@ public class VoldemortConfig implements Serializable {
     private String slopStoreType;
     private String pusherType;
     private long slopFrequencyMs;
-    private final long repairFrequencyMs;
+    private long repairStartMs;
     private long slopMaxWriteBytesPerSec;
     private long slopMaxReadBytesPerSec;
     private int slopBatchSize;
@@ -170,8 +168,7 @@ public class VoldemortConfig implements Serializable {
     private int retentionCleanupScheduledPeriodInHour;
 
     private int maxRebalancingAttempt;
-    private int rebalancingTimeoutInSeconds;
-    private int rebalancingServicePeriod;
+    private long rebalancingTimeoutSec;
     private int maxParallelStoresRebalancing;
 
     public VoldemortConfig(Properties props) {
@@ -276,10 +273,8 @@ public class VoldemortConfig implements Serializable {
         this.enableStatTracking = props.getBoolean("enable.stat.tracking", true);
         this.enableServerRouting = props.getBoolean("enable.server.routing", true);
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
-        this.enableRedirectRouting = props.getBoolean("enable.redirect.routing", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableGrandfather = props.getBoolean("enable.grandfather", true);
         this.enableRepair = props.getBoolean("enable.repair", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
@@ -288,7 +283,7 @@ public class VoldemortConfig implements Serializable {
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
         this.slopStoreType = props.getString("slop.store.engine", BdbStorageConfiguration.TYPE_NAME);
         this.slopFrequencyMs = props.getLong("slop.frequency.ms", 5 * 60 * 1000);
-        this.repairFrequencyMs = props.getLong("repair.frequency.ms", 24 * 60 * 60 * 1000);
+        this.repairStartMs = props.getLong("repair.start.ms", 24 * 60 * 60 * 1000);
         this.slopBatchSize = props.getInt("slop.batch.size", 100);
         this.pusherType = props.getString("pusher.type", StreamingSlopPusherJob.TYPE_NAME);
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
@@ -320,9 +315,8 @@ public class VoldemortConfig implements Serializable {
 
         // rebalancing parameters
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
-        this.rebalancingTimeoutInSeconds = props.getInt("rebalancing.timeout.seconds", 24 * 60 * 60);
-        this.rebalancingServicePeriod = props.getInt("rebalancing.service.period.ms", 1000 * 60);
-        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
+        this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 24 * 60 * 60);
+        this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 1);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
@@ -936,8 +930,12 @@ public class VoldemortConfig implements Serializable {
         this.slopFrequencyMs = slopFrequencyMs;
     }
 
-    public long getRepairFrequencyMs() {
-        return this.repairFrequencyMs;
+    public long getRepairStartMs() {
+        return this.repairStartMs;
+    }
+
+    public void setRepairStartMs(long repairStartMs) {
+        this.repairStartMs = repairStartMs;
     }
 
     public void setSocketTimeoutMs(int socketTimeoutMs) {
@@ -1042,14 +1040,6 @@ public class VoldemortConfig implements Serializable {
         this.enableRepair = enableRepair;
     }
 
-    public boolean isGrandfatherEnabled() {
-        return this.enableGrandfather;
-    }
-
-    public void setGrandfather(boolean enableGrandfather) {
-        this.enableGrandfather = enableGrandfather;
-    }
-
     public boolean isVerboseLoggingEnabled() {
         return this.enableVerboseLogging;
     }
@@ -1072,14 +1062,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableMetadataChecking(boolean enableMetadataChecking) {
         this.enableMetadataChecking = enableMetadataChecking;
-    }
-
-    public boolean isRedirectRoutingEnabled() {
-        return enableRedirectRouting;
-    }
-
-    public void setEnableRedirectRouting(boolean enableRedirectRouting) {
-        this.enableRedirectRouting = enableRedirectRouting;
     }
 
     public long getBdbCheckpointBytes() {
@@ -1349,12 +1331,12 @@ public class VoldemortConfig implements Serializable {
         return this.maxRebalancingAttempt;
     }
 
-    public int getRebalancingTimeout() {
-        return rebalancingTimeoutInSeconds;
+    public long getRebalancingTimeoutSec() {
+        return rebalancingTimeoutSec;
     }
 
-    public void setRebalancingTimeout(int rebalancingTimeout) {
-        this.rebalancingTimeoutInSeconds = rebalancingTimeout;
+    public void setRebalancingTimeoutSec(long rebalancingTimeoutSec) {
+        this.rebalancingTimeoutSec = rebalancingTimeoutSec;
     }
 
     public VoldemortConfig(int nodeId, String voldemortHome) {
@@ -1383,10 +1365,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setEnableNetworkClassLoader(boolean enableNetworkClassLoader) {
         this.enableNetworkClassLoader = enableNetworkClassLoader;
-    }
-
-    public int getRebalancingServicePeriod() {
-        return rebalancingServicePeriod;
     }
 
     public void setEnableRebalanceService(boolean enableRebalanceService) {

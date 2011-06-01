@@ -1,16 +1,18 @@
 package voldemort.store.stats;
 
-import com.google.common.collect.ImmutableList;
-import voldemort.utils.Time;
-
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+
+import voldemort.utils.Time;
+
+import com.google.common.collect.ImmutableList;
 
 public class StreamStats {
 
@@ -21,7 +23,7 @@ public class StreamStats {
     private final ConcurrentMap<Operation, RequestCounter> networkCounter;
     private final ConcurrentMap<Operation, RequestCounter> diskCounter;
 
-    public StreamStats () {
+    public StreamStats() {
         this.handles = Collections.synchronizedMap(new Cache(MAX_ENTRIES));
         this.handleIdGenerator = new AtomicLong(0L);
         this.networkCounter = new ConcurrentHashMap<Operation, RequestCounter>();
@@ -33,11 +35,12 @@ public class StreamStats {
         }
     }
 
-    public Handle makeHandle(Operation operation, List<Integer> partitionIds) {
+    public Handle makeHandle(Operation operation,
+                             HashMap<Integer, List<Integer>> replicaToPartitionList) {
         Handle handle = new Handle(handleIdGenerator.getAndIncrement(),
                                    operation,
                                    System.currentTimeMillis(),
-                                   partitionIds);
+                                   replicaToPartitionList);
         handles.put(handle.getId(), handle);
         return handle;
     }
@@ -94,6 +97,9 @@ public class StreamStats {
     }
 
     private static class Cache extends LinkedHashMap<Long, Handle> {
+
+        private static final long serialVersionUID = 1L;
+
         private final int maxEntries;
 
         public Cache(int maxEntries) {
@@ -112,17 +118,20 @@ public class StreamStats {
         private final long id;
         private final Operation operation;
         private final long startedMs;
-        private final List<Integer> partitionIds;
+        private final HashMap<Integer, List<Integer>> replicaToPartitionList;
         private final AtomicLong entriesScanned;
         private final AtomicLong timeNetworkNs;
         private final AtomicLong timeDiskNs;
         private volatile boolean finished;
 
-        private Handle(long id, Operation operation, long startedMs, List<Integer> partitionIds) {
+        private Handle(long id,
+                       Operation operation,
+                       long startedMs,
+                       HashMap<Integer, List<Integer>> replicaToPartitionList) {
             this.id = id;
             this.operation = operation;
             this.startedMs = startedMs;
-            this.partitionIds = partitionIds;
+            this.replicaToPartitionList = replicaToPartitionList;
             this.entriesScanned = new AtomicLong(0L);
             this.timeNetworkNs = new AtomicLong(0L);
             this.timeDiskNs = new AtomicLong(0L);
@@ -168,8 +177,8 @@ public class StreamStats {
             this.finished = finished;
         }
 
-        public List<Integer> getPartitionIds() {
-            return partitionIds;
+        public HashMap<Integer, List<Integer>> getReplicaToPartitionList() {
+            return replicaToPartitionList;
         }
 
         public void recordTimeNetwork(long deltaNs) {
@@ -200,19 +209,12 @@ public class StreamStats {
 
         @Override
         public String toString() {
-            return "Handle{" +
-                   "id=" + id +
-                   ", operation=" + operation +
-                   ", startedMs=" + startedMs +
-                   ", partitionIds=" + partitionIds +
-                   ", entriesScanned=" + getEntriesScanned() +
-                   ", finished=" + finished +
-                   ", entriesPerSecond=" + getEntriesPerSecond() +
-                   ", timeDiskNs=" + getTimeDiskNs() +
-                   ", timeNetworkNs=" + getTimeNetworkNs() +
-                   ", percentDisk=" + getPercentDisk() +
-                   ", percentNetwork=" + getPercentNetwork() +
-                   '}';
+            return "Handle{" + "id=" + id + ", operation=" + operation + ", startedMs=" + startedMs
+                   + ", replicaToPartitionList=" + getReplicaToPartitionList()
+                   + ", entriesScanned=" + getEntriesScanned() + ", finished=" + finished
+                   + ", entriesPerSecond=" + getEntriesPerSecond() + ", timeDiskNs="
+                   + getTimeDiskNs() + ", timeNetworkNs=" + getTimeNetworkNs() + ", percentDisk="
+                   + getPercentDisk() + ", percentNetwork=" + getPercentNetwork() + '}';
         }
     }
 }
