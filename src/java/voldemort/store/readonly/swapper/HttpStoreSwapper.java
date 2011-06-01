@@ -135,7 +135,7 @@ public class HttpStoreSwapper extends StoreSwapper {
             }
 
             throw new VoldemortException("Exception during pushes to nodes "
-                                         + Joiner.on(',').join(exceptions.keySet()) + " failed");
+                                         + Joiner.on(",").join(exceptions.keySet()) + " failed");
         }
 
         return Lists.newArrayList(results.values());
@@ -210,7 +210,7 @@ public class HttpStoreSwapper extends StoreSwapper {
             }
 
             throw new VoldemortException("Exception during swaps on nodes "
-                                         + Joiner.on(',').join(exceptions.keySet()) + " failed");
+                                         + Joiner.on(",").join(exceptions.keySet()) + " failed");
         }
 
     }
