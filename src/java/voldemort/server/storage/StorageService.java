@@ -177,7 +177,7 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        registerEngine(metadata, false);
+        registerEngine(metadata, false, "metadata");
 
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
@@ -202,7 +202,7 @@ public class StorageService extends AbstractService {
 
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
                                                                  metadata.getCluster());
-            registerEngine(slopEngine, false);
+            registerEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
 
             if(voldemortConfig.isSlopPusherJobEnabled()) {
@@ -298,7 +298,7 @@ public class StorageService extends AbstractService {
 
         // openStore() should have atomic semantics
         try {
-            registerEngine(engine, isReadOnly);
+            registerEngine(engine, isReadOnly, storeDef.getType());
 
             if(voldemortConfig.isServerRoutingEnabled())
                 registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
@@ -306,7 +306,7 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod())
                 scheduleCleanupJob(storeDef, engine);
         } catch(Exception e) {
-            unregisterEngine(storeDef.getName(), storeDef.getType(), engine);
+            unregisterEngine(engine, isReadOnly, storeDef.getType());
             throw new VoldemortException(e);
         }
     }
@@ -314,40 +314,57 @@ public class StorageService extends AbstractService {
     /**
      * Unregister and remove the engine from the storage repository
      * 
-     * @param storeName The name of the store to remote
-     * @param storeType The storage type of the store
      * @param engine The actual engine to remove
+     * @param isReadOnly Is this read-only?
+     * @param storeType The storage type of the store
      */
-    public void unregisterEngine(String storeName,
-                                 String storeType,
-                                 StorageEngine<ByteArray, byte[], byte[]> engine) {
-        String engineName = engine.getName();
-        Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(engineName);
+    public void unregisterEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                                 boolean isReadOnly,
+                                 String storeType) {
+        String storeName = engine.getName();
+        Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(storeName);
 
         boolean isSlop = storeType.compareTo("slop") == 0;
         boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
+        boolean isMetadata = storeName.compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
 
         if(store != null) {
-            if(voldemortConfig.isStatTrackingEnabled() && voldemortConfig.isJmxEnabled()) {
-
+            if(voldemortConfig.isJmxEnabled()) {
                 MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                            store.getName());
 
-                synchronized(mbeanServer) {
-                    if(mbeanServer.isRegistered(name))
-                        JmxUtils.unregisterMbean(mbeanServer, name);
+                if(!isSlop && voldemortConfig.isEnableRebalanceService() && !isReadOnly
+                   && !isMetadata && !isView) {
+
+                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                                store.getName());
+
+                    synchronized(mbeanServer) {
+                        if(mbeanServer.isRegistered(name))
+                            JmxUtils.unregisterMbean(mbeanServer, name);
+                    }
+
                 }
 
+                if(voldemortConfig.isStatTrackingEnabled()) {
+
+                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                                store.getName());
+
+                    synchronized(mbeanServer) {
+                        if(mbeanServer.isRegistered(name))
+                            JmxUtils.unregisterMbean(mbeanServer, name);
+                    }
+
+                }
             }
             if(voldemortConfig.isServerRoutingEnabled() && !isSlop) {
-                this.storeRepository.removeRoutedStore(engineName);
+                this.storeRepository.removeRoutedStore(storeName);
                 for(Node node: metadata.getCluster().getNodes())
                     this.storeRepository.removeNodeStore(storeName, node.getId());
             }
         }
 
-        storeRepository.removeStorageEngine(engineName);
+        storeRepository.removeStorageEngine(storeName);
         if(!isView)
             engine.truncate();
         engine.close();
@@ -358,28 +375,45 @@ public class StorageService extends AbstractService {
      * 
      * @param engine Register the storage engine
      * @param isReadOnly Boolean indicating if this store is read-only
+     * @param storeType The type of the store
      */
-    public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine, boolean isReadOnly) {
+    public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                               boolean isReadOnly,
+                               String storeType) {
         Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
         /* Now add any store wrappers that are enabled */
         Store<ByteArray, byte[], byte[]> store = engine;
 
-        boolean isSlop = store.getName().compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0;
         boolean isMetadata = store.getName().compareTo(MetadataStore.METADATA_STORE_NAME) == 0;
+        boolean isSlop = storeType.compareTo("slop") == 0;
+        boolean isView = storeType.compareTo(ViewStorageConfiguration.TYPE_NAME) == 0;
 
         if(voldemortConfig.isVerboseLoggingEnabled())
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata)
+            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata && !isView) {
                 store = new RedirectingStore(store,
                                              metadata,
                                              storeRepository,
                                              failureDetector,
                                              storeFactory);
+                if(voldemortConfig.isJmxEnabled()) {
+                    MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                                store.getName());
+                    synchronized(mbeanServer) {
+                        if(mbeanServer.isRegistered(name))
+                            JmxUtils.unregisterMbean(mbeanServer, name);
+
+                        JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+                    }
+
+                }
+            }
 
             if(voldemortConfig.isMetadataCheckingEnabled())
                 store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
@@ -397,6 +431,7 @@ public class StorageService extends AbstractService {
                 synchronized(mbeanServer) {
                     if(mbeanServer.isRegistered(name))
                         JmxUtils.unregisterMbean(mbeanServer, name);
+
                     JmxUtils.registerMbean(mbeanServer,
                                            JmxUtils.createModelMBean(new StoreStatsJmx(statStore.getStats())),
                                            name);

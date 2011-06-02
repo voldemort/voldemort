@@ -959,30 +959,32 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 if(storeRepository.hasLocalStore(storeName)) {
                     if(storeName.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0) {
-                        storageService.unregisterEngine(storeName,
-                                                        "slop",
-                                                        storeRepository.getStorageEngine(storeName));
+                        storageService.unregisterEngine(storeRepository.getStorageEngine(storeName),
+                                                        false,
+                                                        "slop");
                     } else {
                         // update stores list in metadata store
                         List<StoreDefinition> oldStoreDefList = metadataStore.getStoreDefList();
                         List<StoreDefinition> newStoreDefList = new ArrayList<StoreDefinition>();
 
                         for(StoreDefinition storeDef: oldStoreDefList) {
+                            boolean isReadOnly = storeDef.getType()
+                                                         .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
                             if(storeDef.isView()) {
                                 if(storeDef.getViewTargetStoreName().compareTo(storeName) != 0) {
                                     newStoreDefList.add(storeDef);
                                 } else {
-                                    storageService.unregisterEngine(storeDef.getName(),
-                                                                    storeDef.getType(),
-                                                                    storeRepository.getStorageEngine(storeDef.getName()));
+                                    storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
+                                                                    isReadOnly,
+                                                                    storeDef.getType());
                                 }
                             } else {
                                 if(storeDef.getName().compareTo(storeName) != 0) {
                                     newStoreDefList.add(storeDef);
                                 } else {
-                                    storageService.unregisterEngine(storeDef.getName(),
-                                                                    storeDef.getType(),
-                                                                    storeRepository.getStorageEngine(storeDef.getName()));
+                                    storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
+                                                                    isReadOnly,
+                                                                    storeDef.getType());
                                 }
                             }
                         }

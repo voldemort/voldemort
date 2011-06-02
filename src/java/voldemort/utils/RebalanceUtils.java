@@ -570,6 +570,7 @@ public class RebalanceUtils {
         Set<Integer> completedNodeIds = Sets.newHashSet();
         try {
             for(Node node: cluster.getNodes()) {
+                logger.info("Updating cluster definition on remote node " + node);
                 adminClient.updateRemoteCluster(node.getId(), cluster, latestClock);
                 logger.info("Updated cluster definition " + cluster + " on remote node "
                             + node.getId());
@@ -583,7 +584,8 @@ public class RebalanceUtils {
                                                     currentClusters.get(completedNodeId),
                                                     latestClock);
                 } catch(VoldemortException exception) {
-                    logger.error("Could not revert back on node " + completedNodeId);
+                    logger.error("Could not revert cluster metadata back on node "
+                                 + completedNodeId);
                 }
             }
             throw e;

@@ -192,9 +192,9 @@ public class VoldemortAdminTool {
         if(missing.size() > 0) {
             // Not the most elegant way to do this
             if(!(missing.equals(ImmutableSet.of("node"))
-                 && (options.has("add-stores") || options.has("ro-metadata")
-                     || options.has("set-metadata") || options.has("get-metadata")
-                     || options.has("check-metadata") || options.has("key-distribution")) || options.has("truncate"))) {
+                 && (options.has("add-stores") || options.has("delete-store")
+                     || options.has("ro-metadata") || options.has("set-metadata")
+                     || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution")) || options.has("truncate"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);

@@ -18,10 +18,13 @@ package voldemort.store.rebalancing;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxSetter;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Node;
@@ -61,6 +64,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     private final StoreRepository storeRepository;
     private final SocketStoreFactory storeFactory;
     private FailureDetector failureDetector;
+    private AtomicBoolean isRedirectingStoreEnabled;
 
     public RedirectingStore(Store<ByteArray, byte[], byte[]> innerStore,
                             MetadataStore metadata,
@@ -72,6 +76,17 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         this.storeRepository = storeRepository;
         this.storeFactory = storeFactory;
         this.failureDetector = detector;
+        this.isRedirectingStoreEnabled = new AtomicBoolean(true);
+    }
+
+    @JmxSetter(name = "setRedirectingStoreEnabled", description = "Enable the redirecting store for this store")
+    public void setIsRedirectingStoreEnabled(boolean isRedirectingStoreEnabled) {
+        this.isRedirectingStoreEnabled.set(isRedirectingStoreEnabled);
+    }
+
+    @JmxGetter(name = "isRedirectingStoreEnabled", description = "Get the redirecting store state for this store")
+    public boolean getIsRedirectingStoreEnabled() {
+        return this.isRedirectingStoreEnabled.get();
     }
 
     @Override
@@ -91,12 +106,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     }
 
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
-        return metadata.getRebalancerState().find(getName(),
-                                                  metadata.getRoutingStrategy(getName())
-                                                          .getPartitionList(key.get()),
-                                                  metadata.getCluster()
-                                                          .getNodeById(metadata.getNodeId())
-                                                          .getPartitionIds());
+        if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
+           && isRedirectingStoreEnabled.get()) {
+            return metadata.getRebalancerState().find(getName(),
+                                                      metadata.getRoutingStrategy(getName())
+                                                              .getPartitionList(key.get()),
+                                                      metadata.getCluster()
+                                                              .getNodeById(metadata.getNodeId())
+                                                              .getPartitionIds());
+        }
+        return null;
     }
 
     @Override
@@ -156,7 +175,7 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
      * The options are:
      * <ol>
      * <li>
-     * Delete locally and on remote node as well. The issue iscursor is open in
+     * Delete locally and on remote node as well. The issue is cursor is open in
      * READ_UNCOMMITED mode while rebalancing and can push the value back.</li>
      * <li>
      * Keep the operation in separate slop store and apply all deletes after
