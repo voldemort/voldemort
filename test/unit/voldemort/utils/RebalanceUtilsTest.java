@@ -78,18 +78,4 @@ public class RebalanceUtilsTest extends TestCase {
         assertEquals(generatedCluster.getNodeById(3).getPartitionIds().size(), 0);
 
     }
-
-    public void testGenerateMinCluster() {
-        Cluster cluster = ServerTestUtils.getLocalCluster(6, 12, 2);
-
-        List<Node> newNodes = Lists.newArrayList(cluster.getNodes());
-        // Add some more nodes to the list
-        newNodes.add(new Node(7, "blah", 0, 1, 2, 0, new ArrayList<Integer>()));
-        newNodes.add(new Node(8, "blah2", 0, 1, 2, 0, new ArrayList<Integer>()));
-        Cluster newCluster = RebalanceUtils.updateCluster(cluster, newNodes);
-
-        Cluster returnedCluster = RebalanceUtils.generateMinCluster(cluster, newCluster);
-        assertEquals(returnedCluster.getNumberOfPartitions(), cluster.getNumberOfPartitions());
-
-    }
 }

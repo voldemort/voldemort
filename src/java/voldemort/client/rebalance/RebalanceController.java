@@ -167,6 +167,9 @@ public class RebalanceController {
         }
 
         int taskId = 0;
+        int totalCrossZoneMoves = 0;
+        int totalMoves = 0;
+
         for(Node stealerNode: targetCluster.getNodes()) {
 
             // If not stealing partition, ignore node
@@ -204,6 +207,10 @@ public class RebalanceController {
                                                                                            storeDefs,
                                                                                            rebalanceConfig.isDeleteAfterRebalancingEnabled());
 
+                totalCrossZoneMoves += RebalanceUtils.getCrossZoneMoves(transitionCluster,
+                                                                        rebalanceClusterPlan);
+                totalMoves += RebalanceUtils.getTotalMoves(rebalanceClusterPlan);
+
                 final OrderedClusterTransition orderedClusterTransition = new OrderedClusterTransition(currentCluster,
                                                                                                        transitionCluster,
                                                                                                        storeDefs,
@@ -227,6 +234,9 @@ public class RebalanceController {
                                                 + decimalFormatter.format(taskId * 100.0 / numTasks));
             }
         }
+
+        logger.info("Total number of cross zone moves - " + totalCrossZoneMoves);
+        logger.info("Total number of moves - " + totalMoves);
     }
 
     /**

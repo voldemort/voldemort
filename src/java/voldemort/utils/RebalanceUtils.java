@@ -37,6 +37,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.rebalance.RebalanceClusterPlan;
 import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -159,6 +160,47 @@ public class RebalanceUtils {
     }
 
     /**
+     * Return the number of cross zone copying that is going to take place
+     * 
+     * @param targetCluster Target cluster metadata
+     * @param plan The rebalance plan
+     * @return Number of cross zone moves
+     */
+    public static int getCrossZoneMoves(final Cluster targetCluster, final RebalanceClusterPlan plan) {
+
+        int crossZoneMoves = 0;
+        for(RebalanceNodePlan nodePlan: plan.getRebalancingTaskQueue()) {
+            List<RebalancePartitionsInfo> infos = nodePlan.getRebalanceTaskList();
+            for(RebalancePartitionsInfo info: infos) {
+                Node donorNode = targetCluster.getNodeById(info.getDonorId());
+                Node stealerNode = targetCluster.getNodeById(info.getStealerId());
+
+                if(donorNode.getZoneId() != stealerNode.getZoneId()) {
+                    crossZoneMoves++;
+                }
+            }
+        }
+
+        return crossZoneMoves;
+    }
+
+    /**
+     * Return the number of total moves
+     * 
+     * @param plan The rebalance plan
+     * @return Number of moves
+     */
+    public static int getTotalMoves(final RebalanceClusterPlan plan) {
+
+        int totalMoves = 0;
+        for(RebalanceNodePlan nodePlan: plan.getRebalancingTaskQueue()) {
+            totalMoves += nodePlan.getRebalanceTaskList().size();
+        }
+
+        return totalMoves;
+    }
+
+    /**
      * Takes the current cluster metadata and target cluster metadata ( which
      * contains all the nodes of current cluster + new nodes with empty
      * partitions ), and generates a new cluster with some partitions moved to
@@ -167,11 +209,14 @@ public class RebalanceUtils {
      * @param currentCluster Current cluster metadata
      * @param targetCluster Target cluster metadata ( which contains old nodes +
      *        new nodes [ empty partitions ])
+     * @param storeDefs List of store definitions
+     * @param doCrossZoneOptimization Do we want to do cross zone optimization?
      * @return Cluster metadata which moves partitions to the new node
      */
     public static Cluster generateMinCluster(final Cluster currentCluster,
-                                             final Cluster targetCluster) {
-        int currentNumPartitions = currentCluster.getNumberOfPartitions();
+                                             final Cluster targetCluster,
+                                             final List<StoreDefinition> storeDefs,
+                                             final boolean doCrossZoneOptimization) {
         int currentNumNodes = currentCluster.getNumberOfNodes();
         int targetNumNodes = targetCluster.getNumberOfNodes();
 
@@ -180,13 +225,45 @@ public class RebalanceUtils {
         List<Integer> donorNodeIds = Lists.newArrayList();
         List<Node> allNodes = Lists.newArrayList();
 
+        HashMap<Integer, Integer> numPartitionsPerZone = Maps.newHashMap();
+        HashMap<Integer, Integer> numNodesPerZone = Maps.newHashMap();
+        HashMap<Integer, Integer> numDonorNodesPerZone = Maps.newHashMap();
+
         for(Node node: targetCluster.getNodes()) {
             if(node.getPartitionIds().isEmpty()) {
                 newNodeIds.add(node.getId());
             } else {
                 donorNodeIds.add(node.getId());
+
+                // Update the number of nodes
+                if(numDonorNodesPerZone.containsKey(node.getZoneId())) {
+                    int currentNumDonorNodesInZone = numNodesPerZone.get(node.getZoneId());
+                    currentNumDonorNodesInZone += 1;
+                    numDonorNodesPerZone.put(node.getZoneId(), currentNumDonorNodesInZone);
+                } else {
+                    numDonorNodesPerZone.put(node.getZoneId(), 1);
+                }
+
             }
             allNodes.add(updateNode(node, Lists.newArrayList(node.getPartitionIds())));
+
+            // Update the number of partitions
+            if(numPartitionsPerZone.containsKey(node.getZoneId())) {
+                int currentNumPartitionsInZone = numPartitionsPerZone.get(node.getZoneId());
+                currentNumPartitionsInZone += node.getNumberOfPartitions();
+                numPartitionsPerZone.put(node.getZoneId(), currentNumPartitionsInZone);
+            } else {
+                numPartitionsPerZone.put(node.getZoneId(), node.getNumberOfPartitions());
+            }
+
+            // Update the number of nodes
+            if(numNodesPerZone.containsKey(node.getZoneId())) {
+                int currentNumNodesInZone = numNodesPerZone.get(node.getZoneId());
+                currentNumNodesInZone += 1;
+                numNodesPerZone.put(node.getZoneId(), currentNumNodesInZone);
+            } else {
+                numNodesPerZone.put(node.getZoneId(), 1);
+            }
         }
 
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
@@ -196,24 +273,35 @@ public class RebalanceUtils {
             return returnCluster;
         }
 
-        // Every new node should have equal number of partitions
-        int targetNumPartitionPerNode = (int) Math.floor(currentNumPartitions * 1.0
-                                                         / targetNumNodes);
-
         // Go over every new node and give it some partitions
         for(int newNodeId: newNodeIds) {
 
-            int partitionsToSteal = targetNumPartitionPerNode;
+            Node newNode = targetCluster.getNodeById(newNodeId);
+            int partitionsToSteal = (int) Math.floor(numPartitionsPerZone.get(newNode.getZoneId())
+                                                     * 1.0
+                                                     / numNodesPerZone.get(newNode.getZoneId()));
+
+            int nodesStolenFrom = 0;
             for(int index = 0; index < donorNodeIds.size(); index++) {
                 int donorNodeId = donorNodeIds.get(index);
+
+                Node donorNode = currentCluster.getNodeById(donorNodeId);
+
+                // Only steal from nodes in same zone
+                if(donorNode.getZoneId() != newNode.getZoneId()) {
+                    continue;
+                }
+
                 // Done stealing
                 if(partitionsToSteal <= 0)
                     break;
 
                 // One of the valid donor nodes
                 int partitionsToDonate = Math.max((int) Math.floor(partitionsToSteal
-                                                                   / (donorNodeIds.size() - index)),
+                                                                   / (numDonorNodesPerZone.get(newNode.getZoneId()) - nodesStolenFrom)),
                                                   1);
+
+                nodesStolenFrom++;
 
                 // Donor node can't donate since itself has few partitions
                 if(returnCluster.getNodeById(donorNodeId).getNumberOfPartitions() <= partitionsToDonate) {
@@ -224,13 +312,26 @@ public class RebalanceUtils {
                                                                                 .getPartitionIds());
                 Collections.shuffle(donorPartitions);
 
-                List<Integer> donorPartitionsToMove = donorPartitions.subList(0, partitionsToDonate);
-                returnCluster = createUpdatedCluster(returnCluster,
-                                                     returnCluster.getNodeById(newNodeId),
-                                                     returnCluster.getNodeById(donorNodeId),
-                                                     donorPartitionsToMove);
-
-                partitionsToSteal -= partitionsToDonate;
+                // Go over every donor partition till we satisfy the
+                // partitionsToDonate number
+                int partitionsDonated = 0;
+                for(int donorPartition: donorPartitions) {
+                    if(partitionsDonated == partitionsToDonate)
+                        break;
+                    Cluster intermediateCluster = createUpdatedCluster(returnCluster,
+                                                                       returnCluster.getNodeById(newNodeId),
+                                                                       returnCluster.getNodeById(donorNodeId),
+                                                                       Lists.newArrayList(donorPartition));
+                    if(RebalanceUtils.getCrossZoneMoves(intermediateCluster,
+                                                        new RebalanceClusterPlan(returnCluster,
+                                                                                 intermediateCluster,
+                                                                                 storeDefs,
+                                                                                 true)) == 0) {
+                        returnCluster = intermediateCluster;
+                        partitionsDonated++;
+                    }
+                }
+                partitionsToSteal -= partitionsDonated;
 
             }
         }

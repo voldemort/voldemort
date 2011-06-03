@@ -16,6 +16,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.RebalanceUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -117,10 +118,23 @@ public class RebalanceCLI {
                 Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
                 List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
 
-                boolean optimize = options.has("optimize");
-                if(optimize) {
-                    System.out.println(new ClusterMapper().writeCluster(RebalanceUtils.generateMinCluster(currentCluster,
-                                                                                                          targetCluster)));
+                if(options.has("optimize")) {
+                    boolean doCrossZoneOptimization = false;
+
+                    Cluster minCluster = RebalanceUtils.generateMinCluster(currentCluster,
+                                                                           targetCluster,
+                                                                           storeDefs,
+                                                                           doCrossZoneOptimization);
+                    System.out.println("Current distribution");
+                    System.out.println("--------------------");
+                    System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
+                                                                                         storeDefs));
+                    System.out.println("Target distribution");
+                    System.out.println("--------------------");
+                    System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
+                                                                                         storeDefs));
+                    System.out.println(new ClusterMapper().writeCluster(minCluster));
+
                     return;
                 }
 
