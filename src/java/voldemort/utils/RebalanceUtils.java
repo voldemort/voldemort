@@ -16,6 +16,8 @@
 
 package voldemort.utils;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,6 +27,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
@@ -32,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -55,6 +59,7 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.versioning.Occured;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -70,6 +75,9 @@ public class RebalanceUtils {
 
     public final static List<String> canRebalanceList = Arrays.asList(BdbStorageConfiguration.TYPE_NAME,
                                                                       ReadOnlyStorageConfiguration.TYPE_NAME);
+
+    public final static String initialClusterFileName = "initial-cluster.xml";
+    public final static String finalClusterFileName = "final-cluster.xml";
 
     /**
      * Get the latest cluster from all available nodes in the cluster<br>
@@ -201,6 +209,71 @@ public class RebalanceUtils {
     }
 
     /**
+     * Outputs an optimized cluster based on the existing cluster and the new
+     * nodes that are being added.
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param targetCluster The target cluster metadata which contains the nodes
+     *        of the current cluster + new nodes with empty partitions
+     * @param storeDefs List of store definitions
+     * @param outputDir The output directory where we'll store the cluster
+     *        metadata ( if not null )
+     * @param tries Number of times we'll try to optimize the metadata
+     *        generation
+     */
+    public static void generateMinCluster(final Cluster currentCluster,
+                                          final Cluster targetCluster,
+                                          final List<StoreDefinition> storeDefs,
+                                          final String outputDir,
+                                          final int tries) {
+
+        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
+
+        Cluster minCluster = targetCluster;
+        int minMoves = Integer.MAX_VALUE;
+        double minStdDev = Double.MAX_VALUE;
+        for(int numTries = 0; numTries < tries; numTries++) {
+            Pair<Cluster, Integer> minClusterMove = RebalanceUtils.generateMinCluster(currentCluster,
+                                                                                      targetCluster,
+                                                                                      storeDefs);
+
+            double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(minClusterMove.getFirst(),
+                                                                                                                                                 uniqueStores,
+                                                                                                                                                 10000));
+
+            if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
+                minMoves = minClusterMove.getSecond();
+                minStdDev = currentStdDev;
+                minCluster = minClusterMove.getFirst();
+            }
+
+            if(numTries % 10 == 0) {
+                System.out.println("Optimization number " + numTries + "] " + minMoves + " moves, "
+                                   + minStdDev + " std dev");
+            }
+        }
+
+        System.out.println("Current distribution");
+        System.out.println("--------------------");
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
+                                                                             storeDefs));
+        System.out.println("Target distribution");
+        System.out.println("--------------------");
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster, storeDefs));
+        System.out.println(new ClusterMapper().writeCluster(minCluster));
+
+        // If output directory exists, output the optimized cluster
+        if(outputDir != null) {
+            try {
+                FileUtils.writeStringToFile(new File(outputDir, RebalanceUtils.finalClusterFileName),
+                                            new ClusterMapper().writeCluster(minCluster));
+            } catch(Exception e) {}
+        }
+        return;
+
+    }
+
+    /**
      * Takes the current cluster metadata and target cluster metadata ( which
      * contains all the nodes of current cluster + new nodes with empty
      * partitions ), and generates a new cluster with some partitions moved to
@@ -210,13 +283,12 @@ public class RebalanceUtils {
      * @param targetCluster Target cluster metadata ( which contains old nodes +
      *        new nodes [ empty partitions ])
      * @param storeDefs List of store definitions
-     * @param doCrossZoneOptimization Do we want to do cross zone optimization?
-     * @return Cluster metadata which moves partitions to the new node
+     * @return Return a pair of cluster metadata and number of primary
+     *         partitions that have moved
      */
-    public static Cluster generateMinCluster(final Cluster currentCluster,
-                                             final Cluster targetCluster,
-                                             final List<StoreDefinition> storeDefs,
-                                             final boolean doCrossZoneOptimization) {
+    public static Pair<Cluster, Integer> generateMinCluster(final Cluster currentCluster,
+                                                            final Cluster targetCluster,
+                                                            final List<StoreDefinition> storeDefs) {
         int currentNumNodes = currentCluster.getNumberOfNodes();
         int targetNumNodes = targetCluster.getNumberOfNodes();
 
@@ -267,10 +339,11 @@ public class RebalanceUtils {
         }
 
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
+        int totalPrimaryPartitionsMoved = 0;
 
         if(currentNumNodes == targetNumNodes) {
             // Number of nodes is the same, done!
-            return returnCluster;
+            return Pair.create(returnCluster, totalPrimaryPartitionsMoved);
         }
 
         // Go over every new node and give it some partitions
@@ -310,7 +383,7 @@ public class RebalanceUtils {
 
                 List<Integer> donorPartitions = Lists.newArrayList(returnCluster.getNodeById(donorNodeId)
                                                                                 .getPartitionIds());
-                Collections.shuffle(donorPartitions);
+                Collections.shuffle(donorPartitions, new Random(System.currentTimeMillis()));
 
                 // Go over every donor partition till we satisfy the
                 // partitionsToDonate number
@@ -329,6 +402,7 @@ public class RebalanceUtils {
                                                                                  true)) == 0) {
                         returnCluster = intermediateCluster;
                         partitionsDonated++;
+                        totalPrimaryPartitionsMoved++;
                     }
                 }
                 partitionsToSteal -= partitionsDonated;
@@ -336,7 +410,7 @@ public class RebalanceUtils {
             }
         }
 
-        return returnCluster;
+        return Pair.create(returnCluster, totalPrimaryPartitionsMoved);
     }
 
     /**
@@ -835,6 +909,36 @@ public class RebalanceUtils {
             }
         }
         return nodeIdToReplicas;
+    }
+
+    /**
+     * Given the initial and final cluster dumps it into the output directory
+     * 
+     * @param initialCluster Initial cluster metadata
+     * @param finalCluster Final cluster metadata
+     * @param outputDir Output directory where to dump this file
+     * @throws IOException
+     */
+    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
+
+        // Create the output directory if it doesn't exist
+        if(!outputDir.exists()) {
+            Utils.mkdirs(outputDir);
+        }
+
+        // Get the file paths
+        File initialClusterFile = new File(outputDir, initialClusterFileName);
+        File finalClusterFile = new File(outputDir, finalClusterFileName);
+
+        // Write the output
+        ClusterMapper mapper = new ClusterMapper();
+        try {
+            FileUtils.writeStringToFile(initialClusterFile, mapper.writeCluster(initialCluster));
+            FileUtils.writeStringToFile(finalClusterFile, mapper.writeCluster(finalCluster));
+        } catch(IOException e) {
+            logger.error("Error writing cluster metadata to file");
+        }
+
     }
 
     /**

@@ -16,6 +16,7 @@
 
 package voldemort.client.rebalance;
 
+import java.io.File;
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.List;
@@ -220,6 +221,12 @@ public class RebalanceController {
                 RebalanceUtils.printLog(stealerNode.getId(),
                                         logger,
                                         orderedClusterTransition.toString());
+
+                // Output the transition plan to the output directory
+                if(rebalanceConfig.hasOutputDirectory())
+                    RebalanceUtils.dumpCluster(currentCluster,
+                                               transitionCluster,
+                                               new File(rebalanceConfig.getOutputDirectory()));
 
                 rebalancePerPartitionTransition(stealerNode.getId(), orderedClusterTransition);
 

@@ -6,7 +6,6 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Set;
 
-import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
@@ -16,7 +15,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.KeyDistributionGenerator;
+import voldemort.utils.Entropy;
 import voldemort.utils.RebalanceUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -39,7 +38,7 @@ public class RebalanceCLI {
             parser.accepts("current-cluster", "Path to current cluster xml")
                   .withRequiredArg()
                   .describedAs("cluster.xml");
-            parser.accepts("target-cluster", "[REQUIRED] Path to target cluster xml")
+            parser.accepts("target-cluster", "Path to target cluster xml")
                   .withRequiredArg()
                   .describedAs("cluster.xml");
             parser.accepts("current-stores", "Path to store definition xml")
@@ -47,23 +46,33 @@ public class RebalanceCLI {
                   .describedAs("stores.xml");
             parser.accepts("url", "Url to bootstrap from ").withRequiredArg().describedAs("url");
             parser.accepts("parallelism",
-                           "number of rebalances to run in parallel (Default:"
+                           "Number of rebalances to run in parallel (Default:"
                                    + RebalanceClientConfig.MAX_PARALLEL_REBALANCING + ")")
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("parallelism");
             parser.accepts("tries",
-                           "maximum number of tries for every rebalance (Default:"
-                                   + RebalanceClientConfig.MAX_TRIES + ")")
+                           "(1) Tries during rebalance (Default:" + RebalanceClientConfig.MAX_TRIES
+                                   + ")(2) Number of tries while generating new metadata")
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("num-tries");
-            parser.accepts("optimize",
+            parser.accepts("generate",
                            "Optimize the target cluster which has new nodes with empty partitions");
+            parser.accepts("entropy",
+                           "True - if we want to run the entropy calculator. False - if we want to store keys")
+                  .withRequiredArg()
+                  .ofType(Boolean.class);
+            parser.accepts("output-dir",
+                           "Specify the output directory for (1) dumping metadata"
+                                   + "(b) dumping entropy keys")
+                  .withRequiredArg()
+                  .ofType(String.class)
+                  .describedAs("path");
             parser.accepts("no-delete",
-                           "Do not delete after rebalancing (Valid only for RW Stores)");
+                           "Do not delete after rebalancing (Valid only for RW Stores) ");
             parser.accepts("show-plan",
-                           "Shows the rebalancing plan only without executing the rebalance.");
+                           "Shows the rebalancing plan only without executing the rebalance");
 
             OptionSet options = parser.parse(args);
 
@@ -72,30 +81,35 @@ public class RebalanceCLI {
                 System.exit(HELP_EXIT_CODE);
             }
 
-            if(!options.has("target-cluster")) {
-                System.err.println("Missing required arguments: target-cluster");
-                printHelp(System.err, parser);
-                System.exit(ERROR_EXIT_CODE);
-            }
-
-            String targetClusterXML = (String) options.valueOf("target-cluster");
-            Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
             boolean deleteAfterRebalancing = !options.has("no-delete");
-            int maxParallelRebalancing = CmdUtils.valueOf(options,
-                                                          "parallelism",
-                                                          RebalanceClientConfig.MAX_PARALLEL_REBALANCING);
+            int parallelism = CmdUtils.valueOf(options,
+                                               "parallelism",
+                                               RebalanceClientConfig.MAX_PARALLEL_REBALANCING);
             int maxTriesRebalancing = CmdUtils.valueOf(options,
                                                        "tries",
                                                        RebalanceClientConfig.MAX_TRIES);
             boolean enabledShowPlan = options.has("show-plan");
 
             RebalanceClientConfig config = new RebalanceClientConfig();
-            config.setMaxParallelRebalancing(maxParallelRebalancing);
+            config.setMaxParallelRebalancing(parallelism);
             config.setDeleteAfterRebalancingEnabled(deleteAfterRebalancing);
             config.setEnableShowPlan(enabledShowPlan);
             config.setMaxTriesRebalancing(maxTriesRebalancing);
 
+            if(options.has("output-dir")) {
+                config.setOutputDirectory((String) options.valueOf("output-dir"));
+            }
+
             if(options.has("url")) {
+
+                if(!options.has("target-cluster")) {
+                    System.err.println("Missing required arguments: target-cluster");
+                    printHelp(System.err, parser);
+                    System.exit(ERROR_EXIT_CODE);
+                }
+
+                String targetClusterXML = (String) options.valueOf("target-cluster");
+                Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
 
                 // Normal execution of rebalancing
                 String bootstrapURL = (String) options.valueOf("url");
@@ -118,23 +132,39 @@ public class RebalanceCLI {
                 Cluster currentCluster = new ClusterMapper().readCluster(new File(currentClusterXML));
                 List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(currentStoresXML));
 
-                if(options.has("optimize")) {
-                    boolean doCrossZoneOptimization = false;
+                if(options.has("entropy")) {
 
-                    Cluster minCluster = RebalanceUtils.generateMinCluster(currentCluster,
-                                                                           targetCluster,
-                                                                           storeDefs,
-                                                                           doCrossZoneOptimization);
-                    System.out.println("Current distribution");
-                    System.out.println("--------------------");
-                    System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                                         storeDefs));
-                    System.out.println("Target distribution");
-                    System.out.println("--------------------");
-                    System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
-                                                                                         storeDefs));
-                    System.out.println(new ClusterMapper().writeCluster(minCluster));
+                    if(!config.hasOutputDirectory()) {
+                        System.err.println("Missing arguments output-dir");
+                        printHelp(System.err, parser);
+                        System.exit(ERROR_EXIT_CODE);
+                    }
 
+                    boolean entropy = (Boolean) options.valueOf("entropy");
+                    Entropy generator = new Entropy(0, parallelism, 10000);
+                    generator.generateEntropy(currentCluster,
+                                              storeDefs,
+                                              new File(config.getOutputDirectory()),
+                                              entropy);
+                    return;
+
+                }
+
+                if(!options.has("target-cluster")) {
+                    System.err.println("Missing required arguments: target-cluster");
+                    printHelp(System.err, parser);
+                    System.exit(ERROR_EXIT_CODE);
+                }
+
+                String targetClusterXML = (String) options.valueOf("target-cluster");
+                Cluster targetCluster = new ClusterMapper().readCluster(new File(targetClusterXML));
+
+                if(options.has("generate")) {
+                    RebalanceUtils.generateMinCluster(currentCluster,
+                                                      targetCluster,
+                                                      storeDefs,
+                                                      config.getOutputDirectory(),
+                                                      config.getMaxTriesRebalancing());
                     return;
                 }
 
@@ -149,11 +179,7 @@ public class RebalanceCLI {
             }
 
         } catch(VoldemortException e) {
-            logger.error("Unsuccessfully terminated rebalance - " + e.getMessage(), e);
-        } catch(OptionException e) {
-            logger.error("Problem detected while parsing command line argument, --help for more information - "
-                                 + e.getMessage(),
-                         e);
+            logger.error("Unsuccessfully terminated rebalance operation - " + e.getMessage(), e);
         } catch(Throwable e) {
             logger.error(e.getMessage(), e);
         } finally {
@@ -169,9 +195,25 @@ public class RebalanceCLI {
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
         stream.println("Commands supported");
         stream.println("------------------");
+        stream.println("REBALANCE");
         stream.println("a) --url <url> --target-cluster <path> [ Run the actual rebalancing process ] ");
-        stream.println("b) --current-cluster <path> --current-stores <path> --target-cluster <path> --show-plan [ Generates the plan ]");
-        stream.println("c) --current-cluster <path> --current-stores <path> --target-cluster <path> --optimize [ Target cluster is current-cluster + new nodes ( with empty partitions ) ]");
+        stream.println("b) --current-cluster <path> --current-stores <path> --target-cluster <path> [ Generates the plan ]");
+        stream.println("\t (i) --no-delete [ Will not delete the data after rebalancing ]");
+        stream.println("\t (ii) --show-plan [ Will generate only the plan ]");
+        stream.println("\t (iii) --output-dir [ Path to output dir where we store intermediate metadata ]");
+        stream.println("\t (iv) --parallelism [ Number of parallel stealer - donor node tasks to run in parallel ] ");
+        stream.println("\t (v) --tries [ Number of times we try to move the data before declaring failure ]");
+        stream.println();
+        stream.println("GENERATE");
+        stream.println("a) --current-cluster <path> --current-stores <path> --target-cluster <path> --generate [ Generates a new cluster xml with least number of movements."
+                       + " Uses target cluster i.e. current-cluster + new nodes ( with empty partitions ) ]");
+        stream.println("\t (i)  --output-dir [ Output directory is where we store the optimized cluster ]");
+        stream.println("\t (ii) --tries [ Number of optimization cycles ] ");
+        stream.println();
+        stream.println("ENTROPY");
+        stream.println("a) --current-cluster <path> --current-stores <path> --entropy <true / false> --output-dir <path> [ Runs the entropy calculator if "
+                       + "--entropy is true. Else dumps keys to the directory ]");
+        stream.println("\t (i) --parallelism [ Parallelism during fetching keys for entropy calculation ]");
         parser.printHelpOn(stream);
     }
 }

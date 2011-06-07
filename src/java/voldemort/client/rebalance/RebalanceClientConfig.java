@@ -31,11 +31,13 @@ public class RebalanceClientConfig extends AdminClientConfig {
     private int rebalancingClientTimeoutSeconds = 7 * 24 * 60 * 60;
     private boolean deleteAfterRebalancingEnabled;
     private boolean enabledShowPlan;
+    private String outputDirectory = null;
 
     public static final String MaxParallelRebalancingString = "max.parallel.rebalancing";
     public static final String RebalancingClientTimeoutSeconds = "rebalancing.client.timeout.seconds";
     public static final String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
     public static final String MaxTriesRebalancingString = "max.tries.rebalancing";
+    public static final String OutputDirectoryString = "rebalancing.output.dir";
 
     public RebalanceClientConfig(Properties properties) {
         super(properties);
@@ -53,10 +55,25 @@ public class RebalanceClientConfig extends AdminClientConfig {
         if(props.containsKey(MaxTriesRebalancingString))
             this.setMaxTriesRebalancing(props.getInt(MaxTriesRebalancingString));
 
+        if(props.containsKey(OutputDirectoryString))
+            this.setOutputDirectory(props.getString(OutputDirectoryString));
+
     }
 
     public RebalanceClientConfig() {
         this(new Properties());
+    }
+
+    public void setOutputDirectory(String outputDirectory) {
+        this.outputDirectory = outputDirectory;
+    }
+
+    public String getOutputDirectory() {
+        return this.outputDirectory;
+    }
+
+    public boolean hasOutputDirectory() {
+        return this.outputDirectory != null;
     }
 
     public void setMaxParallelRebalancing(int maxParallelRebalancing) {

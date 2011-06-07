@@ -171,11 +171,11 @@ public class VoldemortAdminTool {
               .ofType(String.class);
         parser.accepts("set-metadata-value",
                        "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
-                               + MetadataStore.STORES_KEY + " ] - xml file location, [ "
-                               + MetadataStore.SERVER_STATE_KEY + " ] - "
-                               + MetadataStore.VoldemortState.NORMAL_SERVER + ","
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ", [ "
-                               + MetadataStore.REBALANCING_STEAL_INFO + " ] - json string")
+                               + MetadataStore.STORES_KEY + ", "
+                               + MetadataStore.REBALANCING_STEAL_INFO
+                               + " ] - xml file location, [ " + MetadataStore.SERVER_STATE_KEY
+                               + " ] - " + MetadataStore.VoldemortState.NORMAL_SERVER + ","
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
