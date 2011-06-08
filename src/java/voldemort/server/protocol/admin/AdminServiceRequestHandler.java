@@ -704,7 +704,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setRequestId(requestId)
                                                                                                             .setComplete(false)
                                                                                                             .setDescription("Fetch and update")
-                                                                                                            .setStatus("started");
+                                                                                                            .setStatus("Started");
         final boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
                                                      .getType()
                                                      .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
@@ -774,6 +774,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
                                 if((i % 1000) == 0) {
+                                    logger.info(i + " entries copied from node " + nodeId
+                                                + " for store " + storeName);
                                     updateStatus(i + " entries copied from node " + nodeId
                                                  + " for store " + storeName);
                                 }
@@ -866,6 +868,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     }
                 }
             }
+
+            logger.info("Completed deletion of entries for RW store " + storeName + " from node "
+                        + metadataStore.getNodeId() + " ( " + replicaToPartitionList + " )");
 
             response.setCount(deleteSuccess);
         } catch(VoldemortException e) {

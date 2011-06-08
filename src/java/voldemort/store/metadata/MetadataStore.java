@@ -339,6 +339,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         if(metadataCache.containsKey(ROUTING_STRATEGY_KEY))
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
+        logger.info("Updating routing strategy for all stores");
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
                                                                                        storeDefs);
         this.metadataCache.put(ROUTING_STRATEGY_KEY,
@@ -381,7 +382,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             if(!rebalancerState.update(stealInfo)) {
                 throw new VoldemortException("Could not add steal information " + stealInfo
                                              + " since a plan for the same donor node "
-                                             + stealInfo.getDonorId() + " already exists");
+                                             + stealInfo.getDonorId() + " ( "
+                                             + rebalancerState.find(stealInfo.getDonorId())
+                                             + " ) already exists");
             }
             put(MetadataStore.REBALANCING_STEAL_INFO, rebalancerState);
             initCache(REBALANCING_STEAL_INFO);

@@ -415,7 +415,7 @@ public class StorageService extends AbstractService {
                 }
             }
 
-            if(voldemortConfig.isMetadataCheckingEnabled())
+            if(voldemortConfig.isMetadataCheckingEnabled() && !isMetadata)
                 store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
         }
 
