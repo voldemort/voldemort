@@ -73,6 +73,12 @@ public class RebalanceCLI {
                            "Do not delete after rebalancing (Valid only for RW Stores) ");
             parser.accepts("show-plan",
                            "Shows the rebalancing plan only without executing the rebalance");
+            parser.accepts("keys",
+                           "The number of keys to use for entropy calculation [ Default : "
+                                   + Entropy.DEFAULT_NUM_KEYS + " ]")
+                  .withRequiredArg()
+                  .ofType(Long.class)
+                  .describedAs("num-keys");
 
             OptionSet options = parser.parse(args);
 
@@ -141,7 +147,8 @@ public class RebalanceCLI {
                     }
 
                     boolean entropy = (Boolean) options.valueOf("entropy");
-                    Entropy generator = new Entropy(0, parallelism, 10000);
+                    long numKeys = CmdUtils.valueOf(options, "keys", Entropy.DEFAULT_NUM_KEYS);
+                    Entropy generator = new Entropy(-1, parallelism, numKeys);
                     generator.generateEntropy(currentCluster,
                                               storeDefs,
                                               new File(config.getOutputDirectory()),
@@ -214,6 +221,7 @@ public class RebalanceCLI {
         stream.println("a) --current-cluster <path> --current-stores <path> --entropy <true / false> --output-dir <path> [ Runs the entropy calculator if "
                        + "--entropy is true. Else dumps keys to the directory ]");
         stream.println("\t (i) --parallelism [ Parallelism during fetching keys for entropy calculation ]");
+        stream.println("\t (ii) --keys [ Number of keys ( per store ) we calculate entropy for ]");
         parser.printHelpOn(stream);
     }
 }

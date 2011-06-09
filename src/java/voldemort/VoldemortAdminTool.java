@@ -1005,8 +1005,10 @@ public class VoldemortAdminTool {
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
         CompressionStrategy keysCompressionStrategy = null;
+        FileWriter fileWriter = null;
         if(outputFile != null) {
-            writer = new BufferedWriter(new FileWriter(outputFile));
+            fileWriter = new FileWriter(outputFile);
+            writer = new BufferedWriter(fileWriter);
         } else {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
         }
@@ -1037,6 +1039,9 @@ public class VoldemortAdminTool {
             }
             writer.write('\n');
         } finally {
+            if(fileWriter != null) {
+                fileWriter.close();
+            }
             writer.close();
         }
     }
@@ -1044,8 +1049,10 @@ public class VoldemortAdminTool {
     private static void writeKeysBinary(Iterator<ByteArray> keyIterator, File outputFile)
             throws IOException {
         DataOutputStream dos = null;
+        FileOutputStream outputStream = null;
         if(outputFile != null) {
-            dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            outputStream = new FileOutputStream(outputFile);
+            dos = new DataOutputStream(new BufferedOutputStream(outputStream));
         } else {
             dos = new DataOutputStream(new BufferedOutputStream(System.out));
         }
@@ -1057,6 +1064,9 @@ public class VoldemortAdminTool {
                 dos.write(keyBytes);
             }
         } finally {
+            if(outputStream != null) {
+                outputStream.close();
+            }
             dos.close();
         }
     }
