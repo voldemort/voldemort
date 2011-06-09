@@ -1,12 +1,12 @@
 <cluster>
-  <name>mycluster</name>
+  <name>prodcluster</name>
   <server>
     <id>0</id>
     <host>localhost</host>
     <http-port>8081</http-port>
     <socket-port>6666</socket-port>
     <admin-port>6667</admin-port>
-    <partitions>0, 1, 2</partitions>
+    <partitions>0, 1, 2, 3, 9, 10, 12, 16, 20, 23, 24, 32, 34, 35, 41, 46, 47, 49, 51, 53, 54, 62, 67, 68, 69, 70, 71, 74, 76, 80, 84, 93, 94, 98</partitions>
   </server>
   <server>
     <id>1</id>
@@ -14,7 +14,7 @@
     <http-port>8082</http-port>
     <socket-port>6668</socket-port>
     <admin-port>6669</admin-port>
-    <partitions>3</partitions>
+    <partitions>6, 7, 8, 15, 19, 27, 29, 33, 36, 37, 38, 39, 42, 43, 45, 55, 56, 59, 61, 65, 66, 72, 73, 75, 77, 78, 79, 83, 85, 86, 90, 91, 92, 99</partitions>
   </server>
   <server>
     <id>2</id>
@@ -22,6 +22,6 @@
     <http-port>8083</http-port>
     <socket-port>6670</socket-port>
     <admin-port>6671</admin-port>
-    <partitions />
+    <partitions>4, 5, 11, 13, 14, 17, 18, 21, 22, 25, 26, 28, 30, 31, 40, 44, 48, 50, 52, 57, 58, 60, 63, 64, 81, 82, 87, 88, 89, 95, 96, 97</partitions>
   </server>
 </cluster>

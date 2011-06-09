@@ -317,6 +317,9 @@ public class VoldemortAdminTool {
                 executeDeleteStore(adminClient, storeName);
             }
             if(ops.contains("g")) {
+                if(options.has("outdir")) {
+                    outputDir = (String) options.valueOf("outdir");
+                }
                 String metadataKey = (String) options.valueOf("get-metadata");
                 executeGetMetadata(nodeId, adminClient, metadataKey, outputDir);
             }
@@ -617,11 +620,10 @@ public class VoldemortAdminTool {
 
     }
 
-    private static void executeGetMetadata(Integer nodeId,
-                                           AdminClient adminClient,
-                                           String metadataKey,
-                                           String outputDir) throws IOException {
-
+    public static void executeGetMetadata(Integer nodeId,
+                                          AdminClient adminClient,
+                                          String metadataKey,
+                                          String outputDir) throws IOException {
         File directory = null;
         if(outputDir != null) {
             directory = new File(outputDir);
@@ -654,13 +656,14 @@ public class VoldemortAdminTool {
                 System.out.println();
                 continue;
             }
+
             if(versioned == null) {
                 if(directory == null) {
                     System.out.println("null");
                     System.out.println();
                 } else {
-                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
-                                                "");
+                    FileUtils.writeStringToFile(new File(directory, metadataKey + "."
+                                                                    + currentNodeId), "");
                 }
             } else {
                 if(directory == null) {
@@ -669,7 +672,8 @@ public class VoldemortAdminTool {
                     System.out.println(versioned.getValue());
                     System.out.println();
                 } else {
-                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
+                    FileUtils.writeStringToFile(new File(directory, metadataKey + "."
+                                                                    + currentNodeId),
                                                 versioned.getValue());
                 }
             }

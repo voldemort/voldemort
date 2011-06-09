@@ -175,7 +175,7 @@ public class RebalanceCLI {
 
             exitCode = SUCCESS_EXIT_CODE;
             if(logger.isInfoEnabled()) {
-                logger.info("Successfully terminated rebalance");
+                logger.info("Successfully terminated rebalance all tasks");
             }
 
         } catch(VoldemortException e) {

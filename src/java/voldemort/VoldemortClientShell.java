@@ -124,7 +124,7 @@ public class VoldemortClientShell {
             System.out.println("Established connection to " + storeName + " via " + bootstrapUrl);
             System.out.print(PROMPT);
             if(fileReader != null) {
-                processCommands(factory, adminClient, fileReader, true);
+                processCommands(factory, adminClient, fileReader, false);
                 fileReader.close();
             }
             processCommands(factory, adminClient, inputReader, false);
