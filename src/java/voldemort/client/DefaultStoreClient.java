@@ -84,7 +84,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
-        logger.info("bootstrapping metadata for store " + this.storeName);
+        logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
@@ -100,6 +100,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 return store.delete(key, version);
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during delete [  "
+                            + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -129,6 +131,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 List<Versioned<V>> items = store.get(key, null);
                 return getItemOrThrow(key, defaultValue, items);
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during get [  " + e.getMessage()
+                            + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -142,6 +146,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 List<Versioned<V>> items = store.get(key, transform);
                 return getItemOrThrow(key, defaultValue, items);
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during get [  " + e.getMessage()
+                            + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -154,6 +160,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             try {
                 return store.getVersions(key);
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during getVersions [  "
+                            + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -185,6 +193,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 items = store.getAll(keys, null);
                 break;
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during getAll [  "
+                            + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -221,6 +231,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 store.put(key, versioned, transform);
                 return versioned.getVersion();
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during put [  " + e.getMessage()
+                            + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -244,6 +256,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 store.put(key, versioned, null);
                 return versioned.getVersion();
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during put [  " + e.getMessage()
+                            + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }
@@ -310,6 +324,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 items = store.getAll(keys, transforms);
                 break;
             } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during getAll [  "
+                            + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
                 bootStrap();
             }
         }

@@ -28,6 +28,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
@@ -111,8 +112,16 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                     // Note errors that come in after the pipeline has finished.
                     // These will *not* get a chance to be called in the loop of
                     // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
-                        handleResponseError(response, pipeline, failureDetector);
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception) {
+                        if(response.getValue() instanceof InvalidMetadataException) {
+                            logger.warn("Received invalid metadata problem after a successful "
+                                        + pipeline.getOperation().getSimpleName()
+                                        + " call on node " + node.getId() + ", store '"
+                                        + pipelineData.getStoreName() + "'");
+                        } else {
+                            handleResponseError(response, pipeline, failureDetector);
+                        }
+                    }
                 }
 
             };

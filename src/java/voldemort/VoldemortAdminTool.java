@@ -108,12 +108,12 @@ public class VoldemortAdminTool {
               .ofType(Integer.class);
         parser.accepts("ascii", "Fetch keys as ASCII");
         parser.accepts("fetch-keys", "Fetch keys")
-              .withRequiredArg()
+              .withOptionalArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("fetch-entries", "Fetch full entries")
-              .withRequiredArg()
+              .withOptionalArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
@@ -286,7 +286,9 @@ public class VoldemortAdminTool {
             if(ops.contains("k")) {
                 boolean useAscii = options.has("ascii");
                 System.out.println("Starting fetch keys");
-                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
+                List<Integer> partitionIdList = null;
+                if(options.hasArgument("fetch-keys"))
+                    partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
                 executeFetchKeys(nodeId,
                                  adminClient,
                                  partitionIdList,
@@ -296,7 +298,10 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("v")) {
                 boolean useAscii = options.has("ascii");
-                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-entries");
+                System.out.println("Starting fetch entries");
+                List<Integer> partitionIdList = null;
+                if(options.hasArgument("fetch-entries"))
+                    partitionIdList = (List<Integer>) options.valuesOf("fetch-entries");
                 executeFetchEntries(nodeId,
                                     adminClient,
                                     partitionIdList,
@@ -314,7 +319,7 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("s")) {
                 String storeName = (String) options.valueOf("delete-store");
-                executeDeleteStore(adminClient, storeName);
+                executeDeleteStore(adminClient, storeName, nodeId);
             }
             if(ops.contains("g")) {
                 if(options.has("outdir")) {
@@ -416,17 +421,19 @@ public class VoldemortAdminTool {
         stream.println("ADD / DELETE STORES");
         stream.println("\t1) Add store(s) on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url]");
-        stream.println("\t2) Add store(s) on single node");
+        stream.println("\t2) Add store(s) on a single node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url] --node [node-id]");
         stream.println("\t3) Delete store on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]");
-        stream.println("\t4) Delete the contents of the store on all nodes");
+        stream.println("\t4) Delete store on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url] --node [node-id]");
+        stream.println("\t5) Delete the contents of the store on all nodes");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]");
-        stream.println("\t5) Delete the contents of the store on a single node");
+        stream.println("\t6) Delete the contents of the store on a single node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node [node-id]");
-        stream.println("\t6) Delete the contents of some partitions on a single node");
+        stream.println("\t7) Delete the contents of some partitions on a single node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id]");
-        stream.println("\t7) Delete the contents of some partitions ( of some stores ) on a single node");
+        stream.println("\t8) Delete the contents of some partitions ( of some stores ) on a single node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println();
         stream.println("STREAM DATA");
@@ -442,7 +449,11 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --outdir [directory]");
         stream.println("\t6) Fetch entries from a set of partitions and some stores on a node ( ascii enabled )");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --stores [comma-separated list of store names] ");
-        stream.println("\t7) Update entries for a set of stores using the output from a binary dump fetch entries");
+        stream.println("\t7) Fetch all keys on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys --url [url] --node [node-id]");
+        stream.println("\t8) Fetch all entries on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id]");
+        stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println();
         stream.println("READ-ONLY OPERATIONS");
@@ -680,9 +691,14 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static void executeDeleteStore(AdminClient adminClient, String storeName) {
+    private static void executeDeleteStore(AdminClient adminClient, String storeName, int nodeId) {
         System.out.println("Deleting " + storeName);
-        adminClient.deleteStore(storeName);
+        if(nodeId == -1) {
+            adminClient.deleteStore(storeName);
+        } else {
+            adminClient.deleteStore(storeName, nodeId);
+        }
+
     }
 
     private static void executeTruncateStore(int nodeId, AdminClient adminClient, String storeName) {
@@ -738,6 +754,14 @@ public class VoldemortAdminTool {
         if(stores == null) {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
+        }
+
+        // Pick up all the partitions
+        if(partitionIdList == null) {
+            partitionIdList = Lists.newArrayList();
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                partitionIdList.addAll(node.getPartitionIds());
+            }
         }
 
         StoreDefinition storeDefinition = null;
@@ -971,6 +995,14 @@ public class VoldemortAdminTool {
             stores.addAll(storeDefinitionMap.keySet());
         }
 
+        // Pick up all the partitions
+        if(partitionIdList == null) {
+            partitionIdList = Lists.newArrayList();
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                partitionIdList.addAll(node.getPartitionIds());
+            }
+        }
+
         StoreDefinition storeDefinition = null;
         for(String store: stores) {
             storeDefinition = storeDefinitionMap.get(store);
@@ -1009,8 +1041,10 @@ public class VoldemortAdminTool {
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
         CompressionStrategy keysCompressionStrategy = null;
+        FileWriter fileWriter = null;
         if(outputFile != null) {
-            writer = new BufferedWriter(new FileWriter(outputFile));
+            fileWriter = new FileWriter(outputFile);
+            writer = new BufferedWriter(fileWriter);
         } else {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
         }
@@ -1041,6 +1075,9 @@ public class VoldemortAdminTool {
             }
             writer.write('\n');
         } finally {
+            if(fileWriter != null) {
+                fileWriter.close();
+            }
             writer.close();
         }
     }
@@ -1048,8 +1085,10 @@ public class VoldemortAdminTool {
     private static void writeKeysBinary(Iterator<ByteArray> keyIterator, File outputFile)
             throws IOException {
         DataOutputStream dos = null;
+        FileOutputStream outputStream = null;
         if(outputFile != null) {
-            dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            outputStream = new FileOutputStream(outputFile);
+            dos = new DataOutputStream(new BufferedOutputStream(outputStream));
         } else {
             dos = new DataOutputStream(new BufferedOutputStream(System.out));
         }
@@ -1061,6 +1100,9 @@ public class VoldemortAdminTool {
                 dos.write(keyBytes);
             }
         } finally {
+            if(outputStream != null) {
+                outputStream.close();
+            }
             dos.close();
         }
     }

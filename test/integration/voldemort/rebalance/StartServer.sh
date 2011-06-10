@@ -19,3 +19,4 @@ fi
 cd $VLDMDIR
 $remote_call "cd $VLDMDIR; bin/voldemort-server.sh $CONFIGFILE > $LOGDIR/$LOGFILE" &
 bash -x $WORKDIR/WaitforOutput.sh "$terminal_string" $LOGDIR/$LOGFILE
+cd $WORKDIR

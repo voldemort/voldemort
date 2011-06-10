@@ -979,17 +979,23 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 if(storeDef.getViewTargetStoreName().compareTo(storeName) != 0) {
                                     newStoreDefList.add(storeDef);
                                 } else {
+                                    logger.info("Deleting view '" + storeDef.getName() + "'");
                                     storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
                                                                     isReadOnly,
                                                                     storeDef.getType());
+                                    logger.info("Successfully deleted view '" + storeDef.getName()
+                                                + "'");
                                 }
                             } else {
                                 if(storeDef.getName().compareTo(storeName) != 0) {
                                     newStoreDefList.add(storeDef);
                                 } else {
+                                    logger.info("Deleting store '" + storeDef.getName() + "'");
                                     storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
                                                                     isReadOnly,
                                                                     storeDef.getType());
+                                    logger.info("Successfully deleted store '" + storeDef.getName()
+                                                + "'");
                                 }
                             }
                         }
@@ -1037,6 +1043,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 // ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
+                    logger.info("Adding new store '" + def.getName() + "'");
                     // open the store
                     storageService.openStore(def);
 
@@ -1058,7 +1065,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     } catch(Exception e) {
                         throw new VoldemortException(e);
                     }
+                    logger.info("Successfully added new store '" + def.getName() + "'");
                 } else {
+                    logger.error("Failure to add a store with the same name '" + def.getName()
+                                 + "'");
                     throw new StoreOperationFailureException(String.format("Store '%s' already exists on this server",
                                                                            def.getName()));
                 }

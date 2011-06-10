@@ -111,7 +111,8 @@ public abstract class SelectorManagerWorker implements Runnable {
         } catch(EOFException e) {
             close();
         } catch(IOException e) {
-            logger.info(e.getMessage());
+            logger.info("Connection reset from " + socketChannel.socket() + " with message - "
+                        + e.getMessage());
             close();
         } catch(Throwable t) {
             if(logger.isEnabledFor(Level.ERROR))

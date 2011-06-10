@@ -154,9 +154,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            if(logger.isDebugEnabled())
-                logger.debug("updateEntries() updated " + counter + " entries for store:"
-                             + storageEngine.getName() + " in " + totalTime + " s");
+            logger.info("Update entries updated " + counter + " entries for store '"
+                        + storageEngine.getName() + "' in " + totalTime + " s");
         }
 
         request = null;

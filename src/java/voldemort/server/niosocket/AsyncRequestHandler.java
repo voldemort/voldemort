@@ -147,8 +147,10 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
                                  + outputStream.getBuffer().remaining() + " for "
                                  + socketChannel.socket());
             } catch(IOException e) {
-                streamRequestHandler.close(new DataOutputStream(outputStream));
-                streamRequestHandler = null;
+                if(streamRequestHandler != null) {
+                    streamRequestHandler.close(new DataOutputStream(outputStream));
+                    streamRequestHandler = null;
+                }
 
                 throw e;
             }

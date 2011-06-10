@@ -11,20 +11,20 @@ servers[0]="$SERVSTRING"1
 servers[1]="$SERVSTRING"2
 servers[2]="$SERVSTRING"3
 
-# sleep for 10-40 seconds
-SLEEP_RANGE=30
-let "stime=($RANDOM%$SLEEP_RANGE) + 10"
+# sleep for 1-10 seconds
+SLEEP_RANGE=10
+let "stime=($RANDOM%$SLEEP_RANGE) + 1"
 echo sleeping for $stime seconds...
-sleep stime
+sleep $stime
 
-read -p "Press any key to continue..."
+# read -p "Press any key to continue..."
 
 # grep for completion string in the output   
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
 if [ "$?" -eq 0 ]
 then
   echo rebalancing finished!!!!!!
-  exit 0
+  exit 9 
 fi
 
 # randomly choose servers to kill
@@ -66,7 +66,11 @@ for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
   echo checking for server state
   bash -x $WORKDIR/CheckAndRestoreMetadata.sh $tokill
   # exit if validation check failed
-  [ "$?" -ne "0" ] && exit "$?"
+  if [ "$?" -ne "0" ]
+  then
+    echo "Metadata validation failed! Check files in $TMPCLUSTER for details!"
+    exit "$?"
+  fi
 
   echo resume killed server...
   if [[ "${kill_or_suspend_array[$i]}" == "kill" ]]; then
