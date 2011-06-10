@@ -42,7 +42,7 @@ kill_or_suspend_array=(`python -c "import random; print ' '.join([random.choice(
 to_kill_pids=()
 
 for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
-  to_kill=${tokill_array[$i]}
+  tokill=${tokill_array[$i]}
   pid_to_kill=`ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
   to_kill_pids[$i]=$pid_to_kill
   if [[ "${kill_or_suspend_array[$i]}" == "kill" ]]
@@ -62,7 +62,7 @@ $WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
 
 # restore metadata on killed servers so we can continue
 for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
-  to_kill=${tokill_array[$i]}
+  tokill=${tokill_array[$i]}
   pid_to_kill=${to_kill_pids[$i]}
   # check for rollbacked state on good servers and clear
   # their rebalancing state if the check passes.
