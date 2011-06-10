@@ -98,11 +98,10 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            if(logger.isDebugEnabled())
-                logger.debug("fetchEntries() scanned " + counter + " entries, fetched " + fetched
-                             + " entries for store:" + storageEngine.getName()
-                             + " replicaToPartitionList:" + replicaToPartitionList + " in "
-                             + totalTime + " s");
+            logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched
+                        + " entries for store '" + storageEngine.getName()
+                        + "' replicaToPartitionList:" + replicaToPartitionList + " in " + totalTime
+                        + " s");
         }
 
         if(keyIterator.hasNext())

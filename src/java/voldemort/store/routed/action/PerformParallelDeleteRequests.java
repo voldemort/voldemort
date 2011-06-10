@@ -14,6 +14,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
@@ -125,7 +126,14 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                     // responses below.
                     if(pipeline.isFinished() && response.getValue() instanceof Exception
                        && !(response.getValue() instanceof ObsoleteVersionException)) {
-                        handleResponseError(response, pipeline, failureDetector);
+                        if(response.getValue() instanceof InvalidMetadataException) {
+                            logger.warn("Received invalid metadata problem after a successful "
+                                        + pipeline.getOperation().getSimpleName()
+                                        + " call on node " + node.getId() + ", store '"
+                                        + pipelineData.getStoreName() + "'");
+                        } else {
+                            handleResponseError(response, pipeline, failureDetector);
+                        }
                     }
                 }
             };
