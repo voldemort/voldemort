@@ -30,11 +30,25 @@ fi
 # randomly choose servers to kill
 # TODO: kill more than one server
 NUM_SERVERS=3
-let "tokill=($RANDOM%$NUM_SERVERS)"
-echo killing servers ${servers[$tokill]}
+NUMS_TO_KILL_OR_SUSPEND=$(($RANDOM%$NUM_SERVERS+1))
+tokill_array=(`python -c "import random; print ' '.join([str(x) for x in random.sample(range(${NUM_SERVERS}),${NUMS_TO_KILL_OR_SUSPEND})])"`)
+kill_or_suspend_array=(`python -c "import random; print ' '.join([random.choice(['kill','suspend']) for i in range(${NUMS_TO_KILL_OR_SUSPEND})])"`)
 
-kill `ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
+for ((tokill=0; tokill < ${NUMS_TO_KILL_OR_SUSPEND} ; tokill++)); do
+  if [ "${kill_or_suspend_array[$tokill]}" = "kill" ]
+    pid_to_kill=`ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
+  then
+    echo killing servers ${servers[$tokill]}
+    kill $pid_to_kill
+  else
+    echo suspending servers ${servers[$tokill]}
+    kill -STOP $pid_to_kill
+    sleep 10
+    kill -CONT $pid_to_kill
+  fi
+done
 
+# TODO: What to do here if there are no kill?
 # wait for rebalancing to terminate
 echo waiting for rebalancing process to terminate...
 $WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
