@@ -11,7 +11,7 @@ then
   exit -1 
 fi
 
-gen.sh $1 $2 | awk '{print $0 "\""}' > $work_dir/workload.txt
+$work_dir/DataGen.sh $1 $2 | awk '{print $0 "\""}' > $work_dir/workload.txt
 echo "exit" >> $work_dir/workload.txt
 cd $vldm_dir
 bin/voldemort-shell.sh test tcp://localhost:6667 $work_dir/workload.txt
