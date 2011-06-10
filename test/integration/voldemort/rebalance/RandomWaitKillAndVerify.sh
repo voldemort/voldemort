@@ -31,7 +31,7 @@ NUM_SERVERS=3
 let "tokill=($RANDOM%$NUM_SERVERS)"
 echo killing servers ${servers[$tokill]}
 
-kill -9 `ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
+kill `ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
 
 # wait for rebalancing to terminate
 echo waiting for rebalancing process to terminate...
@@ -41,8 +41,19 @@ $WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
 # their rebalancing state if the check passes.
 echo checking for server state
 bash -x $WORKDIR/CheckAndRestoreMetadata.sh $tokill
+# exit if validation check failed
+if [ "$?" -ne "0" ]
+then
+  exit "$?"
+fi
 
 # restore metadata on killed servers so we can continue
 echo resume killed server...
 bash -x $WORKDIR/StartServer.sh $tokill
 bash -x $WORKDIR/RestoreMetadata.sh $tokill
+let EXITCODE="$?"
+if [ "$EXITCODE" -ne "0" ]
+then
+  echo "Data validation failed! Check $LOGDIR/$LOGFILE for details!"
+  exit $EXITCODE
+fi

@@ -12,4 +12,9 @@ fi
 
 $WORKDIR/RestoreMetadata.sh 0
 $WORKDIR/RestoreMetadata.sh 1
-$WORKDIR/RestoreMetadata.sh 2
+
+if [ "$1" = "all" ]
+then 
+  $WORKDIR/RestoreMetadata.sh 2  
+fi
+
