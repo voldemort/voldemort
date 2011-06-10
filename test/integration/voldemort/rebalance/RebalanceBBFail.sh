@@ -7,6 +7,11 @@ ENDMETADATA=end-cluster.xml
 TERMSTRING="Successfully terminated rebalance all tasks"
 CLUSTERGENLOG=cluster_gen.log
 
+rm -rf $LOGDIR
+rm -rf $TMPCLUSTER
+mkdir $LOGDIR
+mkdir $TMPCLUSTER
+
 # restore the config
 rm -rf $TESTCFG_DIR
 cp -rf $ORIGCFG_DIR $TESTCFG_DIR
@@ -19,7 +24,7 @@ fi
 
 # restore servers to their initial state
 echo Restore server initial state
-RestoreServers.sh
+$WORKDIR/RestoreServers.sh
 
 # generate the target cluster.xml
 echo Generate target cluster.xml
@@ -43,7 +48,7 @@ fi
 # restore keys for validation check if required
 bash -x RestoreKeys.sh
 
-read -p "Press any key to continue..."
+# read -p "Press any key to continue..."
 
 echo starting rebalance
 LOGFILE=rebalance.log.`date +%H%M%S`
@@ -56,7 +61,7 @@ do
   # If rebalance finishes, exit
   $WORKDIR/RandomWaitKillAndVerify.sh $LOGFILE
   let EXITCODE="$?"
-  if [ "$EXITCODE" -eq "-99" ]
+  if [ "$EXITCODE" -eq "9" ]
   then
     # all done, exit
     exit 0

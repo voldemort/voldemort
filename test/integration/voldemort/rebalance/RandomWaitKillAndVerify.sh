@@ -24,7 +24,7 @@ grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
 if [ "$?" -eq 0 ]
 then
   echo rebalancing finished!!!!!!
-  exit -99
+  exit 9 
 fi
 
 # randomly choose servers to kill
@@ -46,6 +46,7 @@ bash -x $WORKDIR/CheckAndRestoreMetadata.sh $tokill
 # exit if validation check failed
 if [ "$?" -ne "0" ]
 then
+  echo "Metadata validation failed! Check files in $TMPCLUSTER for details!"
   exit "$?"
 fi
 
