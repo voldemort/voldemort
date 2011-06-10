@@ -1445,15 +1445,8 @@ public class AdminClient {
      * @param def the definition of the store to add
      */
     public void addStore(StoreDefinition def) {
-        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
         for(Node node: currentCluster.getNodes()) {
-            logger.info("Adding on node " + node.getHost() + ":" + node.getId());
-            VAdminProto.AddStoreResponse.Builder response = sendAndReceive(node.getId(),
-                                                                           request,
-                                                                           VAdminProto.AddStoreResponse.newBuilder());
-            if(response.hasError())
-                throwException(response.getError());
-            logger.info("Successfully added on node " + node.getHost() + ":" + node.getId());
+            addStore(def, node.getId());
         }
     }
 
@@ -1465,28 +1458,28 @@ public class AdminClient {
      * @param nodeId Node on which to add the store
      */
     public void addStore(StoreDefinition def, int nodeId) {
-        VAdminProto.VoldemortAdminRequest request = createAddStoreRequest(def);
+        String value = storeMapper.writeStore(def);
+
+        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
+                                                                                         .setStoreDefinition(value);
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                     .setType(VAdminProto.AdminRequestType.ADD_STORE)
+                                                                                     .setAddStore(addStoreRequest)
+                                                                                     .build();
+
         Node node = currentCluster.getNodeById(nodeId);
         if(null == node)
             throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
-        logger.info("Adding on node " + node.getHost() + ":" + node.getId());
+
+        logger.info("Adding store " + def.getName() + " on node " + node.getHost() + ":"
+                    + node.getId());
         VAdminProto.AddStoreResponse.Builder response = sendAndReceive(nodeId,
                                                                        request,
                                                                        VAdminProto.AddStoreResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
-        logger.info("Succesfully added on node " + node.getHost() + ": " + node.getId());
-    }
-
-    private VAdminProto.VoldemortAdminRequest createAddStoreRequest(StoreDefinition def) {
-        String value = storeMapper.writeStore(def);
-
-        VAdminProto.AddStoreRequest.Builder addStoreRequest = VAdminProto.AddStoreRequest.newBuilder()
-                                                                                         .setStoreDefinition(value);
-        return VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                .setType(VAdminProto.AdminRequestType.ADD_STORE)
-                                                .setAddStore(addStoreRequest)
-                                                .build();
+        logger.info("Succesfully added " + def.getName() + " on node " + node.getHost() + ":"
+                    + node.getId());
     }
 
     /**
@@ -1496,21 +1489,37 @@ public class AdminClient {
      * @param storeName name of the store to delete
      */
     public void deleteStore(String storeName) {
+        for(Node node: currentCluster.getNodes()) {
+            deleteStore(storeName, node.getId());
+        }
+    }
+
+    /**
+     * Delete a store from a particular node
+     * <p>
+     * 
+     * @param storeName name of the store to delete
+     * @param nodeId Node on which we want to delete a store
+     */
+    public void deleteStore(String storeName, int nodeId) {
         VAdminProto.DeleteStoreRequest.Builder deleteStoreRequest = VAdminProto.DeleteStoreRequest.newBuilder()
                                                                                                   .setStoreName(storeName);
         VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                      .setType(VAdminProto.AdminRequestType.DELETE_STORE)
                                                                                      .setDeleteStore(deleteStoreRequest)
                                                                                      .build();
-        for(Node node: currentCluster.getNodes()) {
-            logger.info("Deleting on node " + node.getHost() + ":" + node.getId());
-            VAdminProto.DeleteStoreResponse.Builder response = sendAndReceive(node.getId(),
-                                                                              request,
-                                                                              VAdminProto.DeleteStoreResponse.newBuilder());
-            if(response.hasError())
-                throwException(response.getError());
-            logger.info("Successfully deleted on node " + node.getHost() + ":" + node.getId());
-        }
+        Node node = currentCluster.getNodeById(nodeId);
+        if(null == node)
+            throw new VoldemortException("Invalid node id (" + nodeId + ") specified");
+
+        logger.info("Deleting " + storeName + " on node " + node.getHost() + ":" + node.getId());
+        VAdminProto.DeleteStoreResponse.Builder response = sendAndReceive(node.getId(),
+                                                                          request,
+                                                                          VAdminProto.DeleteStoreResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+        logger.info("Successfully deleted " + storeName + " on node " + node.getHost() + ":"
+                    + node.getId());
     }
 
     /**

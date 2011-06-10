@@ -36,6 +36,27 @@ public class Entropy {
     private int nodeId;
     private long numKeys;
 
+    public static long DEFAULT_NUM_KEYS = 1000;
+
+    /**
+     * Entropy constructor. Uses DEFAULT_NUM_KEYS number of keys
+     * 
+     * @param nodeId Node id. If -1, goes over all of them
+     * @param numThreads Number of threads
+     */
+    public Entropy(int nodeId, int numThreads) {
+        this.numThreads = numThreads;
+        this.nodeId = nodeId;
+        this.numKeys = DEFAULT_NUM_KEYS;
+    }
+
+    /**
+     * Entropy constructor
+     * 
+     * @param nodeId Node id. If -1, goes over all of them
+     * @param numThreads Number of threads
+     * @param numKeys Number of keys
+     */
     public Entropy(int nodeId, int numThreads, long numKeys) {
         this.numThreads = numThreads;
         this.nodeId = nodeId;
@@ -166,16 +187,36 @@ public class Entropy {
                     FileOutputStream writer = null;
                     try {
                         writer = new FileOutputStream(storesKeyFile);
-                        Iterator<ByteArray> keys = adminClient.fetchKeys(nodeId,
-                                                                         storeDef.getName(),
-                                                                         cluster.getNodeById(0)
-                                                                                .getPartitionIds(),
-                                                                         null,
-                                                                         false);
-                        for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
-                            ByteArray key = keys.next();
-                            writer.write(key.length());
-                            writer.write(key.get());
+                        Iterator<ByteArray> keys = null;
+                        if(nodeId == -1) {
+
+                            int numKeysPerNode = (int) Math.floor(numKeys
+                                                                  / cluster.getNumberOfNodes());
+                            for(Node node: cluster.getNodes()) {
+                                keys = adminClient.fetchKeys(node.getId(),
+                                                             storeDef.getName(),
+                                                             cluster.getNodeById(node.getId())
+                                                                    .getPartitionIds(),
+                                                             null,
+                                                             false);
+                                for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
+                                    ByteArray key = keys.next();
+                                    writer.write(key.length());
+                                    writer.write(key.get());
+                                }
+                            }
+                        } else {
+                            keys = adminClient.fetchKeys(nodeId,
+                                                         storeDef.getName(),
+                                                         cluster.getNodeById(nodeId)
+                                                                .getPartitionIds(),
+                                                         null,
+                                                         false);
+                            for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
+                                ByteArray key = keys.next();
+                                writer.write(key.length());
+                                writer.write(key.get());
+                            }
                         }
 
                     } finally {

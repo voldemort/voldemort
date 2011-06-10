@@ -73,11 +73,10 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            if(logger.isDebugEnabled())
-                logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
-                             + " keys for store:" + storageEngine.getName()
-                             + " replicaToPartitionList:" + replicaToPartitionList + " in "
-                             + totalTime + " s");
+            logger.info("Fetch keys scanned " + counter + " keys, fetched " + fetched
+                        + " keys for store '" + storageEngine.getName()
+                        + "' replicaToPartitionList:" + replicaToPartitionList + " in " + totalTime
+                        + " s");
         }
 
         if(keyIterator.hasNext())

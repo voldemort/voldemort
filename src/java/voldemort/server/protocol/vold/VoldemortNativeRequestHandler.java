@@ -107,7 +107,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             results = store.getVersions(key);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage());
             writeException(outputStream, e);
             return;
         }
@@ -281,7 +281,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             results = store.get(key, transforms);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
-            e.printStackTrace();
+            logger.error(e.getMessage());
             writeException(outputStream, e);
             return;
         }
@@ -314,6 +314,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             results = store.getAll(keys, transforms);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
+            logger.error(e.getMessage());
             writeException(outputStream, e);
             return;
         }
