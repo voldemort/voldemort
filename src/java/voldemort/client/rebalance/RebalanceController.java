@@ -172,15 +172,14 @@ public class RebalanceController {
 
         // Start dry run
         for(Node stealerNode: targetCluster.getNodes()) {
-            List<Integer> stolenPrimaryPartitions = RebalanceUtils.getStolenPrimaryPartitions(currentClusterClone,
+            List<Integer> stolenPrimaryPartitions = RebalanceUtils.getStolenPrimaryPartitions(currentCluster,
                                                                                               targetCluster,
                                                                                               stealerNode.getId());
-            if(stolenPrimaryPartitions != null && stolenPrimaryPartitions.size() > 0) {
+            numPrimaryPartitionMoves += stolenPrimaryPartitions.size();
+            stealerToStolenPrimaryPartitions.put(stealerNode, stolenPrimaryPartitions);
 
-                // Put into a map to use later
-                stealerToStolenPrimaryPartitions.put(stealerNode, stolenPrimaryPartitions);
+            if(stolenPrimaryPartitions.size() > 0) {
 
-                numPrimaryPartitionMoves += stolenPrimaryPartitions.size();
                 Node stealerNodeUpdated = currentClusterClone.getNodeById(stealerNode.getId());
 
                 for(Integer donatedPrimaryPartition: stolenPrimaryPartitions) {
