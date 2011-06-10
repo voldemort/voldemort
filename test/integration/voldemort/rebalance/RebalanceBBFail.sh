@@ -1,15 +1,8 @@
 #!/bin/bash
 
-EXPECTED_ARGS=1
-
-if [ $# -gt $EXPECTED_ARGS ]
-then
-  echo "Usage: $0 [RESTOREKEY]"
-  exit -1
-fi
-
 source setup_env.inc
 LOGDIR=$WORKDIR/log
+DATADIR=$WORKDIR/data
 ENDMETADATA=end-cluster.xml
 TERMSTRING="Successfully terminated rebalance all tasks"
 CLUSTERGENLOG=cluster_gen.log
@@ -19,6 +12,11 @@ rm -rf $TESTCFG_DIR
 cp -rf $ORIGCFG_DIR $TESTCFG_DIR
 for i in 1 2 3; do mkdir -p $TESTCFG_PREFIX$i/config; done
 
+if [ $1 = "reload" ]
+then
+  for i in 1 2 3; do rm -rf $TESTCFG_PREFIX$i/data/*; done
+fi
+
 # restore servers to their initial state
 echo Restore server initial state
 RestoreServers.sh
@@ -27,6 +25,7 @@ RestoreServers.sh
 echo Generate target cluster.xml
 cd $VLDMDIR
 bin/voldemort-rebalance.sh --current-cluster ${TESTCFG_PREFIX}1/config/cluster.xml --current-stores ${TESTCFG_PREFIX}1/config/stores.xml --target-cluster ${TESTCFG_PREFIX}3/config/cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
+cd $WORKDIR
 
 # save the end-cluster.xml
 cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA
@@ -35,11 +34,16 @@ cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA
 echo Start all servers
 $WORKDIR/BootstrapAll.sh all
 
-# restore keys for validation check if required
-if [ $1 = "RESTOREKEYS" ]
+if [ $1 = "reload" ]
 then
-  bash -x RestoreKeys.sh
+  # populate workload
+  $WORKDIR/initWorkloadGen.sh $2 $3
 fi
+
+# restore keys for validation check if required
+bash -x RestoreKeys.sh
+
+read -p "Press any key to continue..."
 
 echo starting rebalance
 LOGFILE=rebalance.log.`date +%H%M%S`
@@ -52,9 +56,10 @@ do
   # If rebalance finishes, exit
   $WORKDIR/RandomWaitKillAndVerify.sh $LOGFILE
   let EXITCODE="$?"
-  if [ "$EXITCODE" -ne "0" ]
+  if [ "$EXITCODE" -eq "-99" ]
   then
-    exit "$EXITCODE"
+    # all done, exit
+    exit 0
   fi
 
   # restart rebalance
@@ -62,3 +67,4 @@ do
   LOGFILE=rebalance.log.`date +%H%M%S`
   $WORKDIR/StartRebalanceProcess.sh $LOGFILE
 done
+

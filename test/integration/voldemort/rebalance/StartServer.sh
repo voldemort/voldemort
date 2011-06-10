@@ -12,4 +12,5 @@ LOGFILE=${server[$1]}.`date +%H%M%S`
 
 cd $VLDMDIR
 bin/voldemort-server.sh $CONFIGFILE > $LOGDIR/$LOGFILE &
+cd $WORKDIR
 $WORKDIR/WaitforOutput.sh "$terminal_string" $LOGDIR/$LOGFILE
