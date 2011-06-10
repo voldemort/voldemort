@@ -36,7 +36,7 @@ echo Start all servers
 $WORKDIR/BootstrapAll.sh all
 
 # restore keys for validation check if required
-if [ $1 = "RESTOREKEYS" ]
+if [ "$1" == "RESTOREKEYS" ]
 then
   bash -x RestoreKeys.sh
 fi

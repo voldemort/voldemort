@@ -30,21 +30,25 @@ fi
 # randomly choose servers to kill
 # TODO: kill more than one server
 NUM_SERVERS=3
-NUMS_TO_KILL_OR_SUSPEND=$(($RANDOM%$NUM_SERVERS+1))
+#NUMS_TO_KILL_OR_SUSPEND=$(($RANDOM%$NUM_SERVERS+1))
+NUMS_TO_KILL_OR_SUSPEND=1
+# the
 tokill_array=(`python -c "import random; print ' '.join([str(x) for x in random.sample(range(${NUM_SERVERS}),${NUMS_TO_KILL_OR_SUSPEND})])"`)
+# 
 kill_or_suspend_array=(`python -c "import random; print ' '.join([random.choice(['kill','suspend']) for i in range(${NUMS_TO_KILL_OR_SUSPEND})])"`)
+to_kill_pids=()
 
-for ((tokill=0; tokill < ${NUMS_TO_KILL_OR_SUSPEND} ; tokill++)); do
-  if [ "${kill_or_suspend_array[$tokill]}" = "kill" ]
-    pid_to_kill=`ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
+for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
+  to_kill=${tokill_array[$i]}
+  pid_to_kill=`ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
+  to_kill_pids[$i]=$pid_to_kill
+  if [[ "${kill_or_suspend_array[$i]}" == "kill" ]]
   then
     echo killing servers ${servers[$tokill]}
     kill $pid_to_kill
   else
     echo suspending servers ${servers[$tokill]}
     kill -STOP $pid_to_kill
-    sleep 10
-    kill -CONT $pid_to_kill
   fi
 done
 
@@ -53,20 +57,27 @@ done
 echo waiting for rebalancing process to terminate...
 $WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
 
-# check for rollbacked state on good servers and clear
-# their rebalancing state if the check passes.
-echo checking for server state
-bash -x $WORKDIR/CheckAndRestoreMetadata.sh $tokill
-# exit if validation check failed
-if [ "$?" -ne "0" ]
-then
-  exit "$?"
-fi
-
 # restore metadata on killed servers so we can continue
-echo resume killed server...
-bash -x $WORKDIR/StartServer.sh $tokill
-bash -x $WORKDIR/RestoreMetadata.sh $tokill
+for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
+  to_kill=${tokill_array[$i]}
+  pid_to_kill=${to_kill_pids[$i]}
+  # check for rollbacked state on good servers and clear
+  # their rebalancing state if the check passes.
+  echo checking for server state
+  bash -x $WORKDIR/CheckAndRestoreMetadata.sh $tokill
+  # exit if validation check failed
+  [ "$?" -ne "0" ] && exit "$?"
+
+  echo resume killed server...
+  if [[ "${kill_or_suspend_array[$i]}" == "kill" ]]; then
+    echo restart servers ${servers[$tokill]}
+    bash -x $WORKDIR/StartServer.sh $tokill
+    bash -x $WORKDIR/RestoreMetadata.sh $tokill
+  else
+    echo resume servers ${servers[$tokill]}
+    kill -CONT $pid_to_kill
+  fi
+done
 
 # check if entries are at the right nodes
 bash -x $WORKDIR/ValidateData.sh

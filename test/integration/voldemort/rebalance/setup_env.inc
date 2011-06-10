@@ -1,3 +1,7 @@
+# set up the common variables
+# may need to consolidate later
+
+# figure out the basedir and voldemort dir
 REBALANCE_TEST_DIR=`dirname $0`
 REBALANCE_TEST_DIR=`(cd $REBALANCE_TEST_DIR&& pwd)`
 cd $REBALANCE_TEST_DIR
@@ -20,4 +24,10 @@ log_dir=$REBALANCE_TEST_DIR/log
 mkdir -p log_dir
 vldm_dir=$VLDMDIR
 work_dir=$REBALANCE_TEST_DIR
-TEST_ONLY=echo
+
+# set up the remote run
+# expect remote server to have the same structure
+TOTAL_NUM_SERVERS=3
+REMOTE_RUN=true
+SERVER_MACHINES=(localhost localhost localhost)
+
