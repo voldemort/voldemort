@@ -1,7 +1,6 @@
 #!/bin/bash
 
-vldm_dir=/Users/lgao/Projects/voldemort
-work_dir=/Users/lgao/work/rebalance
+source setup_env.inc
 
 EXPECTED_ARGS=2
 E_BADARGS=65

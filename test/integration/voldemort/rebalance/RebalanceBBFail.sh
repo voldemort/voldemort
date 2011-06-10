@@ -1,11 +1,15 @@
 #!/bin/bash
 
-VLDMDIR=/Users/lgao/Projects/voldemort
-WORKDIR=/Users/lgao/work/rebalance
+source setup_env.inc
 LOGDIR=$WORKDIR/log
 ENDMETADATA=end-cluster.xml
 TERMSTRING="Successfully terminated rebalance all tasks"
 CLUSTERGENLOG=cluster_gen.log
+
+# restore the config
+rm -rf $TESTCFG_DIR
+cp -rf $ORIGCFG_DIR $TESTCFG_DIR
+for i in 1 2 3; do mkdir -p $TESTCFG_PREFIX$i/config; done
 
 # restore servers to their initial state
 echo Restore server initial state
@@ -13,7 +17,7 @@ RestoreServers.sh
 
 # generate the target cluster.xml
 echo Generate target cluster.xml
-$VLDMDIR/bin/voldemort-rebalance.sh --current-cluster $VLDMDIR/config/test_config1/config/cluster.xml --current-stores $VLDMDIR/config/test_config1/config/stores.xml --target-cluster $VLDMDIR/config/test_config3/config/cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
+$VLDMDIR/bin/voldemort-rebalance.sh --current-cluster ${TESTCFG_PREFIX}1/config/cluster.xml --current-stores ${TESTCFG_PREFIX}1/config/stores.xml --target-cluster ${TESTCFG_PREFIX}3/config/cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
 
 # save the end-cluster.xml
 cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA

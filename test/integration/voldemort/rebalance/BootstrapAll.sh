@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORKDIR=/Users/lgao/work/rebalance
+source setup_env.inc
 
 $WORKDIR/StartServer.sh 0
 $WORKDIR/StartServer.sh 1

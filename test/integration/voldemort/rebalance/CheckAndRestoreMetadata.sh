@@ -1,8 +1,6 @@
 #!/bin/bash
 
-VLDMDIR=/Users/lgao/Projects/voldemort
-WORKDIR=/Users/lgao/work/rebalance
-TMPCLUSTER=/Users/lgao/work/rebalance/tmpcluster
+source setup_env.inc
 host[0]="tcp://localhost:6667"
 host[1]="tcp://localhost:6669"
 host[2]="tcp://localhost:6671"

@@ -1,11 +1,12 @@
 #!/bin/bash
 
-WORKDIR=/Users/lgao/work/rebalance
+source setup_env.inc
+
 LOGDIR=$WORKDIR/log
 LOGFILE=$1
 ERROR_MSG="ERROR Unsuccessfully terminated rebalance operation"
 TERMSTRING="Successfully terminated rebalance all tasks"
-SERVSTRING="VoldemortServer /Users/lgao/Projects/voldemort/config/test_config"
+SERVSTRING="VoldemortServer $TESTCFG_PREFIX"
 servers[0]="$SERVSTRING"1
 servers[1]="$SERVSTRING"2
 servers[2]="$SERVSTRING"3

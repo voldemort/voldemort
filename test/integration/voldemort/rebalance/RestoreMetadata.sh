@@ -1,6 +1,6 @@
 #!/bin/bash                                                                                  
 
-VLDMDIR=/Users/lgao/Projects/voldemort
+source setup_env.inc
 HOST[0]="tcp://localhost:6667"
 HOST[1]="tcp://localhost:6669"
 HOST[2]="tcp://localhost:6671"
