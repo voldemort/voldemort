@@ -11,5 +11,5 @@ CONFIGFILE=${TESTCFG_PREFIX}"$CONFIGID"
 LOGFILE=${server[$1]}.`date +%H%M%S`
 
 cd $VLDMDIR
-$VLDMDIR/bin/voldemort-server.sh $CONFIGFILE > $LOGDIR/$LOGFILE &
+bin/voldemort-server.sh $CONFIGFILE > $LOGDIR/$LOGFILE &
 $WORKDIR/WaitforOutput.sh "$terminal_string" $LOGDIR/$LOGFILE

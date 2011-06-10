@@ -25,7 +25,8 @@ RestoreServers.sh
 
 # generate the target cluster.xml
 echo Generate target cluster.xml
-$VLDMDIR/bin/voldemort-rebalance.sh --current-cluster ${TESTCFG_PREFIX}1/config/cluster.xml --current-stores ${TESTCFG_PREFIX}1/config/stores.xml --target-cluster ${TESTCFG_PREFIX}3/config/cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
+cd $VLDMDIR
+bin/voldemort-rebalance.sh --current-cluster ${TESTCFG_PREFIX}1/config/cluster.xml --current-stores ${TESTCFG_PREFIX}1/config/stores.xml --target-cluster ${TESTCFG_PREFIX}3/config/cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
 
 # save the end-cluster.xml
 cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA

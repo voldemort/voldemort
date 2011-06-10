@@ -17,6 +17,8 @@ let "stime=($RANDOM%$SLEEP_RANGE) + 10"
 echo sleeping for $stime seconds...
 sleep stime
 
+read -p "Press any key to continue..."
+
 # grep for completion string in the output   
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
 if [ "$?" -eq 0 ]
@@ -51,6 +53,10 @@ fi
 echo resume killed server...
 bash -x $WORKDIR/StartServer.sh $tokill
 bash -x $WORKDIR/RestoreMetadata.sh $tokill
+
+# check if entries are at the right nodes
+bash -x $WORKDIR/ValidateData.sh
+# exit if validation check failed
 let EXITCODE="$?"
 if [ "$EXITCODE" -ne "0" ]
 then
