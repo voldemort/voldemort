@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -x
 if [ "$remote_call" == "" ]; then
   remote_call=eval
 fi

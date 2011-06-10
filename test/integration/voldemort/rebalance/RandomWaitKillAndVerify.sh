@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -x
 source setup_env.inc
 
 LOGDIR=$WORKDIR/log
@@ -30,6 +31,8 @@ fi
 # randomly choose servers to kill
 # TODO: kill more than one server
 NUM_SERVERS=3
+
+# for now, set it to one can be random
 #NUMS_TO_KILL_OR_SUSPEND=$(($RANDOM%$NUM_SERVERS+1))
 NUMS_TO_KILL_OR_SUSPEND=1
 # the

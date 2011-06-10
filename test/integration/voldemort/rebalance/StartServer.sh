@@ -10,7 +10,7 @@ let CONFIGID=$1+1
 CONFIGFILE=${TESTCFG_PREFIX}"$CONFIGID"
 LOGFILE=${server[$1]}.`date +%H%M%S`
 
-REMOTE_MACHINE_ID=$CONFIGID
+REMOTE_MACHINE_ID=$1
 if [ "$REMOTE_RUN" == "true" ]; then
   export remote_call="ssh ${SERVER_MACHINES[$REMOTE_MACHINE_ID]}"
 else

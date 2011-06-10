@@ -17,7 +17,7 @@ rm -rf $TESTCFG_DIR
 cp -rf $ORIGCFG_DIR $TESTCFG_DIR
 for i in 1 2 3; do mkdir -p $TESTCFG_PREFIX$i/config; done
 
-if [ $1 = "reload" ]
+if [ "$1" == "reload" ]
 then
   for i in 1 2 3; do rm -rf $TESTCFG_PREFIX$i/data/*; done
 fi
@@ -39,7 +39,7 @@ cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA
 echo Start all servers
 $WORKDIR/BootstrapAll.sh all
 
-if [ $1 == "reload" ]
+if [ "$1" == "reload" ]
 then
   # populate workload
   $WORKDIR/initWorkloadGen.sh $2 $3
