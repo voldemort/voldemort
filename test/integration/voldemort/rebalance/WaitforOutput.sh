@@ -4,11 +4,20 @@ set -x
 if [ "$remote_call" == "" ]; then
   remote_call=eval
 fi
-grep_str=$1
+if [ $# -gt 2 ]
+then
+  GREPSTR="("$1")|("$2")"
+  LOGFILE=$3
+  CMD=egrep
+else
+  GREPSTR=$1
+  LOGFILE=$2
+  CMD=grep
+fi
 
-$remote_call "grep '$grep_str' $2" > /dev/null 2>&1
+$remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
 while [ "$?" -ne "0" ]
 do
   sleep 3
-  $remote_call "grep '$grep_str' $2" > /dev/null 2>&1
+  $remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
 done

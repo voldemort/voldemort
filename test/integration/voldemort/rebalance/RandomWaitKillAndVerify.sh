@@ -58,7 +58,7 @@ done
 # TODO: What to do here if there are no kill?
 # wait for rebalancing to terminate
 echo waiting for rebalancing process to terminate...
-$WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
+$WORKDIR/WaitforOutput.sh "$ERROR_MSG" "$TERMSTRING" $LOGDIR/$LOGFILE
 
 # restore metadata on killed servers so we can continue
 for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
