@@ -37,7 +37,7 @@ kill `ps -ef | grep "${servers[$tokill]}" | grep -v grep | awk '{print $2}'`
 
 # wait for rebalancing to terminate
 echo waiting for rebalancing process to terminate...
-$WORKDIR/WaitforOutput.sh "$ERROR_MSG" $LOGDIR/$LOGFILE
+$WORKDIR/WaitforOutput.sh "$ERROR_MSG" "$TERMSTRING" $LOGDIR/$LOGFILE
 
 # check for rollbacked state on good servers and clear
 # their rebalancing state if the check passes.
