@@ -735,10 +735,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         if(isReadOnlyStore) {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
-                            logger.info("Fetching files for RO store " + storeName + " from node "
-                                        + nodeId + " ( " + replicaToPartitionList + " )");
-                            updateStatus("Fetching files for RO store " + storeName + " from node "
-                                         + nodeId);
+                            logger.info("Fetching files for RO store '" + storeName
+                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                        + " )");
+                            updateStatus("Fetching files for RO store '" + storeName
+                                         + "' from node " + nodeId);
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
                                                             replicaToPartitionList,
@@ -748,11 +749,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                  .keySet());
 
                         } else {
-                            logger.info("Fetching entries for RW store " + storeName
-                                        + " from node " + nodeId + " ( " + replicaToPartitionList
+                            logger.info("Fetching entries for RW store '" + storeName
+                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
                                         + " )");
-                            updateStatus("Fetching entries for RW store " + storeName
-                                         + " from node " + nodeId);
+                            updateStatus("Fetching entries for RW store '" + storeName
+                                         + "' from node " + nodeId);
                             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                                     storeName,
                                                                                                                     replicaToPartitionList,
@@ -760,7 +761,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                     false,
                                                                                                                     initialCluster,
                                                                                                                     0);
-                            for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
+                            long numTuples = 0;
+                            while(running.get() && entriesIterator.hasNext()) {
                                 Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
                                 ByteArray key = entry.getFirst();
@@ -769,17 +771,21 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                     storageEngine.put(key, value, null);
                                 } catch(ObsoleteVersionException e) {
                                     // log and ignore
-                                    logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
+                                    logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
                                 }
 
                                 throttler.maybeThrottle(key.length() + valueSize(value));
-                                if((i % 1000) == 0) {
-                                    logger.info(i + " entries copied from node " + nodeId
-                                                + " for store " + storeName);
-                                    updateStatus(i + " entries copied from node " + nodeId
-                                                 + " for store " + storeName);
+                                if((numTuples % 10000) == 0 && numTuples > 0) {
+                                    logger.info(numTuples + " entries copied from node " + nodeId
+                                                + " for store '" + storeName + "'");
+                                    updateStatus(numTuples + " entries copied from node " + nodeId
+                                                 + " for store '" + storeName + "'");
                                 }
+                                numTuples++;
                             }
+
+                            logger.info("Completed fetching " + numTuples + " entries from node "
+                                        + nodeId + " for store '" + storeName + "'");
                         }
 
                     } finally {

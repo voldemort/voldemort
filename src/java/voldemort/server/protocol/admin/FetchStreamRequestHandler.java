@@ -110,6 +110,10 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
     }
 
     public final void close(DataOutputStream outputStream) throws IOException {
+        logger.info("Successfully scanned " + counter + " tuples, fetched " + fetched
+                    + " tuples for store '" + storageEngine.getName() + "' in "
+                    + ((System.currentTimeMillis() - startTime) / 1000) + " s");
+
         if(null != keyIterator)
             keyIterator.close();
 
