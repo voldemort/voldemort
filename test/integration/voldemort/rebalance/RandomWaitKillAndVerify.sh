@@ -60,6 +60,14 @@ done
 echo waiting for rebalancing process to terminate...
 $WORKDIR/WaitforOutput.sh "$ERROR_MSG" "$TERMSTRING" $LOGDIR/$LOGFILE
 
+# grep for completion string in the output
+grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
+if [ "$?" -eq 0 ]
+then
+  echo rebalancing finished!!!!!!
+  exit 9
+fi
+
 # restore metadata on killed servers so we can continue
 for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
   tokill=${tokill_array[$i]}
