@@ -271,7 +271,7 @@ public class FailureDetectorConfig {
     }
 
     /**
-     * Returns the minimum number of requests that must occur before the success
+     * Returns the minimum number of failures that must occur before the success
      * ratio is calculated to compare against the success threshold percentage.
      * 
      * <p/>
@@ -279,7 +279,7 @@ public class FailureDetectorConfig {
      * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
      * implementation.
      * 
-     * @return Integer representing the minimum number of requests (per node)
+     * @return Integer representing the minimum number of failures (per node)
      *         that must be processed before the threshold is checked
      * 
      * @see ThresholdFailureDetector
