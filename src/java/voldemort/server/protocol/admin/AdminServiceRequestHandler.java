@@ -700,6 +700,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
+        final boolean optimize = request.hasOptimize() ? request.getOptimize() : false;
+
         final Cluster initialCluster = request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
                                                                   : null;
 
@@ -712,6 +714,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final StoreDefinition storeDef = metadataStore.getStoreDef(storeName);
         final boolean isReadOnlyStore = storeDef.getType()
                                                 .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+
+        final RoutingStrategy oldStrategy = initialCluster != null ? new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                                        initialCluster)
+                                                                  : null;
 
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
@@ -771,43 +777,46 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                             // Optimization to get rid of redundant copying of
                             // data which already exists on this node
-                            RoutingStrategy oldStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                             initialCluster);
                             HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
+                            if(oldStrategy != null && optimize) {
 
-                            for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
-                                List<Integer> partitionList = Lists.newArrayList();
-                                for(int partition: tuple.getValue()) {
-                                    List<Integer> preferenceList = oldStrategy.getReplicatingPartitionList(partition);
+                                for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
+                                    List<Integer> partitionList = Lists.newArrayList();
+                                    for(int partition: tuple.getValue()) {
+                                        List<Integer> preferenceList = oldStrategy.getReplicatingPartitionList(partition);
 
-                                    // If this node was already in the
-                                    // preference list before, a copy of the
-                                    // data will already exist - Don't copy it!
-                                    if(!RebalanceUtils.containsPreferenceList(initialCluster,
-                                                                              preferenceList,
-                                                                              metadataStore.getNodeId())) {
-                                        partitionList.add(partition);
+                                        // If this node was already in the
+                                        // preference list before, a copy of the
+                                        // data will already exist - Don't copy
+                                        // it!
+                                        if(!RebalanceUtils.containsPreferenceList(initialCluster,
+                                                                                  preferenceList,
+                                                                                  metadataStore.getNodeId())) {
+                                            partitionList.add(partition);
+                                        }
+                                    }
+
+                                    if(partitionList.size() > 0) {
+                                        optimizedReplicaToPartitionList.put(tuple.getKey(),
+                                                                            partitionList);
                                     }
                                 }
 
-                                if(partitionList.size() > 0) {
-                                    optimizedReplicaToPartitionList.put(tuple.getKey(),
-                                                                        partitionList);
-                                }
+                                logger.info("After running RW level optimization - Fetching entries for RW store '"
+                                            + storeName
+                                            + "' from node "
+                                            + nodeId
+                                            + " ( "
+                                            + optimizedReplicaToPartitionList + " )");
+                                updateStatus("After running RW level optimization - Fetching entries for RW store '"
+                                             + storeName
+                                             + "' from node "
+                                             + nodeId
+                                             + " ( "
+                                             + optimizedReplicaToPartitionList + " )");
+                            } else {
+                                optimizedReplicaToPartitionList.putAll(replicaToPartitionList);
                             }
-
-                            logger.info("After running RW level optimization - Fetching entries for RW store '"
-                                        + storeName
-                                        + "' from node "
-                                        + nodeId
-                                        + " ( "
-                                        + optimizedReplicaToPartitionList + " )");
-                            updateStatus("After running RW level optimization - Fetching entries for RW store '"
-                                         + storeName
-                                         + "' from node "
-                                         + nodeId
-                                         + " ( "
-                                         + optimizedReplicaToPartitionList + " )");
 
                             if(optimizedReplicaToPartitionList.size() > 0) {
                                 Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
@@ -845,7 +854,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                             + storeName + "'");
                             } else {
                                 logger.info("No entries to fetch from node " + nodeId
-                                            + " for store '" + storeName + "' after optimization");
+                                            + " for store '" + storeName + "'");
                             }
                         }
 
