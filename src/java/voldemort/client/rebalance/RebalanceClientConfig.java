@@ -25,10 +25,11 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
     public final static int MAX_PARALLEL_REBALANCING = 1;
     public final static int MAX_TRIES = 2;
+    public final static long REBALANCING_CLIENT_TIMEOUT_SEC = 7 * 24 * 60 * 60;
 
     private int maxParallelRebalancing = MAX_PARALLEL_REBALANCING;
     private int maxTriesRebalancing = MAX_TRIES;
-    private int rebalancingClientTimeoutSeconds = 7 * 24 * 60 * 60;
+    private long rebalancingClientTimeoutSeconds = REBALANCING_CLIENT_TIMEOUT_SEC;
     private boolean deleteAfterRebalancingEnabled;
     private boolean enabledShowPlan;
     private String outputDirectory = null;
@@ -92,11 +93,11 @@ public class RebalanceClientConfig extends AdminClientConfig {
         return maxTriesRebalancing;
     }
 
-    public void setRebalancingClientTimeoutSeconds(int rebalancingTimeoutSeconds) {
+    public void setRebalancingClientTimeoutSeconds(long rebalancingTimeoutSeconds) {
         this.rebalancingClientTimeoutSeconds = rebalancingTimeoutSeconds;
     }
 
-    public int getRebalancingClientTimeoutSeconds() {
+    public long getRebalancingClientTimeoutSeconds() {
         return rebalancingClientTimeoutSeconds;
     }
 
