@@ -35,6 +35,8 @@ class NodeStatus {
 
     private long success;
 
+    private long failure;
+
     private long total;
 
     public long getLastChecked() {
@@ -71,6 +73,18 @@ class NodeStatus {
 
     public void incrementSuccess(long delta) {
         this.success += delta;
+    }
+
+    public long getFailure() {
+        return failure;
+    }
+
+    public void setFailure(long failure) {
+        this.failure = failure;
+    }
+
+    public void incrementFailure(long delta) {
+        this.failure += delta;
     }
 
     public long getTotal() {
