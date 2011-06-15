@@ -595,4 +595,8 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
+
+    public boolean isPartitionAware() {
+        return true;
+    }
 }

@@ -79,7 +79,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final Serializer<Version> versionSerializer;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
-    public BdbStorageEngine(String name, Environment environment, Database database, LockMode readLockMode) {
+    public BdbStorageEngine(String name,
+                            Environment environment,
+                            Database database,
+                            LockMode readLockMode) {
         this(name, environment, database, readLockMode, false);
     }
 
@@ -256,10 +259,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         try {
             cursor = getBdbDatabase().openCursor(null, null);
             for(ByteArray key: keys) {
-                List<Versioned<byte[]>> values = get(cursor,
-                                                     key,
-                                                     readLockMode,
-                                                     versionedSerializer);
+                List<Versioned<byte[]>> values = get(cursor, key, readLockMode, versionedSerializer);
                 if(!values.isEmpty())
                     result.put(key, values);
             }
@@ -568,5 +568,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
             cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
         }
+    }
+
+    public boolean isPartitionAware() {
+        return false;
     }
 }

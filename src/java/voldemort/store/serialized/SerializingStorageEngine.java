@@ -127,4 +127,7 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         }
     }
 
+    public boolean isPartitionAware() {
+        return storageEngine.isPartitionAware();
+    }
 }

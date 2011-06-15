@@ -578,4 +578,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
         throw new VoldemortException("No metadata found for required key:" + key);
     }
+
+    public boolean isPartitionAware() {
+        return false;
+    }
 }
