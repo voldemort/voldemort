@@ -81,6 +81,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
 
     @JmxSetter(name = "setRedirectingStoreEnabled", description = "Enable the redirecting store for this store")
     public void setIsRedirectingStoreEnabled(boolean isRedirectingStoreEnabled) {
+        logger.info("Setting redirecting store flag for " + getName() + " to "
+                    + isRedirectingStoreEnabled);
         this.isRedirectingStoreEnabled.set(isRedirectingStoreEnabled);
     }
 

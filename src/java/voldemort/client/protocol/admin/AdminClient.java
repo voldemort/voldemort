@@ -780,7 +780,8 @@ public class AdminClient {
                                                                storeDef.getName(),
                                                                replicationEntry.getValue(),
                                                                null,
-                                                               null);
+                                                               null,
+                                                               false);
                         waitForCompletion(restoringNodeId,
                                           migrateAsyncId,
                                           adminClientConfig.getRestoreDataTimeoutSec(),
@@ -878,7 +879,8 @@ public class AdminClient {
                                                           storeName,
                                                           stealPartitionList),
                                  filter,
-                                 null);
+                                 null,
+                                 false);
     }
 
     /**
@@ -902,6 +904,10 @@ public class AdminClient {
      * @param initialCluster The cluster metadata to use for making the decision
      *        if the key belongs to these partitions. If not specified, falls
      *        back to the metadata stored on the box
+     * @param optimize We can run an optimization at this level where-in we try
+     *        avoid copying of data which already exists ( in the form of a
+     *        replica ). We do need to disable this when we're trying to recover
+     *        a node which was completely damaged ( restore from replica ).
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
      *         stealer node which is performing the operation.
@@ -911,7 +917,8 @@ public class AdminClient {
                                  String storeName,
                                  HashMap<Integer, List<Integer>> replicaToPartitionList,
                                  VoldemortFilter filter,
-                                 Cluster initialCluster) {
+                                 Cluster initialCluster,
+                                 boolean optimize) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
                                                                                                                                    .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
@@ -928,6 +935,8 @@ public class AdminClient {
         if(initialCluster != null) {
             initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
+        initiateFetchAndUpdateRequest.setOptimize(optimize);
+
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)

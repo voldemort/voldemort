@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -40,6 +41,8 @@ import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -75,6 +78,7 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -696,6 +700,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                           : new DefaultVoldemortFilter();
         final String storeName = request.getStore();
 
+        final boolean optimize = request.hasOptimize() ? request.getOptimize() : false;
+
         final Cluster initialCluster = request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
                                                                   : null;
 
@@ -705,9 +711,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                             .setComplete(false)
                                                                                                             .setDescription("Fetch and update")
                                                                                                             .setStatus("Started");
-        final boolean isReadOnlyStore = metadataStore.getStoreDef(storeName)
-                                                     .getType()
-                                                     .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+        final StoreDefinition storeDef = metadataStore.getStoreDef(storeName);
+        final boolean isReadOnlyStore = storeDef.getType()
+                                                .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
+
+        final RoutingStrategy oldStrategy = initialCluster != null ? new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                                        initialCluster)
+                                                                  : null;
 
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
@@ -735,10 +745,20 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         if(isReadOnlyStore) {
                             ReadOnlyStorageEngine readOnlyStorageEngine = ((ReadOnlyStorageEngine) storageEngine);
                             String destinationDir = readOnlyStorageEngine.getCurrentDirPath();
-                            logger.info("Fetching files for RO store " + storeName + " from node "
-                                        + nodeId + " ( " + replicaToPartitionList + " )");
-                            updateStatus("Fetching files for RO store " + storeName + " from node "
-                                         + nodeId);
+                            logger.info("Fetching files for RO store '" + storeName
+                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                        + " )");
+                            updateStatus("Fetching files for RO store '" + storeName
+                                         + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                         + " )");
+
+                            // TODO: Optimization to get rid of redundant
+                            // copying of data which already exists on this
+                            // node. This should simply copy and rename the
+                            // existing replica file locally if they exist.
+                            // Should not do rename only because then we won't
+                            // be able to rollback
+
                             adminClient.fetchPartitionFiles(nodeId,
                                                             storeName,
                                                             replicaToPartitionList,
@@ -748,37 +768,93 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                  .keySet());
 
                         } else {
-                            logger.info("Fetching entries for RW store " + storeName
-                                        + " from node " + nodeId + " ( " + replicaToPartitionList
+                            logger.info("Fetching entries for RW store '" + storeName
+                                        + "' from node " + nodeId + " ( " + replicaToPartitionList
                                         + " )");
-                            updateStatus("Fetching entries for RW store " + storeName
-                                         + " from node " + nodeId);
-                            Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                                    storeName,
-                                                                                                                    replicaToPartitionList,
-                                                                                                                    filter,
-                                                                                                                    false,
-                                                                                                                    initialCluster,
-                                                                                                                    0);
-                            for(long i = 0; running.get() && entriesIterator.hasNext(); i++) {
-                                Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+                            updateStatus("Fetching entries for RW store '" + storeName
+                                         + "' from node " + nodeId + " ( " + replicaToPartitionList
+                                         + " ) ");
 
-                                ByteArray key = entry.getFirst();
-                                Versioned<byte[]> value = entry.getSecond();
-                                try {
-                                    storageEngine.put(key, value, null);
-                                } catch(ObsoleteVersionException e) {
-                                    // log and ignore
-                                    logger.debug("migratePartition threw ObsoleteVersionException, Ignoring.");
+                            // Optimization to get rid of redundant copying of
+                            // data which already exists on this node
+                            HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
+                            if(oldStrategy != null && optimize) {
+
+                                for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
+                                    List<Integer> partitionList = Lists.newArrayList();
+                                    for(int partition: tuple.getValue()) {
+                                        List<Integer> preferenceList = oldStrategy.getReplicatingPartitionList(partition);
+
+                                        // If this node was already in the
+                                        // preference list before, a copy of the
+                                        // data will already exist - Don't copy
+                                        // it!
+                                        if(!RebalanceUtils.containsPreferenceList(initialCluster,
+                                                                                  preferenceList,
+                                                                                  metadataStore.getNodeId())) {
+                                            partitionList.add(partition);
+                                        }
+                                    }
+
+                                    if(partitionList.size() > 0) {
+                                        optimizedReplicaToPartitionList.put(tuple.getKey(),
+                                                                            partitionList);
+                                    }
                                 }
 
-                                throttler.maybeThrottle(key.length() + valueSize(value));
-                                if((i % 1000) == 0) {
-                                    logger.info(i + " entries copied from node " + nodeId
-                                                + " for store " + storeName);
-                                    updateStatus(i + " entries copied from node " + nodeId
-                                                 + " for store " + storeName);
+                                logger.info("After running RW level optimization - Fetching entries for RW store '"
+                                            + storeName
+                                            + "' from node "
+                                            + nodeId
+                                            + " ( "
+                                            + optimizedReplicaToPartitionList + " )");
+                                updateStatus("After running RW level optimization - Fetching entries for RW store '"
+                                             + storeName
+                                             + "' from node "
+                                             + nodeId
+                                             + " ( "
+                                             + optimizedReplicaToPartitionList + " )");
+                            } else {
+                                optimizedReplicaToPartitionList.putAll(replicaToPartitionList);
+                            }
+
+                            if(optimizedReplicaToPartitionList.size() > 0) {
+                                Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                                        storeName,
+                                                                                                                        optimizedReplicaToPartitionList,
+                                                                                                                        filter,
+                                                                                                                        false,
+                                                                                                                        initialCluster,
+                                                                                                                        0);
+                                long numTuples = 0;
+                                while(running.get() && entriesIterator.hasNext()) {
+                                    Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
+
+                                    ByteArray key = entry.getFirst();
+                                    Versioned<byte[]> value = entry.getSecond();
+                                    try {
+                                        storageEngine.put(key, value, null);
+                                    } catch(ObsoleteVersionException e) {
+                                        // log and ignore
+                                        logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
+                                    }
+
+                                    throttler.maybeThrottle(key.length() + valueSize(value));
+                                    if((numTuples % 10000) == 0 && numTuples > 0) {
+                                        logger.info(numTuples + " entries copied from node "
+                                                    + nodeId + " for store '" + storeName + "'");
+                                        updateStatus(numTuples + " entries copied from node "
+                                                     + nodeId + " for store '" + storeName + "'");
+                                    }
+                                    numTuples++;
                                 }
+
+                                logger.info("Completed fetching " + numTuples
+                                            + " entries from node " + nodeId + " for store '"
+                                            + storeName + "'");
+                            } else {
+                                logger.info("No entries to fetch from node " + nodeId
+                                            + " for store '" + storeName + "'");
                             }
                         }
 

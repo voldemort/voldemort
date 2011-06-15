@@ -523,6 +523,27 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given a preference list and a node id, check if any one of the partitions
+     * is on the node in picture
+     * 
+     * @param cluster Cluster metadata
+     * @param preferenceList Preference list of partition ids
+     * @param nodeId Node id which we are checking for
+     * @return True if the preference list contains a node whose id = nodeId
+     */
+    public static boolean containsPreferenceList(Cluster cluster,
+                                                 List<Integer> preferenceList,
+                                                 int nodeId) {
+
+        for(int partition: preferenceList) {
+            if(RebalanceUtils.getNodeByPartitionId(cluster, partition).getId() == nodeId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Updates the existing cluster such that we remove partitions mentioned
      * from the stealer node and add them to the donor node
      * 
@@ -1322,7 +1343,7 @@ public class RebalanceUtils {
      * @param executorService Executor service to shutdown
      * @param timeOutSec Time we wait for
      */
-    public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
+    public static void executorShutDown(ExecutorService executorService, long timeOutSec) {
         try {
             executorService.shutdown();
             executorService.awaitTermination(timeOutSec, TimeUnit.SECONDS);

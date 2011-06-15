@@ -1247,7 +1247,8 @@ public class AdminServiceBasicTest extends TestCase {
                                           "test-recovery-data",
                                           replicaToPartitions,
                                           null,
-                                          cluster);
+                                          cluster,
+                                          false);
         client.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
         // Check the values
