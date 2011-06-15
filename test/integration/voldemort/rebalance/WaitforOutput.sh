@@ -16,8 +16,10 @@ else
 fi
 
 $remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
+echo entering wait loop....
 while [ "$?" -ne "0" ]
 do
   sleep 3
   $remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
 done
+echo exited wait loop!!!

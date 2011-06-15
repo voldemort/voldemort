@@ -51,7 +51,8 @@ for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
     kill $pid_to_kill
   else
     echo suspending servers ${servers[$tokill]}
-    kill -STOP $pid_to_kill
+    kill $pid_to_kill
+#    kill -STOP $pid_to_kill
   fi
 done
 
