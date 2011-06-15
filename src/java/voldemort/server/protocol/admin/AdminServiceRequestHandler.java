@@ -778,7 +778,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             // Optimization to get rid of redundant copying of
                             // data which already exists on this node
                             HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
-                            if(oldStrategy != null && optimize) {
+                            if(oldStrategy != null && optimize && !storageEngine.isPartitionAware()
+                               && voldemortConfig.getRebalancingOptimization()) {
 
                                 for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
                                     List<Integer> partitionList = Lists.newArrayList();

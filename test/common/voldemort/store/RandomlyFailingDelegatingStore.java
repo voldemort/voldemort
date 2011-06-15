@@ -71,4 +71,8 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
 
         throw new VoldemortException("Failing now !!");
     }
+
+    public boolean isPartitionAware() {
+        return innerStorageEngine.isPartitionAware();
+    }
 }

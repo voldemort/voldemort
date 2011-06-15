@@ -309,4 +309,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
 
     }
 
+    public boolean isPartitionAware() {
+        return false;
+    }
 }
