@@ -75,6 +75,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         parser.accepts("checksum", "enable checksum using md5, adler32, crc32").withRequiredArg();
         parser.accepts("force-overwrite", "deletes final output directory if present.");
         parser.accepts("save-keys", "save the keys in the data file");
+        parser.accepts("reducer-per-bucket", "run single reducer per bucket");
         parser.accepts("help", "print usage information");
         return parser;
     }
@@ -124,6 +125,7 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
         Path tempDir = new Path((String) options.valueOf("tmpdir"));
         Path outputDir = new Path((String) options.valueOf("output"));
         boolean saveKeys = options.has("save-keys");
+        boolean reducerPerBucket = options.has("reducer-per-bucket");
 
         List<String> addJars = new ArrayList<String>();
 
@@ -177,7 +179,8 @@ public class HadoopStoreJobRunner extends Configured implements Tool {
                                                             outputDir,
                                                             inputPath,
                                                             checkSumType,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            reducerPerBucket);
 
         builder.build();
         return 0;

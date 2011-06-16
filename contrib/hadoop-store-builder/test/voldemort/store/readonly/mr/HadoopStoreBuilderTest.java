@@ -16,15 +16,16 @@
 
 package voldemort.store.readonly.mr;
 
-import java.io.DataInputStream;
+import static org.junit.Assert.fail;
+
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -56,11 +57,15 @@ import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.SearchStrategy;
+import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.fetcher.HdfsFetcher;
 import voldemort.store.serialized.SerializingStore;
+import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClosableIterator;
+import voldemort.utils.Pair;
 import voldemort.versioning.Versioned;
 
 /**
@@ -154,13 +159,21 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            false);
         builder.build();
 
         // Should not produce node--1 directory + have one folder for every node
         Assert.assertEquals(cluster.getNumberOfNodes(), outputDir.listFiles().length);
         for(File f: outputDir.listFiles()) {
             Assert.assertFalse(f.toString().contains("node--1"));
+        }
+
+        // Check if individual nodes exist, along with their metadata file
+        for(int nodeId = 0; nodeId < 10; nodeId++) {
+            File nodeFile = new File(outputDir, "node-" + Integer.toString(nodeId));
+            Assert.assertTrue(nodeFile.exists());
+            Assert.assertTrue(new File(nodeFile, ".metadata").exists());
         }
     }
 
@@ -210,7 +223,8 @@ public class HadoopStoreBuilderTest {
                                                             new Path(outputDir2.getAbsolutePath()),
                                                             new Path(inputFile.getAbsolutePath()),
                                                             CheckSumType.MD5,
-                                                            saveKeys);
+                                                            saveKeys,
+                                                            false);
         builder.build();
 
         builder = new HadoopStoreBuilder(new Configuration(),
@@ -223,7 +237,8 @@ public class HadoopStoreBuilderTest {
                                          new Path(outputDir.getAbsolutePath()),
                                          new Path(inputFile.getAbsolutePath()),
                                          CheckSumType.MD5,
-                                         saveKeys);
+                                         saveKeys,
+                                         false);
         builder.build();
 
         // Check if checkSum is generated in outputDir
@@ -241,15 +256,11 @@ public class HadoopStoreBuilderTest {
             Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.FORMAT),
                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
 
-        File checkSumFile = new File(nodeFile, "md5checkSum.txt");
-        Assert.assertTrue(checkSumFile.exists());
+        Assert.assertEquals(metadata.get(ReadOnlyStorageMetadata.CHECKSUM_TYPE),
+                            CheckSum.toString(CheckSumType.MD5));
 
         // Check contents of checkSum file
-        byte[] md5 = new byte[16];
-        DataInputStream in = new DataInputStream(new FileInputStream(checkSumFile));
-        in.read(md5);
-        in.close();
-
+        byte[] md5 = Hex.decodeHex(((String) metadata.get(ReadOnlyStorageMetadata.CHECKSUM)).toCharArray());
         byte[] checkSumBytes = CheckSumTests.calculateCheckSum(nodeFile.listFiles(),
                                                                CheckSumType.MD5);
         Assert.assertEquals(0, ByteUtils.compare(checkSumBytes, md5));
@@ -265,13 +276,14 @@ public class HadoopStoreBuilderTest {
         // open store
         @SuppressWarnings("unchecked")
         Serializer<Object> serializer = (Serializer<Object>) new DefaultSerializerFactory().getSerializer(serDef);
-        Store<Object, Object, Object> store = SerializingStore.wrap(new ReadOnlyStorageEngine(storeName,
-                                                                                              searchStrategy,
-                                                                                              new RoutingStrategyFactory().updateRoutingStrategy(def,
-                                                                                                                                                 cluster),
-                                                                                              0,
-                                                                                              storeDir,
-                                                                                              1),
+        ReadOnlyStorageEngine engine = new ReadOnlyStorageEngine(storeName,
+                                                                 searchStrategy,
+                                                                 new RoutingStrategyFactory().updateRoutingStrategy(def,
+                                                                                                                    cluster),
+                                                                 0,
+                                                                 storeDir,
+                                                                 1);
+        Store<Object, Object, Object> store = SerializingStore.wrap(engine,
                                                                     serializer,
                                                                     serializer,
                                                                     serializer);
@@ -281,6 +293,46 @@ public class HadoopStoreBuilderTest {
             List<Versioned<Object>> found = store.get(entry.getKey(), null);
             Assert.assertEquals("Incorrect number of results", 1, found.size());
             Assert.assertEquals(entry.getValue(), found.get(0).getValue());
+        }
+
+        // also check the iterator - first key iterator...
+        try {
+            ClosableIterator<ByteArray> keyIterator = engine.keys();
+            if(!saveKeys) {
+                fail("Should have thrown an exception since this RO format does not support iterators");
+            }
+            int numElements = 0;
+            while(keyIterator.hasNext()) {
+                Assert.assertTrue(values.containsKey(serializer.toObject(keyIterator.next().get())));
+                numElements++;
+            }
+
+            Assert.assertEquals(numElements, values.size());
+        } catch(UnsupportedOperationException e) {
+            if(saveKeys) {
+                fail("Should not have thrown an exception since this RO format does support iterators");
+            }
+        }
+
+        // ... and entry iterator
+        try {
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = engine.entries();
+            if(!saveKeys) {
+                fail("Should have thrown an exception since this RO format does not support iterators");
+            }
+            int numElements = 0;
+            while(entryIterator.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = entryIterator.next();
+                Assert.assertEquals(values.get(serializer.toObject(entry.getFirst().get())),
+                                    serializer.toObject(entry.getSecond().getValue()));
+                numElements++;
+            }
+
+            Assert.assertEquals(numElements, values.size());
+        } catch(UnsupportedOperationException e) {
+            if(saveKeys) {
+                fail("Should not have thrown an exception since this RO format does support iterators");
+            }
         }
     }
 }

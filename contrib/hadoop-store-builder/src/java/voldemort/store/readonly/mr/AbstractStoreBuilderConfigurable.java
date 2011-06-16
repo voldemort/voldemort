@@ -40,6 +40,8 @@ public class AbstractStoreBuilderConfigurable {
     private int numChunks;
     private Cluster cluster;
     private StoreDefinition storeDef;
+    private boolean saveKeys;
+    private boolean reducerPerBucket;
 
     public void configure(JobConf conf) {
         this.cluster = new ClusterMapper().readCluster(new StringReader(conf.get("cluster.xml")));
@@ -47,9 +49,13 @@ public class AbstractStoreBuilderConfigurable {
         if(storeDefs.size() != 1)
             throw new IllegalStateException("Expected to find only a single store, but found multiple!");
         this.storeDef = storeDefs.get(0);
+
         this.numChunks = conf.getInt("num.chunks", -1);
         if(this.numChunks < 1)
             throw new VoldemortException("num.chunks not specified in the job conf.");
+
+        this.saveKeys = conf.getBoolean("save.keys", false);
+        this.reducerPerBucket = conf.getBoolean("reducer.per.bucket", false);
     }
 
     @SuppressWarnings("unused")
@@ -58,6 +64,14 @@ public class AbstractStoreBuilderConfigurable {
     public Cluster getCluster() {
         checkNotNull(cluster);
         return cluster;
+    }
+
+    public boolean getSaveKeys() {
+        return this.saveKeys;
+    }
+
+    public boolean getReducerPerBucket() {
+        return this.reducerPerBucket;
     }
 
     public StoreDefinition getStoreDef() {

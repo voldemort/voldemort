@@ -56,7 +56,7 @@ import com.google.common.collect.Lists;
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
 
-    private static int TEST_SIZE = 10;
+    private static int TEST_SIZE = 100;
 
     @Parameters
     public static Collection<Object[]> configs() {
@@ -101,10 +101,12 @@ public class ReadOnlyStorageEngineTest {
         switch(this.storageType) {
             case READONLY_V0:
             case READONLY_V1:
+                // 16 (md5) + 4 (position)
                 this.indexEntrySize = 20;
                 break;
             case READONLY_V2:
-                this.indexEntrySize = 8;
+                // 8 (upper 8 bytes of md5) + 4 (position)
+                this.indexEntrySize = 12;
                 break;
             default:
                 throw new VoldemortException("Unsupported storage format type");
@@ -364,7 +366,7 @@ public class ReadOnlyStorageEngineTest {
 
         // try to rollback nothing
         try {
-            engine.rollback(null);
+            engine.rollback((File) null);
             fail("Should have thrown an exception since null is passed");
         } catch(VoldemortException e) {}
 
@@ -608,13 +610,34 @@ public class ReadOnlyStorageEngineTest {
                 }
             }
                 break;
-            case READONLY_V1:
-            case READONLY_V2: {
+            case READONLY_V1: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_"
                                                      + Integer.toString(chunkId) + ".index");
                         File data = createFile(dir, Integer.toString(partitionId) + "_"
+                                                    + Integer.toString(chunkId) + ".data");
+                        // write some random crap for index and data
+                        FileOutputStream dataOs = new FileOutputStream(data);
+                        for(int i = 0; i < dataBytes; i++)
+                            dataOs.write(i);
+                        dataOs.close();
+                        FileOutputStream indexOs = new FileOutputStream(index);
+                        for(int i = 0; i < indexBytes; i++)
+                            indexOs.write(i);
+                        indexOs.close();
+                    }
+                }
+            }
+                break;
+            case READONLY_V2: {
+                // Assuming number of replicas = 1, since all these tests use a
+                // store with replication factor of 1
+                for(Integer partitionId: node.getPartitionIds()) {
+                    for(int chunkId = 0; chunkId < numChunks; chunkId++) {
+                        File index = createFile(dir, Integer.toString(partitionId) + "_0_"
+                                                     + Integer.toString(chunkId) + ".index");
+                        File data = createFile(dir, Integer.toString(partitionId) + "_0_"
                                                     + Integer.toString(chunkId) + ".data");
                         // write some random crap for index and data
                         FileOutputStream dataOs = new FileOutputStream(data);

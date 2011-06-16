@@ -23,6 +23,7 @@ import joptsimple.OptionSet;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Ec2Connection;
 import voldemort.utils.HostNamePair;
+import voldemort.utils.Utils;
 import voldemort.utils.impl.TypicaEc2Connection;
 
 import com.xerox.amazonws.ec2.RegionInfo;
@@ -77,9 +78,8 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
         String regionUrl = getRegionUrl(options);
         int instanceCount = CmdUtils.valueOf(options, "instances", 1);
         String securityGroups = CmdUtils.valueOf(options, "securitygroups", null);
-        List<String> securityGroupsList = (securityGroups != null) 
-                ? Arrays.asList(securityGroups.split(","))
-                : null;
+        List<String> securityGroupsList = (securityGroups != null) ? Arrays.asList(securityGroups.split(","))
+                                                                  : null;
         Ec2Connection.Ec2InstanceType instanceType = null;
 
         try {
@@ -103,7 +103,7 @@ public class VoldemortEc2InstanceCreatorApp extends VoldemortApp {
             s.append(hostNamePair.getExternalHostName());
             s.append('=');
             s.append(hostNamePair.getInternalHostName());
-            s.append(System.getProperty("line.separator"));
+            s.append(Utils.NEWLINE);
         }
 
         System.out.print(s);

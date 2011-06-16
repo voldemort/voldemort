@@ -99,7 +99,7 @@ public class FailureDetectorConfig {
     /**
      * Constructs a new FailureDetectorConfig from a server perspective (via
      * {@link VoldemortConfig}).
-     * 
+     *
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
@@ -271,7 +271,7 @@ public class FailureDetectorConfig {
     }
 
     /**
-     * Returns the minimum number of requests that must occur before the success
+     * Returns the minimum number of failures that must occur before the success
      * ratio is calculated to compare against the success threshold percentage.
      * 
      * <p/>
@@ -279,7 +279,7 @@ public class FailureDetectorConfig {
      * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
      * implementation.
      * 
-     * @return Integer representing the minimum number of requests (per node)
+     * @return Integer representing the minimum number of failures (per node)
      *         that must be processed before the threshold is checked
      * 
      * @see ThresholdFailureDetector
@@ -292,7 +292,7 @@ public class FailureDetectorConfig {
     }
 
     /**
-     * Assigns the minimum number of requests that must occur before the success
+     * Assigns the minimum number of failures that must occur before the success
      * ratio is calculated to compare against the success threshold percentage.
      * 
      * <p/>
@@ -301,7 +301,7 @@ public class FailureDetectorConfig {
      * implementation.
      * 
      * @param thresholdCountMinimum Integer representing the minimum number of
-     *        requests (per node) that must be processed before the threshold is
+     *        failures (per node) that must be processed before the threshold is
      *        checked
      * 
      * @exception IllegalArgumentException Thrown if the thresholdCountMinimum
@@ -313,7 +313,7 @@ public class FailureDetectorConfig {
      */
 
     public FailureDetectorConfig setThresholdCountMinimum(int thresholdCountMinimum) {
-        if(threshold < 0)
+        if(thresholdCountMinimum < 0)
             throw new IllegalArgumentException("thresholdCountMinimum must be greater than or equal to 0");
 
         this.thresholdCountMinimum = thresholdCountMinimum;

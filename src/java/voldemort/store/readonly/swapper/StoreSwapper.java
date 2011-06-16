@@ -111,7 +111,7 @@ public abstract class StoreSwapper {
 
         String clusterStr = FileUtils.readFileToString(new File(clusterXml));
         Cluster cluster = new ClusterMapper().readCluster(new StringReader(clusterStr));
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+        ExecutorService executor = Executors.newFixedThreadPool(cluster.getNumberOfNodes());
         StoreSwapper swapper = null;
         AdminClient adminClient = null;
 

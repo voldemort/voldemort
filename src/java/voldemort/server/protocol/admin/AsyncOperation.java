@@ -28,13 +28,13 @@ public abstract class AsyncOperation implements Runnable {
     }
 
     public void run() {
-        updateStatus("started " + getStatus());
+        updateStatus("Started " + getStatus());
         try {
             operate();
         } catch(Exception e) {
             status.setException(e);
         }
-        updateStatus("finished " + getStatus());
+        updateStatus("Finished " + getStatus());
         markComplete();
     }
 

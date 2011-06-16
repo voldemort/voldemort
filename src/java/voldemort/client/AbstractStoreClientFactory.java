@@ -168,8 +168,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                               node.getHost(),
                                                               getPort(node),
                                                               this.requestFormatType);
-            Store<ByteArray, byte[], byte[]> loggingStore = new LoggingStore(store);
-            clientMapping.put(node.getId(), loggingStore);
+            clientMapping.put(node.getId(), store);
 
             NonblockingStore nonblockingStore = routedStoreFactory.toNonblockingStore(store);
             nonblockingStores.put(node.getId(), nonblockingStore);
@@ -184,7 +183,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                                  slopValueSerializer,
                                                                                  new IdentitySerializer());
                 slopStores.put(node.getId(), slopStore);
-                nonblockingSlopStores.put(node.getId(), routedStoreFactory.toNonblockingStore(rawSlopStore));
+                nonblockingSlopStores.put(node.getId(),
+                                          routedStoreFactory.toNonblockingStore(rawSlopStore));
             }
         }
 
@@ -197,6 +197,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            repairReads,
                                                                            clientZoneId,
                                                                            getFailureDetector());
+        store = new LoggingStore(store);
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);

@@ -112,6 +112,15 @@ public class ReadOnlyStorePerformanceTest {
               .describedAs("dir");
         parser.accepts("gzip", "Compress the intermediate temp files used in building the store");
         parser.accepts("request-file", "file get request ids from").withRequiredArg();
+        parser.accepts("version",
+                       "Version of read-only store [" + ReadOnlyStorageFormat.READONLY_V0 + ","
+                               + ReadOnlyStorageFormat.READONLY_V1 + ","
+                               + ReadOnlyStorageFormat.READONLY_V2 + " (default)]")
+              .withRequiredArg()
+              .describedAs("version");
+        parser.accepts("test-gz", "Path to gzip containing data. Works with --build only")
+              .withRequiredArg()
+              .describedAs("path");
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -135,7 +144,9 @@ public class ReadOnlyStorePerformanceTest {
                                                           "working-dir",
                                                           System.getProperty("java.io.tmpdir")));
         String storeDir = (String) options.valueOf("store-dir");
-
+        ReadOnlyStorageFormat format = ReadOnlyStorageFormat.fromCode(CmdUtils.valueOf(options,
+                                                                                       "version",
+                                                                                       ReadOnlyStorageFormat.READONLY_V2.toString()));
         Cluster cluster = null;
         int nodeId = 0;
 
@@ -160,23 +171,28 @@ public class ReadOnlyStorePerformanceTest {
             int valueSize = (Integer) options.valueOf("value-size");
 
             // generate test data
-            File temp = File.createTempFile("json-data", ".txt.gz", workingDir);
-            temp.deleteOnExit();
-            System.out.println("Generating test data in " + temp);
-            OutputStream outputStream = new GZIPOutputStream(new FileOutputStream(temp));
-            Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream),
-                                               10 * 1024 * 1024);
-            String value = TestUtils.randomLetters(valueSize);
-            for(int i = 0; i < numValues; i++) {
-                writer.write("\"");
-                writer.write(Integer.toString(i));
-                writer.write("\" \"");
-                writer.write(value);
-                writer.write("\"");
-                writer.write("\n");
+            File temp = null;
+            if(options.has("test-gz")) {
+                temp = new File((String) options.valueOf("test-gz"));
+            } else {
+                temp = File.createTempFile("json-data", ".txt.gz", workingDir);
+                temp.deleteOnExit();
+                System.out.println("Generating test data in " + temp);
+                OutputStream outputStream = new GZIPOutputStream(new FileOutputStream(temp));
+                Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream),
+                                                   10 * 1024 * 1024);
+                String value = TestUtils.randomLetters(valueSize);
+                for(int i = 0; i < numValues; i++) {
+                    writer.write("\"");
+                    writer.write(Integer.toString(i));
+                    writer.write("\" \"");
+                    writer.write(value);
+                    writer.write("\"");
+                    writer.write("\n");
+                }
+                writer.close();
+                writer = null;
             }
-            writer.close();
-            writer = null;
 
             System.out.println("Building store.");
             InputStream inputStream = new GZIPInputStream(new FileInputStream(temp));
@@ -199,7 +215,7 @@ public class ReadOnlyStorePerformanceTest {
                                                             numChunks,
                                                             64 * 1024,
                                                             gzipIntermediate);
-            builder.build(ReadOnlyStorageFormat.READONLY_V1);
+            builder.build(format);
 
             // copy to store dir
             File dir = new File(storeDir);

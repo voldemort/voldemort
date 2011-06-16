@@ -159,7 +159,8 @@ public class VoldemortServer extends AbstractService {
         if(voldemortConfig.isAdminServerEnabled()) {
             Rebalancer rebalancer = null;
             if(voldemortConfig.isEnableRebalanceService()) {
-                RebalancerService rebalancerService = new RebalancerService(metadata,
+                RebalancerService rebalancerService = new RebalancerService(storeRepository,
+                                                                            metadata,
                                                                             voldemortConfig,
                                                                             asyncService,
                                                                             scheduler);

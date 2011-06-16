@@ -25,17 +25,33 @@ import voldemort.utils.ByteUtils;
 /**
  * A Partitioner that splits data so that all data for the same nodeId, chunkId
  * combination ends up in the same reduce (and hence in the same store chunk)
- * 
- * 
  */
 @SuppressWarnings("deprecation")
 public class HadoopStoreBuilderPartitioner extends AbstractStoreBuilderConfigurable implements
         Partitioner<BytesWritable, BytesWritable> {
 
     public int getPartition(BytesWritable key, BytesWritable value, int numReduceTasks) {
-        int partitionId = ByteUtils.readInt(value.get(), 4);
+        int partitionId = ByteUtils.readInt(value.get(), ByteUtils.SIZE_OF_INT);
         int chunkId = ReadOnlyUtils.chunk(key.get(), getNumChunks());
-        return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
-    }
+        if(getSaveKeys()) {
+            int replicaType = (int) ByteUtils.readBytes(value.get(),
+                                                        2 * ByteUtils.SIZE_OF_INT,
+                                                        ByteUtils.SIZE_OF_BYTE);
+            if(getReducerPerBucket()) {
+                return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
+                       % numReduceTasks;
+            } else {
+                return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
+                        + (replicaType * getNumChunks()) + chunkId)
+                       % numReduceTasks;
+            }
+        } else {
+            if(getReducerPerBucket()) {
+                return partitionId % numReduceTasks;
+            } else {
+                return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            }
 
+        }
+    }
 }

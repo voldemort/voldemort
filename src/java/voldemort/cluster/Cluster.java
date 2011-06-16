@@ -138,7 +138,7 @@ public class Cluster implements Serializable {
         builder.append("', [");
         for(Node n: getNodes()) {
             builder.append(n.toString());
-            builder.append(", ");
+            builder.append('\n');
         }
         builder.append("])");
 
@@ -153,13 +153,43 @@ public class Cluster implements Serializable {
             return false;
 
         Cluster secondCluster = (Cluster) second;
+        if(this.getZones().size() != secondCluster.getZones().size()) {
+            return false;
+        }
+
         if(this.getNodes().size() != secondCluster.getNodes().size()) {
             return false;
         }
-        for(Node nodeA: this.getNodes()) {
-            Node nodeB = secondCluster.getNodeById(nodeA.getId());
 
+        for(Zone zoneA: this.getZones()) {
+            Zone zoneB;
+            try {
+                zoneB = secondCluster.getZoneById(zoneA.getId());
+            } catch(VoldemortException e) {
+                return false;
+            }
+            if(zoneB == null || zoneB.getProximityList().size() != zoneA.getProximityList().size()) {
+                return false;
+            }
+
+            for(int index = 0; index < zoneA.getProximityList().size(); index++) {
+                if(zoneA.getProximityList().get(index) != zoneB.getProximityList().get(index)) {
+                    return false;
+                }
+            }
+        }
+        for(Node nodeA: this.getNodes()) {
+            Node nodeB;
+            try {
+                nodeB = secondCluster.getNodeById(nodeA.getId());
+            } catch(VoldemortException e) {
+                return false;
+            }
             if(nodeA.getNumberOfPartitions() != nodeB.getNumberOfPartitions()) {
+                return false;
+            }
+
+            if(nodeA.getZoneId() != nodeB.getZoneId()) {
                 return false;
             }
 

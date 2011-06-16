@@ -43,10 +43,12 @@ public class GossiperTest extends TestCase {
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
     private Cluster cluster;
     private Properties props = new Properties();
+    private static final int socketBufferSize = 4096;
+    private static final int adminSocketBufferSize = 8192;
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
                                                                                   100000,
-                                                                                  32 * 1024);
+                                                                                  socketBufferSize);
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     private final boolean useNio;
 
@@ -56,7 +58,7 @@ public class GossiperTest extends TestCase {
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { false } });
+        return Arrays.asList(new Object[][] { { false }, { true } });
     }
 
     @Override
@@ -64,6 +66,8 @@ public class GossiperTest extends TestCase {
     public void setUp() throws IOException {
         props.put("enable.gossip", "true");
         props.put("gossip.interval.ms", "250");
+        props.put("socket.buffer.size", String.valueOf(socketBufferSize));
+        props.put("admin.streams.buffer.size", String.valueOf(adminSocketBufferSize));
 
         // Start all in parallel to avoid exceptions during gossip
 

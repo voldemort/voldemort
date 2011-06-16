@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2011 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,21 +16,21 @@
 
 package voldemort.client;
 
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-
 /**
- * A {@link StoreClient} with lazy initialization. This is useful
- * existing codes that initializes clients at service deployment time,
- * when the servers may or may not be available
- *
+ * A {@link StoreClient} with lazy initialization. This is useful existing codes
+ * that initializes clients at service deployment time, when the servers may or
+ * may not be available
+ * 
  */
 public class LazyStoreClient<K, V> implements StoreClient<K, V> {
 
@@ -55,8 +55,7 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
             throw ve;
         } catch(Exception e) {
             // Callable's type signature includes checked exceptions
-            throw new VoldemortException("Unexpected exception during initialization",
-                                         e);
+            throw new VoldemortException("Unexpected exception during initialization", e);
         }
     }
 
@@ -88,16 +87,16 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
         return getStoreClient().get(key, defaultValue);
     }
 
-    public void put(K key, V value) {
-        getStoreClient().put(key, value);
+    public Version put(K key, V value) {
+        return getStoreClient().put(key, value);
     }
 
-    public void put(K key, V value, Object transforms) {
-        getStoreClient().put(key, value, transforms);
+    public Version put(K key, V value, Object transforms) {
+        return getStoreClient().put(key, value, transforms);
     }
 
-    public void put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
-        getStoreClient().put(key, versioned);
+    public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException {
+        return getStoreClient().put(key, versioned);
     }
 
     public boolean putIfNotObsolete(K key, Versioned<V> versioned) {

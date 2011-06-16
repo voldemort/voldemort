@@ -29,8 +29,12 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -54,14 +58,14 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 
 /**
  * Build a read-only store from given input.
@@ -141,7 +145,8 @@ public class JsonStoreBuilder {
               .withRequiredArg()
               .describedAs("output directory");
         parser.accepts("threads", "number of threads").withRequiredArg().ofType(Integer.class);
-        parser.accepts("chunks", "number of chunks [per node, per partition]")
+        parser.accepts("chunks",
+                       "number of chunks [per node, per partition, per partition + replica]")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts("io-buffer-size", "size of i/o buffers in bytes")
@@ -153,7 +158,8 @@ public class JsonStoreBuilder {
         parser.accepts("gzip", "compress intermediate chunk files");
         parser.accepts("format",
                        "read-only store format [" + ReadOnlyStorageFormat.READONLY_V0.getCode()
-                               + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + " (default)]")
+                               + "," + ReadOnlyStorageFormat.READONLY_V1.getCode() + ","
+                               + ReadOnlyStorageFormat.READONLY_V2.getCode() + "]")
               .withRequiredArg()
               .ofType(String.class);
         OptionSet options = parser.parse(args);
@@ -208,7 +214,7 @@ public class JsonStoreBuilder {
                 Utils.croak("No store found with name \"" + storeName + "\"");
 
             if(!outputDir.exists())
-                Utils.croak("Directory \"" + outputDir.getAbsolutePath() + " does not exist.");
+                Utils.croak("Directory \"" + outputDir.getAbsolutePath() + "\" does not exist.");
 
             RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                  cluster);
@@ -413,57 +419,47 @@ public class JsonStoreBuilder {
 
     public void buildVersion2() throws IOException {
         logger.info("Building store " + storeDefinition.getName() + " for "
-                    + cluster.getNumberOfPartitions() + " partitions with " + numChunks
-                    + " chunks per partitions and type " + ReadOnlyStorageFormat.READONLY_V2);
+                    + cluster.getNumberOfPartitions() + " partitions, "
+                    + storeDefinition.getReplicationFactor() + " replica types, " + numChunks
+                    + " chunks per partitions per replica type and type "
+                    + ReadOnlyStorageFormat.READONLY_V2);
 
-        // initialize nodes
-        int numNodes = cluster.getNumberOfNodes();
-        DataOutputStream[][] indexes = new DataOutputStream[numNodes][];
-        DataOutputStream[][] datas = new DataOutputStream[numNodes][];
-        int[][] positions = new int[numNodes][];
+        // Initialize files
+        DataOutputStream[][] indexes = new DataOutputStream[cluster.getNumberOfPartitions()][];
+        DataOutputStream[][] datas = new DataOutputStream[cluster.getNumberOfPartitions()][];
+        int[][] positions = new int[cluster.getNumberOfPartitions()][];
 
-        int[] partitionIdToChunkOffset = new int[cluster.getNumberOfPartitions()];
-        int[] partitionIdToNodeId = new int[cluster.getNumberOfPartitions()];
+        File tempDirectory = new File(Utils.notNull(System.getProperty("java.io.tmpdir")),
+                                      "tempDir-" + Integer.toString(new Random().nextInt()));
+        Utils.mkdirs(tempDirectory);
 
-        for(Node node: cluster.getNodes()) {
-            int nodeId = node.getId();
-            indexes[nodeId] = new DataOutputStream[node.getNumberOfPartitions() * numChunks];
-            datas[nodeId] = new DataOutputStream[node.getNumberOfPartitions() * numChunks];
-            positions[nodeId] = new int[node.getNumberOfPartitions() * numChunks];
+        for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
+            indexes[partitionId] = new DataOutputStream[storeDefinition.getReplicationFactor()
+                                                        * numChunks];
+            datas[partitionId] = new DataOutputStream[storeDefinition.getReplicationFactor()
+                                                      * numChunks];
+            positions[partitionId] = new int[storeDefinition.getReplicationFactor() * numChunks];
 
-            File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
-            nodeDir.mkdirs();
-
-            // Create metadata file
-            BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
-            ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-            metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                         ReadOnlyStorageFormat.READONLY_V2.getCode());
-            writer.write(metadata.toJsonString());
-            writer.close();
-
-            int globalChunk = 0;
-            for(Integer partition: node.getPartitionIds()) {
-                partitionIdToChunkOffset[partition] = globalChunk;
-                partitionIdToNodeId[partition] = node.getId();
+            int globalChunkId = 0;
+            for(int repType = 0; repType < storeDefinition.getReplicationFactor(); repType++) {
                 for(int chunk = 0; chunk < numChunks; chunk++) {
-                    File indexFile = new File(nodeDir, Integer.toString(partition) + "_"
-                                                       + Integer.toString(chunk) + ".index");
-                    File dataFile = new File(nodeDir, Integer.toString(partition) + "_"
-                                                      + Integer.toString(chunk) + ".data");
-                    positions[nodeId][globalChunk] = 0;
-                    indexes[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
-                                                                                                 ioBufferSize));
-                    datas[nodeId][globalChunk] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
-                                                                                               ioBufferSize));
-                    globalChunk++;
+                    File indexFile = new File(tempDirectory, Integer.toString(partitionId) + "_"
+                                                             + Integer.toString(repType) + "_"
+                                                             + Integer.toString(chunk) + ".index");
+                    File dataFile = new File(tempDirectory, Integer.toString(partitionId) + "_"
+                                                            + Integer.toString(repType) + "_"
+                                                            + Integer.toString(chunk) + ".data");
+                    positions[partitionId][globalChunkId] = 0;
+                    indexes[partitionId][globalChunkId] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(indexFile),
+                                                                                                        ioBufferSize));
+                    datas[partitionId][globalChunkId] = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(dataFile),
+                                                                                                      ioBufferSize));
+                    globalChunkId++;
                 }
-
             }
         }
 
         logger.info("Reading items...");
-        int count = 0;
         ExternalSorter<KeyValuePair> sorter = new ExternalSorter<KeyValuePair>(new KeyValuePairSerializer(),
                                                                                new KeyMd5Comparator(),
                                                                                internalSortSize,
@@ -473,85 +469,153 @@ public class JsonStoreBuilder {
                                                                                gzipIntermediate);
         JsonObjectIterator iter = new JsonObjectIterator(reader, storeDefinition);
 
-        // Put them into buckets on a per node-chunk basis
-        ListMultimap<Pair<Integer, Integer>, KeyValuePair> buckets = ArrayListMultimap.create();
+        int count = 0;
+        HashMap<Pair<Integer, Integer>, Pair<byte[], byte[]>> previousElements = Maps.newHashMap();
+        for(KeyValuePair currentElement: sorter.sorted(iter)) {
+            List<Integer> partitionIds = this.routingStrategy.getPartitionList(currentElement.getKey());
+            int masterPartition = partitionIds.get(0);
+            int localChunkId = ReadOnlyUtils.chunk(currentElement.getKeyMd5(), numChunks);
 
-        for(KeyValuePair pair: sorter.sorted(iter)) {
-            List<Integer> partitionIds = this.routingStrategy.getPartitionList(pair.getKey());
-            for(Integer partitionId: partitionIds) {
-                int localChunkId = ReadOnlyUtils.chunk(pair.getKeyMd5(), numChunks);
-                int chunk = localChunkId + partitionIdToChunkOffset[partitionId];
-                int nodeId = partitionIdToNodeId[partitionId];
+            for(int replicaType = 0; replicaType < partitionIds.size(); replicaType++) {
+                int globalChunkId = (replicaType * numChunks) + localChunkId;
 
-                buckets.put(Pair.create(nodeId, chunk), pair);
+                Pair<Integer, Integer> key = Pair.create(masterPartition, globalChunkId);
+                if(!previousElements.containsKey(key)) {
+
+                    // First element, lets write it to map
+                    previousElements.put(key,
+                                         Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
+                                                                    0,
+                                                                    2 * ByteUtils.SIZE_OF_INT),
+                                                     generateFirstElement(currentElement)));
+
+                } else {
+
+                    Pair<byte[], byte[]> previousElement = previousElements.get(key);
+
+                    // If the current element is same as previous element,
+                    // append it...
+                    if(ByteUtils.compare(previousElement.getFirst(),
+                                         currentElement.getKeyMd5(),
+                                         0,
+                                         2 * ByteUtils.SIZE_OF_INT) == 0) {
+
+                        short numKeys = ByteUtils.readShort(previousElement.getSecond(), 0);
+                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                        DataOutputStream valueStream = new DataOutputStream(stream);
+
+                        valueStream.writeShort(numKeys + 1);
+                        // Append the previous tuples
+                        valueStream.write(ByteUtils.copy(previousElement.getSecond(),
+                                                         ByteUtils.SIZE_OF_SHORT,
+                                                         previousElement.getSecond().length));
+                        valueStream.writeInt(currentElement.getKey().length);
+                        valueStream.writeInt(currentElement.getValue().length);
+                        valueStream.write(currentElement.getKey());
+                        valueStream.write(currentElement.getValue());
+
+                        valueStream.flush();
+
+                        previousElements.put(key, Pair.create(previousElement.getFirst(),
+                                                              stream.toByteArray()));
+                    } else {
+
+                        // ...else, flush the previous element to disk
+
+                        indexes[masterPartition][globalChunkId].write(previousElement.getFirst());
+                        indexes[masterPartition][globalChunkId].writeInt(positions[masterPartition][globalChunkId]);
+                        datas[masterPartition][globalChunkId].write(previousElement.getSecond());
+                        positions[masterPartition][globalChunkId] += previousElement.getSecond().length;
+
+                        // ...and add current element as previous element
+                        previousElements.put(key,
+                                             Pair.create(ByteUtils.copy(currentElement.getKeyMd5(),
+                                                                        0,
+                                                                        2 * ByteUtils.SIZE_OF_INT),
+                                                         generateFirstElement(currentElement)));
+                    }
+
+                }
             }
             count++;
         }
-
         logger.info(count + " items read.");
 
-        for(Pair<Integer, Integer> bucket: buckets.keySet()) {
-            List<KeyValuePair> keyValuePairs = buckets.get(bucket);
-            int nodeId = bucket.getFirst();
-            int chunk = bucket.getSecond();
+        // If any element still left in previous elements, flush them out to
+        // files
+        for(Entry<Pair<Integer, Integer>, Pair<byte[], byte[]>> entry: previousElements.entrySet()) {
+            int partitionId = entry.getKey().getFirst();
+            int globalChunkId = entry.getKey().getSecond();
+            byte[] keyMd5 = entry.getValue().getFirst();
+            byte[] value = entry.getValue().getSecond();
 
-            int index = 0;
-            KeyValuePair prevPair = null, currentPair = null;
-            while(currentPair != null || index < keyValuePairs.size()) {
-                if(currentPair == null)
-                    currentPair = keyValuePairs.get(index);
-
-                indexes[nodeId][chunk].write(ByteUtils.copy(currentPair.keyMd5,
-                                                            0,
-                                                            ByteUtils.SIZE_OF_INT));
-                indexes[nodeId][chunk].writeInt(positions[nodeId][chunk]);
-
-                int tuples = 0;
-                ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                DataOutputStream valueStream = new DataOutputStream(stream);
-                do {
-                    valueStream.writeInt(currentPair.getKey().length);
-                    valueStream.write(currentPair.getKey());
-                    valueStream.writeInt(currentPair.getValue().length);
-                    valueStream.write(currentPair.getValue());
-
-                    index++;
-                    tuples++;
-                    if(index < keyValuePairs.size()) {
-                        prevPair = currentPair;
-                        currentPair = keyValuePairs.get(index);
-                    } else {
-                        currentPair = null;
-                    }
-
-                } while(currentPair != null
-                        && ByteUtils.compare(ByteUtils.copy(prevPair.keyMd5,
-                                                            0,
-                                                            ByteUtils.SIZE_OF_INT),
-                                             ByteUtils.copy(currentPair.keyMd5,
-                                                            0,
-                                                            ByteUtils.SIZE_OF_INT)) == 0);
-
-                valueStream.flush();
-
-                byte[] numBuf = new byte[1];
-                numBuf[0] = (byte) tuples;
-
-                datas[nodeId][chunk].write(numBuf);
-                datas[nodeId][chunk].write(stream.toByteArray());
-
-                positions[nodeId][chunk] += 1 + stream.toByteArray().length;
-            }
+            indexes[partitionId][globalChunkId].write(keyMd5);
+            indexes[partitionId][globalChunkId].writeInt(positions[partitionId][globalChunkId]);
+            datas[partitionId][globalChunkId].write(value);
         }
 
-        // sort and write out
-        logger.info("Closing all store files.");
+        // Create node folders
+        File[] nodeDirs = new File[cluster.getNumberOfNodes()];
         for(Node node: cluster.getNodes()) {
-            for(int chunk = 0; chunk < numChunks * node.getNumberOfPartitions(); chunk++) {
-                indexes[node.getId()][chunk].close();
-                datas[node.getId()][chunk].close();
+            int nodeId = node.getId();
+
+            // Create data directory
+            File nodeDir = new File(outputDir, "node-" + Integer.toString(nodeId));
+            nodeDir.mkdirs();
+
+            // Add the data directory to the array
+            nodeDirs[node.getId()] = nodeDir;
+
+            // Create metadata file
+            BufferedWriter writer = new BufferedWriter(new FileWriter(new File(nodeDir, ".metadata")));
+            ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+            metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                         ReadOnlyStorageFormat.READONLY_V2.getCode());
+            writer.write(metadata.toJsonString());
+            writer.close();
+
+        }
+
+        // Close everything
+        logger.info("Closing all store files.");
+        for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
+            for(int chunk = 0; chunk < numChunks * storeDefinition.getReplicationFactor(); chunk++) {
+                indexes[partitionId][chunk].close();
+                datas[partitionId][chunk].close();
             }
         }
+
+        // Start moving files over to their correct node
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
+                                                                                      cluster);
+        Map<Integer, Integer> replicaMapping = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        for(File file: tempDirectory.listFiles()) {
+            String fileName = file.getName();
+            if(fileName.matches("^[\\d]+_[\\d]+_[\\d]+\\.(data|index)")) {
+                String[] props = fileName.split("_");
+                int partitionId = Integer.parseInt(props[0]);
+                int replicaType = Integer.parseInt(props[1]);
+                int nodeId = replicaMapping.get(strategy.getReplicatingPartitionList(partitionId)
+                                                        .get(replicaType));
+                Utils.move(file, new File(nodeDirs[nodeId], fileName));
+            }
+        }
+
+    }
+
+    private byte[] generateFirstElement(KeyValuePair currentPair) throws IOException {
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        DataOutputStream valueStream = new DataOutputStream(stream);
+
+        valueStream.writeShort(1);
+        valueStream.writeInt(currentPair.getKey().length);
+        valueStream.writeInt(currentPair.getValue().length);
+        valueStream.write(currentPair.getKey());
+        valueStream.write(currentPair.getValue());
+
+        valueStream.flush();
+
+        return stream.toByteArray();
     }
 
     /* Check if the position has exceeded Integer.MAX_VALUE */

@@ -26,7 +26,7 @@ public class DataSetStats {
         if(keySize > this.maxKeySize)
             this.maxKeySize = keySize;
         if(keySize < this.minKeySize)
-            this.maxKeySize = keySize;
+            this.minKeySize = keySize;
         if(valueSize > this.maxValueSize)
             this.maxValueSize = valueSize;
         if(valueSize < this.minValueSize)

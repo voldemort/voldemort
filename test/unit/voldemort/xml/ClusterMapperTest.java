@@ -17,14 +17,20 @@
 package voldemort.xml;
 
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
 import junit.framework.TestCase;
+import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
+
+import com.google.common.collect.Lists;
 
 public class ClusterMapperTest extends TestCase {
 
@@ -59,5 +65,64 @@ public class ClusterMapperTest extends TestCase {
         for(Zone zone: zones) {
             assertEquals(zone.getProximityList().size(), 2);
         }
+    }
+
+    public void testClusterEquals() {
+        List<Zone> zones2 = ServerTestUtils.getZones(2);
+        List<Zone> zones3 = ServerTestUtils.getZones(3);
+
+        Cluster cluster1 = ServerTestUtils.getLocalCluster(4, 10, 2);
+        Cluster cluster2 = new Cluster("cluster2", Lists.newArrayList(cluster1.getNodes()), zones3);
+
+        // Test different number of zones
+        assertFalse(cluster1.equals(cluster2));
+
+        // Test proximity size not same
+        List<Zone> modifiedZones2 = Lists.newArrayList();
+        modifiedZones2.add(zones2.get(0));
+        LinkedList<Integer> newProximityList = Lists.newLinkedList(zones2.get(1).getProximityList());
+        newProximityList.add(100);
+        modifiedZones2.add(new Zone(zones2.get(1).getId(), newProximityList));
+
+        cluster1 = new Cluster("cluster1", new ArrayList<Node>(), zones2);
+        cluster2 = new Cluster("cluster2", new ArrayList<Node>(), modifiedZones2);
+        assertFalse(cluster1.equals(cluster2));
+
+        // Test proximity list different order
+        List<Zone> modifiedZones3 = Lists.newArrayList();
+        for(int zoneId = 0; zoneId < 3; zoneId++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList(zones3.get(zoneId)
+                                                                          .getProximityList());
+            Collections.reverse(proximityList);
+            modifiedZones3.add(new Zone(zones3.get(zoneId).getId(), proximityList));
+        }
+
+        cluster1 = new Cluster("cluster1", new ArrayList<Node>(), zones3);
+        cluster2 = new Cluster("cluster2", new ArrayList<Node>(), modifiedZones3);
+        assertFalse(cluster1.equals(cluster2));
+
+        // Test nodes in different zones
+
+        cluster1 = ServerTestUtils.getLocalCluster(4, 10, 2);
+
+        List<Node> newNodes = Lists.newArrayList();
+        for(Node node: cluster1.getNodes()) {
+            newNodes.add(new Node(node.getId(),
+                                  node.getHost(),
+                                  node.getHttpPort(),
+                                  node.getSocketPort(),
+                                  node.getAdminPort(),
+                                  0,
+                                  node.getPartitionIds()));
+        }
+        cluster2 = new Cluster("cluster2", newNodes, Lists.newArrayList(cluster1.getZones()));
+        assertFalse(cluster1.equals(cluster2));
+
+        // Test equality
+
+        cluster2 = new Cluster("cluster2",
+                               Lists.newArrayList(cluster1.getNodes()),
+                               Lists.newArrayList(cluster1.getZones()));
+        assertTrue(cluster1.equals(cluster2));
     }
 }

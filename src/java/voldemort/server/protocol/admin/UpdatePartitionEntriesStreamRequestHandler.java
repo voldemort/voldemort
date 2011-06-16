@@ -4,6 +4,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -19,6 +21,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.stats.StreamStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.EventThrottler;
@@ -49,13 +52,18 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
     private final long startTime;
 
+    private final StreamStats stats;
+
+    private final StreamStats.Handle handle;
+
     private final Logger logger = Logger.getLogger(getClass());
 
     public UpdatePartitionEntriesStreamRequestHandler(UpdatePartitionEntriesRequest request,
                                                       ErrorCodeMapper errorCodeMapper,
                                                       VoldemortConfig voldemortConfig,
                                                       StoreRepository storeRepository,
-                                                      NetworkClassLoader networkClassLoader) {
+                                                      NetworkClassLoader networkClassLoader,
+                                                      StreamStats stats) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
@@ -67,11 +75,15 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                                                                                          networkClassLoader)
                                       : new DefaultVoldemortFilter();
         startTime = System.currentTimeMillis();
+        this.stats = stats;
+        this.handle = stats.makeHandle(StreamStats.Operation.UPDATE,
+                                       new HashMap<Integer, List<Integer>>());
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
+        long startNs = System.nanoTime();
         if(request == null) {
             int size = 0;
 
@@ -80,14 +92,15 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message size");
-
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             }
 
             if(size == -1) {
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
-
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                stats.closeHandle(handle);
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -103,6 +116,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                     logger.trace("Incomplete read for message");
 
                 return StreamRequestHandlerState.INCOMPLETE_READ;
+            } finally {
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
             }
 
             VAdminProto.UpdatePartitionEntriesRequest.Builder builder = VAdminProto.UpdatePartitionEntriesRequest.newBuilder();
@@ -115,6 +130,7 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
         Versioned<byte[]> value = ProtoUtils.decodeVersioned(partitionEntry.getVersioned());
 
         if(filter.accept(key, value)) {
+            startNs = System.nanoTime();
             try {
                 storageEngine.put(key, value, null);
 
@@ -124,6 +140,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
                 // log and ignore
                 if(logger.isDebugEnabled())
                     logger.debug("updateEntries (Streaming put) threw ObsoleteVersionException, Ignoring.");
+            } finally {
+                stats.recordDiskTime(handle, System.nanoTime() - startNs);
             }
 
             throttler.maybeThrottle(key.length() + AdminServiceRequestHandler.valueSize(value));
@@ -131,13 +149,13 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
         // log progress
         counter++;
+        handle.incrementEntriesScanned();
 
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            if(logger.isDebugEnabled())
-                logger.debug("updateEntries() updated " + counter + " entries for store:"
-                             + storageEngine.getName() + " in " + totalTime + " s");
+            logger.info("Update entries updated " + counter + " entries for store '"
+                        + storageEngine.getName() + "' in " + totalTime + " s");
         }
 
         request = null;

@@ -29,6 +29,8 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Iterator;
 import java.util.List;
@@ -38,25 +40,30 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
+import org.apache.commons.io.FileUtils;
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
-import voldemort.annotations.Experimental;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.Serializer;
+import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
+import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -69,6 +76,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Provides a command line interface to the
@@ -76,6 +84,7 @@ import com.google.common.collect.Maps;
  */
 public class VoldemortAdminTool {
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
@@ -92,19 +101,19 @@ public class VoldemortAdminTool {
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
-        parser.accepts("restore", "Restore from replication");
-        parser.accepts("ascii", "Fetch keys as ASCII");
-        parser.accepts("parallelism", "Parallelism")
-              .withRequiredArg()
+        parser.accepts("restore",
+                       "Restore from replication [ Optional parallelism param - Default - 5 ]")
+              .withOptionalArg()
               .describedAs("parallelism")
               .ofType(Integer.class);
+        parser.accepts("ascii", "Fetch keys as ASCII");
         parser.accepts("fetch-keys", "Fetch keys")
-              .withRequiredArg()
+              .withOptionalArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("fetch-entries", "Fetch full entries")
-              .withRequiredArg()
+              .withOptionalArg()
               .describedAs("partition-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
@@ -119,26 +128,34 @@ public class VoldemortAdminTool {
               .ofType(String.class);
         parser.accepts("add-stores", "Add stores in this stores.xml")
               .withRequiredArg()
-              .describedAs("stores.xml")
+              .describedAs("stores.xml containing just the new stores")
               .ofType(String.class);
         parser.accepts("delete-store", "Delete store")
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("update-entries", "[EXPERIMENTAL] Insert or update entries")
+        parser.accepts("update-entries", "Insert or update entries")
               .withRequiredArg()
               .describedAs("input-directory")
               .ofType(String.class);
         parser.accepts("get-metadata",
                        "retreive metadata information [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " ]")
+                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
-        parser.accepts("ro-version", "retrieve version information [current | max]")
+        parser.accepts("check-metadata",
+                       "retreive metadata information from all nodes and checks if they are consistent across [ "
+                               + MetadataStore.CLUSTER_KEY + " | " + MetadataStore.STORES_KEY
+                               + " | " + MetadataStore.SERVER_STATE_KEY + " ]")
               .withRequiredArg()
-              .describedAs("version-type")
+              .describedAs("metadata-key")
+              .ofType(String.class);
+        parser.accepts("ro-metadata",
+                       "retrieve version information [current | max | storage-format]")
+              .withRequiredArg()
+              .describedAs("type")
               .ofType(String.class);
         parser.accepts("truncate", "truncate a store")
               .withRequiredArg()
@@ -147,44 +164,47 @@ public class VoldemortAdminTool {
         parser.accepts("set-metadata",
                        "Forceful setting of metadata [ " + MetadataStore.CLUSTER_KEY + " | "
                                + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " ], possibly after grandfathering or partial rebalancing")
+                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
               .withRequiredArg()
               .describedAs("metadata-key")
               .ofType(String.class);
         parser.accepts("set-metadata-value",
                        "The value for the set-metadata [ " + MetadataStore.CLUSTER_KEY + " | "
-                               + MetadataStore.STORES_KEY + " ] - xml file location, [ "
-                               + MetadataStore.SERVER_STATE_KEY + " ] - "
-                               + MetadataStore.VoldemortState.NORMAL_SERVER + ","
-                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER + ","
-                               + MetadataStore.VoldemortState.GRANDFATHERING_SERVER)
+                               + MetadataStore.STORES_KEY + ", "
+                               + MetadataStore.REBALANCING_STEAL_INFO
+                               + " ] - xml file location, [ " + MetadataStore.SERVER_STATE_KEY
+                               + " ] - " + MetadataStore.VoldemortState.NORMAL_SERVER + ","
+                               + MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER)
               .withRequiredArg()
               .describedAs("metadata-value")
               .ofType(String.class);
+        parser.accepts("key-distribution", "Prints the current key distribution of the cluster");
+        parser.accepts("clear-rebalancing-metadata", "Remove the metadata related to rebalancing");
 
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
-            parser.printHelpOn(System.out);
+            printHelp(System.out, parser);
             System.exit(0);
         }
 
         Set<String> missing = CmdUtils.missing(options, "url", "node");
         if(missing.size() > 0) {
             // Not the most elegant way to do this
-            if(!(missing.equals(ImmutableSet.of("node")) && (options.has("add-stores")
-                                                             || options.has("delete-store")
-                                                             || options.has("ro-version")
-                                                             || options.has("set-metadata") || options.has("get-metadata")))) {
+            if(!(missing.equals(ImmutableSet.of("node"))
+                 && (options.has("add-stores") || options.has("delete-store")
+                     || options.has("ro-metadata") || options.has("set-metadata")
+                     || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
+                 || options.has("truncate") || options.has("clear-rebalancing-metadata"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
-                parser.printHelpOn(System.err);
+                printHelp(System.err, parser);
                 System.exit(1);
             }
         }
 
         String url = (String) options.valueOf("url");
         Integer nodeId = CmdUtils.valueOf(options, "node", -1);
-        Integer parallelism = CmdUtils.valueOf(options, "parallelism", 5);
+        int parallelism = CmdUtils.valueOf(options, "restore", 5);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
 
@@ -213,7 +233,7 @@ public class VoldemortAdminTool {
         if(options.has("get-metadata")) {
             ops += "g";
         }
-        if(options.has("ro-version")) {
+        if(options.has("ro-metadata")) {
             ops += "e";
         }
         if(options.has("truncate")) {
@@ -222,42 +242,53 @@ public class VoldemortAdminTool {
         if(options.has("set-metadata")) {
             ops += "m";
         }
+        if(options.has("check-metadata")) {
+            ops += "c";
+        }
+        if(options.has("key-distribution")) {
+            ops += "y";
+        }
+        if(options.has("clear-rebalancing-metadata")) {
+            ops += "i";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-version, set-metadata) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata) must be specified");
         }
 
         List<String> storeNames = null;
 
         if(options.has("stores")) {
-            // For some reason one can't just do @SuppressWarnings without
-            // identifier following it
-            @SuppressWarnings("unchecked")
             List<String> temp = (List<String>) options.valuesOf("stores");
             storeNames = temp;
+        }
+
+        String outputDir = null;
+        if(options.has("outdir")) {
+            outputDir = (String) options.valueOf("outdir");
         }
 
         try {
             if(ops.contains("d")) {
                 System.out.println("Starting delete-partitions");
-                @SuppressWarnings("unchecked")
                 List<Integer> partitionIdList = (List<Integer>) options.valuesOf("delete-partitions");
                 executeDeletePartitions(nodeId, adminClient, partitionIdList, storeNames);
                 System.out.println("Finished delete-partitions");
             }
             if(ops.contains("r")) {
+                if(nodeId == -1) {
+                    System.err.println("Cannot run restore without node id");
+                    System.exit(1);
+                }
                 System.out.println("Starting restore");
                 adminClient.restoreDataFromReplications(nodeId, parallelism);
-                System.err.println("Finished restore");
+                System.out.println("Finished restore");
             }
             if(ops.contains("k")) {
-                String outputDir = null;
-                if(options.has("outdir")) {
-                    outputDir = (String) options.valueOf("outdir");
-                }
                 boolean useAscii = options.has("ascii");
                 System.out.println("Starting fetch keys");
-                @SuppressWarnings("unchecked")
-                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
+                List<Integer> partitionIdList = null;
+                if(options.hasArgument("fetch-keys"))
+                    partitionIdList = (List<Integer>) options.valuesOf("fetch-keys");
                 executeFetchKeys(nodeId,
                                  adminClient,
                                  partitionIdList,
@@ -266,13 +297,11 @@ public class VoldemortAdminTool {
                                  useAscii);
             }
             if(ops.contains("v")) {
-                String outputDir = null;
-                if(options.has("outdir")) {
-                    outputDir = (String) options.valueOf("outdir");
-                }
                 boolean useAscii = options.has("ascii");
-                @SuppressWarnings("unchecked")
-                List<Integer> partitionIdList = (List<Integer>) options.valuesOf("fetch-entries");
+                System.out.println("Starting fetch entries");
+                List<Integer> partitionIdList = null;
+                if(options.hasArgument("fetch-entries"))
+                    partitionIdList = (List<Integer>) options.valuesOf("fetch-entries");
                 executeFetchEntries(nodeId,
                                     adminClient,
                                     partitionIdList,
@@ -282,28 +311,31 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
-                executeAddStores(adminClient, storesXml, storeNames);
+                executeAddStores(adminClient, storesXml, nodeId);
             }
             if(ops.contains("u")) {
                 String inputDir = (String) options.valueOf("update-entries");
-                boolean useAscii = options.has("ascii");
-                executeUpdateEntries(nodeId, adminClient, storeNames, inputDir, useAscii);
+                executeUpdateEntries(nodeId, adminClient, storeNames, inputDir);
             }
             if(ops.contains("s")) {
                 String storeName = (String) options.valueOf("delete-store");
-                executeDeleteStore(adminClient, storeName);
+                executeDeleteStore(adminClient, storeName, nodeId);
             }
             if(ops.contains("g")) {
                 String metadataKey = (String) options.valueOf("get-metadata");
-                executeGetMetadata(nodeId, adminClient, metadataKey);
+                executeGetMetadata(nodeId, adminClient, metadataKey, outputDir);
             }
             if(ops.contains("e")) {
-                String versionType = (String) options.valueOf("ro-version");
-                executeROVersion(nodeId, adminClient, storeNames, versionType);
+                String type = (String) options.valueOf("ro-metadata");
+                executeROMetadata(nodeId, adminClient, storeNames, type);
             }
             if(ops.contains("t")) {
                 String storeName = (String) options.valueOf("truncate");
                 executeTruncateStore(nodeId, adminClient, storeName);
+            }
+            if(ops.contains("c")) {
+                String metadataKey = (String) options.valueOf("check-metadata");
+                executeCheckMetadata(adminClient, metadataKey);
             }
             if(ops.contains("m")) {
                 String metadataKey = (String) options.valueOf("set-metadata");
@@ -335,15 +367,163 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+                    } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
+                        if(!Utils.isReadableFile(metadataValue))
+                            throw new VoldemortException("Rebalancing steal info file path incorrect");
+                        String rebalancingStealInfoJsonString = FileUtils.readFileToString(new File(metadataValue));
+                        RebalancerState state = RebalancerState.create(rebalancingStealInfoJsonString);
+                        executeSetMetadata(nodeId,
+                                           adminClient,
+                                           MetadataStore.REBALANCING_STEAL_INFO,
+                                           state.toJsonString());
                     } else {
                         throw new VoldemortException("Incorrect metadata key");
                     }
                 }
 
             }
+            if(ops.contains("y")) {
+                executeKeyDistribution(adminClient);
+            }
+            if(ops.contains("i")) {
+                executeClearRebalancing(nodeId, adminClient);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
+        stream.println("Commands supported");
+        stream.println("------------------");
+        stream.println("CHANGE METADATA");
+        stream.println("\t1) Get metadata from all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]");
+        stream.println("\t2) Get metadata from a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url] --node [node-id]");
+        stream.println("\t3) Get metadata from a particular node and store to a directory");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url] --node [node-id] --outdir [directory]");
+        stream.println("\t4) Set metadata on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url]");
+        stream.println("\t5) Set metadata for a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
+        stream.println("\t6) Check if metadata is same on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]");
+        stream.println("\t7) Clear rebalancing metadata ( server.state & rebalancing.steal.info.key ) on all node ");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url]");
+        stream.println("\t8) Clear rebalancing metadata ( server.state & rebalancing.steal.info.key ) on a particular node ");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
+        stream.println();
+        stream.println("ADD / DELETE STORES");
+        stream.println("\t1) Add store(s) on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url]");
+        stream.println("\t2) Add store(s) on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --add-stores [xml file with store(s) to add] --url [url] --node [node-id]");
+        stream.println("\t3) Delete store on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url]");
+        stream.println("\t4) Delete store on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-store [store-name] --url [url] --node [node-id]");
+        stream.println("\t5) Delete the contents of the store on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url]");
+        stream.println("\t6) Delete the contents of the store on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --truncate [store-name] --url [url] --node [node-id]");
+        stream.println("\t7) Delete the contents of some partitions on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id]");
+        stream.println("\t8) Delete the contents of some partitions ( of some stores ) on a single node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --delete-partitions [comma-separated list of partitions] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println();
+        stream.println("STREAM DATA");
+        stream.println("\t1) Fetch keys from a set of partitions [ all stores ] on a node ( binary dump )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions with no space] --url [url] --node [node-id]");
+        stream.println("\t2) Fetch keys from a set of partitions [ all stores ] on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii");
+        stream.println("\t3) Fetch entries from a set of partitions [ all stores ] on a node ( binary dump )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id]");
+        stream.println("\t4) Fetch entries from a set of partitions [ all stores ] on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii");
+        stream.println("\t5) Fetch entries from a set of partitions [ all stores ] on a node ( ascii enabled ) and output to a folder");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --outdir [directory]");
+        stream.println("\t6) Fetch entries from a set of partitions and some stores on a node ( ascii enabled )");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries [comma-separated list of partitions with no space] --url [url] --node [node-id] --ascii --stores [comma-separated list of store names] ");
+        stream.println("\t7) Fetch all keys on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys --url [url] --node [node-id]");
+        stream.println("\t8) Fetch all entries on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id]");
+        stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println();
+        stream.println("READ-ONLY OPERATIONS");
+        stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format] --url [url] --node [node-id]");
+        stream.println("\t2) Retrieve metadata information of read-only data for all nodes and a set of store");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format] --url [url] --stores [comma-separated list of store names]");
+        stream.println();
+        stream.println("OTHERS");
+        stream.println("\t1) Restore a particular node completely from its replicas");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]");
+        stream.println("\t2) Restore a particular node completely from its replicas ( with increased parallelism - 10 ) ");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]");
+        stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
+
+        parser.printHelpOn(stream);
+    }
+
+    private static void executeClearRebalancing(int nodeId, AdminClient adminClient) {
+        System.out.println("Setting " + MetadataStore.SERVER_STATE_KEY + " to "
+                           + MetadataStore.VoldemortState.NORMAL_SERVER);
+        executeSetMetadata(nodeId,
+                           adminClient,
+                           MetadataStore.SERVER_STATE_KEY,
+                           MetadataStore.VoldemortState.NORMAL_SERVER.toString());
+        RebalancerState state = RebalancerState.create("[]");
+        System.out.println("Cleaning up " + MetadataStore.REBALANCING_STEAL_INFO + " to "
+                           + state.toJsonString());
+        executeSetMetadata(nodeId,
+                           adminClient,
+                           MetadataStore.REBALANCING_STEAL_INFO,
+                           state.toJsonString());
+
+    }
+
+    private static void executeKeyDistribution(AdminClient adminClient) {
+        System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
+                                                                               adminClient.getRemoteStoreDefList(0)
+                                                                                          .getValue()));
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
+                                                                             adminClient.getRemoteStoreDefList(0)
+                                                                                        .getValue()));
+    }
+
+    private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
+
+        Set<Object> metadataValues = Sets.newHashSet();
+        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+            System.out.println(node.getHost() + ":" + node.getId());
+            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(), metadataKey);
+            if(versioned == null || versioned.getValue() == null) {
+                throw new VoldemortException("Value returned from node " + node.getId()
+                                             + " was null");
+            } else {
+
+                if(metadataKey.compareTo(MetadataStore.CLUSTER_KEY) == 0) {
+                    metadataValues.add(new ClusterMapper().readCluster(new StringReader(versioned.getValue())));
+                } else if(metadataKey.compareTo(MetadataStore.STORES_KEY) == 0) {
+                    metadataValues.add(new StoreDefinitionsMapper().readStoreList(new StringReader(versioned.getValue())));
+                } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
+                    metadataValues.add(VoldemortState.valueOf(versioned.getValue()));
+                } else {
+                    throw new VoldemortException("Incorrect metadata key");
+                }
+
+            }
+        }
+
+        if(metadataValues.size() == 1) {
+            System.out.println("true");
+        } else {
+            System.out.println("false");
         }
     }
 
@@ -353,11 +533,26 @@ public class VoldemortAdminTool {
                                            Object value) {
 
         List<Integer> nodeIds = Lists.newArrayList();
+        VectorClock updatedVersion = null;
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
                 nodeIds.add(node.getId());
+                if(updatedVersion == null) {
+                    updatedVersion = (VectorClock) adminClient.getRemoteMetadata(node.getId(), key)
+                                                              .getVersion();
+                } else {
+                    updatedVersion = updatedVersion.merge((VectorClock) adminClient.getRemoteMetadata(node.getId(),
+                                                                                                      key)
+                                                                                   .getVersion());
+                }
             }
+
+            // Bump up version on node 0
+            updatedVersion = updatedVersion.incremented(0, System.currentTimeMillis());
         } else {
+            Versioned<String> currentValue = adminClient.getRemoteMetadata(nodeId, key);
+            updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(nodeId,
+                                                                                   System.currentTimeMillis());
             nodeIds.add(nodeId);
         }
         for(Integer currentNodeId: nodeIds) {
@@ -371,22 +566,16 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> currentValue = adminClient.getRemoteMetadata(currentNodeId, key);
-            if(!value.equals(currentValue.getValue())) {
-                VectorClock updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(currentNodeId,
-                                                                                                   System.currentTimeMillis());
-                adminClient.updateRemoteMetadata(currentNodeId,
-                                                 key,
-                                                 Versioned.value(value.toString(), updatedVersion));
-            }
+            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
+                                                                                 updatedVersion));
         }
     }
 
-    public static void executeROVersion(Integer nodeId,
-                                        AdminClient adminClient,
-                                        List<String> storeNames,
-                                        String versionType) {
-        Map<String, Long> storeToVersion = Maps.newHashMap();
+    private static void executeROMetadata(Integer nodeId,
+                                          AdminClient adminClient,
+                                          List<String> storeNames,
+                                          String type) {
+        Map<String, Long> storeToValue = Maps.newHashMap();
 
         if(storeNames == null) {
             // Retrieve list of read-only stores
@@ -399,31 +588,59 @@ public class VoldemortAdminTool {
             }
         }
 
+        List<Integer> nodeIds = Lists.newArrayList();
         if(nodeId < 0) {
-            if(versionType.compareTo("max") != 0) {
-                System.err.println("Unsupported operation, only max allowed for all nodes");
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
+        } else {
+            nodeIds.add(nodeId);
+        }
+
+        for(int currentNodeId: nodeIds) {
+            System.out.println(adminClient.getAdminClientCluster()
+                                          .getNodeById(currentNodeId)
+                                          .getHost()
+                               + ":"
+                               + adminClient.getAdminClientCluster()
+                                            .getNodeById(currentNodeId)
+                                            .getId());
+            if(type.compareTo("max") == 0) {
+                storeToValue = adminClient.getROMaxVersion(currentNodeId, storeNames);
+            } else if(type.compareTo("current") == 0) {
+                storeToValue = adminClient.getROCurrentVersion(currentNodeId, storeNames);
+            } else if(type.compareTo("storage-format") == 0) {
+                Map<String, String> storeToStorageFormat = adminClient.getROStorageFormat(currentNodeId,
+                                                                                          storeNames);
+                for(String storeName: storeToStorageFormat.keySet()) {
+                    System.out.println(storeName + ":" + storeToStorageFormat.get(storeName));
+                }
+                continue;
+            } else {
+                System.err.println("Unsupported operation, only max, current or storage-format allowed");
                 return;
             }
-            storeToVersion = adminClient.getROMaxVersion(storeNames);
-        } else {
-            if(versionType.compareTo("max") == 0) {
-                storeToVersion = adminClient.getROMaxVersion(nodeId, storeNames);
-            } else if(versionType.compareTo("current") == 0) {
-                storeToVersion = adminClient.getROCurrentVersion(nodeId, storeNames);
-            } else {
-                System.err.println("Unsupported operation, only max OR current allowed for individual nodes");
-                return;
+
+            for(String storeName: storeToValue.keySet()) {
+                System.out.println(storeName + ":" + storeToValue.get(storeName));
             }
         }
 
-        for(String storeName: storeToVersion.keySet()) {
-            System.out.println(storeName + ":" + storeToVersion.get(storeName));
-        }
     }
 
-    public static void executeGetMetadata(Integer nodeId,
-                                          AdminClient adminClient,
-                                          String metadataKey) {
+    private static void executeGetMetadata(Integer nodeId,
+                                           AdminClient adminClient,
+                                           String metadataKey,
+                                           String outputDir) throws IOException {
+
+        File directory = null;
+        if(outputDir != null) {
+            directory = new File(outputDir);
+            if(!(directory.exists() || directory.mkdir())) {
+                Utils.croak("Can't find or create directory " + outputDir);
+            }
+        }
+
         List<Integer> nodeIds = Lists.newArrayList();
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
@@ -440,54 +657,80 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
-            if(versioned == null) {
-                System.out.println("null");
-            } else {
-                System.out.println(versioned.getVersion());
-                System.out.print(": ");
-                System.out.println(versioned.getValue());
+            Versioned<String> versioned = null;
+            try {
+                versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
+            } catch(Exception e) {
+                System.out.println("Error in retrieving " + e.getMessage());
                 System.out.println();
+                continue;
+            }
+            if(versioned == null) {
+                if(directory == null) {
+                    System.out.println("null");
+                    System.out.println();
+                } else {
+                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
+                                                "");
+                }
+            } else {
+                if(directory == null) {
+                    System.out.println(versioned.getVersion());
+                    System.out.print(": ");
+                    System.out.println(versioned.getValue());
+                    System.out.println();
+                } else {
+                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
+                                                versioned.getValue());
+                }
             }
         }
     }
 
-    public static void executeDeleteStore(AdminClient adminClient, String storeName) {
+    private static void executeDeleteStore(AdminClient adminClient, String storeName, int nodeId) {
         System.out.println("Deleting " + storeName);
-        adminClient.deleteStore(storeName);
+        if(nodeId == -1) {
+            adminClient.deleteStore(storeName);
+        } else {
+            adminClient.deleteStore(storeName, nodeId);
+        }
+
     }
 
-    public static void executeTruncateStore(int nodeId, AdminClient adminClient, String storeName) {
-        System.out.println("Truncating " + storeName + " on node " + nodeId);
-        adminClient.truncate(nodeId, storeName);
+    private static void executeTruncateStore(int nodeId, AdminClient adminClient, String storeName) {
+        List<Integer> nodeIds = Lists.newArrayList();
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                nodeIds.add(node.getId());
+            }
+        } else {
+            nodeIds.add(nodeId);
+        }
+
+        for(Integer currentNodeId: nodeIds) {
+            System.out.println("Truncating " + storeName + " on node " + currentNodeId);
+            adminClient.truncate(currentNodeId, storeName);
+        }
     }
 
-    public static void executeAddStores(AdminClient adminClient,
-                                        String storesXml,
-                                        List<String> storeNames) throws IOException {
+    private static void executeAddStores(AdminClient adminClient, String storesXml, int nodeId)
+            throws IOException {
         List<StoreDefinition> storeDefinitionList = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
-        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
-        for(StoreDefinition storeDefinition: storeDefinitionList) {
-            storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
-        }
-        List<String> stores = storeNames;
-        if(stores == null) {
-            stores = Lists.newArrayList();
-            stores.addAll(storeDefinitionMap.keySet());
-        }
-        for(String store: stores) {
-            System.out.println("Adding " + store);
-            adminClient.addStore(storeDefinitionMap.get(store));
+        for(StoreDefinition storeDef: storeDefinitionList) {
+            System.out.println("Adding " + storeDef.getName());
+            if(-1 != nodeId)
+                adminClient.addStore(storeDef, nodeId);
+            else
+                adminClient.addStore(storeDef);
         }
     }
 
-    @Experimental
-    public static void executeFetchEntries(Integer nodeId,
-                                           AdminClient adminClient,
-                                           List<Integer> partitionIdList,
-                                           String outputDir,
-                                           List<String> storeNames,
-                                           boolean useAscii) throws IOException {
+    private static void executeFetchEntries(Integer nodeId,
+                                            AdminClient adminClient,
+                                            List<Integer> partitionIdList,
+                                            String outputDir,
+                                            List<String> storeNames,
+                                            boolean useAscii) throws IOException {
 
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
@@ -508,9 +751,27 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         }
+
+        // Pick up all the partitions
+        if(partitionIdList == null) {
+            partitionIdList = Lists.newArrayList();
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                partitionIdList.addAll(node.getPartitionIds());
+            }
+        }
+
+        StoreDefinition storeDefinition = null;
         for(String store: stores) {
-            System.out.println("Fetching entries in partitions "
-                               + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            storeDefinition = storeDefinitionMap.get(store);
+
+            if(null == storeDefinition) {
+                System.out.println("No store found under the name \'" + store + "\'");
+                continue;
+            } else {
+                System.out.println("Fetching entries in partitions "
+                                   + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            }
+
             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
                                                                                                     store,
                                                                                                     partitionIdList,
@@ -522,7 +783,6 @@ public class VoldemortAdminTool {
             }
 
             if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(store);
                 writeEntriesAscii(entriesIterator, outputFile, storeDefinition);
             } else {
                 writeEntriesBinary(entriesIterator, outputFile);
@@ -533,12 +793,10 @@ public class VoldemortAdminTool {
         }
     }
 
-    @Experimental
     private static void executeUpdateEntries(Integer nodeId,
                                              AdminClient adminClient,
                                              List<String> storeNames,
-                                             String inputDirPath,
-                                             boolean useAscii) throws IOException {
+                                             String inputDirPath) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
@@ -563,39 +821,11 @@ public class VoldemortAdminTool {
         }
 
         for(String storeName: storeNames) {
-            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator;
-            if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(storeName);
-                if(storeDefinition == null) {
-                    throw new IllegalArgumentException("No definition found for " + storeName);
-                }
-                iterator = readEntriesAscii(inputDir, storeName);
-            } else {
-                iterator = readEntriesBinary(inputDir, storeName);
-            }
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = readEntriesBinary(inputDir,
+                                                                                      storeName);
             adminClient.updateEntries(nodeId, storeName, iterator, null);
         }
 
-    }
-
-    // TODO: implement this
-    private static Iterator<Pair<ByteArray, Versioned<byte[]>>> readEntriesAscii(File inputDir,
-                                                                                 String storeName)
-            throws IOException {
-        File inputFile = new File(inputDir, storeName + ".entries");
-        if(!inputFile.exists()) {
-            throw new FileNotFoundException("File " + inputFile.getAbsolutePath()
-                                            + " does not exist!");
-        }
-
-        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-
-            @Override
-            protected Pair<ByteArray, Versioned<byte[]>> computeNext() {
-                System.err.println("Updating stores from ASCII/JSON data is not yet supported!");
-                return endOfData();
-            }
-        };
     }
 
     private static Iterator<Pair<ByteArray, Versioned<byte[]>>> readEntriesBinary(File inputDir,
@@ -651,6 +881,9 @@ public class VoldemortAdminTool {
                                           File outputFile,
                                           StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
+        CompressionStrategy keyCompressionStrategy = null;
+        CompressionStrategy valueCompressionStrategy = null;
+
         if(outputFile != null) {
             writer = new BufferedWriter(new FileWriter(outputFile));
         } else {
@@ -659,6 +892,16 @@ public class VoldemortAdminTool {
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
         StringWriter stringWriter = new StringWriter();
         JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
+
+        SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
+        if(null != keySerializerDef && keySerializerDef.hasCompression()) {
+            keyCompressionStrategy = new CompressionStrategyFactory().get(keySerializerDef.getCompression());
+        }
+
+        SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
+        if(null != valueSerializerDef && valueSerializerDef.hasCompression()) {
+            valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
+        }
 
         @SuppressWarnings("unchecked")
         Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
@@ -672,8 +915,10 @@ public class VoldemortAdminTool {
                 VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
                 byte[] valueBytes = kvPair.getSecond().getValue();
 
-                Object keyObject = keySerializer.toObject(keyBytes);
-                Object valueObject = valueSerializer.toObject(valueBytes);
+                Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
+                                                                                          : keyCompressionStrategy.inflate(keyBytes));
+                Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
+                                                                                                : valueCompressionStrategy.inflate(valueBytes));
 
                 generator.writeObject(keyObject);
                 stringWriter.write(' ');
@@ -719,12 +964,12 @@ public class VoldemortAdminTool {
         }
     }
 
-    public static void executeFetchKeys(Integer nodeId,
-                                        AdminClient adminClient,
-                                        List<Integer> partitionIdList,
-                                        String outputDir,
-                                        List<String> storeNames,
-                                        boolean useAscii) throws IOException {
+    private static void executeFetchKeys(Integer nodeId,
+                                         AdminClient adminClient,
+                                         List<Integer> partitionIdList,
+                                         String outputDir,
+                                         List<String> storeNames,
+                                         boolean useAscii) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
@@ -745,9 +990,27 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         }
+
+        // Pick up all the partitions
+        if(partitionIdList == null) {
+            partitionIdList = Lists.newArrayList();
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                partitionIdList.addAll(node.getPartitionIds());
+            }
+        }
+
+        StoreDefinition storeDefinition = null;
         for(String store: stores) {
-            System.out.println("Fetching keys in partitions "
-                               + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            storeDefinition = storeDefinitionMap.get(store);
+
+            if(null == storeDefinition) {
+                System.out.println("No store found under the name \'" + store + "\'");
+                continue;
+            } else {
+                System.out.println("Fetching keys in partitions "
+                                   + Joiner.on(", ").join(partitionIdList) + " of " + store);
+            }
+
             Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
                                                                     store,
                                                                     partitionIdList,
@@ -759,7 +1022,6 @@ public class VoldemortAdminTool {
             }
 
             if(useAscii) {
-                StoreDefinition storeDefinition = storeDefinitionMap.get(store);
                 writeKeysAscii(keyIterator, outputFile, storeDefinition);
             } else {
                 writeKeysBinary(keyIterator, outputFile);
@@ -774,10 +1036,18 @@ public class VoldemortAdminTool {
                                        File outputFile,
                                        StoreDefinition storeDefinition) throws IOException {
         BufferedWriter writer = null;
+        CompressionStrategy keysCompressionStrategy = null;
+        FileWriter fileWriter = null;
         if(outputFile != null) {
-            writer = new BufferedWriter(new FileWriter(outputFile));
+            fileWriter = new FileWriter(outputFile);
+            writer = new BufferedWriter(fileWriter);
         } else {
             writer = new BufferedWriter(new OutputStreamWriter(System.out));
+        }
+
+        SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
+        if(null != serializerDef && serializerDef.hasCompression()) {
+            keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
         }
 
         SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -789,7 +1059,8 @@ public class VoldemortAdminTool {
             while(keyIterator.hasNext()) {
                 // Ugly hack to be able to separate text by newlines vs. spaces
                 byte[] keyBytes = keyIterator.next().get();
-                Object keyObject = serializer.toObject(keyBytes);
+                Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
+                                                                                        : keysCompressionStrategy.inflate(keyBytes));
                 generator.writeObject(keyObject);
                 StringBuffer buf = stringWriter.getBuffer();
                 if(buf.charAt(0) == ' ') {
@@ -800,6 +1071,9 @@ public class VoldemortAdminTool {
             }
             writer.write('\n');
         } finally {
+            if(fileWriter != null) {
+                fileWriter.close();
+            }
             writer.close();
         }
     }
@@ -807,8 +1081,10 @@ public class VoldemortAdminTool {
     private static void writeKeysBinary(Iterator<ByteArray> keyIterator, File outputFile)
             throws IOException {
         DataOutputStream dos = null;
+        FileOutputStream outputStream = null;
         if(outputFile != null) {
-            dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
+            outputStream = new FileOutputStream(outputFile);
+            dos = new DataOutputStream(new BufferedOutputStream(outputStream));
         } else {
             dos = new DataOutputStream(new BufferedOutputStream(System.out));
         }
@@ -820,14 +1096,17 @@ public class VoldemortAdminTool {
                 dos.write(keyBytes);
             }
         } finally {
+            if(outputStream != null) {
+                outputStream.close();
+            }
             dos.close();
         }
     }
 
-    public static void executeDeletePartitions(Integer nodeId,
-                                               AdminClient adminClient,
-                                               List<Integer> partitionIdList,
-                                               List<String> storeNames) {
+    private static void executeDeletePartitions(Integer nodeId,
+                                                AdminClient adminClient,
+                                                List<Integer> partitionIdList,
+                                                List<String> storeNames) {
         List<String> stores = storeNames;
         if(stores == null) {
             stores = Lists.newArrayList();

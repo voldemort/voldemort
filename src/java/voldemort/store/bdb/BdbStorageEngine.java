@@ -75,16 +75,21 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
     private final boolean cursorPreload;
+    private final LockMode readLockMode;
     private final Serializer<Version> versionSerializer;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
-    public BdbStorageEngine(String name, Environment environment, Database database) {
-        this(name, environment, database, false);
+    public BdbStorageEngine(String name,
+                            Environment environment,
+                            Database database,
+                            LockMode readLockMode) {
+        this(name, environment, database, readLockMode, false);
     }
 
     public BdbStorageEngine(String name,
                             Environment environment,
                             Database database,
+                            LockMode readLockMode,
                             boolean cursorPreload) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
@@ -102,6 +107,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         };
         this.isOpen = new AtomicBoolean(true);
         this.cursorPreload = cursorPreload;
+        this.readLockMode = readLockMode;
     }
 
     public String getName() {
@@ -200,12 +206,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     }
 
     public List<Version> getVersions(ByteArray key) {
-        return get(key, null, LockMode.READ_UNCOMMITTED, versionSerializer);
+        return get(key, null, readLockMode, versionSerializer);
     }
 
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
-        return get(key, transforms, LockMode.READ_UNCOMMITTED, versionedSerializer);
+        return get(key, transforms, readLockMode, versionedSerializer);
     }
 
     private <T> List<T> get(ByteArray key,
@@ -253,10 +259,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         try {
             cursor = getBdbDatabase().openCursor(null, null);
             for(ByteArray key: keys) {
-                List<Versioned<byte[]>> values = get(cursor,
-                                                     key,
-                                                     LockMode.READ_UNCOMMITTED,
-                                                     versionedSerializer);
+                List<Versioned<byte[]>> values = get(cursor, key, readLockMode, versionedSerializer);
                 if(!values.isEmpty())
                     result.put(key, values);
             }
@@ -565,5 +568,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         protected void moveCursor(DatabaseEntry key, DatabaseEntry value) throws DatabaseException {
             cursor.getNext(key, value, LockMode.READ_UNCOMMITTED);
         }
+    }
+
+    public boolean isPartitionAware() {
+        return false;
     }
 }

@@ -386,6 +386,13 @@
       <report todir="${testhtml.dir}" format="frames" />
     </junitreport>
   </target>
+ 
+  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+      <classpath refid="contrib-test-classpath" />
+      <test name="${test.name}" />
+    </junit>
+  </target>
 
   <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
   </target>

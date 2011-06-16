@@ -69,4 +69,13 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      * Truncate all entries in the store
      */
     public void truncate();
+
+    /**
+     * Is the data persistence aware of partitions? In other words is the data
+     * internally stored on a per partition basis or together
+     * 
+     * @return Boolean indicating if the data persistence is partition aware
+     */
+    public boolean isPartitionAware();
+
 }

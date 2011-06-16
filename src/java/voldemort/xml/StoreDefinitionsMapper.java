@@ -32,6 +32,7 @@ import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 
+import org.apache.commons.lang.StringUtils;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -50,6 +51,9 @@ import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.views.ViewStorageConfiguration;
+import voldemort.utils.Utils;
+
+import com.google.common.collect.Lists;
 
 /**
  * Parses a stores.xml file
@@ -60,6 +64,8 @@ public class StoreDefinitionsMapper {
 
     public final static String STORES_ELMT = "stores";
     public final static String STORE_ELMT = "store";
+    public final static String STORE_DESCRIPTION_ELMT = "description";
+    public final static String STORE_OWNERS_ELMT = "owners";
     public final static String STORE_NAME_ELMT = "name";
     public final static String STORE_PERSISTENCE_ELMT = "persistence";
     public final static String STORE_KEY_SERIALIZER_ELMT = "key-serializer";
@@ -163,6 +169,14 @@ public class StoreDefinitionsMapper {
     private StoreDefinition readStore(Element store) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String storeType = store.getChildText(STORE_PERSISTENCE_ELMT);
+        String description = store.getChildText(STORE_DESCRIPTION_ELMT);
+        String ownerText = store.getChildText(STORE_OWNERS_ELMT);
+        List<String> owners = Lists.newArrayList();
+        if(ownerText != null) {
+            for(String owner: Utils.COMMA_SEP.split(ownerText.trim()))
+                if(owner.trim().length() > 0)
+                    owners.add(owner);
+        }
         int replicationFactor = Integer.parseInt(store.getChildText(STORE_REPLICATION_FACTOR_ELMT));
         HashMap<Integer, Integer> zoneReplicationFactor = null;
         Element zoneReplicationFactorNode = store.getChild(STORE_ZONE_REPLICATION_FACTOR_ELMT);
@@ -179,7 +193,7 @@ public class StoreDefinitionsMapper {
         if(zoneCountReadsStr != null)
             zoneCountReads = Integer.parseInt(zoneCountReadsStr);
 
-        String zoneCountWritesStr = store.getChildText(STORE_ZONE_COUNT_READS);
+        String zoneCountWritesStr = store.getChildText(STORE_ZONE_COUNT_WRITES);
         Integer zoneCountWrites = null;
         if(zoneCountWritesStr != null)
             zoneCountWrites = Integer.parseInt(zoneCountWritesStr);
@@ -236,6 +250,8 @@ public class StoreDefinitionsMapper {
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
+                                           .setDescription(description)
+                                           .setOwners(owners)
                                            .setKeySerializer(keySerializer)
                                            .setValueSerializer(valueSerializer)
                                            .setRoutingPolicy(routingTier)
@@ -258,6 +274,14 @@ public class StoreDefinitionsMapper {
     private StoreDefinition readView(Element store, List<StoreDefinition> stores) {
         String name = store.getChildText(STORE_NAME_ELMT);
         String targetName = store.getChildText(VIEW_TARGET_ELMT);
+        String description = store.getChildText(STORE_DESCRIPTION_ELMT);
+        String ownerText = store.getChildText(STORE_OWNERS_ELMT);
+        List<String> owners = Lists.newArrayList();
+        if(ownerText != null) {
+            for(String owner: Utils.COMMA_SEP.split(ownerText.trim()))
+                if(owner.trim().length() > 0)
+                    owners.add(owner);
+        }
         StoreDefinition target = StoreUtils.getStoreDef(stores, targetName);
         if(target == null)
             throw new MappingException("View \"" + name + "\" has target store \"" + targetName
@@ -275,6 +299,12 @@ public class StoreDefinitionsMapper {
         int preferredWrites = getChildWithDefault(store,
                                                   STORE_PREFERRED_WRITES_ELMT,
                                                   target.getRequiredReads());
+        Integer zoneCountReads = getChildWithDefault(store,
+                                                     STORE_ZONE_COUNT_READS,
+                                                     target.getZoneCountReads());
+        Integer zoneCountWrites = getChildWithDefault(store,
+                                                      STORE_ZONE_COUNT_WRITES,
+                                                      target.getZoneCountWrites());
 
         String viewSerializerFactoryName = null;
         if(store.getChildText(VIEW_SERIALIZER_FACTORY_ELMT) != null) {
@@ -290,25 +320,33 @@ public class StoreDefinitionsMapper {
         if(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT) != null)
             transformSerializer = readSerializer(store.getChild(STORE_TRANSFORM_SERIALIZER_ELMT));
 
-        RoutingTier policy = target.getRoutingPolicy();
-        if(store.getChild(STORE_ROUTING_STRATEGY) != null)
-            policy = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_STRATEGY));
+        RoutingTier routingTier = null;
+        if(store.getChildText(STORE_ROUTING_TIER_ELMT) != null) {
+            routingTier = RoutingTier.fromDisplay(store.getChildText(STORE_ROUTING_TIER_ELMT));
+        } else {
+            routingTier = target.getRoutingPolicy();
+        }
 
         String viewClass = store.getChildText(VIEW_TRANS_ELMT);
 
         return new StoreDefinitionBuilder().setName(name)
                                            .setViewOf(targetName)
                                            .setType(ViewStorageConfiguration.TYPE_NAME)
-                                           .setRoutingPolicy(policy)
+                                           .setDescription(description)
+                                           .setOwners(owners)
+                                           .setRoutingPolicy(routingTier)
                                            .setRoutingStrategyType(target.getRoutingStrategyType())
                                            .setKeySerializer(keySerializer)
                                            .setValueSerializer(valueSerializer)
                                            .setTransformsSerializer(transformSerializer)
                                            .setReplicationFactor(target.getReplicationFactor())
+                                           .setZoneReplicationFactor(target.getZoneReplicationFactor())
                                            .setPreferredReads(preferredReads)
                                            .setRequiredReads(requiredReads)
                                            .setPreferredWrites(preferredWrites)
                                            .setRequiredWrites(requiredWrites)
+                                           .setZoneCountReads(zoneCountReads)
+                                           .setZoneCountWrites(zoneCountWrites)
                                            .setView(viewClass)
                                            .setSerializerFactory(viewSerializerFactoryName)
                                            .build();
@@ -371,6 +409,12 @@ public class StoreDefinitionsMapper {
         Element store = new Element(STORE_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(STORE_PERSISTENCE_ELMT).setText(storeDefinition.getType()));
+        if(storeDefinition.getDescription() != null)
+            store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
+        if(storeDefinition.getOwners() != null && storeDefinition.getOwners().size() > 0) {
+            String ownersText = StringUtils.join(storeDefinition.getOwners().toArray(), ", ");
+            store.addContent(new Element(STORE_OWNERS_ELMT).setText(ownersText));
+        }
         store.addContent(new Element(STORE_ROUTING_STRATEGY).setText(storeDefinition.getRoutingStrategyType()));
         store.addContent(new Element(STORE_ROUTING_TIER_ELMT).setText(storeDefinition.getRoutingPolicy()
                                                                                      .toDisplay()));
@@ -423,6 +467,12 @@ public class StoreDefinitionsMapper {
         Element store = new Element(VIEW_ELMT);
         store.addContent(new Element(STORE_NAME_ELMT).setText(storeDefinition.getName()));
         store.addContent(new Element(VIEW_TARGET_ELMT).setText(storeDefinition.getViewTargetStoreName()));
+        if(storeDefinition.getDescription() != null)
+            store.addContent(new Element(STORE_DESCRIPTION_ELMT).setText(storeDefinition.getDescription()));
+        if(storeDefinition.getOwners() != null && storeDefinition.getOwners().size() > 0) {
+            String ownersText = StringUtils.join(storeDefinition.getOwners().toArray(), ", ");
+            store.addContent(new Element(STORE_OWNERS_ELMT).setText(ownersText));
+        }
         if(storeDefinition.getValueTransformation() == null)
             throw new MappingException("View " + storeDefinition.getName()
                                        + " has no defined transformation class.");
@@ -435,6 +485,13 @@ public class StoreDefinitionsMapper {
         if(storeDefinition.hasPreferredWrites())
             store.addContent(new Element(STORE_PREFERRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getPreferredWrites())));
         store.addContent(new Element(STORE_REQUIRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getRequiredWrites())));
+
+        if(storeDefinition.hasZoneCountReads())
+            store.addContent(new Element(STORE_ZONE_COUNT_READS))
+                 .setText(Integer.toString(storeDefinition.getZoneCountReads()));
+        if(storeDefinition.hasZoneCountWrites())
+            store.addContent(new Element(STORE_ZONE_COUNT_WRITES))
+                 .setText(Integer.toString(storeDefinition.getZoneCountWrites()));
 
         Element valueSerializer = new Element(STORE_VALUE_SERIALIZER_ELMT);
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());

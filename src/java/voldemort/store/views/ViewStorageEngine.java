@@ -217,4 +217,8 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             return Pair.create(p.getFirst(), newVal);
         }
     }
+
+    public boolean isPartitionAware() {
+        return target.isPartitionAware();
+    }
 }

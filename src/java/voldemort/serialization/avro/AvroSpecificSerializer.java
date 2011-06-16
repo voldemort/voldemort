@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 Antoine Toulme
+ * Copyright 2011 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,15 +15,13 @@
  */
 package voldemort.serialization.avro;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.avro.file.DataFileStream;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.specific.SpecificData;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.specific.SpecificRecord;
@@ -45,7 +43,9 @@ import voldemort.serialization.Serializer;
  * recommended.
  * </p>
  * 
- * @see http://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic/package-summary.html
+ * @see http 
+ *      ://avro.apache.org/docs/1.4.1/api/java/org/apache/avro/specific/package
+ *      -summary.html
  */
 public class AvroSpecificSerializer<T extends SpecificRecord> implements Serializer<T> {
 
@@ -70,32 +70,28 @@ public class AvroSpecificSerializer<T extends SpecificRecord> implements Seriali
 
     public byte[] toBytes(T object) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        DataFileWriter<T> writer = null;
+        Encoder encoder = new BinaryEncoder(output);
+        SpecificDatumWriter<T> datumWriter = null;
         try {
-            DatumWriter<T> datumWriter = new SpecificDatumWriter<T>(clazz);
-
-            writer = new DataFileWriter<T>(datumWriter).create(SpecificData.get().getSchema(clazz),
-                                                               output);
-            writer.append(object);
+            datumWriter = new SpecificDatumWriter<T>(clazz);
+            datumWriter.write(object, encoder);
+            encoder.flush();
         } catch(IOException e) {
             throw new SerializationException(e);
         } finally {
-            AvroUtils.close(writer);
+            SerializationUtils.close(output);
         }
         return output.toByteArray();
     }
 
     public T toObject(byte[] bytes) {
-        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        DataFileStream<T> reader = null;
+        Decoder decoder = DecoderFactory.defaultFactory().createBinaryDecoder(bytes, null);
+        SpecificDatumReader<T> reader = null;
         try {
-            DatumReader<T> datumReader = new SpecificDatumReader<T>(clazz);
-            reader = new DataFileStream<T>(input, datumReader);
-            return reader.next();
+            reader = new SpecificDatumReader<T>(clazz);
+            return reader.read(null, decoder);
         } catch(IOException e) {
             throw new SerializationException(e);
-        } finally {
-            AvroUtils.close(reader);
         }
     }
 }

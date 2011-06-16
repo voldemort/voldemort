@@ -18,7 +18,7 @@ public class AdminClientConfig {
     private volatile long adminSocketTimeoutSec = 3600;
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
     private volatile boolean adminSocketKeepAlive = false;
-    private volatile int restoreDataTimeout = 24 * 60 * 60;
+    private volatile int restoreDataTimeoutSec = 24 * 60 * 60;
     private volatile int maxBackoffDelayMs = 60 * 1000;
 
     public static final String MAX_CONNECTIONS_PER_NODE_PROPERTY = "max_connections";
@@ -29,7 +29,7 @@ public class AdminClientConfig {
     public static final String ADMIN_SOCKET_TIMEOUT_SEC_PROPERTY = "admin_socket_timeout_sec";
     public static final String ADMIN_SOCKET_BUFFER_SIZE_PROPERTY = "admin_socket_buffer_size";
     public static final String ADMIN_SOCKET_KEEPALIVE_PROPERTY = "admin_socket_keepalive";
-    public static final String RESTORE_DATA_TIMEOUT = "restore.data.timeout.sec";
+    public static final String RESTORE_DATA_TIMEOUT_SEC = "restore.data.timeout.sec";
     public static final String MAX_BACKOFF_DELAY_MS = "max.backoff.delay.ms";
 
     // sets better default for AdminClient
@@ -58,8 +58,8 @@ public class AdminClientConfig {
         if(props.containsKey(ADMIN_SOCKET_KEEPALIVE_PROPERTY))
             this.setAdminSocketKeepAlive(props.getBoolean(ADMIN_SOCKET_KEEPALIVE_PROPERTY));
 
-        if(props.containsKey(RESTORE_DATA_TIMEOUT))
-            this.setRestoreDataTimeout(props.getInt(RESTORE_DATA_TIMEOUT));
+        if(props.containsKey(RESTORE_DATA_TIMEOUT_SEC))
+            this.setRestoreDataTimeoutSec(props.getInt(RESTORE_DATA_TIMEOUT_SEC));
 
         if(props.containsKey(MAX_BACKOFF_DELAY_MS))
             this.setMaxBackoffDelayMs(props.getInt(MAX_BACKOFF_DELAY_MS));
@@ -139,11 +139,11 @@ public class AdminClientConfig {
         return this;
     }
 
-    public void setRestoreDataTimeout(int restoreDataTimeout) {
-        this.restoreDataTimeout = restoreDataTimeout;
+    public void setRestoreDataTimeoutSec(int restoreDataTimeoutSec) {
+        this.restoreDataTimeoutSec = restoreDataTimeoutSec;
     }
 
-    public int getRestoreDataTimeout() {
-        return restoreDataTimeout;
+    public int getRestoreDataTimeoutSec() {
+        return restoreDataTimeoutSec;
     }
 }

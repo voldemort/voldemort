@@ -11,8 +11,11 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.RebalanceUtils;
 
 import com.google.protobuf.Message;
 
@@ -23,13 +26,16 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                                          ErrorCodeMapper errorCodeMapper,
                                          VoldemortConfig voldemortConfig,
                                          StoreRepository storeRepository,
-                                         NetworkClassLoader networkClassLoader) {
+                                         NetworkClassLoader networkClassLoader,
+                                         StreamStats stats) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
-              networkClassLoader);
+              networkClassLoader,
+              stats,
+              Operation.FETCH_KEYS);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -38,16 +44,27 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         if(!keyIterator.hasNext())
             return StreamRequestHandlerState.COMPLETE;
 
+        long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
         throttler.maybeThrottle(key.length());
-        if(validPartition(key.get()) && filter.accept(key, null) && counter % skipRecords == 0) {
+        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                     key.get(),
+                                                     replicaToPartitionList,
+                                                     initialCluster,
+                                                     storeDef)
+           && filter.accept(key, null) && counter % skipRecords == 0) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
 
             fetched++;
+            handle.incrementEntriesScanned();
             Message message = response.build();
+
+            startNs = System.nanoTime();
             ProtoUtils.writeMessage(outputStream, message);
+            stats.recordNetworkTime(handle, System.nanoTime() - startNs);
         }
 
         // log progress
@@ -56,16 +73,17 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
 
-            if(logger.isDebugEnabled())
-                logger.debug("fetchKeys() scanned " + counter + " keys, fetched " + fetched
-                             + " keys for store:" + storageEngine.getName() + " partition:"
-                             + partitionList + " in " + totalTime + " s");
+            logger.info("Fetch keys scanned " + counter + " keys, fetched " + fetched
+                        + " keys for store '" + storageEngine.getName()
+                        + "' replicaToPartitionList:" + replicaToPartitionList + " in " + totalTime
+                        + " s");
         }
 
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
-        else
+        else {
+            stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
+        }
     }
-
 }

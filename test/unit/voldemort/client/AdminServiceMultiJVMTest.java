@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Map.Entry;
 
@@ -37,12 +38,15 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ServerJVMTestUtils;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Multiple JVM test for {@link AbstractAdminServiceFilterTest}
@@ -59,10 +63,21 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     private AdminClient adminClient;
     private String voldemortHome;
     private final boolean useNio;
+    protected StoreDefinition storeDef;
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                         10000,
                                                                                         100000,
                                                                                         32 * 1024);
+
+    @Override
+    protected StoreDefinition getStoreDef() {
+        return this.storeDef;
+    }
+
+    @Override
+    protected Cluster getCluster() {
+        return this.cluster;
+    }
 
     public AdminServiceMultiJVMTest(boolean useNio) {
         this.useNio = useNio;
@@ -81,6 +96,9 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
                                                                             0,
                                                                             storesXmlfile,
                                                                             cluster);
+        List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
+        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+
         pid = ServerJVMTestUtils.startServerJVM(socketStoreFactory,
                                                 cluster.getNodeById(0),
                                                 voldemortHome);
@@ -90,7 +108,6 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
     @Override
     @After
     public void tearDown() throws IOException {
-        System.out.println("teardown called");
         adminClient.stop();
         ServerJVMTestUtils.StopServerJVM(pid);
         FileUtils.deleteDirectory(new File(voldemortHome));

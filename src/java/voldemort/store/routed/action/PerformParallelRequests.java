@@ -16,7 +16,6 @@
 
 package voldemort.store.routed.action;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,7 +28,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
-import voldemort.store.UnreachableStoreException;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
@@ -37,11 +36,8 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
-import voldemort.store.slop.HintedHandoff;
-import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
-import voldemort.versioning.Version;
 
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         AbstractKeyBasedAction<ByteArray, V, PD> {
@@ -60,12 +56,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
     private final Event insufficientZonesEvent;
 
-    private final boolean enableHintedHandoff;
-
-    private final HintedHandoff hintedHandoff;
-
-    private final Version version;
-
     private byte[] transforms;
 
     public PerformParallelRequests(PD pipelineData,
@@ -77,8 +67,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                    int required,
                                    long timeoutMs,
                                    Map<Integer, NonblockingStore> nonblockingStores,
-                                   HintedHandoff hintedHandoff,
-                                   Version version,
                                    Event insufficientSuccessesEvent,
                                    Event insufficientZonesEvent) {
         super(pipelineData, completeEvent, key);
@@ -90,13 +78,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.nonblockingStores = nonblockingStores;
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
         this.insufficientZonesEvent = insufficientZonesEvent;
-        this.enableHintedHandoff = hintedHandoff != null;
-        this.version = version;
-        this.hintedHandoff = hintedHandoff;
-    }
-
-    public boolean isHintedHandoffEnabled() {
-        return enableHintedHandoff;
     }
 
     public void execute(final Pipeline pipeline) {
@@ -126,26 +107,21 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            result,
                                                                                            requestTime);
                     responses.put(node.getId(), response);
-                    if(Pipeline.Operation.DELETE == pipeline.getOperation() && pipeline.isFinished()) {
-                        if(isHintedHandoffEnabled() && response.getValue() instanceof UnreachableStoreException) {
-                            Slop slop = new Slop(pipelineData.getStoreName(),
-                                                 Slop.Operation.DELETE,
-                                                 key,
-                                                 null,
-                                                 null,
-                                                 node.getId(),
-                                                 new Date());
-                            pipelineData.addFailedNode(node);
-                            hintedHandoff.sendHintSerial(node, version, slop);
-                        }
-                    }
                     latch.countDown();
 
                     // Note errors that come in after the pipeline has finished.
                     // These will *not* get a chance to be called in the loop of
                     // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
-                        handleResponseError(response, pipeline, failureDetector);
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception) {
+                        if(response.getValue() instanceof InvalidMetadataException) {
+                            logger.warn("Received invalid metadata problem after a successful "
+                                        + pipeline.getOperation().getSimpleName()
+                                        + " call on node " + node.getId() + ", store '"
+                                        + pipelineData.getStoreName() + "'");
+                        } else {
+                            handleResponseError(response, pipeline, failureDetector);
+                        }
+                    }
                 }
 
             };
@@ -156,9 +132,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
             NonblockingStore store = nonblockingStores.get(node.getId());
 
-            if(pipeline.getOperation() == Operation.DELETE)
-                store.submitDeleteRequest(key, version, callback, timeoutMs);
-            else if(pipeline.getOperation() == Operation.GET)
+            if(pipeline.getOperation() == Operation.GET)
                 store.submitGetRequest(key, transforms, callback, timeoutMs);
             else if(pipeline.getOperation() == Operation.GET_VERSIONS)
                 store.submitGetVersionsRequest(key, callback, timeoutMs);
@@ -175,14 +149,13 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 logger.warn(e, e);
         }
 
-
         for(Response<ByteArray, Object> response: responses.values()) {
             if(response.getValue() instanceof Exception) {
                 if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
-                Response<ByteArray,  V> rCast = Utils.uncheckedCast(response);
+                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());

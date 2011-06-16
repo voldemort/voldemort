@@ -1,11 +1,11 @@
 package voldemort.store.readonly.swapper;
 
-import java.util.ArrayList;
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -15,10 +15,11 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.utils.RebalanceUtils;
-import voldemort.versioning.Occured;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
+import voldemort.store.readonly.ReadOnlyUtils;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class AdminStoreSwapper extends StoreSwapper {
 
@@ -26,7 +27,40 @@ public class AdminStoreSwapper extends StoreSwapper {
 
     private AdminClient adminClient;
     private long timeoutMs;
+    private boolean deleteFailedFetch = false;
+    private boolean rollbackFailedSwap = false;
 
+    /**
+     * 
+     * @param cluster The cluster metadata
+     * @param executor Executor to use for running parallel fetch / swaps
+     * @param adminClient The admin client to use for querying
+     * @param timeoutMs Time out in ms
+     * @param deleteFailedFetch Boolean to indicate we want to delete data on
+     *        successful nodes after a fetch fails somewhere
+     * @param rollbackFailedSwap Boolean to indicate we want to rollback the
+     *        data on successful nodes after a swap fails somewhere
+     */
+    public AdminStoreSwapper(Cluster cluster,
+                             ExecutorService executor,
+                             AdminClient adminClient,
+                             long timeoutMs,
+                             boolean deleteFailedFetch,
+                             boolean rollbackFailedSwap) {
+        super(cluster, executor);
+        this.adminClient = adminClient;
+        this.timeoutMs = timeoutMs;
+        this.deleteFailedFetch = deleteFailedFetch;
+        this.rollbackFailedSwap = rollbackFailedSwap;
+    }
+
+    /**
+     * 
+     * @param cluster The cluster metadata
+     * @param executor Executor to use for running parallel fetch / swaps
+     * @param adminClient The admin client to use for querying
+     * @param timeoutMs Time out in ms
+     */
     public AdminStoreSwapper(Cluster cluster,
                              ExecutorService executor,
                              AdminClient adminClient,
@@ -75,7 +109,7 @@ public class AdminStoreSwapper extends StoreSwapper {
                                                              pushVersion,
                                                              timeoutMs);
                     if(response == null)
-                        throw new VoldemortException("Swap request on node " + node.getId() + " ("
+                        throw new VoldemortException("Fetch request on node " + node.getId() + " ("
                                                      + node.getHost() + ") failed");
                     logger.info("Fetch succeeded on node " + node.getId());
                     return response.trim();
@@ -85,81 +119,94 @@ public class AdminStoreSwapper extends StoreSwapper {
         }
 
         // wait for all operations to complete successfully
-        List<String> results = new ArrayList<String>();
+        TreeMap<Integer, String> results = Maps.newTreeMap();
+        HashMap<Integer, Exception> exceptions = Maps.newHashMap();
+
         for(int nodeId = 0; nodeId < cluster.getNumberOfNodes(); nodeId++) {
             Future<String> val = fetchDirs.get(nodeId);
             try {
-                results.add(val.get());
-            } catch(ExecutionException e) {
-                throw new VoldemortException(e.getCause());
-            } catch(InterruptedException e) {
-                throw new VoldemortException(e);
+                results.put(nodeId, val.get());
+            } catch(Exception e) {
+                exceptions.put(nodeId, new VoldemortException(e));
             }
         }
 
-        return results;
+        if(!exceptions.isEmpty()) {
+
+            if(deleteFailedFetch) {
+                // Delete data from successful nodes
+                for(int successfulNodeId: results.keySet()) {
+                    try {
+                        logger.info("Deleting fetched data from node " + successfulNodeId);
+
+                        adminClient.failedFetchStore(successfulNodeId,
+                                                     storeName,
+                                                     results.get(successfulNodeId));
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during delete operation on node "
+                                     + successfulNodeId + " : ", e);
+                    }
+                }
+            }
+
+            // Finally log the errors for the user
+            for(int failedNodeId: exceptions.keySet()) {
+                logger.error("Error on node " + failedNodeId + " during push : ",
+                             exceptions.get(failedNodeId));
+            }
+
+            throw new VoldemortException("Exception during pushes to nodes "
+                                         + Joiner.on(",").join(exceptions.keySet()) + " failed");
+        }
+
+        return Lists.newArrayList(results.values());
     }
 
     @Override
-    protected void invokeSwap(String storeName, List<String> fetchFiles) {
+    protected void invokeSwap(final String storeName, final List<String> fetchFiles) {
         // do swap
-        Exception exception = null;
+        Map<Integer, String> previousDirs = new HashMap<Integer, String>();
+        HashMap<Integer, Exception> exceptions = Maps.newHashMap();
+
         for(int nodeId = 0; nodeId < cluster.getNumberOfNodes(); nodeId++) {
             try {
                 String dir = fetchFiles.get(nodeId);
                 logger.info("Attempting swap for node " + nodeId + " dir = " + dir);
-                adminClient.swapStore(nodeId, storeName, dir);
+                previousDirs.put(nodeId, adminClient.swapStore(nodeId, storeName, dir));
                 logger.info("Swap succeeded for node " + nodeId);
             } catch(Exception e) {
-                exception = e;
-                logger.error("Exception thrown during swap operation on node " + nodeId + ": ", e);
+                exceptions.put(nodeId, e);
             }
         }
 
-        if(exception != null)
-            throw new VoldemortException(exception);
-    }
+        if(!exceptions.isEmpty()) {
 
-    public void invokeUpdateClusterMetadata() {
-        Versioned<Cluster> latestCluster = new Versioned<Cluster>(adminClient.getAdminClientCluster());
-        List<Integer> requiredNodeIds = new ArrayList<Integer>();
-
-        ArrayList<Versioned<Cluster>> clusterList = new ArrayList<Versioned<Cluster>>();
-        clusterList.add(latestCluster);
-
-        boolean sameCluster = true;
-        for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-            requiredNodeIds.add(node.getId());
-            try {
-                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
-                VectorClock newClock = (VectorClock) versionedCluster.getVersion();
-                if(null != newClock && !clusterList.contains(versionedCluster)) {
-
-                    if(sameCluster
-                       && !adminClient.getAdminClientCluster().equals(versionedCluster.getValue())) {
-                        sameCluster = false;
+            if(rollbackFailedSwap) {
+                // Rollback data on successful nodes
+                for(int successfulNodeId: previousDirs.keySet()) {
+                    try {
+                        logger.info("Rolling back data on successful node " + successfulNodeId);
+                        adminClient.rollbackStore(successfulNodeId,
+                                                  storeName,
+                                                  ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId))));
+                        logger.info("Rollback succeeded for node " + successfulNodeId);
+                    } catch(Exception e) {
+                        logger.error("Exception thrown during rollback ( after swap ) operation on node "
+                                             + successfulNodeId + ": ",
+                                     e);
                     }
-                    // check no two clocks are concurrent.
-                    RebalanceUtils.checkNotConcurrent(clusterList, newClock);
-
-                    // add to clock list
-                    clusterList.add(versionedCluster);
-
-                    // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
-                        latestCluster = versionedCluster;
                 }
-            } catch(Exception e) {
-                throw new VoldemortException("Failed to get cluster metadata from node:" + node, e);
             }
+
+            // Finally log the errors for the user
+            for(int failedNodeId: exceptions.keySet()) {
+                logger.error("Error on node " + failedNodeId + " during swap : ",
+                             exceptions.get(failedNodeId));
+            }
+
+            throw new VoldemortException("Exception during swaps on nodes "
+                                         + Joiner.on(",").join(exceptions.keySet()) + " failed");
         }
 
-        if(!sameCluster) {
-            VectorClock latestClock = (VectorClock) latestCluster.getVersion();
-            latestClock.incrementVersion(cluster.getNodes().iterator().next().getId(),
-                                         System.currentTimeMillis());
-            RebalanceUtils.propagateCluster(adminClient, cluster, latestClock, requiredNodeIds);
-        }
     }
 }

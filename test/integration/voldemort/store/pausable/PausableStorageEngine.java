@@ -117,4 +117,7 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    public boolean isPartitionAware() {
+        return inner.isPartitionAware();
+    }
 }

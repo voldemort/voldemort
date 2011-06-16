@@ -414,14 +414,33 @@ public class ByteUtils {
      * @return -1 if b1 < b2, 1 if b1 > b2, and 0 if they are equal
      */
     public static int compare(byte[] b1, byte[] b2) {
-        for(int i = 0, j = 0; i < b1.length && j < b2.length; i++, j++) {
+        return compare(b1, b2, 0, b2.length);
+    }
+
+    /**
+     * Compare a byte array ( b1 ) with a sub
+     * 
+     * @param b1 The first array
+     * @param b2 The second array
+     * @param from The offset in b2 from which to compare
+     * @param to The least offset in b2 which we don't compare
+     * @return -1 if b1 < b2, 1 if b1 > b2, and 0 if they are equal
+     */
+    public static int compare(byte[] b1, byte[] b2, int offset, int to) {
+        int j = offset;
+        int b2Length = to - offset;
+        if(to > b2.length)
+            throw new IllegalArgumentException("To offset (" + to + ") should be <= than length ("
+                                               + b2.length + ")");
+        for(int i = 0; i < b1.length && j < to; i++, j++) {
             int a = (b1[i] & 0xff);
             int b = (b2[j] & 0xff);
             if(a != b) {
                 return (a - b) / (Math.abs(a - b));
             }
         }
-        return (b1.length - b2.length) / (Math.max(1, Math.abs(b1.length - b2.length)));
+        return (b1.length - b2Length) / (Math.max(1, Math.abs(b1.length - b2Length)));
+
     }
 
     /**

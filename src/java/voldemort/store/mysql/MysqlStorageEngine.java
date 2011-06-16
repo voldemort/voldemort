@@ -392,4 +392,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
+
+    public boolean isPartitionAware() {
+        return false;
+    }
 }

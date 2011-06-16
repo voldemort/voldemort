@@ -151,9 +151,13 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                 // appropriately.
                 nodeStatus.setStartMillis(currentTime);
                 nodeStatus.setSuccess(successDelta);
+                if(successDelta < 1)
+                    nodeStatus.setFailure(1);
                 nodeStatus.setTotal(1);
             } else {
                 nodeStatus.incrementSuccess(successDelta);
+                if(successDelta < 1)
+                    nodeStatus.incrementFailure(1);
                 nodeStatus.incrementTotal(1);
 
                 if(catastrophicError != null) {
@@ -162,7 +166,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                                      + catastrophicError);
 
                     setUnavailable(node, e);
-                } else if(nodeStatus.getTotal() >= getConfig().getThresholdCountMinimum()) {
+                } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
                     if(logger.isTraceEnabled())

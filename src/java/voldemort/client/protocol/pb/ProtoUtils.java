@@ -19,17 +19,29 @@ package voldemort.client.protocol.pb;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import voldemort.VoldemortException;
+import voldemort.client.protocol.pb.VAdminProto.PartitionTuple;
+import voldemort.client.protocol.pb.VAdminProto.PerStorePartitionTuple;
+import voldemort.client.protocol.pb.VAdminProto.ROStoreVersionDirMap;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
+import voldemort.xml.ClusterMapper;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -42,6 +54,89 @@ import com.google.protobuf.Message;
  * 
  */
 public class ProtoUtils {
+
+    /**
+     * Given a protobuf rebalance-partition info, converts it into our
+     * rebalance-partition info
+     * 
+     * @param rebalancePartitionInfoMap Proto-buff version of
+     *        rebalance-partition-info
+     * @return Rebalance-partition-info
+     */
+    public static RebalancePartitionsInfo decodeRebalancePartitionInfoMap(VAdminProto.RebalancePartitionInfoMap rebalancePartitionInfoMap) {
+        RebalancePartitionsInfo rebalanceStealInfo = new RebalancePartitionsInfo(rebalancePartitionInfoMap.getStealerId(),
+                                                                                 rebalancePartitionInfoMap.getDonorId(),
+                                                                                 decodePerStorePartitionTuple(rebalancePartitionInfoMap.getReplicaToAddPartitionList()),
+                                                                                 decodePerStorePartitionTuple(rebalancePartitionInfoMap.getReplicaToDeletePartitionList()),
+                                                                                 new ClusterMapper().readCluster(new StringReader(rebalancePartitionInfoMap.getInitialCluster())),
+                                                                                 rebalancePartitionInfoMap.getAttempt());
+        return rebalanceStealInfo;
+    }
+
+    public static RebalancePartitionInfoMap encodeRebalancePartitionInfoMap(RebalancePartitionsInfo stealInfo) {
+        return RebalancePartitionInfoMap.newBuilder()
+                                        .setStealerId(stealInfo.getStealerId())
+                                        .setDonorId(stealInfo.getDonorId())
+                                        .addAllReplicaToAddPartition(ProtoUtils.encodePerStorePartitionTuple(stealInfo.getStoreToReplicaToAddPartitionList()))
+                                        .addAllReplicaToDeletePartition(ProtoUtils.encodePerStorePartitionTuple(stealInfo.getStoreToReplicaToDeletePartitionList()))
+                                        .setInitialCluster(new ClusterMapper().writeCluster(stealInfo.getInitialCluster()))
+                                        .setAttempt(stealInfo.getAttempt())
+                                        .build();
+    }
+
+    public static Map<String, String> encodeROMap(List<ROStoreVersionDirMap> metadataMap) {
+        Map<String, String> storeToValue = Maps.newHashMap();
+        for(ROStoreVersionDirMap currentStore: metadataMap) {
+            storeToValue.put(currentStore.getStoreName(), currentStore.getStoreDir());
+        }
+        return storeToValue;
+    }
+
+    /**
+     * Given a map of replica type to partitions, converts it to proto-buff
+     * equivalent called PartitionTuple
+     * 
+     * @param replicaToPartitionList Map of replica type to partitions
+     * @return List of partition tuples
+     */
+    public static List<PartitionTuple> encodePartitionTuple(HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        List<PartitionTuple> tuples = Lists.newArrayList();
+        for(Entry<Integer, List<Integer>> entry: replicaToPartitionList.entrySet()) {
+            PartitionTuple.Builder tupleBuilder = PartitionTuple.newBuilder();
+            tupleBuilder.setReplicaType(entry.getKey());
+            tupleBuilder.addAllPartitions(entry.getValue());
+            tuples.add(tupleBuilder.build());
+        }
+        return tuples;
+    }
+
+    public static HashMap<Integer, List<Integer>> decodePartitionTuple(List<PartitionTuple> partitionTuples) {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
+        for(PartitionTuple tuple: partitionTuples) {
+            replicaToPartitionList.put(tuple.getReplicaType(), tuple.getPartitionsList());
+        }
+        return replicaToPartitionList;
+    }
+
+    public static List<PerStorePartitionTuple> encodePerStorePartitionTuple(HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList) {
+        List<PerStorePartitionTuple> perStorePartitionTuples = Lists.newArrayList();
+        for(Entry<String, HashMap<Integer, List<Integer>>> entry: storeToReplicaToPartitionList.entrySet()) {
+            PerStorePartitionTuple.Builder tupleBuilder = PerStorePartitionTuple.newBuilder();
+            tupleBuilder.setStoreName(entry.getKey());
+            tupleBuilder.addAllReplicaToPartition(encodePartitionTuple(entry.getValue()));
+            perStorePartitionTuples.add(tupleBuilder.build());
+        }
+        return perStorePartitionTuples;
+    }
+
+    public static HashMap<String, HashMap<Integer, List<Integer>>> decodePerStorePartitionTuple(List<PerStorePartitionTuple> perStorePartitionTuples) {
+        HashMap<String, HashMap<Integer, List<Integer>>> storeToReplicaToPartitionList = Maps.newHashMap();
+        for(PerStorePartitionTuple tuple: perStorePartitionTuples) {
+            storeToReplicaToPartitionList.put(tuple.getStoreName(),
+                                              decodePartitionTuple(tuple.getReplicaToPartitionList()));
+        }
+        return storeToReplicaToPartitionList;
+    }
 
     public static VProto.Error.Builder encodeError(ErrorCodeMapper mapper, VoldemortException e) {
         return VProto.Error.newBuilder()

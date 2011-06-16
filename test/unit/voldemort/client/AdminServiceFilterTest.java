@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Map.Entry;
@@ -39,9 +40,12 @@ import voldemort.cluster.Cluster;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * 
@@ -57,8 +61,9 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
 
     private AdminClient adminClient;
     private VoldemortServer server;
-    private Cluster cluster;
+    protected Cluster cluster;
     private final boolean useNio;
+    protected StoreDefinition storeDef;
 
     public AdminServiceFilterTest(boolean useNio) {
         this.useNio = useNio;
@@ -83,6 +88,9 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
 
         config.setEnableNetworkClassLoader(true);
 
+        List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
+        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+
         server = new VoldemortServer(config, cluster);
         server.start();
 
@@ -100,8 +108,10 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     @Override
     protected Set<Pair<ByteArray, Versioned<byte[]>>> createEntries() {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = new HashSet<Pair<ByteArray, Versioned<byte[]>>>();
+
         for(Entry<ByteArray, byte[]> entry: ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)
                                                            .entrySet()) {
+
             entrySet.add(new Pair<ByteArray, Versioned<byte[]>>(entry.getKey(),
                                                                 new Versioned<byte[]>(entry.getValue())));
         }
@@ -117,6 +127,16 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
     @Override
     protected Store<ByteArray, byte[], byte[]> getStore(int nodeId, String storeName) {
         return server.getStoreRepository().getStorageEngine(storeName);
+    }
+
+    @Override
+    protected StoreDefinition getStoreDef() {
+        return this.storeDef;
+    }
+
+    @Override
+    protected Cluster getCluster() {
+        return this.cluster;
     }
 
 }

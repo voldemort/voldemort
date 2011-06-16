@@ -127,4 +127,8 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     public List<Version> getVersions(ByteArray key) {
         return slopEngine.getVersions(key);
     }
+
+    public boolean isPartitionAware() {
+        return slopEngine.isPartitionAware();
+    }
 }

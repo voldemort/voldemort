@@ -4,6 +4,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -16,6 +18,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
+import voldemort.store.stats.StreamStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -36,15 +39,23 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     private long counter = 0L;
 
+    private final StreamStats stats;
+
+    private final StreamStats.Handle handle;
+
     private final Logger logger = Logger.getLogger(getClass());
 
     public UpdateSlopEntriesRequestHandler(UpdateSlopEntriesRequest request,
                                            ErrorCodeMapper errorCodeMapper,
-                                           StoreRepository storeRepository) {
+                                           StoreRepository storeRepository,
+                                           StreamStats stats) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.storeRepository = storeRepository;
+        this.stats = stats;
+        this.handle = stats.makeHandle(StreamStats.Operation.SLOP,
+                                       new HashMap<Integer, List<Integer>>());
         startTime = System.currentTimeMillis();
     }
 
@@ -66,6 +77,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
+        long startNs = System.nanoTime();
         if(request == null) {
             int size = 0;
 
@@ -74,14 +86,15 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message size");
-
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             }
 
             if(size == -1) {
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
-
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                stats.closeHandle(handle);
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -92,6 +105,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
             try {
                 ByteUtils.read(inputStream, input);
+                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message");
@@ -121,9 +135,9 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
                     // Retrieve the value
                     byte[] value = ProtoUtils.decodeBytes(request.getValue()).get();
-
+                    startNs = System.nanoTime();
                     storageEngine.put(key, Versioned.value(value, vectorClock), transforms);
-
+                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
                     if(logger.isTraceEnabled())
                         logger.trace("updateSlopEntries (Streaming put) successful");
                 } catch(ObsoleteVersionException e) {
@@ -134,7 +148,9 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                 break;
             case DELETE:
                 try {
+                    startNs = System.nanoTime();
                     storageEngine.delete(key, vectorClock);
+                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
 
                     if(logger.isTraceEnabled())
                         logger.trace("updateSlopEntries (Streaming delete) successful");
@@ -150,6 +166,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
         // log progress
         counter++;
+        handle.incrementEntriesScanned();
 
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
