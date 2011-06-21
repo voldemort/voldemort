@@ -159,9 +159,7 @@ public class Entropy {
         AdminClient adminClient = null;
         try {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setAdminConnectionTimeoutSec(60 * 60 * 2)
-                                                                 .setAdminSocketTimeoutSec(60 * 60 * 2)
-                                                                 .setMaxThreads(numThreads));
+                                          new AdminClientConfig().setMaxConnectionsPerNode(numThreads));
 
             if(opType) {
                 System.out.println("Running entropy calculator");

@@ -90,7 +90,7 @@ public class RebootstrappingStoreTest {
         assert servers != null && servers.size() > 1;
 
         VoldemortConfig config = servers.get(0).getVoldemortConfig();
-        AdminClient adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 2, 4);
+        AdminClient adminClient = RebalanceUtils.createTempAdminClient(config, cluster, 4);
         HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
         replicaToPartitionList.put(0, ImmutableList.of(0, 1));
         int req = adminClient.migratePartitions(0,

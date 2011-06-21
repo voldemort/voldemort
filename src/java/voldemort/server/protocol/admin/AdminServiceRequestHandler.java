@@ -734,8 +734,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 public void operate() {
                     AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                                    metadataStore.getCluster(),
-                                                                                   4,
-                                                                                   2);
+                                                                                   voldemortConfig.getClientMaxConnectionsPerNode());
                     try {
                         StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                                   storeName);

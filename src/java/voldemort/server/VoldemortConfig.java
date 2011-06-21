@@ -234,7 +234,7 @@ public class VoldemortConfig implements Serializable {
         this.adminMaxThreads = props.getInt("admin.max.threads", 20);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
-                                                          10 * 1000 * 1000);
+                                                          16 * 1024 * 1024);
         this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 
@@ -242,8 +242,8 @@ public class VoldemortConfig implements Serializable {
         this.streamMaxWriteBytesPerSec = props.getBytes("stream.write.byte.per.sec",
                                                         10 * 1000 * 1000);
 
-        this.socketTimeoutMs = props.getInt("socket.timeout.ms", 4000);
-        this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 32 * 1024);
+        this.socketTimeoutMs = props.getInt("socket.timeout.ms", 5000);
+        this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 64 * 1024);
         this.socketKeepAlive = props.getBoolean("socket.keepalive", false);
 
         this.useNioConnector = props.getBoolean("enable.nio.connector", false);
@@ -255,11 +255,11 @@ public class VoldemortConfig implements Serializable {
                                                                           .availableProcessors()));
 
         this.clientSelectors = props.getInt("client.selectors", 4);
-        this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 5);
-        this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 400);
-        this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 5000);
-        this.clientMaxThreads = props.getInt("client.max.threads", 100);
-        this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 5000);
+        this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
+        this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
+        this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
+        this.clientMaxThreads = props.getInt("client.max.threads", 500);
+        this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
 
         this.enableHttpServer = props.getBoolean("http.enable", true);
@@ -316,7 +316,7 @@ public class VoldemortConfig implements Serializable {
 
         // rebalancing parameters
         this.maxRebalancingAttempt = props.getInt("max.rebalancing.attempts", 3);
-        this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 24 * 60 * 60);
+        this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 10 * 24 * 60 * 60);
         this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 1);
         this.rebalancingOptimization = props.getBoolean("rebalancing.optimization", true);
 

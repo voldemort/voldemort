@@ -11,11 +11,11 @@ import voldemort.utils.Props;
  */
 public class AdminClientConfig {
 
-    private volatile int maxConnectionsPerNode = 3;
+    private volatile int maxConnectionsPerNode = 50;
     private volatile int maxThreads = 6;
     private volatile long threadIdleMs = 100000;
-    private volatile long adminConnectionTimeoutSec = 30;
-    private volatile long adminSocketTimeoutSec = 3600;
+    private volatile long adminConnectionTimeoutSec = 60;
+    private volatile long adminSocketTimeoutSec = 24 * 60 * 60;
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
     private volatile boolean adminSocketKeepAlive = false;
     private volatile int restoreDataTimeoutSec = 24 * 60 * 60;
@@ -85,10 +85,12 @@ public class AdminClientConfig {
         return this;
     }
 
+    @Deprecated
     public int getMaxThreads() {
         return maxThreads;
     }
 
+    @Deprecated
     public AdminClientConfig setMaxThreads(int maxThreads) {
         this.maxThreads = maxThreads;
         return this;

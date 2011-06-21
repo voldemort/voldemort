@@ -1006,10 +1006,8 @@ public class RebalanceUtils {
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
                                                     Cluster cluster,
-                                                    int numThreads,
                                                     int numConnPerNode) {
         AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(numConnPerNode)
-                                                          .setMaxThreads(numThreads)
                                                           .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
