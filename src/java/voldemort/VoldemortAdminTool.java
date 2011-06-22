@@ -507,7 +507,7 @@ public class VoldemortAdminTool {
         stream.println("\t2) Get a list of async jobs on a particular node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --async get --url [url] --node [node-id]");
         stream.println("\t3) Stop a list of async jobs on a particular node");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --async stop --async-id [list of async id] --url [url] --node [node-id]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --async stop --async-id [comma-separated list of async job id] --url [url] --node [node-id]");
         stream.println();
         stream.println("OTHERS");
         stream.println("\t1) Restore a particular node completely from its replicas");
@@ -537,14 +537,12 @@ public class VoldemortAdminTool {
 
             // Print the job information
             for(int currentNodeId: nodeIds) {
-                System.out.println("Printing async jobs from node " + currentNodeId);
+                System.out.println("Retrieving async jobs from node " + currentNodeId);
                 List<Integer> asyncIds = adminClient.getAsyncRequestList(currentNodeId);
-
+                System.out.println("Async Job Ids on node " + currentNodeId + " : " + asyncIds);
                 for(int asyncId: asyncIds) {
-                    System.out.println("Async Job Id : " + asyncId);
-                    System.out.println("Async Job Status : "
-                                       + adminClient.getAsyncRequestStatus(currentNodeId,
-                                                                           currentNodeId));
+                    System.out.println("Async Job Id " + asyncId + " ] "
+                                       + adminClient.getAsyncRequestStatus(currentNodeId, asyncId));
                     System.out.println();
                 }
             }

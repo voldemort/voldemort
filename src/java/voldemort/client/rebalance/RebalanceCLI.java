@@ -70,8 +70,8 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(String.class)
                   .describedAs("path");
-            parser.accepts("no-delete",
-                           "Do not delete after rebalancing (Valid only for RW Stores) ");
+            parser.accepts("delete",
+                           "Delete after rebalancing (Valid only for RW Stores) [ Default : false ] ");
             parser.accepts("show-plan",
                            "Shows the rebalancing plan only without executing the rebalance");
             parser.accepts("keys",
@@ -94,7 +94,7 @@ public class RebalanceCLI {
                 System.exit(HELP_EXIT_CODE);
             }
 
-            boolean deleteAfterRebalancing = !options.has("no-delete");
+            boolean deleteAfterRebalancing = options.has("delete");
             int parallelism = CmdUtils.valueOf(options,
                                                "parallelism",
                                                RebalanceClientConfig.MAX_PARALLEL_REBALANCING);
