@@ -70,8 +70,8 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(String.class)
                   .describedAs("path");
-            parser.accepts("no-delete",
-                           "Do not delete after rebalancing (Valid only for RW Stores) ");
+            parser.accepts("delete",
+                           "Delete after rebalancing (Valid only for RW Stores) [ Default : false ] ");
             parser.accepts("show-plan",
                            "Shows the rebalancing plan only without executing the rebalance");
             parser.accepts("keys",
@@ -94,7 +94,7 @@ public class RebalanceCLI {
                 System.exit(HELP_EXIT_CODE);
             }
 
-            boolean deleteAfterRebalancing = !options.has("no-delete");
+            boolean deleteAfterRebalancing = options.has("delete");
             int parallelism = CmdUtils.valueOf(options,
                                                "parallelism",
                                                RebalanceClientConfig.MAX_PARALLEL_REBALANCING);
@@ -159,7 +159,7 @@ public class RebalanceCLI {
 
                     boolean entropy = (Boolean) options.valueOf("entropy");
                     long numKeys = CmdUtils.valueOf(options, "keys", Entropy.DEFAULT_NUM_KEYS);
-                    Entropy generator = new Entropy(-1, parallelism, numKeys);
+                    Entropy generator = new Entropy(-1, numKeys);
                     generator.generateEntropy(currentCluster,
                                               storeDefs,
                                               new File(config.getOutputDirectory()),
@@ -232,8 +232,7 @@ public class RebalanceCLI {
         stream.println("ENTROPY");
         stream.println("a) --current-cluster <path> --current-stores <path> --entropy <true / false> --output-dir <path> [ Runs the entropy calculator if "
                        + "--entropy is true. Else dumps keys to the directory ]");
-        stream.println("\t (i) --parallelism [ Parallelism during fetching keys for entropy calculation ]");
-        stream.println("\t (ii) --keys [ Number of keys ( per store ) we calculate entropy for ]");
+        stream.println("\t (i) --keys [ Number of keys ( per store ) we calculate entropy for ]");
         parser.printHelpOn(stream);
     }
 }

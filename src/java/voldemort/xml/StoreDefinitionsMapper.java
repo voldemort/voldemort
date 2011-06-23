@@ -487,11 +487,9 @@ public class StoreDefinitionsMapper {
         store.addContent(new Element(STORE_REQUIRED_WRITES_ELMT).setText(Integer.toString(storeDefinition.getRequiredWrites())));
 
         if(storeDefinition.hasZoneCountReads())
-            store.addContent(new Element(STORE_ZONE_COUNT_READS))
-                 .setText(Integer.toString(storeDefinition.getZoneCountReads()));
+            store.addContent(new Element(STORE_ZONE_COUNT_READS).setText(Integer.toString(storeDefinition.getZoneCountReads())));
         if(storeDefinition.hasZoneCountWrites())
-            store.addContent(new Element(STORE_ZONE_COUNT_WRITES))
-                 .setText(Integer.toString(storeDefinition.getZoneCountWrites()));
+            store.addContent(new Element(STORE_ZONE_COUNT_WRITES).setText(Integer.toString(storeDefinition.getZoneCountWrites())));
 
         Element valueSerializer = new Element(STORE_VALUE_SERIALIZER_ELMT);
         addSerializer(valueSerializer, storeDefinition.getValueSerializer());

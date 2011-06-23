@@ -422,8 +422,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 return response.build();
             }
 
+            logger.info("Deleting data from failed fetch for RO store '" + storeName
+                        + "' and directory '" + storeDir + "'");
             // Lets delete the folder
             Utils.rm(new File(storeDir));
+            logger.info("Successfully deleted data from failed fetch for RO store '" + storeName
+                        + "' and directory '" + storeDir + "'");
 
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -478,7 +482,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationListResponse.Builder response = VAdminProto.AsyncOperationListResponse.newBuilder();
         boolean showComplete = request.getShowComplete();
         try {
-            response.addAllRequestIds(asyncService.getAsyncOperationList(showComplete));
+            logger.info("Retrieving list of async operations "
+                        + ((showComplete) ? " [ including completed ids ]" : ""));
+            List<Integer> asyncIds = asyncService.getAsyncOperationList(showComplete);
+            logger.info("Retrieved list of async operations - " + asyncIds);
+            response.addAllRequestIds(asyncIds);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncOperationList failed for request(" + request.toString() + ")",
@@ -492,7 +500,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.AsyncOperationStopResponse.Builder response = VAdminProto.AsyncOperationStopResponse.newBuilder();
         int requestId = request.getRequestId();
         try {
+            logger.info("Stopping async id " + requestId);
             asyncService.stopOperation(requestId);
+            logger.info("Successfully stopped async id " + requestId);
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleAsyncOperationStop failed for request(" + request.toString() + ")",
@@ -514,7 +524,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
             File rollbackVersionDir = new File(store.getStoreDirPath(), "version-" + pushVersion);
 
+            logger.info("Rolling back data for RO store '" + storeName + "' to version directory '"
+                        + rollbackVersionDir + "'");
             store.rollback(rollbackVersionDir);
+            logger.info("Successfully rolled back data for RO store '" + storeName
+                        + "' to version directory '" + rollbackVersionDir + "'");
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
@@ -543,7 +557,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         String currentDirPath = store.getCurrentDirPath();
 
+        logger.info("Swapping RO store '" + storeName + "' to version directory '" + directory
+                    + "'");
         store.swapFiles(directory);
+        logger.info("Swapping swapped RO store '" + storeName + "' to version directory '"
+                    + directory + "'");
 
         return currentDirPath;
     }
@@ -651,23 +669,28 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     } else {
 
-                        logger.info("Executing fetch of " + fetchUrl);
+                        logger.info("Started executing fetch of " + fetchUrl + " for RO store '"
+                                    + storeName + "'");
                         updateStatus("0 MB copied at 0 MB/sec - 0 % complete");
                         try {
                             fileFetcher.setAsyncOperationStatus(status);
                             fetchDir = fileFetcher.fetch(fetchUrl, store.getStoreDirPath()
                                                                    + File.separator + "version-"
                                                                    + Long.toString(pushVersion));
-                            updateStatus("Completed fetch of " + fetchUrl);
-
                             if(fetchDir == null) {
-                                throw new VoldemortException("File fetcher failed for "
-                                                             + fetchUrl
-                                                             + " and store name = "
-                                                             + storeName
-                                                             + " due to incorrect input path/checksum error");
+                                String errorMessage = "File fetcher failed for "
+                                                      + fetchUrl
+                                                      + " and store '"
+                                                      + storeName
+                                                      + "' due to incorrect input path/checksum error";
+                                updateStatus(errorMessage);
+                                logger.error(errorMessage);
+                                throw new VoldemortException(errorMessage);
                             } else {
-                                logger.info("Fetch complete.");
+                                String message = "Successfully executed fetch of " + fetchUrl
+                                                 + " for RO store '" + storeName + "'";
+                                updateStatus(message);
+                                logger.info(message);
                             }
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
@@ -728,14 +751,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 @Override
                 public void stop() {
                     running.set(false);
+                    logger.info("Stopping fetch and update for store " + storeName + " from node "
+                                + nodeId + "( " + replicaToPartitionList + " )");
                 }
 
                 @Override
                 public void operate() {
                     AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                                    metadataStore.getCluster(),
-                                                                                   4,
-                                                                                   2);
+                                                                                   voldemortConfig.getClientMaxConnectionsPerNode());
                     try {
                         StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                                   storeName);
@@ -765,7 +789,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                             destinationDir,
                                                             readOnlyStorageEngine.getChunkedFileSet()
                                                                                  .getChunkIdToNumChunks()
-                                                                                 .keySet());
+                                                                                 .keySet(),
+                                                            running);
 
                         } else {
                             logger.info("Fetching entries for RW store '" + storeName
@@ -850,9 +875,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                     numTuples++;
                                 }
 
-                                logger.info("Completed fetching " + numTuples
-                                            + " entries from node " + nodeId + " for store '"
-                                            + storeName + "'");
+                                if(running.get()) {
+                                    logger.info("Completed fetching " + numTuples
+                                                + " entries from node " + nodeId + " for store '"
+                                                + storeName + "'");
+                                } else {
+                                    logger.info("Fetch and update stopped after fetching "
+                                                + numTuples + " entries for node " + nodeId
+                                                + " for store '" + storeName + "'");
+                                }
                             } else {
                                 logger.info("No entries to fetch from node " + nodeId
                                             + " for store '" + storeName + "'");
@@ -938,7 +969,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion())) {
                         deleteSuccess++;
-                        if((deleteSuccess % 1000) == 0) {
+                        if((deleteSuccess % 10000) == 0) {
                             logger.info(deleteSuccess + " entries deleted from node "
                                         + metadataStore.getNodeId() + " for store " + storeName);
                         }
@@ -970,9 +1001,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
+                logger.info("Updating metadata for key '" + keyString + "'");
                 metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
                                   versionedValue,
                                   null);
+                logger.info("Successfully updated metadata for key '" + keyString + "'");
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
@@ -1014,8 +1047,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
             String storeName = request.getStore();
             StorageEngine<ByteArray, byte[], byte[]> storageEngine = getStorageEngine(storeRepository,
                                                                                       storeName);
-
+            logger.info("Truncating data for store '" + storeName + "'");
             storageEngine.truncate();
+            logger.info("Successfully truncated data for store '" + storeName + "'");
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleTruncateEntries failed for request(" + request.toString() + ")", e);

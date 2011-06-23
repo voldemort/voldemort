@@ -115,7 +115,6 @@ message AsyncOperationStopResponse {
 }
 
 message AsyncOperationListRequest {
-  required int32 request_id = 1;
   required bool show_complete = 2;
 }
 

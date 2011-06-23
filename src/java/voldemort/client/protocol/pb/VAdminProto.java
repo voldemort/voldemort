@@ -7712,13 +7712,6 @@ public final class VAdminProto {
       return voldemort.client.protocol.pb.VAdminProto.internal_static_voldemort_AsyncOperationListRequest_fieldAccessorTable;
     }
     
-    // required int32 request_id = 1;
-    public static final int REQUEST_ID_FIELD_NUMBER = 1;
-    private boolean hasRequestId;
-    private int requestId_ = 0;
-    public boolean hasRequestId() { return hasRequestId; }
-    public int getRequestId() { return requestId_; }
-    
     // required bool show_complete = 2;
     public static final int SHOW_COMPLETE_FIELD_NUMBER = 2;
     private boolean hasShowComplete;
@@ -7729,7 +7722,6 @@ public final class VAdminProto {
     private void initFields() {
     }
     public final boolean isInitialized() {
-      if (!hasRequestId) return false;
       if (!hasShowComplete) return false;
       return true;
     }
@@ -7737,9 +7729,6 @@ public final class VAdminProto {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       getSerializedSize();
-      if (hasRequestId()) {
-        output.writeInt32(1, getRequestId());
-      }
       if (hasShowComplete()) {
         output.writeBool(2, getShowComplete());
       }
@@ -7752,10 +7741,6 @@ public final class VAdminProto {
       if (size != -1) return size;
     
       size = 0;
-      if (hasRequestId()) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(1, getRequestId());
-      }
       if (hasShowComplete()) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(2, getShowComplete());
@@ -7918,9 +7903,6 @@ public final class VAdminProto {
       
       public Builder mergeFrom(voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest other) {
         if (other == voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.getDefaultInstance()) return this;
-        if (other.hasRequestId()) {
-          setRequestId(other.getRequestId());
-        }
         if (other.hasShowComplete()) {
           setShowComplete(other.getShowComplete());
         }
@@ -7949,10 +7931,6 @@ public final class VAdminProto {
               }
               break;
             }
-            case 8: {
-              setRequestId(input.readInt32());
-              break;
-            }
             case 16: {
               setShowComplete(input.readBool());
               break;
@@ -7961,24 +7939,6 @@ public final class VAdminProto {
         }
       }
       
-      
-      // required int32 request_id = 1;
-      public boolean hasRequestId() {
-        return result.hasRequestId();
-      }
-      public int getRequestId() {
-        return result.getRequestId();
-      }
-      public Builder setRequestId(int value) {
-        result.hasRequestId = true;
-        result.requestId_ = value;
-        return this;
-      }
-      public Builder clearRequestId() {
-        result.hasRequestId = false;
-        result.requestId_ = 0;
-        return this;
-      }
       
       // required bool show_complete = 2;
       public boolean hasShowComplete() {
@@ -20143,124 +20103,124 @@ public final class VAdminProto {
       "ncOperationStatusRequest\022\022\n\nrequest_id\030\001" +
       " \002(\005\"/\n\031AsyncOperationStopRequest\022\022\n\nreq" +
       "uest_id\030\001 \002(\005\"=\n\032AsyncOperationStopRespo",
-      "nse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"F\n\031" +
-      "AsyncOperationListRequest\022\022\n\nrequest_id\030" +
-      "\001 \002(\005\022\025\n\rshow_complete\030\002 \002(\010\"R\n\032AsyncOpe" +
-      "rationListResponse\022\023\n\013request_ids\030\001 \003(\005\022" +
-      "\037\n\005error\030\002 \001(\0132\020.voldemort.Error\":\n\016Part" +
-      "itionTuple\022\024\n\014replica_type\030\001 \002(\005\022\022\n\npart" +
-      "itions\030\002 \003(\005\"e\n\026PerStorePartitionTuple\022\022" +
-      "\n\nstore_name\030\001 \002(\t\0227\n\024replica_to_partiti" +
-      "on\030\002 \003(\0132\031.voldemort.PartitionTuple\"\370\001\n\031" +
-      "RebalancePartitionInfoMap\022\022\n\nstealer_id\030",
-      "\001 \002(\005\022\020\n\010donor_id\030\002 \002(\005\022\017\n\007attempt\030\003 \002(\005" +
-      "\022C\n\030replica_to_add_partition\030\004 \003(\0132!.vol" +
-      "demort.PerStorePartitionTuple\022F\n\033replica" +
-      "_to_delete_partition\030\005 \003(\0132!.voldemort.P" +
-      "erStorePartitionTuple\022\027\n\017initial_cluster" +
-      "\030\006 \002(\t\"f\n\034InitiateRebalanceNodeRequest\022F" +
-      "\n\030rebalance_partition_info\030\001 \002(\0132$.volde" +
-      "mort.RebalancePartitionInfoMap\"\212\001\n\034Async" +
-      "OperationStatusResponse\022\022\n\nrequest_id\030\001 " +
-      "\001(\005\022\023\n\013description\030\002 \001(\t\022\016\n\006status\030\003 \001(\t",
-      "\022\020\n\010complete\030\004 \001(\010\022\037\n\005error\030\005 \001(\0132\020.vold" +
-      "emort.Error\"\'\n\026TruncateEntriesRequest\022\r\n" +
-      "\005store\030\001 \002(\t\":\n\027TruncateEntriesResponse\022" +
-      "\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"*\n\017AddS" +
-      "toreRequest\022\027\n\017storeDefinition\030\001 \002(\t\"3\n\020" +
-      "AddStoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldem" +
-      "ort.Error\"\'\n\022DeleteStoreRequest\022\021\n\tstore" +
-      "Name\030\001 \002(\t\"6\n\023DeleteStoreResponse\022\037\n\005err" +
-      "or\030\001 \001(\0132\020.voldemort.Error\"P\n\021FetchStore" +
-      "Request\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir",
-      "\030\002 \002(\t\022\024\n\014push_version\030\003 \001(\003\"9\n\020SwapStor" +
-      "eRequest\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_di" +
-      "r\030\002 \002(\t\"P\n\021SwapStoreResponse\022\037\n\005error\030\001 " +
-      "\001(\0132\020.voldemort.Error\022\032\n\022previous_store_" +
-      "dir\030\002 \001(\t\"@\n\024RollbackStoreRequest\022\022\n\nsto" +
-      "re_name\030\001 \002(\t\022\024\n\014push_version\030\002 \002(\003\"8\n\025R" +
-      "ollbackStoreResponse\022\037\n\005error\030\001 \001(\0132\020.vo" +
-      "ldemort.Error\"=\n\024ROStoreVersionDirMap\022\022\n" +
-      "\nstore_name\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"/\n\031" +
-      "GetROMaxVersionDirRequest\022\022\n\nstore_name\030",
-      "\001 \003(\t\"y\n\032GetROMaxVersionDirResponse\022:\n\021r" +
-      "o_store_versions\030\001 \003(\0132\037.voldemort.ROSto" +
-      "reVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemo" +
-      "rt.Error\"3\n\035GetROCurrentVersionDirReques" +
-      "t\022\022\n\nstore_name\030\001 \003(\t\"}\n\036GetROCurrentVer" +
+      "nse\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"2\n\031" +
+      "AsyncOperationListRequest\022\025\n\rshow_comple" +
+      "te\030\002 \002(\010\"R\n\032AsyncOperationListResponse\022\023" +
+      "\n\013request_ids\030\001 \003(\005\022\037\n\005error\030\002 \001(\0132\020.vol" +
+      "demort.Error\":\n\016PartitionTuple\022\024\n\014replic" +
+      "a_type\030\001 \002(\005\022\022\n\npartitions\030\002 \003(\005\"e\n\026PerS" +
+      "torePartitionTuple\022\022\n\nstore_name\030\001 \002(\t\0227" +
+      "\n\024replica_to_partition\030\002 \003(\0132\031.voldemort" +
+      ".PartitionTuple\"\370\001\n\031RebalancePartitionIn" +
+      "foMap\022\022\n\nstealer_id\030\001 \002(\005\022\020\n\010donor_id\030\002 ",
+      "\002(\005\022\017\n\007attempt\030\003 \002(\005\022C\n\030replica_to_add_p" +
+      "artition\030\004 \003(\0132!.voldemort.PerStoreParti" +
+      "tionTuple\022F\n\033replica_to_delete_partition" +
+      "\030\005 \003(\0132!.voldemort.PerStorePartitionTupl" +
+      "e\022\027\n\017initial_cluster\030\006 \002(\t\"f\n\034InitiateRe" +
+      "balanceNodeRequest\022F\n\030rebalance_partitio" +
+      "n_info\030\001 \002(\0132$.voldemort.RebalancePartit" +
+      "ionInfoMap\"\212\001\n\034AsyncOperationStatusRespo" +
+      "nse\022\022\n\nrequest_id\030\001 \001(\005\022\023\n\013description\030\002" +
+      " \001(\t\022\016\n\006status\030\003 \001(\t\022\020\n\010complete\030\004 \001(\010\022\037",
+      "\n\005error\030\005 \001(\0132\020.voldemort.Error\"\'\n\026Trunc" +
+      "ateEntriesRequest\022\r\n\005store\030\001 \002(\t\":\n\027Trun" +
+      "cateEntriesResponse\022\037\n\005error\030\001 \001(\0132\020.vol" +
+      "demort.Error\"*\n\017AddStoreRequest\022\027\n\017store" +
+      "Definition\030\001 \002(\t\"3\n\020AddStoreResponse\022\037\n\005" +
+      "error\030\001 \001(\0132\020.voldemort.Error\"\'\n\022DeleteS" +
+      "toreRequest\022\021\n\tstoreName\030\001 \002(\t\"6\n\023Delete" +
+      "StoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort" +
+      ".Error\"P\n\021FetchStoreRequest\022\022\n\nstore_nam" +
+      "e\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\022\024\n\014push_versi",
+      "on\030\003 \001(\003\"9\n\020SwapStoreRequest\022\022\n\nstore_na" +
+      "me\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\"P\n\021SwapStore" +
+      "Response\022\037\n\005error\030\001 \001(\0132\020.voldemort.Erro" +
+      "r\022\032\n\022previous_store_dir\030\002 \001(\t\"@\n\024Rollbac" +
+      "kStoreRequest\022\022\n\nstore_name\030\001 \002(\t\022\024\n\014pus" +
+      "h_version\030\002 \002(\003\"8\n\025RollbackStoreResponse" +
+      "\022\037\n\005error\030\001 \001(\0132\020.voldemort.Error\"=\n\024ROS" +
+      "toreVersionDirMap\022\022\n\nstore_name\030\001 \002(\t\022\021\n" +
+      "\tstore_dir\030\002 \002(\t\"/\n\031GetROMaxVersionDirRe" +
+      "quest\022\022\n\nstore_name\030\001 \003(\t\"y\n\032GetROMaxVer",
       "sionDirResponse\022:\n\021ro_store_versions\030\001 \003" +
       "(\0132\037.voldemort.ROStoreVersionDirMap\022\037\n\005e" +
-      "rror\030\002 \001(\0132\020.voldemort.Error\"/\n\031GetROSto" +
-      "rageFormatRequest\022\022\n\nstore_name\030\001 \003(\t\"y\n" +
-      "\032GetROStorageFormatResponse\022:\n\021ro_store_",
-      "versions\030\001 \003(\0132\037.voldemort.ROStoreVersio" +
-      "nDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error" +
-      "\"@\n\027FailedFetchStoreRequest\022\022\n\nstore_nam" +
-      "e\030\001 \002(\t\022\021\n\tstore_dir\030\002 \002(\t\";\n\030FailedFetc" +
-      "hStoreResponse\022\037\n\005error\030\001 \001(\0132\020.voldemor" +
-      "t.Error\"\346\001\n\033RebalanceStateChangeRequest\022" +
-      "K\n\035rebalance_partition_info_list\030\001 \003(\0132$" +
-      ".voldemort.RebalancePartitionInfoMap\022\026\n\016" +
-      "cluster_string\030\002 \002(\t\022\017\n\007swap_ro\030\003 \002(\010\022\037\n" +
-      "\027change_cluster_metadata\030\004 \002(\010\022\036\n\026change",
-      "_rebalance_state\030\005 \002(\010\022\020\n\010rollback\030\006 \002(\010" +
-      "\"?\n\034RebalanceStateChangeResponse\022\037\n\005erro" +
-      "r\030\001 \001(\0132\020.voldemort.Error\"\242\014\n\025VoldemortA" +
-      "dminRequest\022)\n\004type\030\001 \002(\0162\033.voldemort.Ad" +
-      "minRequestType\0223\n\014get_metadata\030\002 \001(\0132\035.v" +
-      "oldemort.GetMetadataRequest\0229\n\017update_me" +
-      "tadata\030\003 \001(\0132 .voldemort.UpdateMetadataR" +
-      "equest\022J\n\030update_partition_entries\030\004 \001(\013" +
-      "2(.voldemort.UpdatePartitionEntriesReque" +
-      "st\022H\n\027fetch_partition_entries\030\005 \001(\0132\'.vo",
-      "ldemort.FetchPartitionEntriesRequest\022J\n\030" +
-      "delete_partition_entries\030\006 \001(\0132(.voldemo" +
-      "rt.DeletePartitionEntriesRequest\022K\n\031init" +
-      "iate_fetch_and_update\030\007 \001(\0132(.voldemort." +
-      "InitiateFetchAndUpdateRequest\022F\n\026async_o" +
-      "peration_status\030\010 \001(\0132&.voldemort.AsyncO" +
-      "perationStatusRequest\022H\n\027initiate_rebala" +
-      "nce_node\030\t \001(\0132\'.voldemort.InitiateRebal" +
-      "anceNodeRequest\022B\n\024async_operation_stop\030" +
-      "\n \001(\0132$.voldemort.AsyncOperationStopRequ",
-      "est\022B\n\024async_operation_list\030\013 \001(\0132$.vold" +
-      "emort.AsyncOperationListRequest\022;\n\020trunc" +
-      "ate_entries\030\014 \001(\0132!.voldemort.TruncateEn" +
-      "triesRequest\022-\n\tadd_store\030\r \001(\0132\032.voldem" +
-      "ort.AddStoreRequest\0223\n\014delete_store\030\016 \001(" +
-      "\0132\035.voldemort.DeleteStoreRequest\0221\n\013fetc" +
-      "h_store\030\017 \001(\0132\034.voldemort.FetchStoreRequ" +
-      "est\022/\n\nswap_store\030\020 \001(\0132\033.voldemort.Swap" +
-      "StoreRequest\0227\n\016rollback_store\030\021 \001(\0132\037.v" +
-      "oldemort.RollbackStoreRequest\022D\n\026get_ro_",
-      "max_version_dir\030\022 \001(\0132$.voldemort.GetROM" +
-      "axVersionDirRequest\022L\n\032get_ro_current_ve" +
-      "rsion_dir\030\023 \001(\0132(.voldemort.GetROCurrent" +
-      "VersionDirRequest\022D\n\025fetch_partition_fil" +
-      "es\030\024 \001(\0132%.voldemort.FetchPartitionFiles" +
-      "Request\022@\n\023update_slop_entries\030\026 \001(\0132#.v" +
-      "oldemort.UpdateSlopEntriesRequest\022>\n\022fai" +
-      "led_fetch_store\030\030 \001(\0132\".voldemort.Failed" +
-      "FetchStoreRequest\022C\n\025get_ro_storage_form" +
-      "at\030\031 \001(\0132$.voldemort.GetROStorageFormatR",
-      "equest\022F\n\026rebalance_state_change\030\032 \001(\0132&" +
-      ".voldemort.RebalanceStateChangeRequest*\311" +
-      "\004\n\020AdminRequestType\022\020\n\014GET_METADATA\020\000\022\023\n" +
-      "\017UPDATE_METADATA\020\001\022\034\n\030UPDATE_PARTITION_E" +
-      "NTRIES\020\002\022\033\n\027FETCH_PARTITION_ENTRIES\020\003\022\034\n" +
-      "\030DELETE_PARTITION_ENTRIES\020\004\022\035\n\031INITIATE_" +
-      "FETCH_AND_UPDATE\020\005\022\032\n\026ASYNC_OPERATION_ST" +
-      "ATUS\020\006\022\033\n\027INITIATE_REBALANCE_NODE\020\007\022\030\n\024A" +
-      "SYNC_OPERATION_STOP\020\010\022\030\n\024ASYNC_OPERATION" +
-      "_LIST\020\t\022\024\n\020TRUNCATE_ENTRIES\020\n\022\r\n\tADD_STO",
-      "RE\020\013\022\020\n\014DELETE_STORE\020\014\022\017\n\013FETCH_STORE\020\r\022" +
-      "\016\n\nSWAP_STORE\020\016\022\022\n\016ROLLBACK_STORE\020\017\022\032\n\026G" +
-      "ET_RO_MAX_VERSION_DIR\020\020\022\036\n\032GET_RO_CURREN" +
-      "T_VERSION_DIR\020\021\022\031\n\025FETCH_PARTITION_FILES" +
-      "\020\022\022\027\n\023UPDATE_SLOP_ENTRIES\020\024\022\026\n\022FAILED_FE" +
-      "TCH_STORE\020\026\022\031\n\025GET_RO_STORAGE_FORMAT\020\027\022\032" +
-      "\n\026REBALANCE_STATE_CHANGE\020\030B-\n\034voldemort." +
-      "client.protocol.pbB\013VAdminProtoH\001"
+      "rror\030\002 \001(\0132\020.voldemort.Error\"3\n\035GetROCur" +
+      "rentVersionDirRequest\022\022\n\nstore_name\030\001 \003(" +
+      "\t\"}\n\036GetROCurrentVersionDirResponse\022:\n\021r" +
+      "o_store_versions\030\001 \003(\0132\037.voldemort.ROSto" +
+      "reVersionDirMap\022\037\n\005error\030\002 \001(\0132\020.voldemo" +
+      "rt.Error\"/\n\031GetROStorageFormatRequest\022\022\n" +
+      "\nstore_name\030\001 \003(\t\"y\n\032GetROStorageFormatR" +
+      "esponse\022:\n\021ro_store_versions\030\001 \003(\0132\037.vol",
+      "demort.ROStoreVersionDirMap\022\037\n\005error\030\002 \001" +
+      "(\0132\020.voldemort.Error\"@\n\027FailedFetchStore" +
+      "Request\022\022\n\nstore_name\030\001 \002(\t\022\021\n\tstore_dir" +
+      "\030\002 \002(\t\";\n\030FailedFetchStoreResponse\022\037\n\005er" +
+      "ror\030\001 \001(\0132\020.voldemort.Error\"\346\001\n\033Rebalanc" +
+      "eStateChangeRequest\022K\n\035rebalance_partiti" +
+      "on_info_list\030\001 \003(\0132$.voldemort.Rebalance" +
+      "PartitionInfoMap\022\026\n\016cluster_string\030\002 \002(\t" +
+      "\022\017\n\007swap_ro\030\003 \002(\010\022\037\n\027change_cluster_meta" +
+      "data\030\004 \002(\010\022\036\n\026change_rebalance_state\030\005 \002",
+      "(\010\022\020\n\010rollback\030\006 \002(\010\"?\n\034RebalanceStateCh" +
+      "angeResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort." +
+      "Error\"\242\014\n\025VoldemortAdminRequest\022)\n\004type\030" +
+      "\001 \002(\0162\033.voldemort.AdminRequestType\0223\n\014ge" +
+      "t_metadata\030\002 \001(\0132\035.voldemort.GetMetadata" +
+      "Request\0229\n\017update_metadata\030\003 \001(\0132 .volde" +
+      "mort.UpdateMetadataRequest\022J\n\030update_par" +
+      "tition_entries\030\004 \001(\0132(.voldemort.UpdateP" +
+      "artitionEntriesRequest\022H\n\027fetch_partitio" +
+      "n_entries\030\005 \001(\0132\'.voldemort.FetchPartiti",
+      "onEntriesRequest\022J\n\030delete_partition_ent" +
+      "ries\030\006 \001(\0132(.voldemort.DeletePartitionEn" +
+      "triesRequest\022K\n\031initiate_fetch_and_updat" +
+      "e\030\007 \001(\0132(.voldemort.InitiateFetchAndUpda" +
+      "teRequest\022F\n\026async_operation_status\030\010 \001(" +
+      "\0132&.voldemort.AsyncOperationStatusReques" +
+      "t\022H\n\027initiate_rebalance_node\030\t \001(\0132\'.vol" +
+      "demort.InitiateRebalanceNodeRequest\022B\n\024a" +
+      "sync_operation_stop\030\n \001(\0132$.voldemort.As" +
+      "yncOperationStopRequest\022B\n\024async_operati",
+      "on_list\030\013 \001(\0132$.voldemort.AsyncOperation" +
+      "ListRequest\022;\n\020truncate_entries\030\014 \001(\0132!." +
+      "voldemort.TruncateEntriesRequest\022-\n\tadd_" +
+      "store\030\r \001(\0132\032.voldemort.AddStoreRequest\022" +
+      "3\n\014delete_store\030\016 \001(\0132\035.voldemort.Delete" +
+      "StoreRequest\0221\n\013fetch_store\030\017 \001(\0132\034.vold" +
+      "emort.FetchStoreRequest\022/\n\nswap_store\030\020 " +
+      "\001(\0132\033.voldemort.SwapStoreRequest\0227\n\016roll" +
+      "back_store\030\021 \001(\0132\037.voldemort.RollbackSto" +
+      "reRequest\022D\n\026get_ro_max_version_dir\030\022 \001(",
+      "\0132$.voldemort.GetROMaxVersionDirRequest\022" +
+      "L\n\032get_ro_current_version_dir\030\023 \001(\0132(.vo" +
+      "ldemort.GetROCurrentVersionDirRequest\022D\n" +
+      "\025fetch_partition_files\030\024 \001(\0132%.voldemort" +
+      ".FetchPartitionFilesRequest\022@\n\023update_sl" +
+      "op_entries\030\026 \001(\0132#.voldemort.UpdateSlopE" +
+      "ntriesRequest\022>\n\022failed_fetch_store\030\030 \001(" +
+      "\0132\".voldemort.FailedFetchStoreRequest\022C\n" +
+      "\025get_ro_storage_format\030\031 \001(\0132$.voldemort" +
+      ".GetROStorageFormatRequest\022F\n\026rebalance_",
+      "state_change\030\032 \001(\0132&.voldemort.Rebalance" +
+      "StateChangeRequest*\311\004\n\020AdminRequestType\022" +
+      "\020\n\014GET_METADATA\020\000\022\023\n\017UPDATE_METADATA\020\001\022\034" +
+      "\n\030UPDATE_PARTITION_ENTRIES\020\002\022\033\n\027FETCH_PA" +
+      "RTITION_ENTRIES\020\003\022\034\n\030DELETE_PARTITION_EN" +
+      "TRIES\020\004\022\035\n\031INITIATE_FETCH_AND_UPDATE\020\005\022\032" +
+      "\n\026ASYNC_OPERATION_STATUS\020\006\022\033\n\027INITIATE_R" +
+      "EBALANCE_NODE\020\007\022\030\n\024ASYNC_OPERATION_STOP\020" +
+      "\010\022\030\n\024ASYNC_OPERATION_LIST\020\t\022\024\n\020TRUNCATE_" +
+      "ENTRIES\020\n\022\r\n\tADD_STORE\020\013\022\020\n\014DELETE_STORE",
+      "\020\014\022\017\n\013FETCH_STORE\020\r\022\016\n\nSWAP_STORE\020\016\022\022\n\016R" +
+      "OLLBACK_STORE\020\017\022\032\n\026GET_RO_MAX_VERSION_DI" +
+      "R\020\020\022\036\n\032GET_RO_CURRENT_VERSION_DIR\020\021\022\031\n\025F" +
+      "ETCH_PARTITION_FILES\020\022\022\027\n\023UPDATE_SLOP_EN" +
+      "TRIES\020\024\022\026\n\022FAILED_FETCH_STORE\020\026\022\031\n\025GET_R" +
+      "O_STORAGE_FORMAT\020\027\022\032\n\026REBALANCE_STATE_CH" +
+      "ANGE\020\030B-\n\034voldemort.client.protocol.pbB\013" +
+      "VAdminProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -20432,7 +20392,7 @@ public final class VAdminProto {
           internal_static_voldemort_AsyncOperationListRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_AsyncOperationListRequest_descriptor,
-              new java.lang.String[] { "RequestId", "ShowComplete", },
+              new java.lang.String[] { "ShowComplete", },
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.class,
               voldemort.client.protocol.pb.VAdminProto.AsyncOperationListRequest.Builder.class);
           internal_static_voldemort_AsyncOperationListResponse_descriptor =
