@@ -1001,9 +1001,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
             String keyString = ByteUtils.getString(key.get(), "UTF-8");
             if(MetadataStore.METADATA_KEYS.contains(keyString)) {
                 Versioned<byte[]> versionedValue = ProtoUtils.decodeVersioned(request.getVersioned());
+                logger.info("Updating metadata for key '" + keyString + "'");
                 metadataStore.put(new ByteArray(ByteUtils.getBytes(keyString, "UTF-8")),
                                   versionedValue,
                                   null);
+                logger.info("Successfully updated metadata for key '" + keyString + "'");
             }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
