@@ -84,6 +84,8 @@ import com.google.common.collect.Sets;
  */
 public class VoldemortAdminTool {
 
+    private static final String ALL_METADATA = "all";
+
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
@@ -139,10 +141,8 @@ public class VoldemortAdminTool {
               .describedAs("input-directory")
               .ofType(String.class);
         parser.accepts("get-metadata",
-                       "retreive metadata information [ " + MetadataStore.CLUSTER_KEY + " | "
-                               + MetadataStore.STORES_KEY + " | " + MetadataStore.SERVER_STATE_KEY
-                               + " | " + MetadataStore.REBALANCING_STEAL_INFO + " ]")
-              .withRequiredArg()
+                       "retreive metadata information " + MetadataStore.METADATA_KEYS)
+              .withOptionalArg()
               .describedAs("metadata-key")
               .ofType(String.class);
         parser.accepts("check-metadata",
@@ -180,6 +180,16 @@ public class VoldemortAdminTool {
               .ofType(String.class);
         parser.accepts("key-distribution", "Prints the current key distribution of the cluster");
         parser.accepts("clear-rebalancing-metadata", "Remove the metadata related to rebalancing");
+        parser.accepts("async",
+                       "a) Get a list of async job ids [get] b) Stop async job ids [stop] ")
+              .withRequiredArg()
+              .describedAs("op-type")
+              .ofType(String.class);
+        parser.accepts("async-id", "Comma separated list of async ids to stop")
+              .withOptionalArg()
+              .describedAs("job-ids")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
 
@@ -195,7 +205,7 @@ public class VoldemortAdminTool {
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
-                 || options.has("truncate") || options.has("clear-rebalancing-metadata"))) {
+                 || options.has("truncate") || options.has("clear-rebalancing-metadata") || options.has("async"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -251,8 +261,14 @@ public class VoldemortAdminTool {
         if(options.has("clear-rebalancing-metadata")) {
             ops += "i";
         }
+        if(options.has("async")) {
+            ops += "b";
+        }
         if(ops.length() < 1) {
-            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata) must be specified");
+            Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
+                        + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
+                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async) "
+                        + "must be specified");
         }
 
         List<String> storeNames = null;
@@ -322,7 +338,10 @@ public class VoldemortAdminTool {
                 executeDeleteStore(adminClient, storeName, nodeId);
             }
             if(ops.contains("g")) {
-                String metadataKey = (String) options.valueOf("get-metadata");
+                String metadataKey = ALL_METADATA;
+                if(options.hasArgument("get-metadata")) {
+                    metadataKey = (String) options.valueOf("get-metadata");
+                }
                 executeGetMetadata(nodeId, adminClient, metadataKey, outputDir);
             }
             if(ops.contains("e")) {
@@ -388,6 +407,13 @@ public class VoldemortAdminTool {
             if(ops.contains("i")) {
                 executeClearRebalancing(nodeId, adminClient);
             }
+            if(ops.contains("b")) {
+                String asyncKey = (String) options.valueOf("async");
+                List<Integer> asyncIds = null;
+                if(options.hasArgument("async-id"))
+                    asyncIds = (List<Integer>) options.valuesOf("async-id");
+                executeAsync(nodeId, adminClient, asyncKey, asyncIds);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
@@ -398,21 +424,37 @@ public class VoldemortAdminTool {
         stream.println("Commands supported");
         stream.println("------------------");
         stream.println("CHANGE METADATA");
-        stream.println("\t1) Get metadata from all nodes");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url]");
-        stream.println("\t2) Get metadata from a particular node");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url] --node [node-id]");
-        stream.println("\t3) Get metadata from a particular node and store to a directory");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata [metadata-key] --url [url] --node [node-id] --outdir [directory]");
-        stream.println("\t4) Set metadata on all nodes");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url]");
-        stream.println("\t5) Set metadata for a particular node");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata [metadata-key] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
-        stream.println("\t6) Check if metadata is same on all nodes");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata [metadata-key] --url [url]");
-        stream.println("\t7) Clear rebalancing metadata ( server.state & rebalancing.steal.info.key ) on all node ");
+        stream.println("\t1) Get all metadata from all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata --url [url]");
+        stream.println("\t2) Get metadata from all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata "
+                       + MetadataStore.METADATA_KEYS + " --url [url]");
+        stream.println("\t3) Get metadata from a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata "
+                       + MetadataStore.METADATA_KEYS + " --url [url] --node [node-id]");
+        stream.println("\t4) Get metadata from a particular node and store to a directory");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --get-metadata "
+                       + MetadataStore.METADATA_KEYS
+                       + " --url [url] --node [node-id] --outdir [directory]");
+        stream.println("\t5) Set metadata on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
+                       + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
+                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + "] --set-metadata-value [metadata-value] --url [url]");
+        stream.println("\t6) Set metadata for a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --set-metadata ["
+                       + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
+                       + MetadataStore.STORES_KEY + ", " + MetadataStore.REBALANCING_STEAL_INFO
+                       + "] --set-metadata-value [metadata-value] --url [url] --node [node-id]");
+        stream.println("\t7) Check if metadata is same on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --check-metadata ["
+                       + MetadataStore.CLUSTER_KEY + ", " + MetadataStore.SERVER_STATE_KEY + ", "
+                       + MetadataStore.STORES_KEY + "] --url [url]");
+        stream.println("\t8) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO + "] on all node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url]");
-        stream.println("\t8) Clear rebalancing metadata ( server.state & rebalancing.steal.info.key ) on a particular node ");
+        stream.println("\t9) Clear rebalancing metadata [" + MetadataStore.SERVER_STATE_KEY + ", "
+                       + MetadataStore.REBALANCING_STEAL_INFO + "] on a particular node ");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --clear-rebalancing-metadata --url [url] --node [node-id]");
         stream.println();
         stream.println("ADD / DELETE STORES");
@@ -459,6 +501,14 @@ public class VoldemortAdminTool {
         stream.println("\t2) Retrieve metadata information of read-only data for all nodes and a set of store");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --ro-metadata [current | max | storage-format] --url [url] --stores [comma-separated list of store names]");
         stream.println();
+        stream.println("ASYNC JOBS");
+        stream.println("\t1) Get a list of async jobs on all nodes");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --async get --url [url]");
+        stream.println("\t2) Get a list of async jobs on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --async get --url [url] --node [node-id]");
+        stream.println("\t3) Stop a list of async jobs on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --async stop --async-id [comma-separated list of async job id] --url [url] --node [node-id]");
+        stream.println();
         stream.println("OTHERS");
         stream.println("\t1) Restore a particular node completely from its replicas");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --restore --url [url] --node [node-id]");
@@ -468,6 +518,52 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
 
         parser.printHelpOn(stream);
+    }
+
+    private static void executeAsync(Integer nodeId,
+                                     AdminClient adminClient,
+                                     String asyncKey,
+                                     List<Integer> asyncIdsToStop) {
+
+        if(asyncKey.compareTo("get") == 0) {
+            List<Integer> nodeIds = Lists.newArrayList();
+            if(nodeId < 0) {
+                for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                    nodeIds.add(node.getId());
+                }
+            } else {
+                nodeIds.add(nodeId);
+            }
+
+            // Print the job information
+            for(int currentNodeId: nodeIds) {
+                System.out.println("Retrieving async jobs from node " + currentNodeId);
+                List<Integer> asyncIds = adminClient.getAsyncRequestList(currentNodeId);
+                System.out.println("Async Job Ids on node " + currentNodeId + " : " + asyncIds);
+                for(int asyncId: asyncIds) {
+                    System.out.println("Async Job Id " + asyncId + " ] "
+                                       + adminClient.getAsyncRequestStatus(currentNodeId, asyncId));
+                    System.out.println();
+                }
+            }
+        } else if(asyncKey.compareTo("stop") == 0) {
+            if(nodeId < 0) {
+                throw new VoldemortException("Cannot stop job ids without node id");
+            }
+
+            if(asyncIdsToStop == null || asyncIdsToStop.size() == 0) {
+                throw new VoldemortException("Async ids cannot be null / zero");
+            }
+
+            for(int asyncId: asyncIdsToStop) {
+                System.out.println("Stopping async id " + asyncId);
+                adminClient.stopAsyncRequest(nodeId, asyncId);
+                System.out.println("Stopped async id " + asyncId);
+            }
+        } else {
+            throw new VoldemortException("Unsupported async operation type " + asyncKey);
+        }
+
     }
 
     private static void executeClearRebalancing(int nodeId, AdminClient adminClient) {
@@ -488,12 +584,15 @@ public class VoldemortAdminTool {
     }
 
     private static void executeKeyDistribution(AdminClient adminClient) {
+        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
                                                                                adminClient.getRemoteStoreDefList(0)
-                                                                                          .getValue()));
+                                                                                          .getValue(),
+                                                                               keys));
         System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
                                                                              adminClient.getRemoteStoreDefList(0)
-                                                                                        .getValue()));
+                                                                                        .getValue(),
+                                                                             keys));
     }
 
     private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
@@ -649,6 +748,15 @@ public class VoldemortAdminTool {
         } else {
             nodeIds.add(nodeId);
         }
+
+        List<String> metadataKeys = Lists.newArrayList();
+        if(metadataKey.compareTo(ALL_METADATA) == 0) {
+            for(Object key: MetadataStore.METADATA_KEYS) {
+                metadataKeys.add((String) key);
+            }
+        } else {
+            metadataKeys.add(metadataKey);
+        }
         for(Integer currentNodeId: nodeIds) {
             System.out.println(adminClient.getAdminClientCluster()
                                           .getNodeById(currentNodeId)
@@ -657,31 +765,34 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            Versioned<String> versioned = null;
-            try {
-                versioned = adminClient.getRemoteMetadata(currentNodeId, metadataKey);
-            } catch(Exception e) {
-                System.out.println("Error in retrieving " + e.getMessage());
-                System.out.println();
-                continue;
-            }
-            if(versioned == null) {
-                if(directory == null) {
-                    System.out.println("null");
+            for(String key: metadataKeys) {
+                System.out.println("Key - " + key);
+                Versioned<String> versioned = null;
+                try {
+                    versioned = adminClient.getRemoteMetadata(currentNodeId, key);
+                } catch(Exception e) {
+                    System.out.println("Error in retrieving " + e.getMessage());
                     System.out.println();
-                } else {
-                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
-                                                "");
+                    continue;
                 }
-            } else {
-                if(directory == null) {
-                    System.out.println(versioned.getVersion());
-                    System.out.print(": ");
-                    System.out.println(versioned.getValue());
-                    System.out.println();
+                if(versioned == null) {
+                    if(directory == null) {
+                        System.out.println("null");
+                        System.out.println();
+                    } else {
+                        FileUtils.writeStringToFile(new File(directory, key + "_" + currentNodeId),
+                                                    "");
+                    }
                 } else {
-                    FileUtils.writeStringToFile(new File(directory, "cluster.xml_" + currentNodeId),
-                                                versioned.getValue());
+                    if(directory == null) {
+                        System.out.println(versioned.getVersion());
+                        System.out.print(": ");
+                        System.out.println(versioned.getValue());
+                        System.out.println();
+                    } else {
+                        FileUtils.writeStringToFile(new File(directory, key + "_" + currentNodeId),
+                                                    versioned.getValue());
+                    }
                 }
             }
         }

@@ -84,8 +84,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
     public void operate() throws Exception {
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
-                                                           voldemortConfig.getMaxParallelStoresRebalancing(),
-                                                           1);
+                                                           voldemortConfig.getMaxParallelStoresRebalancing());
         final List<Exception> failures = new ArrayList<Exception>();
         try {
 

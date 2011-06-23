@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
@@ -1909,12 +1910,16 @@ public class AdminClient {
      * @param notAcceptedBuckets These are Pair< partition, replica > which we
      *        cannot copy AT all. This is because these are current mmap-ed and
      *        are serving traffic.
+     * @param running A boolean which will control when we want to stop the
+     *        copying of files. As long this is true, we will continue copying.
+     *        Once this is changed to false we'll disable the copying
      */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
                                     String destinationDirPath,
-                                    Set<Object> notAcceptedBuckets) {
+                                    Set<Object> notAcceptedBuckets,
+                                    AtomicBoolean running) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
                                          + ") to store " + storeName + " does not exist");
@@ -1952,7 +1957,7 @@ public class AdminClient {
             ProtoUtils.writeMessage(outputStream, request);
             outputStream.flush();
 
-            while(true) {
+            while(true && running.get()) {
                 int size = 0;
 
                 try {

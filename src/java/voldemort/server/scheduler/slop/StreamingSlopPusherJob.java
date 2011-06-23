@@ -120,8 +120,7 @@ public class StreamingSlopPusherJob implements Runnable {
 
         if(adminClient == null) {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setMaxThreads(cluster.getNumberOfNodes())
-                                                                 .setMaxConnectionsPerNode(1));
+                                          new AdminClientConfig().setMaxConnectionsPerNode(1));
         }
 
         if(voldemortConfig.getSlopZonesDownToTerminate() > 0) {
