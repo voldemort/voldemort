@@ -234,7 +234,7 @@ public class VoldemortConfig implements Serializable {
         this.adminMaxThreads = props.getInt("admin.max.threads", 20);
         this.adminCoreThreads = props.getInt("admin.core.threads", Math.max(1, adminMaxThreads / 2));
         this.adminStreamBufferSize = (int) props.getBytes("admin.streams.buffer.size",
-                                                          16 * 1024 * 1024);
+                                                          10 * 1000 * 1000);
         this.adminConnectionTimeout = props.getInt("admin.client.connection.timeout.sec", 60);
         this.adminSocketTimeout = props.getInt("admin.client.socket.timeout.sec", 24 * 60 * 60);
 

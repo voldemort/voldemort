@@ -229,6 +229,7 @@ public class RebalanceUtils {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
 
+        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Cluster minCluster = targetCluster;
         int minMoves = Integer.MAX_VALUE;
         double minStdDev = Double.MAX_VALUE;
@@ -239,7 +240,7 @@ public class RebalanceUtils {
 
             double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(minClusterMove.getFirst(),
                                                                                                                                                  uniqueStores,
-                                                                                                                                                 10000));
+                                                                                                                                                 keys));
 
             if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
                 minMoves = minClusterMove.getSecond();
@@ -256,10 +257,13 @@ public class RebalanceUtils {
         System.out.println("Current distribution");
         System.out.println("--------------------");
         System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                             storeDefs));
+                                                                             storeDefs,
+                                                                             keys));
         System.out.println("Target distribution");
         System.out.println("--------------------");
-        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster, storeDefs));
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
+                                                                             storeDefs,
+                                                                             keys));
         System.out.println(new ClusterMapper().writeCluster(minCluster));
 
         // If output directory exists, output the optimized cluster

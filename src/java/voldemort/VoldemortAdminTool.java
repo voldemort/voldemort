@@ -584,12 +584,15 @@ public class VoldemortAdminTool {
     }
 
     private static void executeKeyDistribution(AdminClient adminClient) {
+        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
                                                                                adminClient.getRemoteStoreDefList(0)
-                                                                                          .getValue()));
+                                                                                          .getValue(),
+                                                                               keys));
         System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
                                                                              adminClient.getRemoteStoreDefList(0)
-                                                                                        .getValue()));
+                                                                                        .getValue(),
+                                                                             keys));
     }
 
     private static void executeCheckMetadata(AdminClient adminClient, String metadataKey) {
