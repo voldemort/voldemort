@@ -84,8 +84,7 @@ class RebalanceAsyncOperation extends AsyncOperation {
     public void operate() throws Exception {
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
-                                                           voldemortConfig.getMaxParallelStoresRebalancing(),
-                                                           1);
+                                                           voldemortConfig.getMaxParallelStoresRebalancing());
         final List<Exception> failures = new ArrayList<Exception>();
         try {
 
@@ -195,7 +194,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                     storeName,
                                                     stealInfo.getReplicaToAddPartitionList(storeName),
                                                     null,
-                                                    stealInfo.getInitialCluster());
+                                                    stealInfo.getInitialCluster(),
+                                                    true);
         rebalanceStatusList.add(asyncId);
 
         if(logger.isDebugEnabled()) {

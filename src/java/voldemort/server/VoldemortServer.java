@@ -302,7 +302,6 @@ public class VoldemortServer extends AbstractService {
 
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                        metadata.getCluster(),
-                                                                       numberOfParallelTransfers * 2,
                                                                        numberOfParallelTransfers * 2);
         try {
             adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);

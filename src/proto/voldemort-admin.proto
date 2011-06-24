@@ -99,6 +99,7 @@ message InitiateFetchAndUpdateRequest {
   optional VoldemortFilter filter = 3;
   repeated PartitionTuple replica_to_partition = 4;
   optional string initial_cluster = 5;
+  optional bool optimize = 6;
 }
 
 message AsyncOperationStatusRequest {
@@ -114,7 +115,6 @@ message AsyncOperationStopResponse {
 }
 
 message AsyncOperationListRequest {
-  required int32 request_id = 1;
   required bool show_complete = 2;
 }
 

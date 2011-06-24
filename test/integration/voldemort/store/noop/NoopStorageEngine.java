@@ -126,4 +126,8 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             return value == null ? 0 : 1;
         }
     }
+
+    public boolean isPartitionAware() {
+        return false;
+    }
 }

@@ -141,6 +141,11 @@ public class Rebalancer implements Runnable {
                                      boolean rollback) {
         Cluster currentCluster = metadataStore.getCluster();
 
+        logger.info("Doing rebalance state change with options [ cluster metadata change - "
+                    + changeClusterMetadata + " ], [ changing rebalancing state - "
+                    + changeRebalanceState + " ], [ changing swapping RO - " + swapRO
+                    + " ], [ rollback - " + rollback + " ]");
+
         // Variables to track what has completed
         List<RebalancePartitionsInfo> completedRebalancePartitionsInfo = Lists.newArrayList();
         List<String> swappedStoreNames = Lists.newArrayList();
@@ -288,7 +293,8 @@ public class Rebalancer implements Runnable {
                                                                              .get(0)
                                                                              .getVersion()).incremented(0,
                                                                                                         System.currentTimeMillis());
-                logger.info("Switching metadata to " + cluster + " [ " + updatedVectorClock + " ]");
+                logger.info("Switching metadata from " + metadataStore.getCluster() + " to "
+                            + cluster + " [ " + updatedVectorClock + " ]");
                 metadataStore.put(MetadataStore.CLUSTER_KEY, Versioned.value((Object) cluster,
                                                                              updatedVectorClock));
             } finally {

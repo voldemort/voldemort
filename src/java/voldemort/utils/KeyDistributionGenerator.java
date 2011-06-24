@@ -20,11 +20,14 @@ import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class KeyDistributionGenerator {
 
     private final static DecimalFormat formatter = new DecimalFormat("#.##");
+
+    public final static int DEFAULT_NUM_KEYS = 10000;
 
     public static void main(String args[]) throws IOException {
 
@@ -36,7 +39,7 @@ public class KeyDistributionGenerator {
         parser.accepts("stores-xml", "[REQUIRED] stores xml file location")
               .withRequiredArg()
               .describedAs("path");
-        parser.accepts("num-keys", "Number of keys to query [Default:100000]")
+        parser.accepts("num-keys", "Number of keys to query [Default : " + DEFAULT_NUM_KEYS + "]")
               .withRequiredArg()
               .describedAs("number")
               .ofType(Integer.class);
@@ -58,7 +61,7 @@ public class KeyDistributionGenerator {
         // compulsory params
         String clusterXml = (String) options.valueOf("cluster-xml");
         String storesXml = (String) options.valueOf("stores-xml");
-        Integer numKeys = CmdUtils.valueOf(options, "num-keys", 100000);
+        Integer numKeys = CmdUtils.valueOf(options, "num-keys", DEFAULT_NUM_KEYS);
 
         if(numKeys <= 0) {
             System.err.println("Number of keys should be greater than 0");
@@ -68,9 +71,11 @@ public class KeyDistributionGenerator {
         Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
+        List<ByteArray> keys = generateKeys(numKeys);
+
         // Print distribution for every store
         for(StoreDefinition def: storeDefs) {
-            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, numKeys);
+            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, keys);
             System.out.println("For Store " + def.getName());
             printDistribution(storeDistribution);
             System.out.println("Std dev - " + getStdDeviation(storeDistribution));
@@ -78,7 +83,7 @@ public class KeyDistributionGenerator {
         }
         HashMap<Integer, Double> overallDistribution = generateOverallDistribution(cluster,
                                                                                    storeDefs,
-                                                                                   numKeys);
+                                                                                   keys);
         System.out.println("Overall distribution ");
         printDistribution(overallDistribution);
         System.out.println("Std dev - " + getStdDeviation(overallDistribution));
@@ -90,14 +95,17 @@ public class KeyDistributionGenerator {
      * 
      * @param cluster The cluster metadata
      * @param storeDefs List of store definitions
+     * @param keys List of byte keys
      * @return String representation
      */
-    public static String printStoreWiseDistribution(Cluster cluster, List<StoreDefinition> storeDefs) {
+    public static String printStoreWiseDistribution(Cluster cluster,
+                                                    List<StoreDefinition> storeDefs,
+                                                    List<ByteArray> keys) {
         StringBuilder builder = new StringBuilder();
 
         // Print distribution for every store
         for(StoreDefinition def: storeDefs) {
-            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, 1000);
+            HashMap<Integer, Double> storeDistribution = generateDistribution(cluster, def, keys);
             builder.append("\nFor Store '" + def.getName() + "' \n");
             for(int nodeId: storeDistribution.keySet()) {
                 builder.append("Node " + nodeId + " - "
@@ -116,14 +124,17 @@ public class KeyDistributionGenerator {
      * 
      * @param cluster The cluster metadata
      * @param storeDefs List of store definitions
+     * @param keys List of keys
      * @return String representation
      */
-    public static String printOverallDistribution(Cluster cluster, List<StoreDefinition> storeDefs) {
+    public static String printOverallDistribution(Cluster cluster,
+                                                  List<StoreDefinition> storeDefs,
+                                                  List<ByteArray> keys) {
 
         StringBuilder builder = new StringBuilder();
         HashMap<Integer, Double> distribution = generateOverallDistribution(cluster,
                                                                             storeDefs,
-                                                                            1000);
+                                                                            keys);
 
         builder.append("Cluster('");
         builder.append(cluster.getName());
@@ -141,15 +152,15 @@ public class KeyDistributionGenerator {
 
     public static HashMap<Integer, Double> generateOverallDistribution(Cluster cluster,
                                                                        List<StoreDefinition> storeDefs,
-                                                                       int numKeys) {
+                                                                       List<ByteArray> keys) {
         return generateOverallDistributionWithUniqueStores(cluster,
                                                            getUniqueStoreDefinitionsWithCounts(storeDefs),
-                                                           numKeys);
+                                                           keys);
     }
 
     public static HashMap<Integer, Double> generateOverallDistributionWithUniqueStores(Cluster cluster,
                                                                                        HashMap<StoreDefinition, Integer> uniqueStoreDefsWithCount,
-                                                                                       int numKeys) {
+                                                                                       List<ByteArray> keys) {
         HashMap<Integer, Double> overallDistributionCount = Maps.newHashMap();
         for(Node node: cluster.getNodes()) {
             overallDistributionCount.put(node.getId(), 0.0);
@@ -159,7 +170,7 @@ public class KeyDistributionGenerator {
         for(Entry<StoreDefinition, Integer> entry: uniqueStoreDefsWithCount.entrySet()) {
             HashMap<Integer, Double> nodeDistribution = generateDistribution(cluster,
                                                                              entry.getKey(),
-                                                                             numKeys);
+                                                                             keys);
             for(int nodeId: nodeDistribution.keySet()) {
                 overallDistributionCount.put(nodeId,
                                              overallDistributionCount.get(nodeId)
@@ -176,6 +187,48 @@ public class KeyDistributionGenerator {
         return overallDistributionCount;
     }
 
+    /**
+     * Generates distribution for a specific store definition
+     * 
+     * @param cluster The cluster metadata
+     * @param storeDef The store definition metadata
+     * @param keys The list of keys as bytes
+     * @return Map of node id to their corresponding %age distribution
+     */
+    public static HashMap<Integer, Double> generateDistribution(Cluster cluster,
+                                                                StoreDefinition storeDef,
+                                                                List<ByteArray> keys) {
+        RoutingStrategyFactory factory = new RoutingStrategyFactory();
+        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
+
+        HashMap<Integer, Long> requestRouting = Maps.newHashMap();
+        Long total = new Long(0);
+        for(ByteArray key: keys) {
+            List<Node> nodes = strategy.routeRequest(key.get());
+            for(Node node: nodes) {
+                Long count = requestRouting.get(node.getId());
+                if(count == null) {
+                    count = new Long(0);
+                }
+                count++;
+                requestRouting.put(node.getId(), count);
+                total++;
+            }
+        }
+        HashMap<Integer, Double> finalDistribution = Maps.newHashMap();
+        for(int nodeId: requestRouting.keySet()) {
+            finalDistribution.put(nodeId, new Double((requestRouting.get(nodeId) * 100.0) / total));
+        }
+        return finalDistribution;
+    }
+
+    /**
+     * Given a list of store definitions, find out and return a map of similar
+     * store definitions + count of them
+     * 
+     * @param storeDefs All store definitions
+     * @return Map of a unique store definition + counts
+     */
     public static HashMap<StoreDefinition, Integer> getUniqueStoreDefinitionsWithCounts(List<StoreDefinition> storeDefs) {
 
         HashMap<StoreDefinition, Integer> uniqueStoreDefs = Maps.newHashMap();
@@ -229,39 +282,12 @@ public class KeyDistributionGenerator {
         return uniqueStoreDefs;
     }
 
-    /**
-     * Generates distribution for a specific store definition
-     * 
-     * @param cluster The cluster metadata
-     * @param storeDef The store definition metadata
-     * @param numKeys Number of keys used to generate distribution
-     * @return Map of node id to their corresponding %age distribution
-     */
-    public static HashMap<Integer, Double> generateDistribution(Cluster cluster,
-                                                                StoreDefinition storeDef,
-                                                                int numKeys) {
-        RoutingStrategyFactory factory = new RoutingStrategyFactory();
-        RoutingStrategy strategy = factory.updateRoutingStrategy(storeDef, cluster);
-
-        HashMap<Integer, Long> requestRouting = Maps.newHashMap();
-        Long total = new Long(0);
+    public static List<ByteArray> generateKeys(int numKeys) {
+        List<ByteArray> keys = Lists.newArrayList();
         for(int i = 0; i < numKeys; i++) {
-            List<Node> nodes = strategy.routeRequest(("key" + i).getBytes());
-            for(Node node: nodes) {
-                Long count = requestRouting.get(node.getId());
-                if(count == null) {
-                    count = new Long(0);
-                }
-                count++;
-                requestRouting.put(node.getId(), count);
-                total++;
-            }
+            keys.add(new ByteArray(("key" + i).getBytes()));
         }
-        HashMap<Integer, Double> finalDistribution = Maps.newHashMap();
-        for(int nodeId: requestRouting.keySet()) {
-            finalDistribution.put(nodeId, new Double((requestRouting.get(nodeId) * 100.0) / total));
-        }
-        return finalDistribution;
+        return keys;
     }
 
     public static void printDistribution(HashMap<Integer, Double> distribution) {

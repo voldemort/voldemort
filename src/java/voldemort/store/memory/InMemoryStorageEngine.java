@@ -262,4 +262,8 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
 
     }
+
+    public boolean isPartitionAware() {
+        return false;
+    }
 }

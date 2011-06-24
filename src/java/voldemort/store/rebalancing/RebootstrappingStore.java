@@ -72,8 +72,7 @@ public class RebootstrappingStore extends DelegatingStore<ByteArray, byte[], byt
     private void reinit() {
         AdminClient adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                                        metadata.getCluster(),
-                                                                       4,
-                                                                       2);
+                                                                       voldemortConfig.getClientMaxConnectionsPerNode());
         try {
             Versioned<Cluster> latestCluster = RebalanceUtils.getLatestCluster(new ArrayList<Integer>(),
                                                                                adminClient);

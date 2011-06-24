@@ -229,6 +229,7 @@ public class RebalanceUtils {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
 
+        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Cluster minCluster = targetCluster;
         int minMoves = Integer.MAX_VALUE;
         double minStdDev = Double.MAX_VALUE;
@@ -239,7 +240,7 @@ public class RebalanceUtils {
 
             double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(minClusterMove.getFirst(),
                                                                                                                                                  uniqueStores,
-                                                                                                                                                 10000));
+                                                                                                                                                 keys));
 
             if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
                 minMoves = minClusterMove.getSecond();
@@ -256,10 +257,13 @@ public class RebalanceUtils {
         System.out.println("Current distribution");
         System.out.println("--------------------");
         System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                             storeDefs));
+                                                                             storeDefs,
+                                                                             keys));
         System.out.println("Target distribution");
         System.out.println("--------------------");
-        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster, storeDefs));
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
+                                                                             storeDefs,
+                                                                             keys));
         System.out.println(new ClusterMapper().writeCluster(minCluster));
 
         // If output directory exists, output the optimized cluster
@@ -520,6 +524,27 @@ public class RebalanceUtils {
         } catch(VoldemortException e) {
             return false;
         }
+    }
+
+    /**
+     * Given a preference list and a node id, check if any one of the partitions
+     * is on the node in picture
+     * 
+     * @param cluster Cluster metadata
+     * @param preferenceList Preference list of partition ids
+     * @param nodeId Node id which we are checking for
+     * @return True if the preference list contains a node whose id = nodeId
+     */
+    public static boolean containsPreferenceList(Cluster cluster,
+                                                 List<Integer> preferenceList,
+                                                 int nodeId) {
+
+        for(int partition: preferenceList) {
+            if(RebalanceUtils.getNodeByPartitionId(cluster, partition).getId() == nodeId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -985,10 +1010,8 @@ public class RebalanceUtils {
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
                                                     Cluster cluster,
-                                                    int numThreads,
                                                     int numConnPerNode) {
         AdminClientConfig config = new AdminClientConfig().setMaxConnectionsPerNode(numConnPerNode)
-                                                          .setMaxThreads(numThreads)
                                                           .setAdminConnectionTimeoutSec(voldemortConfig.getAdminConnectionTimeout())
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
@@ -1322,7 +1345,7 @@ public class RebalanceUtils {
      * @param executorService Executor service to shutdown
      * @param timeOutSec Time we wait for
      */
-    public static void executorShutDown(ExecutorService executorService, int timeOutSec) {
+    public static void executorShutDown(ExecutorService executorService, long timeOutSec) {
         try {
             executorService.shutdown();
             executorService.awaitTermination(timeOutSec, TimeUnit.SECONDS);

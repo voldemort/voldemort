@@ -31,6 +31,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import junit.framework.TestCase;
 
@@ -90,6 +91,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                   10000,
                                                                                   100000,
                                                                                   32 * 1024);
+    private static AtomicBoolean running = new AtomicBoolean(true);
     private List<StoreDefinition> storeDefs;
     private VoldemortServer[] servers;
     private Cluster cluster;
@@ -842,7 +844,8 @@ public class AdminServiceBasicTest extends TestCase {
                                                      "test-readonly-fetchfiles",
                                                      dumbMap,
                                                      tempDir.getAbsolutePath(),
-                                                     null);
+                                                     null,
+                                                     running);
                 fail("Should throw exception since partition map passed is bad");
             } catch(VoldemortException e) {}
 
@@ -853,7 +856,8 @@ public class AdminServiceBasicTest extends TestCase {
                                                  "test-readonly-fetchfiles",
                                                  primaryNodeBuckets,
                                                  tempDir.getAbsolutePath(),
-                                                 null);
+                                                 null,
+                                                 running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks + 1);
@@ -889,7 +893,8 @@ public class AdminServiceBasicTest extends TestCase {
                                                  "test-readonly-fetchfiles",
                                                  replicaNodeBuckets,
                                                  tempDir.getAbsolutePath(),
-                                                 null);
+                                                 null,
+                                                 running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks + 1);
@@ -923,7 +928,8 @@ public class AdminServiceBasicTest extends TestCase {
                                                  "test-readonly-fetchfiles",
                                                  nodeBuckets,
                                                  tempDir.getAbsolutePath(),
-                                                 null);
+                                                 null,
+                                                 running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)
@@ -1247,7 +1253,8 @@ public class AdminServiceBasicTest extends TestCase {
                                           "test-recovery-data",
                                           replicaToPartitions,
                                           null,
-                                          cluster);
+                                          cluster,
+                                          false);
         client.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
         // Check the values

@@ -32,11 +32,10 @@ import com.google.common.collect.Maps;
 
 public class Entropy {
 
-    private int numThreads;
     private int nodeId;
     private long numKeys;
 
-    public static long DEFAULT_NUM_KEYS = 1000;
+    public static long DEFAULT_NUM_KEYS = 10000;
 
     /**
      * Entropy constructor. Uses DEFAULT_NUM_KEYS number of keys
@@ -44,8 +43,7 @@ public class Entropy {
      * @param nodeId Node id. If -1, goes over all of them
      * @param numThreads Number of threads
      */
-    public Entropy(int nodeId, int numThreads) {
-        this.numThreads = numThreads;
+    public Entropy(int nodeId) {
         this.nodeId = nodeId;
         this.numKeys = DEFAULT_NUM_KEYS;
     }
@@ -54,11 +52,9 @@ public class Entropy {
      * Entropy constructor
      * 
      * @param nodeId Node id. If -1, goes over all of them
-     * @param numThreads Number of threads
      * @param numKeys Number of keys
      */
-    public Entropy(int nodeId, int numThreads, long numKeys) {
-        this.numThreads = numThreads;
+    public Entropy(int nodeId, long numKeys) {
         this.nodeId = nodeId;
         this.numKeys = numKeys;
     }
@@ -69,10 +65,6 @@ public class Entropy {
         parser.accepts("node", "Node id")
               .withRequiredArg()
               .describedAs("node-id")
-              .ofType(Integer.class);
-        parser.accepts("threads", "Number of threads")
-              .withRequiredArg()
-              .describedAs("threads")
               .ofType(Integer.class);
         parser.accepts("cluster-xml", "[REQUIRED] Path to cluster-xml")
               .withRequiredArg()
@@ -91,7 +83,8 @@ public class Entropy {
                        "Operation type - false ( save keys ) [ default ], true ( run entropy calculator ) ")
               .withRequiredArg()
               .ofType(Boolean.class);
-        parser.accepts("num-keys", "Number of keys per store [ Default: 100 ]")
+        parser.accepts("num-keys",
+                       "Number of keys per store [ Default: " + Entropy.DEFAULT_NUM_KEYS + " ]")
               .withRequiredArg()
               .describedAs("keys")
               .ofType(Long.class);
@@ -114,9 +107,8 @@ public class Entropy {
         String clusterXml = (String) options.valueOf("cluster-xml");
         String storesXml = (String) options.valueOf("stores-xml");
         String outputDirPath = (String) options.valueOf("output-dir");
-        long numKeys = CmdUtils.valueOf(options, "num-keys", 100L);
+        long numKeys = CmdUtils.valueOf(options, "num-keys", Entropy.DEFAULT_NUM_KEYS);
         int nodeId = CmdUtils.valueOf(options, "node", 0);
-        int numThreads = CmdUtils.valueOf(options, "threads", 10);
         boolean opType = CmdUtils.valueOf(options, "op-type", false);
 
         File outputDir = new File(outputDirPath);
@@ -138,7 +130,7 @@ public class Entropy {
         Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
-        Entropy detector = new Entropy(nodeId, numThreads, numKeys);
+        Entropy detector = new Entropy(nodeId, numKeys);
         detector.generateEntropy(cluster, storeDefs, outputDir, opType);
     }
 
@@ -159,9 +151,7 @@ public class Entropy {
         AdminClient adminClient = null;
         try {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setAdminConnectionTimeoutSec(60 * 60 * 2)
-                                                                 .setAdminSocketTimeoutSec(60 * 60 * 2)
-                                                                 .setMaxThreads(numThreads));
+                                          new AdminClientConfig().setMaxConnectionsPerNode(storeDefs.size()));
 
             if(opType) {
                 System.out.println("Running entropy calculator");
@@ -178,6 +168,10 @@ public class Entropy {
                 } else {
                     System.out.println("Working on store " + storeDef.getName());
                 }
+
+                RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                              cluster);
+
                 if(!opType) {
                     if(storesKeyFile.exists()) {
                         System.err.println("Key files for " + storeDef.getName()
@@ -201,8 +195,11 @@ public class Entropy {
                                                              false);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
-                                    writer.write(key.length());
-                                    writer.write(key.get());
+                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                                     .contains(node.getId())) {
+                                        writer.write(key.length());
+                                        writer.write(key.get());
+                                    }
                                 }
                             }
                         } else {
@@ -214,8 +211,11 @@ public class Entropy {
                                                          false);
                             for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
                                 ByteArray key = keys.next();
-                                writer.write(key.length());
-                                writer.write(key.get());
+                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                                 .contains(nodeId)) {
+                                    writer.write(key.length());
+                                    writer.write(key.get());
+                                }
                             }
                         }
 
@@ -237,8 +237,6 @@ public class Entropy {
                                                                                           100000,
                                                                                           32 * 1024);
 
-                    RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                  cluster);
                     // Cache connections to all nodes for this store in advance
                     HashMap<Integer, Store<ByteArray, byte[], byte[]>> socketStoresPerNode = Maps.newHashMap();
                     for(Node node: cluster.getNodes()) {

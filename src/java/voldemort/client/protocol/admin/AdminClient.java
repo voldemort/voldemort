@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
@@ -780,7 +781,8 @@ public class AdminClient {
                                                                storeDef.getName(),
                                                                replicationEntry.getValue(),
                                                                null,
-                                                               null);
+                                                               null,
+                                                               false);
                         waitForCompletion(restoringNodeId,
                                           migrateAsyncId,
                                           adminClientConfig.getRestoreDataTimeoutSec(),
@@ -878,7 +880,8 @@ public class AdminClient {
                                                           storeName,
                                                           stealPartitionList),
                                  filter,
-                                 null);
+                                 null,
+                                 false);
     }
 
     /**
@@ -902,6 +905,10 @@ public class AdminClient {
      * @param initialCluster The cluster metadata to use for making the decision
      *        if the key belongs to these partitions. If not specified, falls
      *        back to the metadata stored on the box
+     * @param optimize We can run an optimization at this level where-in we try
+     *        avoid copying of data which already exists ( in the form of a
+     *        replica ). We do need to disable this when we're trying to recover
+     *        a node which was completely damaged ( restore from replica ).
      * @return The value of the
      *         {@link voldemort.server.protocol.admin.AsyncOperation} created on
      *         stealer node which is performing the operation.
@@ -911,7 +918,8 @@ public class AdminClient {
                                  String storeName,
                                  HashMap<Integer, List<Integer>> replicaToPartitionList,
                                  VoldemortFilter filter,
-                                 Cluster initialCluster) {
+                                 Cluster initialCluster,
+                                 boolean optimize) {
         VAdminProto.InitiateFetchAndUpdateRequest.Builder initiateFetchAndUpdateRequest = VAdminProto.InitiateFetchAndUpdateRequest.newBuilder()
                                                                                                                                    .setNodeId(donorNodeId)
                                                                                                                                    .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(replicaToPartitionList))
@@ -928,6 +936,8 @@ public class AdminClient {
         if(initialCluster != null) {
             initiateFetchAndUpdateRequest.setInitialCluster(new ClusterMapper().writeCluster(initialCluster));
         }
+        initiateFetchAndUpdateRequest.setOptimize(optimize);
+
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setInitiateFetchAndUpdate(initiateFetchAndUpdateRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.INITIATE_FETCH_AND_UPDATE)
@@ -1900,12 +1910,16 @@ public class AdminClient {
      * @param notAcceptedBuckets These are Pair< partition, replica > which we
      *        cannot copy AT all. This is because these are current mmap-ed and
      *        are serving traffic.
+     * @param running A boolean which will control when we want to stop the
+     *        copying of files. As long this is true, we will continue copying.
+     *        Once this is changed to false we'll disable the copying
      */
     public void fetchPartitionFiles(int nodeId,
                                     String storeName,
                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
                                     String destinationDirPath,
-                                    Set<Object> notAcceptedBuckets) {
+                                    Set<Object> notAcceptedBuckets,
+                                    AtomicBoolean running) {
         if(!Utils.isReadableDir(destinationDirPath)) {
             throw new VoldemortException("The destination path (" + destinationDirPath
                                          + ") to store " + storeName + " does not exist");
@@ -1943,7 +1957,7 @@ public class AdminClient {
             ProtoUtils.writeMessage(outputStream, request);
             outputStream.flush();
 
-            while(true) {
+            while(true && running.get()) {
                 int size = 0;
 
                 try {
