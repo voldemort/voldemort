@@ -1,15 +1,14 @@
 #!/bin/bash
 
 source setup_env.inc
-host[0]="tcp://localhost:6667"
-host[1]="tcp://localhost:6669"
-host[2]="tcp://localhost:6671"
+TCPPREFIX=tcp://
 
-for srvs in {0..2}
+let srvs=0
+while [ $TOTAL_NUM_SERVERS -gt $srvs ]
 do
   if [ "$srvs" -ne $1 ]
   then
-    $VLDMDIR/bin/voldemort-admin-tool.sh --url ${host[$srvs]} --node $srvs --get-metadata cluster.xml --outdir $TMPCLUSTER > /dev/null 
+    $VLDMDIR/bin/voldemort-admin-tool.sh --url $TCPPREFIX${SERVER_MACHINES[$srvs]}:${SERVER_PORT[$srvs]} --node $srvs --get-metadata cluster.xml --outdir $TMPCLUSTER > /dev/null 
     diff $WORKDIR/initial-cluster.xml $TMPCLUSTER/cluster.xml.$srvs > /dev/null
     if [ "$?" -ne "0" ]
     then
@@ -19,6 +18,6 @@ do
 
     # restore the state after the state is validated
     $WORKDIR/RestoreMetadata.sh $srvs
-
   fi
+  let srvs+=1
 done

@@ -2,19 +2,17 @@
 
 source setup_env.inc
 
-$WORKDIR/StartServer.sh 0
-$WORKDIR/StartServer.sh 1
-
+let ALLSERVERS=$TOTAL_OLD_SERVERS
 if [ "$1" = "all" ]
 then 
-  $WORKDIR/StartServer.sh 2
+  let ALLSERVERS=$TOTAL_NUM_SERVERS
 fi
 
-$WORKDIR/RestoreMetadata.sh 0
-$WORKDIR/RestoreMetadata.sh 1
-
-if [ "$1" = "all" ]
-then 
-  $WORKDIR/RestoreMetadata.sh 2  
-fi
+let i=0 
+while [ $ALLSERVERS -gt $i ]
+do
+  $WORKDIR/StartServer.sh $i
+  $WORKDIR/RestoreMetadata.sh $i
+  let i+=1
+done
 

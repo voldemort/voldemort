@@ -1,15 +1,15 @@
 #!/bin/bash                                                                                  
 
 source setup_env.inc
-HOST[0]="tcp://localhost:6667"
-HOST[1]="tcp://localhost:6669"
-HOST[2]="tcp://localhost:6671"
+HOSTPREFIX="tcp://"
 
 cd $VLDMDIR
-for srvs in {0..2}
+let srvs=0
+while [ $TOTAL_NUM_SERVERS -gt $srvs ]
 do
   if [ "$srvs" -eq $1 ]
   then
-    bin/voldemort-admin-tool.sh --url ${HOST[$srvs]} --node $srvs --clear-rebalancing-metadata > /dev/null
+    bin/voldemort-admin-tool.sh --url $HOSTPREFIX${SERVER_MACHINES[$srvs]}:${SERVER_PORT[$srvs]} --node $srvs --clear-rebalancing-metadata > /dev/null
   fi
+  let srvs+=1
 done

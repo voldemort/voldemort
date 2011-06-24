@@ -6,10 +6,15 @@ LOGDIR=$WORKDIR/log
 ENDMETADATA=end-cluster.xml
 
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --no-delete --current-cluster ${TESTCFG_PREFIX}1/config/cluster.xml --current-stores ${TESTCFG_PREFIX}1/config/stores.xml --target-cluster $WORKDIR/$ENDMETADATA --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
+bin/voldemort-rebalance.sh --current-cluster $WORKDIR/more-nodes-cluster.xml --current-stores $WORKDIR/stores.xml --target-cluster $WORKDIR/$ENDMETADATA --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
 
+echo Checking for nodes rebalancing readniess... 
 # make sure rebalancing starts
-cd $WORKDIR
-$WORKDIR/WaitforOutput.sh "Node 0 (localhost) is ready for rebalance" $LOGDIR/$LOGFILE
-$WORKDIR/WaitforOutput.sh "Node 1 (localhost) is ready for rebalance" $LOGDIR/$LOGFILE
-$WORKDIR/WaitforOutput.sh "Node 2 (localhost) is ready for rebalance" $LOGDIR/$LOGFILE
+let i=0
+while [ $TOTAL_NUM_SERVERS -gt $i ]
+do
+#  MSG="Node "$i" ("${SERVER_MACHINES[$i]}") is ready"
+  MSG="Node "$i""
+bash -x  $WORKDIR/WaitforOutput.sh "$MSG" $LOGDIR/$LOGFILE
+  let i+=1
+done

@@ -1,9 +1,8 @@
 #!/bin/bash
 
 set -x
-if [ "$remote_call" == "" ]; then
-  remote_call=eval
-fi
+remote_call=eval
+
 if [ $# -gt 2 ]
 then
   GREPSTR="("$1")|("$2")"
@@ -15,9 +14,9 @@ else
   CMD=grep
 fi
 
-$remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
+$remote_call "cd $REMOTEWORK; source setup_env.inc; $CMD \"$GREPSTR\" \$LOGFILE" > /dev/null 2>&1
 while [ "$?" -ne "0" ]
 do
   sleep 3
-  $remote_call "$CMD \"$GREPSTR\" $LOGFILE" > /dev/null 2>&1
+  $remote_call "source $REMOTEWORK/setup_env.inc; $CMD \"$GREPSTR\" \$LOGFILE" > /dev/null 2>&1
 done
