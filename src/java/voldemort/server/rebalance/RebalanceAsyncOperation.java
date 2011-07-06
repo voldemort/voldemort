@@ -18,10 +18,12 @@ package voldemort.server.rebalance;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -86,6 +88,10 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                            metadataStore.getCluster(),
                                                            voldemortConfig.getMaxParallelStoresRebalancing());
         final List<Exception> failures = new ArrayList<Exception>();
+        final ConcurrentLinkedQueue<String> storesRebalancing = new ConcurrentLinkedQueue<String>();
+        final AtomicInteger completedStoresCount = new AtomicInteger(0);
+        final int totalStoresCount = stealInfo.getUnbalancedStoreList().size();
+
         try {
 
             for(final String storeName: ImmutableList.copyOf(stealInfo.getUnbalancedStoreList())) {
@@ -98,15 +104,27 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                                                    .getType()
                                                                    .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-                            logger.info(getHeader(stealInfo) + "Working on store " + storeName);
+                            // Add the store to the rebalancing list
+                            storesRebalancing.add(storeName);
+                            updateStatus(getHeader(stealInfo) + "Completed working on "
+                                         + completedStoresCount.get() + " out of "
+                                         + totalStoresCount + " stores. Still rebalancing "
+                                         + storesRebalancing);
 
+                            // Start the rebalance..
                             rebalanceStore(storeName, adminClient, stealInfo, isReadOnlyStore);
 
                             // We finished the store, delete it
                             stealInfo.removeStore(storeName);
+                            storesRebalancing.remove(storeName);
 
-                            logger.info(getHeader(stealInfo) + "Completed working on store "
-                                        + storeName);
+                            // Increment the store count
+                            completedStoresCount.getAndIncrement();
+
+                            updateStatus(getHeader(stealInfo) + "Completed working on "
+                                         + completedStoresCount.get() + " out of "
+                                         + totalStoresCount + " stores. Still rebalancing "
+                                         + storesRebalancing);
 
                         } catch(Exception e) {
                             logger.error(getHeader(stealInfo)
@@ -125,15 +143,16 @@ class RebalanceAsyncOperation extends AsyncOperation {
             List<String> unbalancedStores = Lists.newArrayList(stealInfo.getUnbalancedStoreList());
             if(unbalancedStores.isEmpty()) {
                 logger.info(getHeader(stealInfo) + "Rebalance of " + stealInfo
-                            + " completed successfully.");
+                            + " completed successfully for all " + totalStoresCount + " stores");
                 updateStatus(getHeader(stealInfo) + "Rebalance of " + stealInfo
-                             + " completed successfully.");
+                             + " completed successfully for all " + totalStoresCount + " stores");
                 metadataStore.deleteRebalancingState(stealInfo);
             } else {
                 throw new VoldemortRebalancingException(getHeader(stealInfo)
-                                                                + "Failed to rebalance task "
-                                                                + stealInfo,
-                                                        failures);
+                                                        + "Failed to rebalance task " + stealInfo
+                                                        + ". Could only complete "
+                                                        + completedStoresCount.get() + " out of "
+                                                        + totalStoresCount + " stores", failures);
             }
 
         } finally {
@@ -186,8 +205,6 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                 boolean isReadOnlyStore) {
         logger.info(getHeader(stealInfo) + "Starting partitions migration for store " + storeName
                     + " from donor node " + stealInfo.getDonorId());
-        updateStatus(getHeader(stealInfo) + "Started partition migration for store " + storeName
-                     + " from donor node " + stealInfo.getDonorId());
 
         int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
                                                     metadataStore.getNodeId(),
@@ -212,15 +229,11 @@ class RebalanceAsyncOperation extends AsyncOperation {
 
         logger.info(getHeader(stealInfo) + "Completed partition migration for store " + storeName
                     + " from donor node " + stealInfo.getDonorId());
-        updateStatus(getHeader(stealInfo) + "Completed partition migration for store " + storeName
-                     + " from donor node " + stealInfo.getDonorId());
 
         if(stealInfo.getReplicaToDeletePartitionList(storeName) != null
            && stealInfo.getReplicaToDeletePartitionList(storeName).size() > 0 && !isReadOnlyStore) {
             logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
-            updateStatus(getHeader(stealInfo) + "Deleting partitions for store " + storeName
-                         + " on donor node " + stealInfo.getDonorId());
 
             adminClient.deletePartitions(stealInfo.getDonorId(),
                                          storeName,
@@ -229,11 +242,8 @@ class RebalanceAsyncOperation extends AsyncOperation {
                                          null);
             logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
-            updateStatus(getHeader(stealInfo) + "Deleted partitions for store " + storeName
-                         + " on donor node " + stealInfo.getDonorId());
         }
 
         logger.info(getHeader(stealInfo) + "Finished all migration for store " + storeName);
-        updateStatus(getHeader(stealInfo) + "Finished all migration for store " + storeName);
     }
 }

@@ -1,5 +1,6 @@
 package voldemort.client.rebalance;
 
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -28,13 +29,16 @@ class RebalanceTask implements Runnable {
     private Exception exception;
     private final RebalanceClientConfig config;
     private final AdminClient adminClient;
+    private final Semaphore donorPermit;
 
     public RebalanceTask(final RebalancePartitionsInfo stealInfo,
                          final RebalanceClientConfig config,
+                         final Semaphore donorPermit,
                          final AdminClient adminClient) {
         this.stealInfo = stealInfo;
         this.config = config;
         this.adminClient = adminClient;
+        this.donorPermit = donorPermit;
         this.exception = null;
     }
 
@@ -58,8 +62,11 @@ class RebalanceTask implements Runnable {
             nTries++;
             try {
 
-                logger.info("Starting on node " + stealInfo.getStealerId() + " rebalancing task "
-                            + stealInfo);
+                RebalanceUtils.printLog(stealInfo.getStealerId(),
+                                        logger,
+                                        "Starting on node " + stealInfo.getStealerId()
+                                                + " rebalancing task " + stealInfo);
+
                 int asyncOperationId = adminClient.rebalanceNode(stealInfo);
                 return asyncOperationId;
 
@@ -87,6 +94,12 @@ class RebalanceTask implements Runnable {
         final int stealerNodeId = stealInfo.getStealerId();
 
         try {
+            RebalanceUtils.printLog(stealInfo.getStealerId(),
+                                    logger,
+                                    "Acquiring donor permit for node " + stealInfo.getDonorId()
+                                            + " for " + stealInfo);
+            donorPermit.acquire();
+
             rebalanceAsyncId = startNodeRebalancing(stealInfo);
 
             // Wait for the task to get over
@@ -107,6 +120,8 @@ class RebalanceTask implements Runnable {
         } catch(Exception e) {
             exception = e;
             logger.error("Rebalance failed: " + e.getMessage(), e);
+        } finally {
+            donorPermit.release();
         }
     }
 }

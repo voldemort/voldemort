@@ -140,7 +140,7 @@ public class KeyDistributionGenerator {
         builder.append(cluster.getName());
         builder.append("', [ ");
         for(Node n: cluster.getNodes()) {
-            builder.append(n.toString());
+            builder.append(" Node " + n.getId());
             builder.append(" (" + formatter.format(distribution.get(n.getId())) + ")");
             builder.append(", ");
         }
