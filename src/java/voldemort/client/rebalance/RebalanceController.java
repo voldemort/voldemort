@@ -29,6 +29,9 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
+import voldemort.client.rebalance.task.RebalanceTask;
+import voldemort.client.rebalance.task.StealerBasedRebalanceTask;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.rebalance.VoldemortRebalancingException;
@@ -601,7 +604,8 @@ public class RebalanceController {
 
         try {
             // List of tasks which will run asynchronously
-            List<RebalanceTask> allTasks = executeTasks(service,
+            List<RebalanceTask> allTasks = executeTasks(taskId,
+                                                        service,
                                                         rebalancePartitionPlanList,
                                                         donorPermits);
 
@@ -690,17 +694,36 @@ public class RebalanceController {
         return errors;
     }
 
-    private List<RebalanceTask> executeTasks(final ExecutorService service,
+    private List<RebalanceTask> executeTasks(final int taskId,
+                                             final ExecutorService service,
                                              List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                              Semaphore[] donorPermits) {
         List<RebalanceTask> taskList = Lists.newArrayList();
-        for(RebalancePartitionsInfo partitionsInfo: rebalancePartitionPlanList) {
-            RebalanceTask rebalanceTask = new RebalanceTask(partitionsInfo,
-                                                            rebalanceConfig,
-                                                            donorPermits[partitionsInfo.getDonorId()],
-                                                            adminClient);
-            taskList.add(rebalanceTask);
-            service.execute(rebalanceTask);
+        if(rebalanceConfig.isStealerBasedRebalancing()) {
+            for(RebalancePartitionsInfo partitionsInfo: rebalancePartitionPlanList) {
+                StealerBasedRebalanceTask rebalanceTask = new StealerBasedRebalanceTask(taskId,
+                                                                                        partitionsInfo,
+                                                                                        rebalanceConfig,
+                                                                                        donorPermits[partitionsInfo.getDonorId()],
+                                                                                        adminClient);
+                taskList.add(rebalanceTask);
+                service.execute(rebalanceTask);
+            }
+        } else {
+            // Group by donor nodes
+            HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
+                                                                                                                                    false);
+            for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
+                DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
+                                                                                    entries.getValue(),
+                                                                                    rebalanceConfig,
+                                                                                    donorPermits[entries.getValue()
+                                                                                                        .get(0)
+                                                                                                        .getDonorId()],
+                                                                                    adminClient);
+                taskList.add(rebalanceTask);
+                service.execute(rebalanceTask);
+            }
         }
         return taskList;
     }

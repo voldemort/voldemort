@@ -190,6 +190,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceNode(request.getInitiateRebalanceNode()));
                 break;
+            case INITIATE_REBALANCE_NODE_ON_DONOR:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceNodeOnDonor(request.getInitiateRebalanceNodeOnDonor()));
+                break;
             case ASYNC_OPERATION_LIST:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncOperationList(request.getAsyncOperationList()));
@@ -278,6 +282,34 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleRebalanceStateChange failed for request(" + request.toString()
                          + ")", e);
         }
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNodeOnDonor(VAdminProto.InitiateRebalanceNodeOnDonorRequest request) {
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+        try {
+            if(!voldemortConfig.isEnableRebalanceService())
+                throw new VoldemortException("Rebalance service is not enabled for node: "
+                                             + metadataStore.getNodeId());
+
+            List<RebalancePartitionsInfo> rebalanceStealInfos = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfoList());
+
+            // Assert that all the plans we got have the same donor node
+            RebalanceUtils.assertSameDonor(rebalanceStealInfos, metadataStore.getNodeId());
+
+            int requestId = rebalancer.rebalanceNodeOnDonor(rebalanceStealInfos);
+
+            response.setRequestId(requestId)
+                    .setDescription(rebalanceStealInfos.toString())
+                    .setStatus("Started rebalancing on donor")
+                    .setComplete(false);
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceNodeOnDonor failed for request(" + request.toString()
+                         + ")", e);
+        }
+
         return response.build();
     }
 

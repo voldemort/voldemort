@@ -211,6 +211,26 @@ public class RebalanceUtils {
     }
 
     /**
+     * Given a list of partition informations check all of them belong to the
+     * same donor node
+     * 
+     * @param partitionInfos List of partition infos
+     * @param expectedDonorId Expected donor node id ( If -1, then just checks
+     *        if all are same )
+     */
+    public static void assertSameDonor(List<RebalancePartitionsInfo> partitionInfos,
+                                       int expectedDonorId) {
+        int donorId = (expectedDonorId < 0) ? partitionInfos.get(0).getDonorId() : expectedDonorId;
+        for(RebalancePartitionsInfo info: partitionInfos) {
+            if(info.getDonorId() != donorId) {
+                throw new VoldemortException("Found a stealer information " + info
+                                             + " having a different donor node from others ( "
+                                             + donorId + " )");
+            }
+        }
+    }
+
+    /**
      * Outputs an optimized cluster based on the existing cluster and the new
      * nodes that are being added.
      * 
@@ -454,10 +474,9 @@ public class RebalanceUtils {
      */
     public static void validateClusterState(final Cluster cluster, final AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
-            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(),
-                                                                        MetadataStore.SERVER_STATE_KEY);
+            Versioned<VoldemortState> versioned = adminClient.getRemoteServerState(node.getId());
 
-            if(!VoldemortState.NORMAL_SERVER.name().equals(versioned.getValue())) {
+            if(!VoldemortState.NORMAL_SERVER.equals(versioned.getValue())) {
                 throw new VoldemortRebalancingException("Cannot rebalance since node "
                                                         + node.getId() + " (" + node.getHost()
                                                         + ") is not in normal state, but in "
@@ -1241,6 +1260,33 @@ public class RebalanceUtils {
         }
 
         return plans;
+    }
+
+    /**
+     * Given a list of partition infos, generates a map of stealer / donor node
+     * to list of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @param groupByStealerNode Boolean indicating if we want to group by
+     *        stealer node ( or donor node )
+     * @return Flattens it into a map on a per node basis
+     */
+    public static HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                                                                            boolean groupByStealerNode) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        if(rebalancePartitionPlanList != null) {
+            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+                int nodeId = groupByStealerNode ? partitionInfo.getStealerId()
+                                               : partitionInfo.getDonorId();
+                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(nodeId);
+                if(partitionInfos == null) {
+                    partitionInfos = Lists.newArrayList();
+                    stealerNodeToPlan.put(nodeId, partitionInfos);
+                }
+                partitionInfos.add(partitionInfo);
+            }
+        }
+        return stealerNodeToPlan;
     }
 
     /**

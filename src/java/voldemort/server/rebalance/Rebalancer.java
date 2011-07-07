@@ -24,15 +24,20 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
+import voldemort.server.rebalance.async.DonorBasedRebalanceAsyncOperation;
+import voldemort.server.rebalance.async.StealerBasedRebalanceAsyncOperation;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
+import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -89,9 +94,7 @@ public class Rebalancer implements Runnable {
      */
     public synchronized boolean acquireRebalancingPermit(int nodeId) {
         boolean added = rebalancePermits.add(nodeId);
-        if(logger.isInfoEnabled())
-            logger.info("Acquiring rebalancing permit for node id " + nodeId + ", returned: "
-                        + added);
+        logger.info("Acquiring rebalancing permit for node id " + nodeId + ", returned: " + added);
 
         return added;
     }
@@ -308,7 +311,84 @@ public class Rebalancer implements Runnable {
 
     /**
      * This function is responsible for starting the actual async rebalance
-     * operation
+     * operation. This is run if this node is the donor node
+     * 
+     * <br>
+     * 
+     * @param stealInfos List of partition infos to steal
+     * @return Returns a id identifying the async operation
+     */
+    public int rebalanceNodeOnDonor(final List<RebalancePartitionsInfo> stealInfos) {
+
+        AdminClient adminClient = null;
+        List<Integer> stealerNodeIdsPermitsAcquired = Lists.newArrayList();
+        try {
+            adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
+                                                               metadataStore.getCluster(),
+                                                               1);
+            int donorNodeId = metadataStore.getNodeId();
+
+            for(RebalancePartitionsInfo info: stealInfos) {
+                int stealerNodeId = info.getStealerId();
+
+                // Check if stealer node is in rebalancing state
+                if(!adminClient.getRemoteServerState(stealerNodeId)
+                               .getValue()
+                               .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
+                    throw new VoldemortException("Stealer node " + stealerNodeId + " not in "
+                                                 + VoldemortState.REBALANCING_MASTER_SERVER
+                                                 + " state ");
+                }
+
+                // Also check if it has this plan
+                if(adminClient.getRemoteRebalancerState(stealerNodeId).getValue().find(donorNodeId) == null) {
+                    throw new VoldemortException("Stealer node " + stealerNodeId
+                                                 + " does not have any plan for donor "
+                                                 + donorNodeId + ". Excepted to have " + info);
+                }
+
+                // Get a lock for the stealer node
+                if(!acquireRebalancingPermit(stealerNodeId)) {
+                    throw new VoldemortException("Node " + metadataStore.getNodeId()
+                                                 + " is already trying to steal from "
+                                                 + stealerNodeId);
+                }
+
+                // Add to list of permits acquired
+                stealerNodeIdsPermitsAcquired.add(stealerNodeId);
+            }
+        } catch(VoldemortException e) {
+
+            // Rollback acquired permits for some of the donor nodes
+            for(int stealerNodeId: stealerNodeIdsPermitsAcquired) {
+                releaseRebalancingPermit(stealerNodeId);
+            }
+
+            throw e;
+
+        } finally {
+            if(adminClient != null) {
+                adminClient.stop();
+            }
+        }
+
+        // Acquired lock successfully, start rebalancing...
+        int requestId = asyncService.getUniqueRequestId();
+
+        // Why do we pass 'info' instead of 'stealInfo'? So that we can change
+        // the state as the stores finish rebalance
+        asyncService.submitOperation(requestId,
+                                     new DonorBasedRebalanceAsyncOperation(voldemortConfig,
+                                                                           metadataStore,
+                                                                           requestId,
+                                                                           stealInfos));
+
+        return requestId;
+    }
+
+    /**
+     * This function is responsible for starting the actual async rebalance
+     * operation. This is run if this node is the stealer node
      * 
      * <br>
      * 
@@ -343,11 +423,12 @@ public class Rebalancer implements Runnable {
 
         // Why do we pass 'info' instead of 'stealInfo'? So that we can change
         // the state as the stores finish rebalance
-        asyncService.submitOperation(requestId, new RebalanceAsyncOperation(this,
-                                                                            voldemortConfig,
-                                                                            metadataStore,
-                                                                            requestId,
-                                                                            info));
+        asyncService.submitOperation(requestId,
+                                     new StealerBasedRebalanceAsyncOperation(this,
+                                                                             voldemortConfig,
+                                                                             metadataStore,
+                                                                             requestId,
+                                                                             info));
 
         return requestId;
     }

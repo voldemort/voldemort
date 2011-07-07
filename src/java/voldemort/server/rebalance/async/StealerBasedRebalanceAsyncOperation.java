@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.server.rebalance;
+package voldemort.server.rebalance.async;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +31,8 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
+import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.RebalanceUtils;
@@ -39,11 +41,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 /**
- * Individual rebalancing operation run on the server side as an async operation
+ * Individual rebalancing operation run on the server side as an async
+ * operation. This is run on the stealer node
  */
-class RebalanceAsyncOperation extends AsyncOperation {
+public class StealerBasedRebalanceAsyncOperation extends AsyncOperation {
 
-    private final static Logger logger = Logger.getLogger(RebalanceAsyncOperation.class);
+    private final static Logger logger = Logger.getLogger(StealerBasedRebalanceAsyncOperation.class);
 
     private List<Integer> rebalanceStatusList;
     private AdminClient adminClient;
@@ -67,12 +70,12 @@ class RebalanceAsyncOperation extends AsyncOperation {
         });
     }
 
-    public RebalanceAsyncOperation(Rebalancer rebalancer,
-                                   VoldemortConfig voldemortConfig,
-                                   MetadataStore metadataStore,
-                                   int requestId,
-                                   RebalancePartitionsInfo stealInfo) {
-        super(requestId, "Rebalance operation: " + stealInfo.toString());
+    public StealerBasedRebalanceAsyncOperation(Rebalancer rebalancer,
+                                               VoldemortConfig voldemortConfig,
+                                               MetadataStore metadataStore,
+                                               int requestId,
+                                               RebalancePartitionsInfo stealInfo) {
+        super(requestId, "Stealer based rebalance operation : " + stealInfo.toString());
         this.rebalancer = rebalancer;
         this.voldemortConfig = voldemortConfig;
         this.metadataStore = metadataStore;

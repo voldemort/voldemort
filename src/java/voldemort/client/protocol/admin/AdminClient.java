@@ -58,6 +58,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
+import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreDefinition;
@@ -800,7 +801,35 @@ public class AdminClient {
     }
 
     /**
-     * Rebalance a stealer-donor node pair for a set of stores
+     * Rebalance a stealer-donor node pair for a set of stores. This is run on
+     * the donor node.
+     * 
+     * @param stealInfos List of partition steal information
+     * @return The request id of the async operation
+     */
+    public int rebalanceNode(List<RebalancePartitionsInfo> stealInfos) {
+        List<VAdminProto.RebalancePartitionInfoMap> rebalancePartitionInfoMap = ProtoUtils.encodeRebalancePartitionInfoMap(stealInfos);
+        VAdminProto.InitiateRebalanceNodeOnDonorRequest rebalanceNodeRequest = VAdminProto.InitiateRebalanceNodeOnDonorRequest.newBuilder()
+                                                                                                                              .addAllRebalancePartitionInfo(rebalancePartitionInfoMap)
+                                                                                                                              .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setType(VAdminProto.AdminRequestType.INITIATE_REBALANCE_NODE_ON_DONOR)
+                                                                                          .setInitiateRebalanceNodeOnDonor(rebalanceNodeRequest)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(stealInfos.get(0)
+                                                                                             .getDonorId(),
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if(response.hasError())
+            throwException(response.getError());
+
+        return response.getRequestId();
+    }
+
+    /**
+     * Rebalance a stealer-donor node pair for a set of stores. This is run on
+     * the stealer node.
      * 
      * @param stealInfo Partition steal information
      * @return The request id of the async operation
@@ -1428,6 +1457,10 @@ public class AdminClient {
      * Update the server state (
      * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) on a
      * remote node.
+     * 
+     * @param nodeId The node id on which we want to update the state
+     * @param state The state to update to
+     * @param clock The vector clock
      */
     public void updateRemoteServerState(int nodeId,
                                         MetadataStore.VoldemortState state,
@@ -1439,13 +1472,28 @@ public class AdminClient {
 
     /**
      * Retrieve the server
-     * {@link voldemort.store.metadata.MetadataStore.VoldemortState state} from
-     * a remote node.
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState} from a
+     * remote node.
+     * 
+     * @param nodeId The node from which we want to retrieve the state
+     * @return The server state
      */
     public Versioned<VoldemortState> getRemoteServerState(int nodeId) {
         Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.SERVER_STATE_KEY);
         return new Versioned<VoldemortState>(VoldemortState.valueOf(value.getValue()),
                                              value.getVersion());
+    }
+
+    /**
+     * Return the remote rebalancer state for remote node
+     * 
+     * @param nodeId Node id
+     * @return The rebalancer state
+     */
+    public Versioned<RebalancerState> getRemoteRebalancerState(int nodeId) {
+        Versioned<String> value = getRemoteMetadata(nodeId, MetadataStore.REBALANCING_STEAL_INFO);
+        return new Versioned<RebalancerState>(RebalancerState.create(value.getValue()),
+                                              value.getVersion());
     }
 
     /**
@@ -2052,7 +2100,8 @@ public class AdminClient {
                                      boolean changeRebalanceState,
                                      boolean rollback,
                                      boolean failEarly) {
-        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = groupPartitionsInfoByStealerNode(rebalancePartitionPlanList);
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
+                                                                                                                     true);
         Set<Integer> completedNodeIds = Sets.newHashSet();
 
         int nodeId = 0;
@@ -2182,28 +2231,6 @@ public class AdminClient {
         if(response.hasError()) {
             throwException(response.getError());
         }
-    }
-
-    /**
-     * Given a list of partition infos, generates a map of stealer node to list
-     * of partition infos
-     * 
-     * @param rebalancePartitionPlanList Complete list of partition plans
-     * @return Flattens it into a map on a per stealer node basis
-     */
-    private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
-        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
-        if(rebalancePartitionPlanList != null) {
-            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
-                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
-                if(partitionInfos == null) {
-                    partitionInfos = Lists.newArrayList();
-                    stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
-                }
-                partitionInfos.add(partitionInfo);
-            }
-        }
-        return stealerNodeToPlan;
     }
 
 }

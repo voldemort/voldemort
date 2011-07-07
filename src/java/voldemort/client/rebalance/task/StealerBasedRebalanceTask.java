@@ -1,4 +1,4 @@
-package voldemort.client.rebalance;
+package voldemort.client.rebalance.task;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -7,6 +7,8 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.rebalance.RebalanceClientConfig;
+import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.rebalance.AlreadyRebalancingException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -15,46 +17,29 @@ import voldemort.utils.RebalanceUtils;
 
 /**
  * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
- * the rebalance client side
+ * the rebalance client side.
  * 
+ * This is run from the stealer nodes perspective
  */
-class RebalanceTask implements Runnable {
+public class StealerBasedRebalanceTask extends RebalanceTask {
 
-    private static final Logger logger = Logger.getLogger(RebalanceTask.class);
-
-    private final static int INVALID_REBALANCE_ID = -1;
+    private static final Logger logger = Logger.getLogger(StealerBasedRebalanceTask.class);
 
     private final RebalancePartitionsInfo stealInfo;
 
-    private Exception exception;
-    private final RebalanceClientConfig config;
-    private final AdminClient adminClient;
-    private final Semaphore donorPermit;
+    private final int stealerNodeId;
 
-    public RebalanceTask(final RebalancePartitionsInfo stealInfo,
-                         final RebalanceClientConfig config,
-                         final Semaphore donorPermit,
-                         final AdminClient adminClient) {
+    public StealerBasedRebalanceTask(final int taskId,
+                                     final RebalancePartitionsInfo stealInfo,
+                                     final RebalanceClientConfig config,
+                                     final Semaphore donorPermit,
+                                     final AdminClient adminClient) {
+        super(taskId, config, donorPermit, adminClient);
         this.stealInfo = stealInfo;
-        this.config = config;
-        this.adminClient = adminClient;
-        this.donorPermit = donorPermit;
-        this.exception = null;
+        this.stealerNodeId = stealInfo.getStealerId();
     }
 
-    public boolean hasException() {
-        return exception != null;
-    }
-
-    public Exception getError() {
-        return exception;
-    }
-
-    public RebalancePartitionsInfo getRebalancePartitionsInfo() {
-        return this.stealInfo;
-    }
-
-    private int startNodeRebalancing(RebalancePartitionsInfo stealInfo) {
+    private int startNodeRebalancing() {
         int nTries = 0;
         AlreadyRebalancingException rebalanceException = null;
 
@@ -62,19 +47,17 @@ class RebalanceTask implements Runnable {
             nTries++;
             try {
 
-                RebalanceUtils.printLog(stealInfo.getStealerId(),
-                                        logger,
-                                        "Starting on node " + stealInfo.getStealerId()
-                                                + " rebalancing task " + stealInfo);
+                RebalanceUtils.printLog(taskId, logger, "Starting on node " + stealerNodeId
+                                                        + " rebalancing task " + stealInfo);
 
                 int asyncOperationId = adminClient.rebalanceNode(stealInfo);
                 return asyncOperationId;
 
             } catch(AlreadyRebalancingException e) {
-                RebalanceUtils.printLog(stealInfo.getStealerId(),
+                RebalanceUtils.printLog(taskId,
                                         logger,
                                         "Node "
-                                                + stealInfo.getStealerId()
+                                                + stealerNodeId
                                                 + " is currently rebalancing. Waiting till completion");
                 adminClient.waitForCompletion(stealInfo.getStealerId(),
                                               MetadataStore.SERVER_STATE_KEY,
@@ -91,35 +74,32 @@ class RebalanceTask implements Runnable {
 
     public void run() {
         int rebalanceAsyncId = INVALID_REBALANCE_ID;
-        final int stealerNodeId = stealInfo.getStealerId();
 
         try {
-            RebalanceUtils.printLog(stealInfo.getStealerId(),
-                                    logger,
-                                    "Acquiring donor permit for node " + stealInfo.getDonorId()
-                                            + " for " + stealInfo);
+            RebalanceUtils.printLog(taskId, logger, "Acquiring donor permit for node "
+                                                    + stealInfo.getDonorId() + " for " + stealInfo);
             donorPermit.acquire();
 
-            rebalanceAsyncId = startNodeRebalancing(stealInfo);
+            rebalanceAsyncId = startNodeRebalancing();
 
             // Wait for the task to get over
-            adminClient.waitForCompletion(stealInfo.getStealerId(),
+            adminClient.waitForCompletion(stealerNodeId,
                                           rebalanceAsyncId,
                                           config.getRebalancingClientTimeoutSeconds(),
                                           TimeUnit.SECONDS);
-            RebalanceUtils.printLog(stealInfo.getStealerId(),
+            RebalanceUtils.printLog(taskId,
                                     logger,
                                     "Succesfully finished rebalance for async operation id "
                                             + rebalanceAsyncId);
 
         } catch(UnreachableStoreException e) {
             exception = e;
-            logger.error("StealerNode " + stealerNodeId
-                         + " is unreachable, please make sure it is up and running - "
+            logger.error("Stealer node " + stealerNodeId
+                         + " is unreachable, please make sure it is up and running : "
                          + e.getMessage(), e);
         } catch(Exception e) {
             exception = e;
-            logger.error("Rebalance failed: " + e.getMessage(), e);
+            logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
             donorPermit.release();
         }
