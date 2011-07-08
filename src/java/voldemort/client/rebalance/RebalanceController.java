@@ -593,8 +593,8 @@ public class RebalanceController {
         ExecutorService service = RebalanceUtils.createExecutors(rebalanceConfig.getMaxParallelRebalancing());
 
         // Sub-list of the above list
-        final List<RebalanceTask> successfulTasks = Lists.newArrayList();
         final List<RebalanceTask> failedTasks = Lists.newArrayList();
+        final List<RebalanceTask> incompleteTasks = Lists.newArrayList();
 
         // Semaphores for donor nodes - To avoid multiple disk sweeps
         Semaphore[] donorPermits = new Semaphore[currentCluster.getNumberOfNodes()];
@@ -622,12 +622,33 @@ public class RebalanceController {
 
             RebalanceUtils.printLog(taskId, logger, "Finished waiting for executors");
 
-            // Collects all failures from the rebalance tasks.
-            List<Exception> failures = filterTasks(allTasks, successfulTasks, failedTasks);
+            // Collects all failures + incomplete tasks from the rebalance
+            // tasks.
+            List<Exception> failures = Lists.newArrayList();
+            for(RebalanceTask task: allTasks) {
+                if(task.hasException()) {
+                    failedTasks.add(task);
+                    failures.add(task.getError());
+                } else if(!task.isComplete()) {
+                    incompleteTasks.add(task);
+                }
+            }
 
             if(failedTasks.size() > 0) {
-                throw new VoldemortRebalancingException("Rebalance task terminated unsuccessfully",
+                throw new VoldemortRebalancingException("Rebalance task terminated unsuccessfully on tasks "
+                                                                + failedTasks,
                                                         failures);
+            }
+
+            // If there were no failures, then we could have had a genuine
+            // timeout ( Rebalancing took longer than the operator expected ).
+            // We should throw a VoldemortException and not a
+            // VoldemortRebalancingException ( which will start reverting
+            // metadata ). The operator may want to manually then resume the
+            // process.
+            if(incompleteTasks.size() > 0) {
+                throw new VoldemortException("Rebalance tasks are still incomplete / running "
+                                             + incompleteTasks);
             }
 
         } catch(VoldemortRebalancingException e) {
@@ -668,30 +689,6 @@ public class RebalanceController {
                 service.shutdownNow();
             }
         }
-    }
-
-    /**
-     * Filters the rebalance tasks and groups them together + returns list of
-     * errors
-     * 
-     * @param allTasks List of all rebalance tasks
-     * @param successfulTasks List of all successful rebalance tasks
-     * @param failedTasks List of all failed rebalance tasks
-     * @return List of exceptions
-     */
-    private List<Exception> filterTasks(final List<RebalanceTask> allTasks,
-                                        List<RebalanceTask> successfulTasks,
-                                        List<RebalanceTask> failedTasks) {
-        List<Exception> errors = Lists.newArrayList();
-        for(RebalanceTask task: allTasks) {
-            if(task.hasException()) {
-                failedTasks.add(task);
-                errors.add(task.getError());
-            } else {
-                successfulTasks.add(task);
-            }
-        }
-        return errors;
     }
 
     private List<RebalanceTask> executeTasks(final int taskId,

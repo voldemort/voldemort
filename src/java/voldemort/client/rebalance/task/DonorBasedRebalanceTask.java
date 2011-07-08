@@ -20,9 +20,7 @@ import voldemort.utils.RebalanceUtils;
  */
 public class DonorBasedRebalanceTask extends RebalanceTask {
 
-    private static final Logger logger = Logger.getLogger(DonorBasedRebalanceTask.class);
-
-    private final List<RebalancePartitionsInfo> stealInfos;
+    protected static final Logger logger = Logger.getLogger(DonorBasedRebalanceTask.class);
 
     private final int donorNodeId;
 
@@ -31,10 +29,9 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
                                    final RebalanceClientConfig config,
                                    final Semaphore donorPermit,
                                    final AdminClient adminClient) {
-        super(taskId, config, donorPermit, adminClient);
-        this.stealInfos = stealInfos;
-        this.donorNodeId = stealInfos.get(0).getDonorId();
+        super(taskId, stealInfos, config, donorPermit, adminClient);
         RebalanceUtils.assertSameDonor(stealInfos, -1);
+        this.donorNodeId = stealInfos.get(0).getDonorId();
     }
 
     public void run() {
@@ -69,6 +66,12 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
             logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
             donorPermit.release();
+            isComplete.set(true);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Donor based rebalance task on donor node " + donorNodeId + " : " + getStealInfos();
     }
 }

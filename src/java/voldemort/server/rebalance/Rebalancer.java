@@ -378,7 +378,8 @@ public class Rebalancer implements Runnable {
         // Why do we pass 'info' instead of 'stealInfo'? So that we can change
         // the state as the stores finish rebalance
         asyncService.submitOperation(requestId,
-                                     new DonorBasedRebalanceAsyncOperation(voldemortConfig,
+                                     new DonorBasedRebalanceAsyncOperation(storeRepository,
+                                                                           voldemortConfig,
                                                                            metadataStore,
                                                                            requestId,
                                                                            stealInfos));

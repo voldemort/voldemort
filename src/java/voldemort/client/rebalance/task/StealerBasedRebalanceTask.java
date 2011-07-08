@@ -15,6 +15,8 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.utils.RebalanceUtils;
 
+import com.google.common.collect.Lists;
+
 /**
  * Immutable class that executes a {@link RebalancePartitionsInfo} instance on
  * the rebalance client side.
@@ -25,8 +27,6 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
     private static final Logger logger = Logger.getLogger(StealerBasedRebalanceTask.class);
 
-    private final RebalancePartitionsInfo stealInfo;
-
     private final int stealerNodeId;
 
     public StealerBasedRebalanceTask(final int taskId,
@@ -34,8 +34,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                      final RebalanceClientConfig config,
                                      final Semaphore donorPermit,
                                      final AdminClient adminClient) {
-        super(taskId, config, donorPermit, adminClient);
-        this.stealInfo = stealInfo;
+        super(taskId, Lists.newArrayList(stealInfo), config, donorPermit, adminClient);
         this.stealerNodeId = stealInfo.getStealerId();
     }
 
@@ -48,9 +47,9 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             try {
 
                 RebalanceUtils.printLog(taskId, logger, "Starting on node " + stealerNodeId
-                                                        + " rebalancing task " + stealInfo);
+                                                        + " rebalancing task " + stealInfos.get(0));
 
-                int asyncOperationId = adminClient.rebalanceNode(stealInfo);
+                int asyncOperationId = adminClient.rebalanceNode(stealInfos.get(0));
                 return asyncOperationId;
 
             } catch(AlreadyRebalancingException e) {
@@ -59,7 +58,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
                                         "Node "
                                                 + stealerNodeId
                                                 + " is currently rebalancing. Waiting till completion");
-                adminClient.waitForCompletion(stealInfo.getStealerId(),
+                adminClient.waitForCompletion(stealerNodeId,
                                               MetadataStore.SERVER_STATE_KEY,
                                               VoldemortState.NORMAL_SERVER.toString(),
                                               config.getRebalancingClientTimeoutSeconds(),
@@ -68,7 +67,7 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             }
         }
 
-        throw new VoldemortException("Failed to start rebalancing with plan: " + stealInfo,
+        throw new VoldemortException("Failed to start rebalancing with plan: " + getStealInfos(),
                                      rebalanceException);
     }
 
@@ -77,7 +76,8 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
 
         try {
             RebalanceUtils.printLog(taskId, logger, "Acquiring donor permit for node "
-                                                    + stealInfo.getDonorId() + " for " + stealInfo);
+                                                    + stealInfos.get(0).getDonorId() + " for "
+                                                    + stealInfos);
             donorPermit.acquire();
 
             rebalanceAsyncId = startNodeRebalancing();
@@ -102,6 +102,13 @@ public class StealerBasedRebalanceTask extends RebalanceTask {
             logger.error("Rebalance failed : " + e.getMessage(), e);
         } finally {
             donorPermit.release();
+            isComplete.set(true);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Stealer based rebalance task on stealer node " + stealerNodeId + " : "
+               + getStealInfos();
     }
 }

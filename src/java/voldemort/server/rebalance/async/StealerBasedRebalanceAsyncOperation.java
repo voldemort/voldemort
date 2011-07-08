@@ -19,18 +19,12 @@ package voldemort.server.rebalance.async;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.metadata.MetadataStore;
@@ -44,45 +38,23 @@ import com.google.common.collect.Lists;
  * Individual rebalancing operation run on the server side as an async
  * operation. This is run on the stealer node
  */
-public class StealerBasedRebalanceAsyncOperation extends AsyncOperation {
-
-    private final static Logger logger = Logger.getLogger(StealerBasedRebalanceAsyncOperation.class);
+public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private List<Integer> rebalanceStatusList;
-    private AdminClient adminClient;
 
-    private final ExecutorService executors;
     private final RebalancePartitionsInfo stealInfo;
-    private final VoldemortConfig voldemortConfig;
-    private final MetadataStore metadataStore;
 
     private Rebalancer rebalancer;
-
-    protected ExecutorService createExecutors(int numThreads) {
-
-        return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
-
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName(r.getClass().getName());
-                return thread;
-            }
-        });
-    }
 
     public StealerBasedRebalanceAsyncOperation(Rebalancer rebalancer,
                                                VoldemortConfig voldemortConfig,
                                                MetadataStore metadataStore,
                                                int requestId,
                                                RebalancePartitionsInfo stealInfo) {
-        super(requestId, "Stealer based rebalance operation : " + stealInfo.toString());
+        super(voldemortConfig, metadataStore, requestId, "Stealer based rebalance : " + stealInfo);
         this.rebalancer = rebalancer;
-        this.voldemortConfig = voldemortConfig;
-        this.metadataStore = metadataStore;
         this.stealInfo = stealInfo;
         this.rebalanceStatusList = new ArrayList<Integer>();
-        this.adminClient = null;
-        this.executors = createExecutors(voldemortConfig.getMaxParallelStoresRebalancing());
     }
 
     @Override
@@ -169,15 +141,6 @@ public class StealerBasedRebalanceAsyncOperation extends AsyncOperation {
         }
     }
 
-    private void waitForShutdown() {
-        try {
-            executors.shutdown();
-            executors.awaitTermination(voldemortConfig.getRebalancingTimeoutSec(), TimeUnit.SECONDS);
-        } catch(InterruptedException e) {
-            logger.error("Interrupted while awaiting termination for executors.", e);
-        }
-    }
-
     @Override
     public void stop() {
         updateStatus(getHeader(stealInfo) + "Stop called on rebalance operation");
@@ -206,35 +169,42 @@ public class StealerBasedRebalanceAsyncOperation extends AsyncOperation {
                                 final AdminClient adminClient,
                                 RebalancePartitionsInfo stealInfo,
                                 boolean isReadOnlyStore) {
-        logger.info(getHeader(stealInfo) + "Starting partitions migration for store " + storeName
-                    + " from donor node " + stealInfo.getDonorId());
+        // Move partitions
+        if(stealInfo.getReplicaToAddPartitionList(storeName) != null
+           && stealInfo.getReplicaToAddPartitionList(storeName).size() > 0) {
 
-        int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                    metadataStore.getNodeId(),
-                                                    storeName,
-                                                    stealInfo.getReplicaToAddPartitionList(storeName),
-                                                    null,
-                                                    stealInfo.getInitialCluster(),
-                                                    true);
-        rebalanceStatusList.add(asyncId);
+            logger.info(getHeader(stealInfo) + "Starting partitions migration for store "
+                        + storeName + " from donor node " + stealInfo.getDonorId());
 
-        if(logger.isDebugEnabled()) {
-            logger.debug(getHeader(stealInfo) + "Waiting for completion for " + storeName
-                         + " with async id " + asyncId);
+            int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
+                                                        metadataStore.getNodeId(),
+                                                        storeName,
+                                                        stealInfo.getReplicaToAddPartitionList(storeName),
+                                                        null,
+                                                        stealInfo.getInitialCluster(),
+                                                        true);
+            rebalanceStatusList.add(asyncId);
+
+            if(logger.isDebugEnabled()) {
+                logger.debug(getHeader(stealInfo) + "Waiting for completion for " + storeName
+                             + " with async id " + asyncId);
+            }
+            adminClient.waitForCompletion(metadataStore.getNodeId(),
+                                          asyncId,
+                                          voldemortConfig.getRebalancingTimeoutSec(),
+                                          TimeUnit.SECONDS,
+                                          getStatus());
+
+            rebalanceStatusList.remove((Object) asyncId);
+
+            logger.info(getHeader(stealInfo) + "Completed partition migration for store "
+                        + storeName + " from donor node " + stealInfo.getDonorId());
         }
-        adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                      asyncId,
-                                      voldemortConfig.getRebalancingTimeoutSec(),
-                                      TimeUnit.SECONDS,
-                                      getStatus());
 
-        rebalanceStatusList.remove((Object) asyncId);
-
-        logger.info(getHeader(stealInfo) + "Completed partition migration for store " + storeName
-                    + " from donor node " + stealInfo.getDonorId());
-
+        // Delete partitions
         if(stealInfo.getReplicaToDeletePartitionList(storeName) != null
            && stealInfo.getReplicaToDeletePartitionList(storeName).size() > 0 && !isReadOnlyStore) {
+
             logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
 
@@ -245,6 +215,7 @@ public class StealerBasedRebalanceAsyncOperation extends AsyncOperation {
                                          null);
             logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
+
         }
 
         logger.info(getHeader(stealInfo) + "Finished all migration for store " + storeName);
