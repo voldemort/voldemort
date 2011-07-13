@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -41,8 +40,6 @@ import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
@@ -246,11 +243,48 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceStateChange(request.getRebalanceStateChange()));
                 break;
+            case DELETE_STORE_REBALANCE_STATE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleDeleteStoreRebalanceState(request.getDeleteStoreRebalanceState()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.DeleteStoreRebalanceStateResponse handleDeleteStoreRebalanceState(VAdminProto.DeleteStoreRebalanceStateRequest request) {
+        VAdminProto.DeleteStoreRebalanceStateResponse.Builder response = VAdminProto.DeleteStoreRebalanceStateResponse.newBuilder();
+
+        try {
+
+            int nodeId = request.getNodeId();
+            String storeName = request.getStoreName();
+
+            logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
+                        + storeName);
+            RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
+            if(info == null) {
+                throw new VoldemortException("Could not find state for donor node " + nodeId);
+            }
+
+            HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
+            if(replicaToPartition == null) {
+                throw new VoldemortException("Could not find state for donor node " + nodeId
+                                             + " and store " + storeName);
+            }
+
+            info.removeStore(storeName);
+            logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
+                        + storeName);
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleDeleteStoreRebalanceState failed for request(" + request.toString()
+                         + ")", e);
+        }
+        return response.build();
     }
 
     public VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
@@ -770,10 +804,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final boolean isReadOnlyStore = storeDef.getType()
                                                 .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-        final RoutingStrategy oldStrategy = initialCluster != null ? new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                                        initialCluster)
-                                                                  : null;
-
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
                                                                        "Fetch and Update") {
@@ -835,31 +865,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             // Optimization to get rid of redundant copying of
                             // data which already exists on this node
                             HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
-                            if(oldStrategy != null && optimize && !storageEngine.isPartitionAware()
+                            if(initialCluster != null && optimize
+                               && !storageEngine.isPartitionAware()
                                && voldemortConfig.getRebalancingOptimization()) {
 
-                                for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
-                                    List<Integer> partitionList = Lists.newArrayList();
-                                    for(int partition: tuple.getValue()) {
-                                        List<Integer> preferenceList = oldStrategy.getReplicatingPartitionList(partition);
-
-                                        // If this node was already in the
-                                        // preference list before, a copy of the
-                                        // data will already exist - Don't copy
-                                        // it!
-                                        if(!RebalanceUtils.containsPreferenceList(initialCluster,
-                                                                                  preferenceList,
-                                                                                  metadataStore.getNodeId())) {
-                                            partitionList.add(partition);
-                                        }
-                                    }
-
-                                    if(partitionList.size() > 0) {
-                                        optimizedReplicaToPartitionList.put(tuple.getKey(),
-                                                                            partitionList);
-                                    }
-                                }
-
+                                optimizedReplicaToPartitionList.putAll(RebalanceUtils.getOptimizedReplicaToPartitionList(metadataStore.getNodeId(),
+                                                                                                                         initialCluster,
+                                                                                                                         storeDef,
+                                                                                                                         replicaToPartitionList));
                                 logger.info("After running RW level optimization - Fetching entries for RW store '"
                                             + storeName
                                             + "' from node "

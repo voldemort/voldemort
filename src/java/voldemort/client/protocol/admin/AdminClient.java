@@ -1471,6 +1471,30 @@ public class AdminClient {
     }
 
     /**
+     * Delete the rebalancing metadata related to the store on the stealer node
+     * 
+     * @param donorNodeId The donor node id
+     * @param stealerNodeId The stealer node id
+     * @param storeName The name of the store
+     */
+    public void deleteStoreRebalanceState(int donorNodeId, int stealerNodeId, String storeName) {
+
+        VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                     .setType(VAdminProto.AdminRequestType.DELETE_STORE_REBALANCE_STATE)
+                                                                                     .setDeleteStoreRebalanceState(VAdminProto.DeleteStoreRebalanceStateRequest.newBuilder()
+                                                                                                                                                               .setNodeId(donorNodeId)
+                                                                                                                                                               .setStoreName(storeName)
+                                                                                                                                                               .build())
+                                                                                     .build();
+        VAdminProto.DeleteStoreRebalanceStateResponse.Builder response = sendAndReceive(stealerNodeId,
+                                                                                        request,
+                                                                                        VAdminProto.DeleteStoreRebalanceStateResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+
+    }
+
+    /**
      * Retrieve the server
      * {@link voldemort.store.metadata.MetadataStore.VoldemortState} from a
      * remote node.

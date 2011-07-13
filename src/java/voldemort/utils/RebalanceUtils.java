@@ -82,6 +82,47 @@ public class RebalanceUtils {
     public final static String finalClusterFileName = "final-cluster.xml";
 
     /**
+     * Given the current replica to partition list, try to check if the donor
+     * node would already contain that partition and if yes, ignore it
+     * 
+     * @param stealerNodeId Stealer node id
+     * @param cluster Cluster metadata
+     * @param storeDef Store definition
+     * @param currentReplicaToPartitionList Current replica to partition list
+     * @return Optimized replica to partition list
+     */
+    public static HashMap<Integer, List<Integer>> getOptimizedReplicaToPartitionList(int stealerNodeId,
+                                                                                     Cluster cluster,
+                                                                                     StoreDefinition storeDef,
+                                                                                     HashMap<Integer, List<Integer>> currentReplicaToPartitionList) {
+
+        HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                      cluster);
+        for(Entry<Integer, List<Integer>> tuple: currentReplicaToPartitionList.entrySet()) {
+            List<Integer> partitionList = Lists.newArrayList();
+            for(int partition: tuple.getValue()) {
+                List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
+
+                // If this node was already in the
+                // preference list before, a copy of the
+                // data will already exist - Don't copy
+                // it!
+                if(!RebalanceUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
+                    partitionList.add(partition);
+                }
+            }
+
+            if(partitionList.size() > 0) {
+                optimizedReplicaToPartitionList.put(tuple.getKey(), partitionList);
+            }
+        }
+
+        return optimizedReplicaToPartitionList;
+
+    }
+
+    /**
      * Get the latest cluster from all available nodes in the cluster<br>
      * 
      * Throws exception if:<br>
@@ -136,37 +177,6 @@ public class RebalanceUtils {
                                              + clock + " and on current node " + newClock);
 
         }
-    }
-
-    /**
-     * Check that the key belongs to one of the partitions in the map of replica
-     * type to partitions
-     * 
-     * @param keyPartitions Preference list of the key
-     * @param nodePartitions Partition list on this node
-     * @param replicaToPartitionList Mapping of replica type to partition list
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
-                                                     List<Integer> nodePartitions,
-                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
-        // Check for null
-        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
-
-        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
-
-            // If this partition belongs to node partitions + master is in
-            // replicaToPartitions list -> match
-            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
-                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
-                if(partitionsToMove != null && partitionsToMove.size() > 0) {
-                    if(partitionsToMove.contains(keyPartitions.get(0))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
     }
 
     /**
@@ -442,7 +452,7 @@ public class RebalanceUtils {
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions
      * 
-     * @param nodeId Node on which this is running
+     * @param nodeId Node on which this is running ( generally stealer node )
      * @param key The key to check
      * @param replicaToPartitionList Mapping of replica type to partition list
      * @param cluster Cluster metadata
@@ -459,6 +469,66 @@ public class RebalanceUtils {
                                                                   .getPartitionList(key);
         List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
         return checkKeyBelongsToPartition(keyPartitions, nodePartitions, replicaToPartitionList);
+    }
+
+    /**
+     * Check that the key belongs to one of the partitions in the map of replica
+     * type to partitions
+     * 
+     * @param keyPartitions Preference list of the key
+     * @param nodePartitions Partition list on this node
+     * @param replicaToPartitionList Mapping of replica type to partition list
+     * @return Returns a boolean to indicate if this belongs to the map
+     */
+    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
+                                                     List<Integer> nodePartitions,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        // Check for null
+        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
+
+        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
+
+            // If this partition belongs to node partitions + master is in
+            // replicaToPartitions list -> match
+            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
+                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
+                if(partitionsToMove != null && partitionsToMove.size() > 0) {
+                    if(partitionsToMove.contains(keyPartitions.get(0))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Given a key and a list of steal infos give back a list of stealer node
+     * ids which will steal this.
+     * 
+     * @param key Byte array of key
+     * @param stealerNodeToMappingTuples Pairs of stealer node id to their
+     *        corresponding [ partition - replica ] tuples
+     * @param cluster Cluster metadata
+     * @param storeDef Store definitions
+     * @return List of node ids
+     */
+    public static List<Integer> checkKeyBelongsToPartition(byte[] key,
+                                                           Set<Pair<Integer, HashMap<Integer, List<Integer>>>> stealerNodeToMappingTuples,
+                                                           Cluster cluster,
+                                                           StoreDefinition storeDef) {
+        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                         cluster)
+                                                                  .getPartitionList(key);
+        List<Integer> nodesToPush = Lists.newArrayList();
+        for(Pair<Integer, HashMap<Integer, List<Integer>>> stealNodeToMap: stealerNodeToMappingTuples) {
+            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToMap.getFirst())
+                                                  .getPartitionIds();
+            if(checkKeyBelongsToPartition(keyPartitions, nodePartitions, stealNodeToMap.getSecond())) {
+                nodesToPush.add(stealNodeToMap.getFirst());
+            }
+        }
+        return nodesToPush;
     }
 
     /**
