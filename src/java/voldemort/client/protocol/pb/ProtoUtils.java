@@ -56,6 +56,37 @@ import com.google.protobuf.Message;
 public class ProtoUtils {
 
     /**
+     * Given a list protobuf rebalance-partition info, converts it into a list
+     * of our rebalance-partition info
+     * 
+     * @param rebalancePartitionInfoMaps List of protobuff version of
+     *        rebalance-partition-info
+     * @return List of our Rebalance-partition-info
+     */
+    public static List<RebalancePartitionsInfo> decodeRebalancePartitionInfoMap(List<VAdminProto.RebalancePartitionInfoMap> rebalancePartitionInfoMaps) {
+        List<RebalancePartitionsInfo> infos = Lists.newArrayList();
+        for(RebalancePartitionInfoMap map: rebalancePartitionInfoMaps) {
+            infos.add(decodeRebalancePartitionInfoMap(map));
+        }
+        return infos;
+    }
+
+    /**
+     * Given a list of rebalance-partition info, convert it into a list of
+     * protobuf equivalent
+     * 
+     * @param stealInfos List of rebalance partition info
+     * @return Protobuff equivalent of the same
+     */
+    public static List<RebalancePartitionInfoMap> encodeRebalancePartitionInfoMap(List<RebalancePartitionsInfo> stealInfos) {
+        List<RebalancePartitionInfoMap> maps = Lists.newArrayList();
+        for(RebalancePartitionsInfo info: stealInfos) {
+            maps.add(encodeRebalancePartitionInfoMap(info));
+        }
+        return maps;
+    }
+
+    /**
      * Given a protobuf rebalance-partition info, converts it into our
      * rebalance-partition info
      * 
@@ -73,6 +104,12 @@ public class ProtoUtils {
         return rebalanceStealInfo;
     }
 
+    /**
+     * Given a rebalance-partition info, convert it into the protobuf equivalent
+     * 
+     * @param stealInfo Rebalance partition info
+     * @return Protobuff equivalent of the same
+     */
     public static RebalancePartitionInfoMap encodeRebalancePartitionInfoMap(RebalancePartitionsInfo stealInfo) {
         return RebalancePartitionInfoMap.newBuilder()
                                         .setStealerId(stealInfo.getStealerId())

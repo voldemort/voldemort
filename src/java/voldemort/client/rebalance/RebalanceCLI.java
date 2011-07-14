@@ -86,6 +86,18 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(Long.class)
                   .describedAs("sec");
+            parser.accepts("batch",
+                           "Number of primary partitions to move together [ Default : "
+                                   + RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE + " ]")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("num-primary-partitions");
+            parser.accepts("stealer-based",
+                           "Run the rebalancing from the stealer node's perspective [ Default : "
+                                   + RebalanceClientConfig.STEALER_BASED_REBALANCING + " ]")
+                  .withRequiredArg()
+                  .ofType(Boolean.class)
+                  .describedAs("boolean");
 
             OptionSet options = parser.parse(args);
 
@@ -105,6 +117,12 @@ public class RebalanceCLI {
             long rebalancingTimeoutSeconds = CmdUtils.valueOf(options,
                                                               "timeout",
                                                               RebalanceClientConfig.REBALANCING_CLIENT_TIMEOUT_SEC);
+            int primaryPartitionBatchSize = CmdUtils.valueOf(options,
+                                                             "batch",
+                                                             RebalanceClientConfig.PRIMARY_PARTITION_BATCH_SIZE);
+            boolean stealerBasedRebalancing = CmdUtils.valueOf(options,
+                                                               "stealer-based",
+                                                               RebalanceClientConfig.STEALER_BASED_REBALANCING);
 
             RebalanceClientConfig config = new RebalanceClientConfig();
             config.setMaxParallelRebalancing(parallelism);
@@ -112,6 +130,8 @@ public class RebalanceCLI {
             config.setEnableShowPlan(enabledShowPlan);
             config.setMaxTriesRebalancing(maxTriesRebalancing);
             config.setRebalancingClientTimeoutSeconds(rebalancingTimeoutSeconds);
+            config.setPrimaryPartitionBatchSize(primaryPartitionBatchSize);
+            config.setStealerBasedRebalancing(stealerBasedRebalancing);
 
             if(options.has("output-dir")) {
                 config.setOutputDirectory((String) options.valueOf("output-dir"));
@@ -222,6 +242,8 @@ public class RebalanceCLI {
         stream.println("\t (iv) --parallelism [ Number of parallel stealer - donor node tasks to run in parallel ] ");
         stream.println("\t (v) --tries [ Number of times we try to move the data before declaring failure ]");
         stream.println("\t (vi) --timeout [ Timeout in seconds for one rebalancing task ( stealer - donor tuple ) ]");
+        stream.println("\t (vii) --batch [ Number of primary partitions to move together ]");
+        stream.println("\t (viii) --stealer-based [ Run the rebalancing from the stealers perspective ]");
         stream.println();
         stream.println("GENERATE");
         stream.println("a) --current-cluster <path> --current-stores <path> --target-cluster <path> --generate [ Generates a new cluster xml with least number of movements."

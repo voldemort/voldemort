@@ -14,12 +14,12 @@ public enum RequestRoutingType {
     }
 
     /**
-     * ignore checks takes precedence over should_route and force it to be local
+     * Ignore checks takes precedence over should_route and force it to be local
      * store.
      * 
-     * @param should_route
-     * @param ignore_checks
-     * @return
+     * @param should_route Requests which are forcefully routed
+     * @param ignore_checks Ignore the checks for metadata
+     * @return The enum corresponding to the flags
      */
     public static RequestRoutingType getRequestRoutingType(boolean should_route,
                                                            boolean ignore_checks) {
@@ -40,9 +40,8 @@ public enum RequestRoutingType {
      * ignore checks takes precedence over should_route and force it to be local
      * store.
      * 
-     * @param should_route
-     * @param ignore_checks
-     * @return
+     * @param routingCode The routing code
+     * @return The corresponding enum
      */
     public static RequestRoutingType getRequestRoutingType(int routingCode) {
         switch(routingCode) {

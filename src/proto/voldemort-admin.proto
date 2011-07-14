@@ -146,6 +146,10 @@ message InitiateRebalanceNodeRequest {
   required RebalancePartitionInfoMap rebalance_partition_info = 1;
 }
 
+message InitiateRebalanceNodeOnDonorRequest {
+  repeated RebalancePartitionInfoMap rebalance_partition_info = 1;
+}
+
 message AsyncOperationStatusResponse {
   optional int32 request_id = 1;
   optional string description = 2;
@@ -257,6 +261,15 @@ message RebalanceStateChangeResponse {
   optional Error error = 1;
 }
 
+message DeleteStoreRebalanceStateRequest {
+  required string store_name = 1;
+  required int32 node_id = 2; 
+}
+
+message DeleteStoreRebalanceStateResponse {
+  optional Error error = 1;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -281,6 +294,8 @@ enum AdminRequestType {
   FAILED_FETCH_STORE = 22;
   GET_RO_STORAGE_FORMAT = 23;
   REBALANCE_STATE_CHANGE = 24;
+  INITIATE_REBALANCE_NODE_ON_DONOR = 25;
+  DELETE_STORE_REBALANCE_STATE = 26;
 }
 
 message VoldemortAdminRequest {
@@ -308,4 +323,6 @@ message VoldemortAdminRequest {
   optional FailedFetchStoreRequest failed_fetch_store = 24;
   optional GetROStorageFormatRequest get_ro_storage_format = 25;
   optional RebalanceStateChangeRequest rebalance_state_change = 26;
+  optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 27;
+  optional DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 28;
 }
