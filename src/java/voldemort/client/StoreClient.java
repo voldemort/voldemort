@@ -125,8 +125,9 @@ public interface StoreClient<K, V> {
     public Version put(K key, V value);
 
     /**
-     * Like {@link voldemort.store.StoreClient#put(K, V) put}, except that the
-     * given transforms are applied on the value before writing it to the store
+     * Like {@link voldemort.client.StoreClient #put(Object, Object)}, except
+     * that the given transforms are applied on the value before writing it to
+     * the store
      * 
      * @param key the key
      * @param value the value
@@ -143,7 +144,6 @@ public interface StoreClient<K, V> {
      * @param key The key
      * @param versioned The value and its versioned
      * @throws ObsoleteVersionException
-     * @version version The version of the object
      */
     public Version put(K key, Versioned<V> versioned) throws ObsoleteVersionException;
 

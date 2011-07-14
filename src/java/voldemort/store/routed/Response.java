@@ -37,7 +37,7 @@ import voldemort.utils.ByteArray;
  * {@link NonblockingStore} will invoke the {@link NonblockingStoreCallback}
  * instances's <code>requestComplete</code> method which will in turn package up
  * the data in a Response object that is sent to the {@link Pipeline} via an
- * {@link Event#RESPONSE_RECEIVED} event.
+ * {@link Event#RESPONSES_RECEIVED} event.
  * 
  * <p/>
  * 
@@ -54,7 +54,6 @@ import voldemort.utils.ByteArray;
  * @param <K> Type for the key used in the request
  * @param <V> Type for the value returned by the call
  * 
- * @see BasicResponseCallback
  * @see NonblockingStore
  * @see NonblockingStoreCallback
  * @see Pipeline

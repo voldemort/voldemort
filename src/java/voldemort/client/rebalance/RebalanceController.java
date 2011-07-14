@@ -99,7 +99,7 @@ public class RebalanceController {
      * Does basic verification of the metadata + server state. Finally starts
      * the rebalancing.
      * 
-     * @param newCurrentCluster The cluster currently used on each node
+     * @param currentCluster The cluster currently used on each node
      * @param targetCluster The desired cluster after rebalance
      * @param storeDefs Stores to rebalance
      */

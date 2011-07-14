@@ -31,9 +31,9 @@ import voldemort.store.routed.Pipeline.Operation;
  * <p/>
  * 
  * Actions are mapped to events by the {@link Pipeline} via the
- * {@link Pipeline#setEventActions(java.util.Map)} method.
+ * {@link Pipeline#addEventAction(Event, Action)} method.
  * 
- * @see Pipeline#setEventActions(java.util.Map)
+ * @see Pipeline#addEventAction(Event, Action)
  */
 
 public interface Action {

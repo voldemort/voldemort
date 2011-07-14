@@ -43,9 +43,6 @@ import voldemort.serialization.Serializer;
  * recommended.
  * </p>
  * 
- * @see http 
- *      ://avro.apache.org/docs/1.4.1/api/java/org/apache/avro/specific/package
- *      -summary.html
  */
 public class AvroSpecificSerializer<T extends SpecificRecord> implements Serializer<T> {
 

@@ -47,9 +47,6 @@ import voldemort.serialization.Serializer;
  * <strong>For now we only support the class case.</strong>
  * </p>
  * 
- * @see http 
- *      ://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/reflect
- *      /package-summary.html
  */
 public class AvroReflectiveSerializer<T> implements Serializer<T> {
 

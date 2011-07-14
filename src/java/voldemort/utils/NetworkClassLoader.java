@@ -53,8 +53,8 @@ public class NetworkClassLoader extends ClassLoader {
      * call {@link ClassLoader#getResource(String)} internally to find the class
      * file and then dump the bytes[]
      * 
-     * @param cl
-     * @return
+     * @param cl The class
+     * @return Byte representation of the class
      * @throws IOException
      */
     public byte[] dumpClass(Class<?> cl) throws IOException {

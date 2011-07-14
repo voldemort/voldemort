@@ -41,7 +41,6 @@ public class Entropy {
      * Entropy constructor. Uses DEFAULT_NUM_KEYS number of keys
      * 
      * @param nodeId Node id. If -1, goes over all of them
-     * @param numThreads Number of threads
      */
     public Entropy(int nodeId) {
         this.nodeId = nodeId;
