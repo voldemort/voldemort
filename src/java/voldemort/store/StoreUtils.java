@@ -41,8 +41,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
- * Check that the given key is valid
- * 
+ * Group of store utilities
  * 
  */
 public class StoreUtils {
@@ -109,7 +108,7 @@ public class StoreUtils {
      * This is typically used in finally blocks to prevent an exception thrown
      * during close from hiding an exception thrown inside the try.
      * 
-     * @param stream the Closeable to close, may be null.
+     * @param c The Closeable to close, may be null.
      */
     public static void close(Closeable c) {
         if(c != null) {
@@ -127,7 +126,7 @@ public class StoreUtils {
      * 
      * @param key The key we are checking
      * @param routingStrategy The routing strategy
-     * @param currentNodeId Current node id
+     * @param currentNode Current node
      */
     public static void assertValidMetadata(ByteArray key,
                                            RoutingStrategy routingStrategy,

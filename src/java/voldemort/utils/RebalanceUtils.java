@@ -533,7 +533,7 @@ public class RebalanceUtils {
 
     /**
      * Check the execution state of the server by checking the state of
-     * {@link MetadataStore.VoldemortState} <br>
+     * {@link VoldemortState} <br>
      * 
      * This function checks if the nodes are all in normal state (
      * {@link VoldemortState#NORMAL_SERVER}).

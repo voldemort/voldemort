@@ -5,7 +5,7 @@
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
-  <property name="author" value="Jay Kreps" />
+  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao" />
   <property environment="env" />
 
   <path id="main-classpath">

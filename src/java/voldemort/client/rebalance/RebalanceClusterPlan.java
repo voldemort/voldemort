@@ -55,7 +55,7 @@ public class RebalanceClusterPlan {
      * 
      * @param currentCluster The current cluster definition
      * @param targetCluster The target cluster definition
-     * @param storeDefList The list of store definitions to rebalance
+     * @param storeDefs The list of store definitions to rebalance
      * @param enabledDeletePartition Delete the RW partition on the donor side
      *        after rebalance
      * @param isStealerBased Do we want to generate the final plan based on the

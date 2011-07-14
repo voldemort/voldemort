@@ -48,10 +48,10 @@ public class InvalidMetadataCheckingStore extends DelegatingStore<ByteArray, byt
      * throws {@link InvalidMetadataException} if the partition for key
      * requested should not lie with this node.
      * 
-     * @param node The id of the destination node
-     * @param innerStore The store which we delegate write operations to
-     * @param routingStrategy the routing stratgey for this cluster
-     *        configuration.
+     * @param nodeId The id of the destination node
+     * @param innerStore The store which we delegate write operations to if
+     *        everything is good
+     * @param metadata The metadata store
      */
     public InvalidMetadataCheckingStore(int nodeId,
                                         Store<ByteArray, byte[], byte[]> innerStore,

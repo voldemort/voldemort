@@ -9,9 +9,6 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Implementation of CompressionStrategy for the gzip format.
  */
-/*
- * In the future we may want to support different compression levels.
- */
 public class GzipCompressionStrategy extends StreamCompressionStrategy {
 
     @Override

@@ -81,7 +81,7 @@ public class PutPipelineData extends BasicPipelineData<Void> {
     /**
      * Set start time to perform timeout correctly
      * 
-     * @param nanoTime
+     * @param startTimeNs
      */
     public void setStartTimeNs(long startTimeNs) {
         this.startTimeNs = startTimeNs;
@@ -90,7 +90,6 @@ public class PutPipelineData extends BasicPipelineData<Void> {
     /**
      * Get start time to perform timeout correctly
      * 
-     * @param nanoTime
      */
     public long getStartTimeNs() {
         return this.startTimeNs;

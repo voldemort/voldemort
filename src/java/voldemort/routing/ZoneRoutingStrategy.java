@@ -51,7 +51,7 @@ public class ZoneRoutingStrategy extends ConsistentRoutingStrategy {
     /**
      * Get the replication partitions list for the given partition.
      * 
-     * @param partitionId
+     * @param index Partition id for which we are generating the preference list
      * @return The List of partitionId where this partition is replicated.
      */
     @Override
