@@ -238,8 +238,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -287,8 +286,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -332,8 +330,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -374,8 +371,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -416,8 +412,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          currentCluster.getNodeById(1),
-                                                                          currentCluster.getNodeById(0),
+                                                                          1,
                                                                           Lists.newArrayList(2, 3));
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
@@ -553,8 +548,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          currentCluster.getNodeById(1),
-                                                                          currentCluster.getNodeById(0),
+                                                                          1,
                                                                           Lists.newArrayList(2, 3));
 
         final List<Integer> serverList = Arrays.asList(0, 1);

@@ -18,6 +18,7 @@ package voldemort.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,6 +80,47 @@ public class RebalanceUtils {
 
     public final static String initialClusterFileName = "initial-cluster.xml";
     public final static String finalClusterFileName = "final-cluster.xml";
+
+    /**
+     * Given the current replica to partition list, try to check if the donor
+     * node would already contain that partition and if yes, ignore it
+     * 
+     * @param stealerNodeId Stealer node id
+     * @param cluster Cluster metadata
+     * @param storeDef Store definition
+     * @param currentReplicaToPartitionList Current replica to partition list
+     * @return Optimized replica to partition list
+     */
+    public static HashMap<Integer, List<Integer>> getOptimizedReplicaToPartitionList(int stealerNodeId,
+                                                                                     Cluster cluster,
+                                                                                     StoreDefinition storeDef,
+                                                                                     HashMap<Integer, List<Integer>> currentReplicaToPartitionList) {
+
+        HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                      cluster);
+        for(Entry<Integer, List<Integer>> tuple: currentReplicaToPartitionList.entrySet()) {
+            List<Integer> partitionList = Lists.newArrayList();
+            for(int partition: tuple.getValue()) {
+                List<Integer> preferenceList = strategy.getReplicatingPartitionList(partition);
+
+                // If this node was already in the
+                // preference list before, a copy of the
+                // data will already exist - Don't copy
+                // it!
+                if(!RebalanceUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
+                    partitionList.add(partition);
+                }
+            }
+
+            if(partitionList.size() > 0) {
+                optimizedReplicaToPartitionList.put(tuple.getKey(), partitionList);
+            }
+        }
+
+        return optimizedReplicaToPartitionList;
+
+    }
 
     /**
      * Get the latest cluster from all available nodes in the cluster<br>
@@ -137,37 +180,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * Check that the key belongs to one of the partitions in the map of replica
-     * type to partitions
-     * 
-     * @param keyPartitions Preference list of the key
-     * @param nodePartitions Partition list on this node
-     * @param replicaToPartitionList Mapping of replica type to partition list
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
-                                                     List<Integer> nodePartitions,
-                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
-        // Check for null
-        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
-
-        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
-
-            // If this partition belongs to node partitions + master is in
-            // replicaToPartitions list -> match
-            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
-                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
-                if(partitionsToMove != null && partitionsToMove.size() > 0) {
-                    if(partitionsToMove.contains(keyPartitions.get(0))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
      * Return the number of cross zone copying that is going to take place
      * 
      * @param targetCluster Target cluster metadata
@@ -206,6 +218,26 @@ public class RebalanceUtils {
         }
 
         return totalMoves;
+    }
+
+    /**
+     * Given a list of partition informations check all of them belong to the
+     * same donor node
+     * 
+     * @param partitionInfos List of partition infos
+     * @param expectedDonorId Expected donor node id ( If -1, then just checks
+     *        if all are same )
+     */
+    public static void assertSameDonor(List<RebalancePartitionsInfo> partitionInfos,
+                                       int expectedDonorId) {
+        int donorId = (expectedDonorId < 0) ? partitionInfos.get(0).getDonorId() : expectedDonorId;
+        for(RebalancePartitionsInfo info: partitionInfos) {
+            if(info.getDonorId() != donorId) {
+                throw new VoldemortException("Found a stealer information " + info
+                                             + " having a different donor node from others ( "
+                                             + donorId + " )");
+            }
+        }
     }
 
     /**
@@ -396,8 +428,7 @@ public class RebalanceUtils {
                     if(partitionsDonated == partitionsToDonate)
                         break;
                     Cluster intermediateCluster = createUpdatedCluster(returnCluster,
-                                                                       returnCluster.getNodeById(newNodeId),
-                                                                       returnCluster.getNodeById(donorNodeId),
+                                                                       newNodeId,
                                                                        Lists.newArrayList(donorPartition));
                     if(RebalanceUtils.getCrossZoneMoves(intermediateCluster,
                                                         new RebalanceClusterPlan(returnCluster,
@@ -421,7 +452,7 @@ public class RebalanceUtils {
      * Check that the key belongs to one of the partitions in the map of replica
      * type to partitions
      * 
-     * @param nodeId Node on which this is running
+     * @param nodeId Node on which this is running ( generally stealer node )
      * @param key The key to check
      * @param replicaToPartitionList Mapping of replica type to partition list
      * @param cluster Cluster metadata
@@ -441,8 +472,68 @@ public class RebalanceUtils {
     }
 
     /**
+     * Check that the key belongs to one of the partitions in the map of replica
+     * type to partitions
+     * 
+     * @param keyPartitions Preference list of the key
+     * @param nodePartitions Partition list on this node
+     * @param replicaToPartitionList Mapping of replica type to partition list
+     * @return Returns a boolean to indicate if this belongs to the map
+     */
+    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
+                                                     List<Integer> nodePartitions,
+                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
+        // Check for null
+        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
+
+        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
+
+            // If this partition belongs to node partitions + master is in
+            // replicaToPartitions list -> match
+            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
+                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
+                if(partitionsToMove != null && partitionsToMove.size() > 0) {
+                    if(partitionsToMove.contains(keyPartitions.get(0))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Given a key and a list of steal infos give back a list of stealer node
+     * ids which will steal this.
+     * 
+     * @param key Byte array of key
+     * @param stealerNodeToMappingTuples Pairs of stealer node id to their
+     *        corresponding [ partition - replica ] tuples
+     * @param cluster Cluster metadata
+     * @param storeDef Store definitions
+     * @return List of node ids
+     */
+    public static List<Integer> checkKeyBelongsToPartition(byte[] key,
+                                                           Set<Pair<Integer, HashMap<Integer, List<Integer>>>> stealerNodeToMappingTuples,
+                                                           Cluster cluster,
+                                                           StoreDefinition storeDef) {
+        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                         cluster)
+                                                                  .getPartitionList(key);
+        List<Integer> nodesToPush = Lists.newArrayList();
+        for(Pair<Integer, HashMap<Integer, List<Integer>>> stealNodeToMap: stealerNodeToMappingTuples) {
+            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToMap.getFirst())
+                                                  .getPartitionIds();
+            if(checkKeyBelongsToPartition(keyPartitions, nodePartitions, stealNodeToMap.getSecond())) {
+                nodesToPush.add(stealNodeToMap.getFirst());
+            }
+        }
+        return nodesToPush;
+    }
+
+    /**
      * Check the execution state of the server by checking the state of
-     * {@link MetadataStore.VoldemortState} <br>
+     * {@link VoldemortState} <br>
      * 
      * This function checks if the nodes are all in normal state (
      * {@link VoldemortState#NORMAL_SERVER}).
@@ -453,10 +544,9 @@ public class RebalanceUtils {
      */
     public static void validateClusterState(final Cluster cluster, final AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
-            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(),
-                                                                        MetadataStore.SERVER_STATE_KEY);
+            Versioned<VoldemortState> versioned = adminClient.getRemoteServerState(node.getId());
 
-            if(!VoldemortState.NORMAL_SERVER.name().equals(versioned.getValue())) {
+            if(!VoldemortState.NORMAL_SERVER.equals(versioned.getValue())) {
                 throw new VoldemortRebalancingException("Cannot rebalance since node "
                                                         + node.getId() + " (" + node.getHost()
                                                         + ") is not in normal state, but in "
@@ -491,7 +581,9 @@ public class RebalanceUtils {
 
     /**
      * Concatenates the list of current nodes in the given cluster with the new
-     * nodes provided and returns an updated cluster metadata
+     * nodes provided and returns an updated cluster metadata. <br>
+     * If the nodes being updated already exist in the current metadata, we take
+     * the updated ones
      * 
      * @param currentCluster The current cluster metadata
      * @param updatedNodeList The list of new nodes to be added
@@ -551,79 +643,44 @@ public class RebalanceUtils {
      * Updates the existing cluster such that we remove partitions mentioned
      * from the stealer node and add them to the donor node
      * 
-     * @param cluster Existing cluster metadata
-     * @param stealerNode Node from which we are stealing the partitions
-     * @param donorNode Node to which we are donating
-     * @param partitionList List of partitions we are moving
+     * @param currentCluster Existing cluster metadata. Both stealer and donor
+     *        node should already exist in this metadata
+     * @param stealerNodeId Id of node from which we are stealing the partitions
+     * @param donorNodeId Id of node to which we are donating
+     * @param donatedPartitions List of partitions we are moving
      * @return Updated cluster metadata
      */
-    public static Cluster createUpdatedCluster(Cluster cluster,
-                                               Node stealerNode,
-                                               Node donorNode,
-                                               List<Integer> partitionList) {
-        List<Integer> stealerPartitionList = new ArrayList<Integer>(stealerNode.getPartitionIds());
-        List<Integer> donorPartitionList = new ArrayList<Integer>(donorNode.getPartitionIds());
+    public static Cluster createUpdatedCluster(Cluster currentCluster,
+                                               int stealerNodeId,
+                                               List<Integer> donatedPartitions) {
 
-        for(int p: cluster.getNodeById(stealerNode.getId()).getPartitionIds()) {
-            if(!stealerPartitionList.contains(p))
-                stealerPartitionList.add(p);
-        }
+        // Clone the cluster
+        ClusterMapper mapper = new ClusterMapper();
+        Cluster updatedCluster = mapper.readCluster(new StringReader(mapper.writeCluster(currentCluster)));
 
-        for(int partition: partitionList) {
-            for(int i = 0; i < donorPartitionList.size(); i++) {
-                if(partition == donorPartitionList.get(i)) {
-                    donorPartitionList.remove(i);
-                }
+        // Go over every donated partition one by one
+        for(int donatedPartition: donatedPartitions) {
+
+            // Gets the donor Node that owns this donated partition
+            Node donorNode = RebalanceUtils.getNodeByPartitionId(updatedCluster, donatedPartition);
+            Node stealerNode = updatedCluster.getNodeById(stealerNodeId);
+
+            if(donorNode == stealerNode) {
+                // Moving to the same location = No-op
+                continue;
             }
-            if(!stealerPartitionList.contains(partition))
-                stealerPartitionList.add(partition);
+
+            // Update the list of partitions for this node
+            donorNode = RebalanceUtils.removePartitionToNode(donorNode, donatedPartition);
+            stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
+
+            // Sort the nodes
+            updatedCluster = updateCluster(updatedCluster, Lists.newArrayList(donorNode,
+                                                                              stealerNode));
+
         }
 
-        // sort both list
-        Collections.sort(stealerPartitionList);
-        Collections.sort(donorPartitionList);
-
-        // update both nodes
-        stealerNode = updateNode(stealerNode, stealerPartitionList);
-        donorNode = updateNode(donorNode, donorPartitionList);
-
-        Cluster updatedCluster = updateCluster(cluster, Arrays.asList(stealerNode, donorNode));
         return updatedCluster;
-    }
-
-    /**
-     * Creates a new cluster by adding a donated partition to a new or existing
-     * node.
-     * 
-     * @param currentCluster current cluster used to copy from.
-     * @param stealerNode now or existing node being updated.
-     * @param donatedPartition partition donated to the <code>stealerNode</code>
-     */
-    public static Cluster createUpdatedCluster(final Cluster currentCluster,
-                                               Node stealerNode,
-                                               final int donatedPartition) {
-        // Gets the donor Node that owns this donated partition
-        Node donorNode = RebalanceUtils.getNodeByPartitionId(currentCluster, donatedPartition);
-
-        // Removes the node from the list,
-        final List<Node> nodes = new ArrayList<Node>(currentCluster.getNodes());
-        nodes.remove(donorNode);
-        nodes.remove(stealerNode);
-
-        // Update the list of partitions for this node
-        donorNode = RebalanceUtils.removePartitionToNode(donorNode, donatedPartition);
-        stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
-
-        // Add the updated nodes (donor and stealer).
-        nodes.add(donorNode);
-        nodes.add(stealerNode);
-
-        // After the stealer & donor were fixed recreate the cluster.
-        // Sort the nodes so they will appear in the same order all the time.
-        Collections.sort(nodes);
-        return new Cluster(currentCluster.getName(),
-                           nodes,
-                           Lists.newArrayList(currentCluster.getZones()));
     }
 
     /**
@@ -675,6 +732,7 @@ public class RebalanceUtils {
     public static Node addPartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
         List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
         deepCopy.addAll(donatedPartitions);
+        Collections.sort(deepCopy);
         return updateNode(node, deepCopy);
     }
 
@@ -969,26 +1027,26 @@ public class RebalanceUtils {
     /**
      * Print log to the following logger ( Info level )
      * 
-     * @param stealerNodeId Stealer node id
+     * @param taskId Task id
      * @param logger Logger class
      * @param message The message to print
      */
-    public static void printLog(int stealerNodeId, Logger logger, String message) {
-        logger.info("Stealer node " + Integer.toString(stealerNodeId) + "] " + message);
+    public static void printLog(int taskId, Logger logger, String message) {
+        logger.info("Task id " + Integer.toString(taskId) + "] " + message);
     }
 
     /**
      * Print log to the following logger ( Error level )
      * 
-     * @param stealerNodeId Stealer node id
+     * @param taskId Stealer node id
      * @param logger Logger class
      * @param message The message to print
      */
-    public static void printErrorLog(int stealerNodeId, Logger logger, String message, Exception e) {
+    public static void printErrorLog(int taskId, Logger logger, String message, Exception e) {
         if(e == null) {
-            logger.error("Stealer node " + Integer.toString(stealerNodeId) + "] " + message);
+            logger.error("Task id " + Integer.toString(taskId) + "] " + message);
         } else {
-            logger.error("Stealer node " + Integer.toString(stealerNodeId) + "] " + message, e);
+            logger.error("Task id " + Integer.toString(taskId) + "] " + message, e);
         }
     }
 
@@ -1143,9 +1201,14 @@ public class RebalanceUtils {
 
             final HashMap<Integer, List<Integer>> replicaTypeToPartitions = flattenPartitionTuples(allPartitions);
 
+            // Put into sorted key order such that primary replicas occur before
+            // secondary replicas and so on...
+            final TreeMap<Integer, List<Integer>> sortedReplicaTypeToPartitions = new TreeMap<Integer, List<Integer>>(replicaTypeToPartitions);
+
             sb.append(nodeId);
             if(replicaTypeToPartitions.size() > 0) {
-                for(Entry<Integer, List<Integer>> partitions: replicaTypeToPartitions.entrySet()) {
+                for(Entry<Integer, List<Integer>> partitions: sortedReplicaTypeToPartitions.entrySet()) {
+                    Collections.sort(partitions.getValue());
                     sb.append(" - " + partitions.getValue());
                 }
             } else {
@@ -1267,6 +1330,33 @@ public class RebalanceUtils {
         }
 
         return plans;
+    }
+
+    /**
+     * Given a list of partition infos, generates a map of stealer / donor node
+     * to list of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @param groupByStealerNode Boolean indicating if we want to group by
+     *        stealer node ( or donor node )
+     * @return Flattens it into a map on a per node basis
+     */
+    public static HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList,
+                                                                                            boolean groupByStealerNode) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        if(rebalancePartitionPlanList != null) {
+            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+                int nodeId = groupByStealerNode ? partitionInfo.getStealerId()
+                                               : partitionInfo.getDonorId();
+                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(nodeId);
+                if(partitionInfos == null) {
+                    partitionInfos = Lists.newArrayList();
+                    stealerNodeToPlan.put(nodeId, partitionInfos);
+                }
+                partitionInfos.add(partitionInfo);
+            }
+        }
+        return stealerNodeToPlan;
     }
 
     /**

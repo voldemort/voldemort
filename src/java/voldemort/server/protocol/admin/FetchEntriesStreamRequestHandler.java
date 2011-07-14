@@ -46,6 +46,8 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
               networkClassLoader,
               stats,
               Operation.FETCH_ENTRIES);
+        logger.info("Starting fetch entries for store '" + storageEngine.getName()
+                    + "' with replica to partition mapping " + replicaToPartitionList);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,

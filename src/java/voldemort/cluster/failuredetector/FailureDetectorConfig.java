@@ -99,7 +99,7 @@ public class FailureDetectorConfig {
     /**
      * Constructs a new FailureDetectorConfig from a server perspective (via
      * {@link VoldemortConfig}).
-     *
+     * 
      * <p/>
      * 
      * <b>Note</b>: the {@link #setNodes(Collection)} and
@@ -353,7 +353,7 @@ public class FailureDetectorConfig {
      * <b>Note</b>: this is only used by the {@link ThresholdFailureDetector}
      * implementation.
      * 
-     * @param Millisecond interval for the success ratio
+     * @param thresholdInterval Millisecond interval for the success ratio
      * 
      * @exception IllegalArgumentException Thrown if the thresholdInterval
      *            parameter is less than or equal to 0
@@ -404,7 +404,8 @@ public class FailureDetectorConfig {
      * {@link AsyncRecoveryFailureDetector} and {@link ThresholdFailureDetector}
      * implementations.
      * 
-     * @param Number of milliseconds to wait between recovery attempts
+     * @param asyncRecoveryInterval Number of milliseconds to wait between
+     *        recovery attempts
      * 
      * @exception IllegalArgumentException Thrown if the thresholdInterval
      *            parameter is less than or equal to 0

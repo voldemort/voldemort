@@ -35,9 +35,6 @@ import voldemort.serialization.Serializer;
  * representation is best for applications which deal with dynamic data, whose
  * schemas are not known until runtime.
  * 
- * @see http 
- *      ://hadoop.apache.org/avro/docs/current/api/java/org/apache/avro/generic
- *      /package-summary.html
  */
 public class AvroGenericSerializer implements Serializer<Object> {
 

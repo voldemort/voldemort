@@ -33,10 +33,9 @@ import voldemort.store.routed.action.Action;
  * {@link Action} is executed in response to the Pipeline receiving an event.
  * The majority of the events are self-initiated from within the Pipeline
  * itself. The only case thus-far where external entities create events are in
- * response to asynchronous responses from servers ({@link AcknowledgeResponse},
- * for example). A {@link Response} instance is created on completion of an
- * asynchronous request and is fed back into the Pipeline where an appropriate
- * 'response handler' action is executed.
+ * response to asynchronous responses from servers. A {@link Response} instance
+ * is created on completion of an asynchronous request and is fed back into the
+ * Pipeline where an appropriate 'response handler' action is executed.
  * 
  * <p/>
  * 
@@ -124,9 +123,8 @@ public class Pipeline {
     }
 
     /**
-     * Pipeline can't proceed further. If hinted handoff is enabled go to
-     * go to a state where it can be performed, otherwise go straight to
-     * error state.
+     * Pipeline can't proceed further. If hinted handoff is enabled go to go to
+     * a state where it can be performed, otherwise go straight to error state.
      */
 
     public void abort() {
@@ -187,7 +185,8 @@ public class Pipeline {
                 }
 
                 if(event == null)
-                    throw new VoldemortException(operation.getSimpleName() + " returned a null event");
+                    throw new VoldemortException(operation.getSimpleName()
+                                                 + " returned a null event");
 
                 if(event.equals(Event.ERROR)) {
                     if(logger.isTraceEnabled())
@@ -209,7 +208,8 @@ public class Pipeline {
 
                 if(logger.isTraceEnabled())
                     logger.trace(operation.getSimpleName() + " request, action "
-                                 + action.getClass().getSimpleName() + " to handle " + event + " event");
+                                 + action.getClass().getSimpleName() + " to handle " + event
+                                 + " event");
 
                 action.execute(this);
             }

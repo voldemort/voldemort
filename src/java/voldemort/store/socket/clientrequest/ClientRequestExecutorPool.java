@@ -144,7 +144,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      * Check the socket back into the pool.
      * 
      * @param destination The socket destination of the socket
-     * @param socket The socket to check back in
+     * @param clientRequestExecutor The request executor wrapper
      */
     public void checkin(SocketDestination destination, ClientRequestExecutor clientRequestExecutor) {
         try {

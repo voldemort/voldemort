@@ -25,11 +25,15 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
     public final static int MAX_PARALLEL_REBALANCING = 1;
     public final static int MAX_TRIES = 2;
-    public final static long REBALANCING_CLIENT_TIMEOUT_SEC = 7 * 24 * 60 * 60;
+    public final static long REBALANCING_CLIENT_TIMEOUT_SEC = 30 * 24 * 60 * 60;
+    public final static int PRIMARY_PARTITION_BATCH_SIZE = 1;
+    public final static boolean STEALER_BASED_REBALANCING = true;
 
     private int maxParallelRebalancing = MAX_PARALLEL_REBALANCING;
     private int maxTriesRebalancing = MAX_TRIES;
     private long rebalancingClientTimeoutSeconds = REBALANCING_CLIENT_TIMEOUT_SEC;
+    private int primaryPartitionBatchSize = PRIMARY_PARTITION_BATCH_SIZE;
+    private boolean stealerBasedRebalancing = STEALER_BASED_REBALANCING;
     private boolean deleteAfterRebalancingEnabled;
     private boolean enabledShowPlan;
     private String outputDirectory = null;
@@ -39,6 +43,8 @@ public class RebalanceClientConfig extends AdminClientConfig {
     public static final String EnableDeleteAfterRebalancing = "enable.delete.after.rebalancing";
     public static final String MaxTriesRebalancingString = "max.tries.rebalancing";
     public static final String OutputDirectoryString = "rebalancing.output.dir";
+    public static final String PrimaryPartitionBatchSizeString = "rebalancing.batch.size";
+    public static final String StealerBasedRebalancingString = "rebalancing.stealer.based";
 
     public RebalanceClientConfig(Properties properties) {
         super(properties);
@@ -59,6 +65,12 @@ public class RebalanceClientConfig extends AdminClientConfig {
         if(props.containsKey(OutputDirectoryString))
             this.setOutputDirectory(props.getString(OutputDirectoryString));
 
+        if(props.containsKey(PrimaryPartitionBatchSizeString))
+            this.setPrimaryPartitionBatchSize(props.getInt(PrimaryPartitionBatchSizeString));
+
+        if(props.containsKey(StealerBasedRebalancingString))
+            this.setStealerBasedRebalancing(props.getBoolean(StealerBasedRebalancingString));
+
     }
 
     public RebalanceClientConfig() {
@@ -75,6 +87,22 @@ public class RebalanceClientConfig extends AdminClientConfig {
 
     public boolean hasOutputDirectory() {
         return this.outputDirectory != null;
+    }
+
+    public void setStealerBasedRebalancing(boolean stealerBasedRebalancing) {
+        this.stealerBasedRebalancing = stealerBasedRebalancing;
+    }
+
+    public boolean isStealerBasedRebalancing() {
+        return stealerBasedRebalancing;
+    }
+
+    public void setPrimaryPartitionBatchSize(int primaryPartitionBatchSize) {
+        this.primaryPartitionBatchSize = primaryPartitionBatchSize;
+    }
+
+    public int getPrimaryPartitionBatchSize() {
+        return primaryPartitionBatchSize;
     }
 
     public void setMaxParallelRebalancing(int maxParallelRebalancing) {
