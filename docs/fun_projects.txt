@@ -1,19 +1,44 @@
-Here are a few technically interesting projects that are stand-alone enough 
-that someone can do them without having to learn the rest of the code
+This is a list of fun project ideas that no one is currently working on.
 
-1. Merkle tree log
-We want to be able to quickly compare the contents of two key-value stores so we can replicate values when (1) a new server comes online or (2) a server is down
-for an extended period of time or (3) we batch compute values offline. A merkle tree is an n-way tree of values where the 
-value stored at the leaf is the checksum of a value in the datastore, and parent nodes contain the checksum of all checksums.
-This makes it possible to determine that two stores are identical (and computing the differing keys) in only a logarithmic number of comparisons.
+a) Publish/Subscribe API
 
-2. Future-based client
-Create a storeclient or store implementation that returns Versioned<?> objects that behave as a java.util.concurrent.Future.  That is, the methods return immediately
-but the returned Versioned<?> may block when getObject() or getVersion() is called until the computation is complete.  This makes it
-easy to do many parallel fetches without the client needing to do any of the threadpooling.  Can this be done using the existing threadpool?
+Storage systems have become much more specialized in recent years with each system providing expertise in certain areas—Hadoop and proprietary data warehouses provide batch processing capabilities, Search indexes provide support for complex ranked text queries, and a variety of distributed databases have sprung up. Voldemort is a specialized key-value system, but the same data stored in Voldemort may need to be indexed by search, churned over in Hadoop, or otherwise processed by another system. Each of these systems needs the ability to subscribe to the changes happening in Voldemort and get a stream of such changes that they can process in their own specialized way.
 
-3. Non-blocking server & RoutingStore
-Investigate the possibility of using java.nio for the SocketServer to potentially reduce the number of threads needed.  This probably requires doing both
-the router and the server at the same time.  Probably a threadsafe state machine needs to be created for each request and incremented as responses come back
-in. This probably won't make the network operations faster but will reduce the overhead of the threading involved in routing and bound the number of threads needed. 
-Apache Mina may be helpful in doing this.
+Indeed even Voldemort nodes could subscribe to one another as a quick catch-up mechanism for recovering from failure.
+
+Amazon has implemented this functionality as a “Merkle tree” data structure in their Dynamo system which allows nodes to compare their contents quickly and catch up to differences they have missed, but this is not the only approach. It could be a simple secondary index that implements a node-specific logical counter that tracks modification number for each key.
+
+The api that would be provided would be something like getAllChangesSince(int changeNumber), and this api would provide the latest change for each key.
+
+b) Operational Interface
+
+One of the primary problems for a practical distributed system is knowing the state of the system. Voldemort has a rudimentary GUI that provides basic information. This project would be to make a first rate management GUI and corresponding control functionality to be able to know the performance and availability of each node in the system as well as perform more intense operations like starting / stopping nodes, restoring from replication, rebalancing, etc.
+
+c) Scala Voldemort Shell
+
+Voldemort comes with a very simple text shell. A better way to build such a thing is to fully integrate a language with an interpreter and provide a set of predefined administrative commands as functions in the shell. Scala has a flexible syntax and integrates easily with Java so it would be a good choice for such a shell.
+
+d) Support for LevelDB storage engine
+
+Since Voldemort supports a pluggable storage engine interface, we definitely want to try out other solutions. For example, we have a Krati based storage engine in contrib. Another storage engine which is picking up a momentum is Google’s LevelDB . The first phase of this project would require building JNA / JNI bindings for the storage engine followed by the integration with Voldemort.
+
+e) REST based API
+
+Besides the existing Ruby / Python clients having a REST based API would increase adoption amongst the web community. A good v1 could derive ideas from existing well know systems like Riak
+
+f) Memcache protocol support
+
+An easy project would be to provide the same API as Memcache.
+
+g) Duplex request support
+
+Preliminary work has been done to support duplexing the our socket requests. This would minimize the impact of network latency across data-centers. Some initial thoughts can be found here [ http://github.com/kirktrue/voldemort/wiki/Duplex-Request-Response-Communication ]
+
+h) Maven support
+
+We want to add the ability to push jars in a central Maven repository.
+
+i) Better configuration system
+
+The XML files can get really out of control once the cluster size increases. Migrating from XML to YAML would alleviate this problem a bit.
+In the long term we would like to come up with a better configuration system ( Explore Zookeeper? )

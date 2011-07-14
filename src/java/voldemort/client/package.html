@@ -6,5 +6,9 @@
         HttpStoreClientFactory and SocketStoreClientFactory both abstract away the threadpool and configuration that is shared
         between all the {@link voldemort.client.StoreClient StoreClients} that they will produce.
     </p>
+    
+    <p>
+    	CachingStoreClientFactory is a wrapper around the other two factories to cache store-clients for stores which are used a lot. 
+    </p>
   </body>
 </html>

@@ -22,6 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.store.routed.Pipeline.Event;
 
 /**
  * PipelineData includes a common set of data that is used to represent the
