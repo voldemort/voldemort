@@ -1,23 +1,64 @@
-Release 0.90 on 2/15/2010
+Release 0.90 on 7/10/2011
 
 Changes made since 0.81
+ * Tooling
+ - Single consolidated administrative tool - Got rid of the admin client
+   shell and have a better Voldemort admin tool. More documentation -
+   https://github.com/voldemort/voldemort/wiki/Voldemort-Admin-tool
 
-* The client code has been modified to support NIO. In order to do so,
-  an implementation of RoutedStore based on a pipelined architecture
-  has been created.
- * Topology (i.e., datacenter or rack) awareness has been integrated,
-  with tuneable consistency characteristics. See: 
-  https://github.com/voldemort/voldemort/wiki/Multi-datacenter-capability
-  for more information.
- * Hinted handoff is now supported as an additional consistency
-  mechanism. It is disabled by default, but it is suggested that it is
-  enabled in situations (e.g., datacenters separated by long range WAN
-  links) where read repair can not be used. See: 
-  < https://github.com/voldemort/voldemort/wiki/Hinted-Handoff > for
-  more information.
- * The version of BerkeleyDB Java Edition has been updated to 4.0.90
- * The version of Protocol Buffers has been updated to 2.3.0
+ * Web manager
+ - Basic GUI in JRuby ( and Sinatra ), capable of querying for store metadata.
+ - Read contrib/web-manager/README.md for more details
   
+ * Rebalancing
+ - New better rebalancing support with (a) checkpointing (b) progress bar (c) support for RO store rebalancing
+ - Documentation - https://github.com/voldemort/voldemort/wiki/Voldemort-Rebalancing 
+ - In the process solves Issue 203, 288, 305, 307, 311
+
+ * Client side changes
+ - Pipeline routed store ( with support for topology awareness ) - Changed the default client side routing
+   to use a state machine like system. More documentation - https://github.com/voldemort/voldemort/wiki/RoutedStore-redesign
+ - Lazy store client - Some of our clients are very inactive and don't really do many requests. For such
+   clients it doesn't make sense to bootstrap the metadata at startup. Hence from now onwards clients instantiated
+   from SocketStoreClientFactory give a LazyStoreClient which will not bootstrap till the first request is made
+ - Caching store client factory - We have also checked-in a new store client factory which we use internally
+   at LinkedIn to cache store clients for stores which we repeatedly. 
+ - Failure detector - We have fixed some bugs in the ThresholdFailureDetector. This is an improvement over the naive
+   BannageFailureDetector which would aggressively mark nodes down after a single failure. More details - 
+   https://github.com/voldemort/voldemort/wiki/Client-side-failure-detector-implementations
+ - Issue 219: StoreClient::put returns a Version - You may have to upgrade your clients since now the StoreClient returns
+   a version to be used in successive requests.
+
+ * Read-only store changes
+ - Admin based store swapper - Till 0.81 we relied on a servlet based fetcher / swapper.
+   Now we support an admin based store swapper which reports progress. 
+ - Other changes - (a) New directory format (b) Two new data format. Support for iterating over read-only data
+   (c) Checksum of data in .metadata file (d) Some monitoring changes of RO stores
+ - More details - https://github.com/voldemort/voldemort/wiki/Voldemort-Read-only-stores
+ 
+ * Jar upgrades
+ - Introduction of JNA 3.2.7 - We have introduced JNA 3.2.7 in this release for supporting symbolic links in read-only stores.
+   More details about the new RO format and changes can be found here - 
+ - Protocol Buffers 2.3.0 - Upgrading protocol buffers from 2.2.0 to 2.3.0
+ - Avro 1.4.0 - Upgraded Avro from 1.3.0 to 1.4.0
+
+ * Storage engine
+ - Added support for Krati 0.3.6 as a storage engine ( http://sna-projects.com/krati/ ) - 
+   https://github.com/voldemort/voldemort/tree/release-090/contrib/krati
+
+ * Core features
+ - Hinted handoff - https://github.com/voldemort/voldemort/wiki/Hinted-Handoff 
+ - Experimental support for server side transforms - https://github.com/voldemort/voldemort/wiki/Server-side-transforms-in-Voldemort
+ - Topology awareness ( i.e. datacenter / rack ) - https://github.com/voldemort/voldemort/wiki/Topology-awareness-capability
+ - Repair Job ( Job which will delete data if the node is not responsible for it )
+
+ * Better monitoring
+ - Tons of JMX changes ( average bytes, etc ) - More details ( https://github.com/voldemort/voldemort/wiki/JMX-Monitoring )
+ - Key distribution generator - Ability to estimate skew of your cluster ( ./bin/run-class.sh voldemort.utils.KeyDistributionGenerator )
+
+ * Clients
+ - Python - Updated Python client with support for Binary JSON serialized stores ( ./clients/python/README )
+ - Ruby - Updated Ruby client ( ./clients/ruby/README.md )
 
 Release 0.81 on 6/15/2010
 
