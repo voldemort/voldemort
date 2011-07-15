@@ -48,6 +48,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     private Map<Integer, String> nodeIdsInv = new HashMap<Integer, String>();
     private List<String> activeHostNames = new ArrayList<String>();
+    private boolean useDonorBased = true;
 
     @BeforeClass
     public static void ec2Setup() throws Exception {
@@ -179,6 +180,11 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             hostsToStop.add(nodeIdsInv.get(nodeId));
         }
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
+    }
+
+    @Override
+    protected boolean useDonorBased() {
+        return this.useDonorBased;
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

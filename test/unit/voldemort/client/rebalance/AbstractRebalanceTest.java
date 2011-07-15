@@ -225,6 +225,8 @@ public abstract class AbstractRebalanceTest {
 
     protected abstract MetadataStore.VoldemortState getCurrentState(int nodeId);
 
+    protected abstract boolean useDonorBased();
+
     public void checkConsistentMetadata(Cluster targetCluster, List<Integer> serverList) {
         for(int nodeId: serverList) {
             assertEquals(targetCluster, getCurrentCluster(nodeId));
@@ -252,6 +254,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -297,6 +300,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -344,6 +348,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -385,6 +390,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -428,6 +434,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
         rebalanceClientConfig.setMaxParallelRebalancing(2);
+        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased());
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
                                                                                             0),
@@ -565,6 +572,7 @@ public abstract class AbstractRebalanceTest {
         // populate data now.
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
         rebalanceClientConfig.setMaxParallelRebalancing(2);
+        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased());
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
                                                                                             0),

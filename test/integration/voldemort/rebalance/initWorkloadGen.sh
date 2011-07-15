@@ -15,10 +15,7 @@ $work_dir/DataGen.sh $1 $2 | awk '{print $0 "\""}' > $work_dir/workload.txt
 echo "exit" >> $work_dir/workload.txt
 cd $vldm_dir
 
-let i=1
-while [ $i -le $TOTAL_NUM_SERVERS ]
-do
-  bin/voldemort-shell.sh test$i tcp://${SERVER_MACHINES[0]}:${SERVER_PORT[0]} $work_dir/workload.txt
-  let i+=1
-done
+  bin/voldemort-shell.sh test tcp://${SERVER_MACHINES[0]}:${SERVER_PORT[0]} $work_dir/workload.txt
+  bin/voldemort-shell.sh test2 tcp://${SERVER_MACHINES[0]}:${SERVER_PORT[0]} $work_dir/workload.txt
+
 

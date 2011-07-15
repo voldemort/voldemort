@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperation;
+import voldemort.server.rebalance.Rebalancer;
 import voldemort.store.metadata.MetadataStore;
 
 public abstract class RebalanceAsyncOperation extends AsyncOperation {
@@ -20,6 +21,8 @@ public abstract class RebalanceAsyncOperation extends AsyncOperation {
     protected final MetadataStore metadataStore;
     protected AdminClient adminClient;
     protected final ExecutorService executors;
+
+    protected Rebalancer rebalancer;
 
     protected ExecutorService createExecutors(int numThreads) {
 
@@ -33,7 +36,8 @@ public abstract class RebalanceAsyncOperation extends AsyncOperation {
         });
     }
 
-    public RebalanceAsyncOperation(VoldemortConfig voldemortConfig,
+    public RebalanceAsyncOperation(Rebalancer rebalancer,
+                                   VoldemortConfig voldemortConfig,
                                    MetadataStore metadataStore,
                                    int requestId,
                                    String operationString) {
@@ -42,6 +46,7 @@ public abstract class RebalanceAsyncOperation extends AsyncOperation {
         this.metadataStore = metadataStore;
         this.adminClient = null;
         this.executors = createExecutors(voldemortConfig.getMaxParallelStoresRebalancing());
+        this.rebalancer = rebalancer;
     }
 
     protected void waitForShutdown() {

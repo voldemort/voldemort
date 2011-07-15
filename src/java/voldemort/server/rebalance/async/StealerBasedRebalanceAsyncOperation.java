@@ -44,14 +44,13 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
 
     private final RebalancePartitionsInfo stealInfo;
 
-    private Rebalancer rebalancer;
-
     public StealerBasedRebalanceAsyncOperation(Rebalancer rebalancer,
                                                VoldemortConfig voldemortConfig,
                                                MetadataStore metadataStore,
                                                int requestId,
                                                RebalancePartitionsInfo stealInfo) {
-        super(voldemortConfig, metadataStore, requestId, "Stealer based rebalance : " + stealInfo);
+        super(rebalancer, voldemortConfig, metadataStore, requestId, "Stealer based rebalance : "
+                                                                     + stealInfo);
         this.rebalancer = rebalancer;
         this.stealInfo = stealInfo;
         this.rebalanceStatusList = new ArrayList<Integer>();

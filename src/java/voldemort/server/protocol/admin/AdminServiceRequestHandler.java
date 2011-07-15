@@ -279,6 +279,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
                         + storeName);
 
+            if(info.getUnbalancedStoreList().isEmpty()) {
+                metadataStore.deleteRebalancingState(info);
+                logger.info("Removed entire rebalancing state for donor node " + nodeId);
+            }
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleDeleteStoreRebalanceState failed for request(" + request.toString()

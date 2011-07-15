@@ -31,6 +31,7 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
@@ -76,12 +77,14 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         return returnMap;
     }
 
-    public DonorBasedRebalanceAsyncOperation(StoreRepository storeRepository,
+    public DonorBasedRebalanceAsyncOperation(Rebalancer rebalancer,
+                                             StoreRepository storeRepository,
                                              VoldemortConfig voldemortConfig,
                                              MetadataStore metadataStore,
                                              int requestId,
                                              List<RebalancePartitionsInfo> stealInfos) {
-        super(voldemortConfig, metadataStore, requestId, "Donor based rebalance : " + stealInfos);
+        super(rebalancer, voldemortConfig, metadataStore, requestId, "Donor based rebalance : "
+                                                                     + stealInfos);
         this.storeRepository = storeRepository;
         this.stealInfos = stealInfos;
         this.initialCluster = stealInfos.get(0).getInitialCluster();
@@ -171,6 +174,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         } finally {
             adminClient.stop();
             adminClient = null;
+            for(RebalancePartitionsInfo stealInfo: stealInfos) {
+                rebalancer.releaseRebalancingPermit(stealInfo.getStealerId());
+            }
         }
     }
 
@@ -179,7 +185,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         for(RebalancePartitionsInfo info: stealInfos) {
             stealerNodeIds.add(info.getStealerId());
         }
-        return " Donor " + stealInfos.get(0).getStealerId() + ", Donor " + stealerNodeIds + "] ";
+        return " Donor " + stealInfos.get(0).getDonorId() + ", Donor " + stealerNodeIds + "] ";
     }
 
     /**
@@ -203,7 +209,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
             // TODO: Add support for reading local RO files and streaming them
             // over
-
+            throw new VoldemortException("Donor-based rebalancing for read-only store is currently not supported!");
         } else {
 
             // Create queue for every node that we need to dump data to

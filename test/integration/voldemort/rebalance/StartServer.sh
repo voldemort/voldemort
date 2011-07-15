@@ -2,7 +2,7 @@
 
 source setup_env.inc
 LOGDIR=$WORKDIR/log
-terminal_string="Startup completed in"
+terminal_string="Startup"
 let CONFIGID=$1+1
 LOGFILE=server$CONFIGID.`date +%H%M%S`
 
