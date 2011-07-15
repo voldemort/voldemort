@@ -9,9 +9,9 @@ ERROR_MSG="ERROR Unsuccessfully terminated rebalance operation"
 TERMSTRING="Successfully terminated rebalance all tasks"
 SERVSTRING="VoldemortServer $TESTCFG_PREFIX"
 
-# sleep for 1-10 seconds
-SLEEP_RANGE=10
-let "stime=($RANDOM%$SLEEP_RANGE) + 1"
+# sleep for 10-1800 seconds
+SLEEP_RANGE=900
+let "stime=($RANDOM%$SLEEP_RANGE) + 10"
 echo sleeping for $stime seconds...
 sleep $stime
 
@@ -76,7 +76,7 @@ for ((i=0; i < ${NUMS_TO_KILL_OR_SUSPEND} ; i++)); do
   if [ "$?" -ne "0" ]
   then
     echo "Metadata validation failed! Check files in $TMPCLUSTER for details!"
-    exit "$?"
+    exit 9
   fi
 
   echo restart servers ${servers[$tokill]}

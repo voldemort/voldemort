@@ -5,7 +5,7 @@ ENDMETADATA=end-cluster.xml
 TERMSTRING="Successfully terminated rebalance all tasks"
 CLUSTERGENLOG=cluster_gen.log
 
-KillAllServers.sh 
+$WORKDIR/KillAllServers.sh 
 
 rm -rf $LOGDIR
 rm -rf $TMPCLUSTER 
@@ -78,10 +78,11 @@ fi
 echo Restoring keys for validation ...
 if [ "$1" == "reload" -a "$4" == "entropy" -o "$1" == "copy" -a "$2" == "entropy" ]
 then
-  RestoreKeys.sh
+  $WORKDIR/RestoreKeys.sh
 fi
 
 echo starting rebalance
+cp $WORKDIR/more-nodes-cluster.xml $WORKDIR/initial-cluster.xml
 LOGFILE=rebalance.log.`date +%H%M%S`
 $WORKDIR/StartRebalanceProcess.sh $LOGFILE
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1

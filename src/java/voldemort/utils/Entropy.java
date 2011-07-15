@@ -194,7 +194,8 @@ public class Entropy {
                                                              false);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
-                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
+                                                                         .subList(0, 1))
                                                      .contains(node.getId())) {
                                         writer.write(key.length());
                                         writer.write(key.get());
@@ -210,7 +211,8 @@ public class Entropy {
                                                          false);
                             for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
                                 ByteArray key = keys.next();
-                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
+                                                                     .subList(0, 1))
                                                  .contains(nodeId)) {
                                     writer.write(key.length());
                                     writer.write(key.get());
