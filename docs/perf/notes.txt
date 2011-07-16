@@ -1,7 +1,0 @@
-
-key cache = 1024M
-bin/run-wrapper.sh voldemort.performance.MysqlGrowth 100000000 1000000 10
-innodb size:
--rw-rw----    1 mysql  wheel          8G Aug 22 21:26 ibdata1
-
-bin/run-wrapper.sh voldemort.performance.BdbGrowth /tmp/bdb 1073741824 100000000 1000000 10
