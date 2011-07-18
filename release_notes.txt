@@ -1,6 +1,7 @@
 Release 0.90 on 7/10/2011
 
 Changes made since 0.81
+ * All upgrading instructions can be found here - https://github.com/voldemort/voldemort/wiki/Upgrading-from-0.81
  * Tooling
  - Single consolidated administrative tool - Got rid of the admin client
    shell and have a better Voldemort admin tool. More documentation -
@@ -34,11 +35,10 @@ Changes made since 0.81
    Now we support an admin based store swapper which reports progress. 
  - Other changes - (a) New directory format (b) Two new data format. Support for iterating over read-only data
    (c) Checksum of data in .metadata file (d) Some monitoring changes of RO stores
- - More details - https://github.com/voldemort/voldemort/wiki/Voldemort-Read-only-stores
  
  * Jar upgrades
  - Introduction of JNA 3.2.7 - We have introduced JNA 3.2.7 in this release for supporting symbolic links in read-only stores.
-   More details about the new RO format and changes can be found here - 
+   More details about the new RO format and changes can be found here - https://github.com/voldemort/voldemort/wiki/Upgrading-from-0.81 
  - Protocol Buffers 2.3.0 - Upgrading protocol buffers from 2.2.0 to 2.3.0
  - Avro 1.4.0 - Upgraded Avro from 1.3.0 to 1.4.0
 
