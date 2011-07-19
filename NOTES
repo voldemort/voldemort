@@ -17,13 +17,13 @@ Commands:
 put key value -- Associate the given value with the key.
 get key -- Retrieve the value associated with the key.
 delete key -- Remove all values associated with the key.
-locate key -- Determine which servers host the give key.
+preflist key -- Get node preference list for given key.
 help -- Print this message.
 exit -- Exit from this shell.
 > put "hello" "there"
 > get "hello"
 version(0:1): "there"
-> locate "hello"
+> preflist "hello"
 Node 0
 host:  localhost
 port: 6666
