@@ -268,8 +268,12 @@ public class RebalanceController {
                     break;
             }
 
-            // Remove the partitions moved
+            // Remove the partitions moved + Prepare message to print
+            StringBuffer buffer = new StringBuffer();
+            buffer.append("Partitions being moved : ");
             for(Entry<Integer, Integer> partitionMoved: partitionsMoved.entrySet()) {
+                buffer.append(" " + partitionMoved.getValue() + " [ to stealer node "
+                              + partitionMoved.getKey() + " ], ");
                 stealerToStolenPrimaryPartitions.remove(partitionMoved.getKey(),
                                                         partitionMoved.getValue());
             }
@@ -284,6 +288,10 @@ public class RebalanceController {
                                                                                                    transitionCluster,
                                                                                                    storeDefs,
                                                                                                    rebalanceClusterPlan);
+
+            // Print message about what is being moved
+            logger.info("----------------");
+            RebalanceUtils.printLog(orderedClusterTransition.getId(), logger, buffer.toString());
 
             // Print the transition plan
             RebalanceUtils.printLog(orderedClusterTransition.getId(),
