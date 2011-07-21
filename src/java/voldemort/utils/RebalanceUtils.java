@@ -27,9 +27,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -552,8 +552,8 @@ public class RebalanceUtils {
      * from the stealer node and add them to the donor node
      * 
      * @param cluster Existing cluster metadata
-     * @param stealerNode Node from which we are stealing the partitions
-     * @param donorNode Node to which we are donating
+     * @param stealerNode Node which steals the partitions from another node
+     * @param donorNode Node which donates partitions to the stealer
      * @param partitionList List of partitions we are moving
      * @return Updated cluster metadata
      */
