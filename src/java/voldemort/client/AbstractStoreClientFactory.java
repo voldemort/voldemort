@@ -348,6 +348,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         return uris;
     }
 
+    public StoreStats getStoreStats() {
+        return stats;
+    }
+
     protected abstract Store<ByteArray, byte[], byte[]> getStore(String storeName,
                                                                  String host,
                                                                  int port,
