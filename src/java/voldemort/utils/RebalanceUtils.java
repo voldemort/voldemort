@@ -54,7 +54,6 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
@@ -1032,7 +1031,7 @@ public class RebalanceUtils {
      * @param message The message to print
      */
     public static void printLog(int taskId, Logger logger, String message) {
-        logger.info("Task id " + Integer.toString(taskId) + "] " + message);
+        logger.info("Task id [" + Integer.toString(taskId) + "] " + message);
     }
 
     /**

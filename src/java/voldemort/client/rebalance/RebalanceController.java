@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.StringReader;
 import java.text.DecimalFormat;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +43,6 @@ import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.TreeMultimap;
 
 public class RebalanceController {
@@ -210,9 +210,9 @@ public class RebalanceController {
 
             // Generate batches of partitions and move then over
             int batchCompleted = 0;
-            HashMap<Integer, Integer> partitionsMoved = Maps.newHashMap();
+            List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
             for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitionsClone.entries()) {
-                partitionsMoved.put(stealerToPartition.getKey(), stealerToPartition.getValue());
+                partitionsMoved.add(stealerToPartition);
                 currentClusterClone = RebalanceUtils.createUpdatedCluster(currentClusterClone,
                                                                           stealerToPartition.getKey(),
                                                                           Lists.newArrayList(stealerToPartition.getValue()));
@@ -223,9 +223,9 @@ public class RebalanceController {
             }
 
             // Remove the partitions moved
-            for(Entry<Integer, Integer> partitionMoved: partitionsMoved.entrySet()) {
-                stealerToStolenPrimaryPartitionsClone.remove(partitionMoved.getKey(),
-                                                             partitionMoved.getValue());
+            for(Iterator<Entry<Integer, Integer>> partitionMoved = partitionsMoved.iterator(); partitionMoved.hasNext();) {
+                Entry<Integer, Integer> entry = partitionMoved.next();
+                stealerToStolenPrimaryPartitionsClone.remove(entry.getKey(), entry.getValue());
             }
 
             // Generate a plan to compute the tasks
@@ -256,9 +256,9 @@ public class RebalanceController {
 
             // Generate batches of partitions and move then over
             int primaryPartitionBatchSize = 0;
-            HashMap<Integer, Integer> partitionsMoved = Maps.newHashMap();
+            List<Entry<Integer, Integer>> partitionsMoved = Lists.newArrayList();
             for(Entry<Integer, Integer> stealerToPartition: stealerToStolenPrimaryPartitions.entries()) {
-                partitionsMoved.put(stealerToPartition.getKey(), stealerToPartition.getValue());
+                partitionsMoved.add(stealerToPartition);
                 transitionCluster = RebalanceUtils.createUpdatedCluster(transitionCluster,
                                                                         stealerToPartition.getKey(),
                                                                         Lists.newArrayList(stealerToPartition.getValue()));
@@ -271,13 +271,12 @@ public class RebalanceController {
             // Remove the partitions moved + Prepare message to print
             StringBuffer buffer = new StringBuffer();
             buffer.append("Partitions being moved : ");
-            for(Entry<Integer, Integer> partitionMoved: partitionsMoved.entrySet()) {
-                buffer.append(" " + partitionMoved.getValue() + " [ to stealer node "
-                              + partitionMoved.getKey() + " ], ");
-                stealerToStolenPrimaryPartitions.remove(partitionMoved.getKey(),
-                                                        partitionMoved.getValue());
+            for(Iterator<Entry<Integer, Integer>> partitionMoved = partitionsMoved.iterator(); partitionMoved.hasNext();) {
+                Entry<Integer, Integer> entry = partitionMoved.next();
+                buffer.append("[ partition " + entry.getValue() + " to stealer node "
+                              + entry.getKey() + " ], ");
+                stealerToStolenPrimaryPartitions.remove(entry.getKey(), entry.getValue());
             }
-
             final RebalanceClusterPlan rebalanceClusterPlan = new RebalanceClusterPlan(currentCluster,
                                                                                        transitionCluster,
                                                                                        storeDefs,
