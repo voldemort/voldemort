@@ -1,11 +1,22 @@
 package voldemort.annotations.metrics;
 
-/**
- * Created by IntelliJ IDEA.
- * User: afeinber
- * Date: 7/21/11
- * Time: 3:42 PM
- * To change this template use File | Settings | File Templates.
- */
+import voldemort.metrics.DataType;
+import voldemort.metrics.MetricType;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
 public @interface Attribute {
+
+    public String name();
+
+    public String description();
+
+    public DataType dataType();
+
+    public MetricType metricType();
 }
