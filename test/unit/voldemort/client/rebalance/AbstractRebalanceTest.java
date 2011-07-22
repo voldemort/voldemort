@@ -232,7 +232,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORWRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -281,7 +281,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -326,7 +326,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -368,7 +368,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -452,7 +452,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -589,7 +589,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testServerSideRouting() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
