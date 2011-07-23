@@ -46,7 +46,7 @@ public class RebalanceClusterPlan {
      * 
      * @param currentCluster The current cluster definition
      * @param targetCluster The target cluster definition
-     * @param storeDefList The list of store definitions to rebalance
+     * @param storeDefs The list of store definitions to rebalance
      * @param enabledDeletePartition Delete the RW partition on the donor side
      *        after rebalance
      */

@@ -50,12 +50,14 @@ public class ChainedResolver<T> implements InconsistencyResolver<T> {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if(this == o)
+            return true;
+        if(o == null || getClass() != o.getClass())
+            return false;
 
         ChainedResolver that = (ChainedResolver) o;
 
-        if (resolvers != null ? !resolvers.equals(that.resolvers) : that.resolvers != null)
+        if(resolvers != null ? !resolvers.equals(that.resolvers) : that.resolvers != null)
             return false;
 
         return true;

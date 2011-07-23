@@ -89,12 +89,12 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * 
      * @param name The name of the store
      * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
+     * @param cluster The cluster metadata
+     * @param storeDef The store definition
      * @param numberOfThreads The number of threads in the threadpool
+     * @param repairReads Do we want to do read repairs?
+     * @param timeoutMs The timeout in ms
+     * @param failureDetector The failure detector implementation
      */
     public ThreadPoolRoutedStore(String name,
                                  Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
@@ -120,12 +120,13 @@ public class ThreadPoolRoutedStore extends RoutedStore {
      * 
      * @param name The name of the store
      * @param innerStores The mapping of node to client
-     * @param routingStrategy The strategy for choosing a node given a key
-     * @param requiredReads The minimum number of reads that must complete
-     *        before the operation will return
-     * @param requiredWrites The minimum number of writes that must complete
-     *        before the operation will return
+     * @param cluster The cluster metadata
+     * @param storeDef The store definition
+     * @param repairReads Do we want to do read repairs?
      * @param threadPool The threadpool to use
+     * @param timeoutMs The timeout in ms
+     * @param failureDetector The failure detector implementation
+     * @param time Time instance
      */
     public ThreadPoolRoutedStore(String name,
                                  Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,

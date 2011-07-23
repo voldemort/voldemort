@@ -422,10 +422,14 @@ public class AdminClient {
      * 
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
-     * @param partitionList List of the partitions
+     * @param replicaToPartitionList Mapping of replica type to partition list
      * @param filter Custom filter implementation to filter out entries which
      *        should not be fetched.
      * @param fetchMasterEntries Fetch an entry only if master replica
+     * @param initialCluster The cluster metadata to use while making the
+     *        decision to fetch entries. This is important during rebalancing
+     *        where-in we want to fetch keys using an older metadata compared to
+     *        the new one.
      * @param skipRecords Number of records to skip
      * @return An iterator which allows entries to be streamed as they're being
      *         iterated over.
@@ -852,7 +856,7 @@ public class AdminClient {
      * partitions from donorNode, merely copies them. </b>
      * <p>
      * See
-     * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster)}
+     * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster, boolean)}
      * for more details.
      * 
      * 
@@ -1535,7 +1539,7 @@ public class AdminClient {
     /**
      * Set cluster info for AdminClient to use.
      * 
-     * @param cluster
+     * @param cluster Set the current cluster
      */
     public void setAdminClientCluster(Cluster cluster) {
         this.currentCluster = cluster;
@@ -1544,7 +1548,7 @@ public class AdminClient {
     /**
      * Get the cluster info AdminClient is using.
      * 
-     * @return
+     * @return Returns the current cluster being used by the admin client
      */
     public Cluster getAdminClientCluster() {
         return currentCluster;
@@ -1673,7 +1677,8 @@ public class AdminClient {
      * 
      * @param nodeId The id of the node on which the stores are present
      * @param storeNames List of all the store names
-     * @param Returns a map of store name to its corresponding RO storage format
+     * @return Returns a map of store name to its corresponding RO storage
+     *         format
      */
     public Map<String, String> getROStorageFormat(int nodeId, List<String> storeNames) {
         VAdminProto.GetROStorageFormatRequest.Builder getRORequest = VAdminProto.GetROStorageFormatRequest.newBuilder()
@@ -1805,7 +1810,7 @@ public class AdminClient {
      * where-in we find the max versions on each machine and then return the max
      * of all of them
      * 
-     * @param storeName List of all read-only stores
+     * @param storeNames List of all read-only stores
      * @return A map of store-name to their corresponding max version id
      */
     public Map<String, Long> getROMaxVersion(List<String> storeNames) {
@@ -2036,13 +2041,13 @@ public class AdminClient {
      * @param transitionCluster Transition cluster
      * @param rebalancePartitionPlanList The list of rebalance partition info
      *        plans
-     * @param completedNodeIds Set of node ids which have completed successfully
      * @param swapRO Boolean indicating if we need to swap RO stores
      * @param changeClusterMetadata Boolean indicating if we need to change
      *        cluster metadata
      * @param changeRebalanceState Boolean indicating if we need to change
      *        rebalancing state
      * @param rollback Do we want to do a rollback step in case of failures?
+     * @param failEarly Do we want to fail early while doing state change?
      */
     public void rebalanceStateChange(Cluster existingCluster,
                                      Cluster transitionCluster,

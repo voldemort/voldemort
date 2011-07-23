@@ -422,7 +422,7 @@ public class ByteUtils {
      * 
      * @param b1 The first array
      * @param b2 The second array
-     * @param from The offset in b2 from which to compare
+     * @param offset The offset in b2 from which to compare
      * @param to The least offset in b2 which we don't compare
      * @return -1 if b1 < b2, 1 if b1 > b2, and 0 if they are equal
      */
