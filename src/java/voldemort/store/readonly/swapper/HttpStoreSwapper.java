@@ -54,9 +54,9 @@ public class HttpStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    protected List<String> invokeFetch(final String storeName,
-                                       final String basePath,
-                                       final long pushVersion) {
+    public List<String> invokeFetch(final String storeName,
+                                    final String basePath,
+                                    final long pushVersion) {
         // do fetch
         Map<Integer, Future<String>> fetchDirs = new HashMap<Integer, Future<String>>();
         for(final Node node: cluster.getNodes()) {
@@ -142,7 +142,7 @@ public class HttpStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    protected void invokeSwap(final String storeName, final List<String> fetchFiles) {
+    public void invokeSwap(final String storeName, final List<String> fetchFiles) {
         // do swap in parallel
         Map<Integer, String> previousDirs = new HashMap<Integer, String>();
         HashMap<Integer, Exception> exceptions = Maps.newHashMap();
@@ -216,7 +216,7 @@ public class HttpStoreSwapper extends StoreSwapper {
     }
 
     @Override
-    protected void invokeRollback(String storeName, final long pushVersion) {
+    public void invokeRollback(String storeName, final long pushVersion) {
         Exception exception = null;
         for(Node node: cluster.getNodes()) {
             try {
