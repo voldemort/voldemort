@@ -14,9 +14,9 @@ public @interface Attribute {
 
     public String name();
 
-    public String description();
+    public String description() default "";
 
-    public DataType dataType();
+    public DataType dataType() default DataType.STRING;
 
-    public MetricType metricType();
+    public MetricType metricType() default MetricType.ABSOLUTE;
 }
