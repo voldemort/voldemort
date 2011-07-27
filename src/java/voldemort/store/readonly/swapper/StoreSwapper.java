@@ -52,11 +52,11 @@ public abstract class StoreSwapper {
         invokeSwap(storeName, fetched);
     }
 
-    protected abstract List<String> invokeFetch(String storeName, String basePath, long pushVersion);
+    public abstract List<String> invokeFetch(String storeName, String basePath, long pushVersion);
 
-    protected abstract void invokeSwap(String storeName, List<String> fetchFiles);
+    public abstract void invokeSwap(String storeName, List<String> fetchFiles);
 
-    protected abstract void invokeRollback(String storeName, long pushVersion);
+    public abstract void invokeRollback(String storeName, long pushVersion);
 
     public static void main(String[] args) throws Exception {
         OptionParser parser = new OptionParser();
