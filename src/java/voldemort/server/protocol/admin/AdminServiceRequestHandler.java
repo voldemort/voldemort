@@ -1154,6 +1154,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 // ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
+                    if(def.getReplicationFactor() > metadataStore.getCluster().getNumberOfNodes()) {
+                        throw new StoreOperationFailureException("Cannot add a store whose replication factor ( "
+                                                                 + def.getReplicationFactor()
+                                                                 + " ) is greater than the number of nodes ( "
+                                                                 + metadataStore.getCluster()
+                                                                                .getNumberOfNodes()
+                                                                 + " )");
+                    }
+
                     logger.info("Adding new store '" + def.getName() + "'");
                     // open the store
                     storageService.openStore(def);
