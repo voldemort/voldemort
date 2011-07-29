@@ -355,9 +355,9 @@ public class RebalanceController {
      */
     private void rebalancePerPartitionTransition(final OrderedClusterTransition orderedClusterTransition) {
         try {
-            final List<RebalanceNodePlan> rebalanceNodePlanList = orderedClusterTransition.getOrderedRebalanceNodePlanList();
+            final List<RebalancePartitionsInfo> rebalancePartitionsInfoList = orderedClusterTransition.getOrderedRebalancePartitionsInfoList();
 
-            if(rebalanceNodePlanList.isEmpty()) {
+            if(rebalancePartitionsInfoList.isEmpty()) {
                 RebalanceUtils.printLog(orderedClusterTransition.getId(),
                                         logger,
                                         "Skipping rebalance task id "
@@ -372,7 +372,7 @@ public class RebalanceController {
                                             + orderedClusterTransition.getId());
 
             // Flatten the node plans to partition plans
-            List<RebalancePartitionsInfo> rebalancePartitionPlanList = RebalanceUtils.flattenNodePlans(rebalanceNodePlanList);
+            List<RebalancePartitionsInfo> rebalancePartitionPlanList = rebalancePartitionsInfoList;
 
             // Split the store definitions
             List<StoreDefinition> readOnlyStoreDefs = RebalanceUtils.filterStores(orderedClusterTransition.getStoreDefs(),
