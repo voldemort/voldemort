@@ -25,7 +25,7 @@ public class StoreStatsJmx {
     }
 
     @Attribute(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.",
-               metricType = MetricType.COUNTER, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfCallsToGetAll", description = "The number of calls to GET_ALL since the last reset.")
     public long getNumberOfCallsToGetAll() {
         return stats.getCount(Tracked.GET_ALL);
@@ -46,7 +46,7 @@ public class StoreStatsJmx {
     }
 
     @Attribute(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.",
-               metricType = MetricType.COUNTER, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
     public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);
@@ -67,7 +67,7 @@ public class StoreStatsJmx {
     }
 
     @Attribute(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.",
-               metricType = MetricType.ABSOLUTE, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
     public long getNumberOfCallsToPut() {
         return stats.getCount(Tracked.PUT);
@@ -88,7 +88,7 @@ public class StoreStatsJmx {
     }
 
     @Attribute(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.",
-               metricType = MetricType.COUNTER, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
     public long getNumberOfCallsToDelete() {
         return stats.getCount(Tracked.DELETE);
@@ -109,14 +109,14 @@ public class StoreStatsJmx {
     }
 
     @Attribute(name = "numberOfObsoleteVersions", description = "Number of ObsoleteVersionExceptions since the last reset.",
-               metricType = MetricType.COUNTER, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfObsoleteVersions", description = "Number of ObsoleteVersionExceptions since the last reset.")
     public long getNumberOfObsoleteVersions() {
         return stats.getCount(Tracked.OBSOLETE);
     }
 
     @Attribute(name = "numberOfExceptions", description = "The number of exceptions since the last reset.",
-               metricType = MetricType.COUNTER, dataType = DataType.LONG)
+               metricType = MetricType.GAUGE, dataType = DataType.LONG)
     @JmxGetter(name = "numberOfExceptions", description = "The number of exceptions since the last reset.")
     public long getNumberOfExceptions() {
         return stats.getCount(Tracked.EXCEPTION);
