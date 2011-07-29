@@ -41,15 +41,15 @@ import com.google.common.collect.ImmutableList;
 
 public class FailureDetectorConfig {
 
-    public static final String DEFAULT_IMPLEMENTATION_CLASS_NAME = BannagePeriodFailureDetector.class.getName();
+    public static final String DEFAULT_IMPLEMENTATION_CLASS_NAME = ThresholdFailureDetector.class.getName();
 
     public static final long DEFAULT_BANNAGE_PERIOD = 30000;
 
-    public static final long DEFAULT_THRESHOLD_INTERVAL = 10000;
+    public static final long DEFAULT_THRESHOLD_INTERVAL = 300000;
 
-    public static final int DEFAULT_THRESHOLD = 80;
+    public static final int DEFAULT_THRESHOLD = 95;
 
-    public static final int DEFAULT_THRESHOLD_COUNT_MINIMUM = 10;
+    public static final int DEFAULT_THRESHOLD_COUNT_MINIMUM = 30;
 
     public static final long DEFAULT_ASYNC_RECOVERY_INTERVAL = 10000;
 
