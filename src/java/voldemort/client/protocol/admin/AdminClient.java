@@ -665,8 +665,7 @@ public class AdminClient {
                 }
             }
             for(StoreDefinition def: writableStores) {
-                if(def.getName().compareTo("test-recovery-data") == 0)
-                    restoreStoreFromReplication(nodeId, cluster, def, executors);
+                restoreStoreFromReplication(nodeId, cluster, def, executors);
             }
         } finally {
             executors.shutdown();
