@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
+    private final int DELETE_BATCH = 50;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -38,13 +39,30 @@ public class RepairJob implements Runnable {
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final Map<String, Long> storeStats;
+    private final boolean deleteOnly;
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
         this.storeStats = Maps.newHashMap();
+        this.deleteOnly = false;
+    }
 
+    public RepairJob(StoreRepository storeRepo,
+                     MetadataStore metadataStore,
+                     Semaphore repairPermits,
+                     boolean deleteOnly) {
+        this.storeRepo = storeRepo;
+        this.metadataStore = metadataStore;
+        this.repairPermits = Utils.notNull(repairPermits);
+        this.storeStats = Maps.newHashMap();
+        this.deleteOnly = deleteOnly;
+    }
+
+    @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
+    public void startRepairJob() {
+        run();
     }
 
     @JmxOperation(description = "Get repair slops per store", impact = MBeanOperationInfo.ACTION)
@@ -86,7 +104,8 @@ public class RepairJob implements Runnable {
             localStats.put(storeDef.getName(), 0L);
         }
 
-        acquireRepairPermit();
+        if(!acquireRepairPermit())
+            return;
         try {
             // Get routing factory
             RoutingStrategyFactory routingStrategyFactory = new RoutingStrategyFactory();
@@ -104,27 +123,33 @@ public class RepairJob implements Runnable {
                     RoutingStrategy routingStrategy = routingStrategyFactory.updateRoutingStrategy(storeDef,
                                                                                                    metadataStore.getCluster());
                     long repairSlops = 0L;
+                    long numDeletedKeys = 0;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
                         List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
 
                         if(!hasDestination(nodes)) {
-                            for(Node node: nodes) {
-                                Slop slop = new Slop(storeDef.getName(),
-                                                     Slop.Operation.PUT,
-                                                     keyAndVal.getFirst(),
-                                                     keyAndVal.getSecond().getValue(),
-                                                     null,
-                                                     node.getId(),
-                                                     new Date());
-                                Versioned<Slop> slopVersioned = new Versioned<Slop>(slop,
-                                                                                    keyAndVal.getSecond()
-                                                                                             .getVersion());
-                                slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
-                                repairSlops++;
+                            if(!deleteOnly) {
+                                for(Node node: nodes) {
+                                    Slop slop = new Slop(storeDef.getName(),
+                                                         Slop.Operation.PUT,
+                                                         keyAndVal.getFirst(),
+                                                         keyAndVal.getSecond().getValue(),
+                                                         null,
+                                                         node.getId(),
+                                                         new Date());
+                                    Versioned<Slop> slopVersioned = new Versioned<Slop>(slop,
+                                                                                        keyAndVal.getSecond()
+                                                                                                 .getVersion());
+                                    slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
+                                    repairSlops++;
+                                }
                             }
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
+                            numDeletedKeys++;
+                            if(numDeletedKeys % DELETE_BATCH == 0)
+                                logger.info("Total keys deleted = " + numDeletedKeys);
                         }
                     }
                     closeIterator(iterator);
@@ -173,13 +198,14 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private void acquireRepairPermit() {
+    private boolean acquireRepairPermit() {
         logger.info("Acquiring lock to perform repair job ");
-        try {
-            this.repairPermits.acquire();
+        if(this.repairPermits.tryAcquire()) {
             logger.info("Acquired lock to perform repair job ");
-        } catch(InterruptedException e) {
-            throw new IllegalStateException("Repair job interrupted while waiting for permit.", e);
+            return true;
+        } else {
+            logger.error("Aborting Repair Job since another instance is already running! ");
+            return false;
         }
     }
 

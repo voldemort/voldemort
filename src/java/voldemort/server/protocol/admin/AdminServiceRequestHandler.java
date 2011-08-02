@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -48,6 +49,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
@@ -101,6 +103,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final StreamStats stats;
     private FileFetcher fileFetcher;
 
+    // Rebalance repair semaphore
+    private Semaphore repairSemaphore;
+
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                       StorageService storageService,
                                       StoreRepository storeRepository,
@@ -120,6 +125,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
         this.rebalancer = rebalancer;
         this.stats = stats;
         setFetcherClass(voldemortConfig);
+
+        // Rebalance repair semaphore initialization
+        repairSemaphore = new Semaphore(1);
     }
 
     private void setFetcherClass(VoldemortConfig voldemortConfig) {
@@ -241,6 +249,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case REBALANCE_STATE_CHANGE:
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceStateChange(request.getRebalanceStateChange()));
+                break;
+            case REBALANCE_REPAIR:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceRepair(request.getRebalanceRepair()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -532,6 +544,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
+    }
+
+    public VAdminProto.RebalanceRepairResponse handleRebalanceRepair(VAdminProto.RebalanceRepairRequest request) {
+        VAdminProto.RebalanceRepairResponse.Builder response = VAdminProto.RebalanceRepairResponse.newBuilder();
+        try {
+            RepairJob job = new RepairJob(storeRepository, metadataStore, repairSemaphore, true);
+            logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
+            job.run();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("Repair job failed for request : " + request.toString() + ")", e);
         }
         return response.build();
     }
