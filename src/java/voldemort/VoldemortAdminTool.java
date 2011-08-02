@@ -515,8 +515,6 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --async get --url [url] --node [node-id]");
         stream.println("\t3) Stop a list of async jobs on a particular node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --async stop --async-id [comma-separated list of async job id] --url [url] --node [node-id]");
-        stream.println("\t4) Clean a node after rebalancing is done");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --async rebalance-clean --url [url] --node [node-id]");
         stream.println();
         stream.println("OTHERS");
         stream.println("\t1) Restore a particular node completely from its replicas");
@@ -525,6 +523,8 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]");
         stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
+        stream.println("\t4) Clean a node after rebalancing is done");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --rebalance-clean --url [url] --node [node-id]");
 
         parser.printHelpOn(stream);
     }
