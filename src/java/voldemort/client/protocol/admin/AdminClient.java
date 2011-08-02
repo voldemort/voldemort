@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -49,8 +49,8 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -1576,6 +1576,30 @@ public class AdminClient {
         if(response.hasError()) {
             throwException(response.getError());
         }
+        return;
+    }
+
+    /**
+     * Repair the stores on a rebalanced node 'nodeId'
+     * <p>
+     * 
+     * @param nodeId The id of the node on which to do the repair
+     */
+    public void rebalanceRepair(int nodeId) {
+        VAdminProto.RebalanceRepairRequest.Builder rebalanceRepairRequest = VAdminProto.RebalanceRepairRequest.newBuilder();
+
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setRebalanceRepair(rebalanceRepairRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.REBALANCE_REPAIR)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
         return;
     }
 

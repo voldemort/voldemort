@@ -190,6 +190,7 @@ public class VoldemortAdminTool {
               .describedAs("job-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
+        parser.accepts("rebalance-clean", "Clean after rebalancing is done");
 
         OptionSet options = parser.parse(args);
 
@@ -264,10 +265,13 @@ public class VoldemortAdminTool {
         if(options.has("async")) {
             ops += "b";
         }
+        if(options.has("rebalance-clean")) {
+            ops += "l";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
-                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async) "
+                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, rebalance-clean) "
                         + "must be specified");
         }
 
@@ -414,6 +418,9 @@ public class VoldemortAdminTool {
                     asyncIds = (List<Integer>) options.valuesOf("async-id");
                 executeAsync(nodeId, adminClient, asyncKey, asyncIds);
             }
+            if(ops.contains("l")) {
+                adminClient.rebalanceRepair(nodeId);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
@@ -508,6 +515,8 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --async get --url [url] --node [node-id]");
         stream.println("\t3) Stop a list of async jobs on a particular node");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --async stop --async-id [comma-separated list of async job id] --url [url] --node [node-id]");
+        stream.println("\t4) Clean a node after rebalancing is done");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --async rebalance-clean --url [url] --node [node-id]");
         stream.println();
         stream.println("OTHERS");
         stream.println("\t1) Restore a particular node completely from its replicas");
@@ -665,8 +674,9 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
-                                                                                 updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId,
+                                             key,
+                                             Versioned.value(value.toString(), updatedVersion));
         }
     }
 
