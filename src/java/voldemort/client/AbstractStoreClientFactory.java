@@ -95,6 +95,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats stats;
+    private volatile StoreStatsJmx statsJmx;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
@@ -202,7 +203,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
             store = statStore;
-            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
+            statsJmx = new StoreStatsJmx(statStore.getStats());
+            JmxUtils.registerMbean(statsJmx,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
                                                              store.getName() + jmxId()));
         }
@@ -346,6 +348,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         }
 
         return uris;
+    }
+
+    public StoreStats getStats() {
+        return stats;
+    }
+
+    public StoreStatsJmx getStatsJmx() {
+        return statsJmx;
     }
 
     protected abstract Store<ByteArray, byte[], byte[]> getStore(String storeName,

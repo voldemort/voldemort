@@ -145,6 +145,10 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
             return super.getCapability(capability);
     }
 
+    /**
+     * To be used for applications that use a custom metrics framework
+     * @return The StoreStats object for this specific store
+     */
     public StoreStats getStats() {
         return stats;
     }
