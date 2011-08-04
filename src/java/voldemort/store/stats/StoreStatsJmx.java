@@ -5,7 +5,7 @@ import voldemort.annotations.jmx.JmxManaged;
 
 import com.google.common.collect.ImmutableList;
 import voldemort.annotations.metrics.Attribute;
-import voldemort.annotations.metrics.Sensor;
+import voldemort.annotations.metrics.Metric;
 import voldemort.metrics.DataType;
 import voldemort.metrics.MetricType;
 
@@ -14,7 +14,7 @@ import voldemort.metrics.MetricType;
  * 
  * 
  */
-@Sensor
+@Metric
 @JmxManaged
 public class StoreStatsJmx {
 
