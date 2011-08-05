@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
-    private final int DELETE_BATCH = 50;
+    private final int DELETE_BATCH = 20;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -98,6 +98,7 @@ public class RepairJob implements Runnable {
         Date startTime = new Date();
         boolean terminatedEarly = false;
         logger.info("Started repair job at " + startTime);
+        System.out.println("Started repair job at " + startTime);
 
         Map<String, Long> localStats = Maps.newHashMap();
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
