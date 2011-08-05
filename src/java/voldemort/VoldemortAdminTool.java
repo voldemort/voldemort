@@ -419,11 +419,21 @@ public class VoldemortAdminTool {
                 executeAsync(nodeId, adminClient, asyncKey, asyncIds);
             }
             if(ops.contains("l")) {
-                adminClient.rebalanceRepair(nodeId);
+                executeRebalanceRepair(nodeId, adminClient);
             }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    private static void executeRebalanceRepair(Integer nodeId, AdminClient adminClient) {
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                adminClient.rebalanceRepair(node.getId());
+            }
+        } else {
+            adminClient.rebalanceRepair(nodeId);
         }
     }
 
