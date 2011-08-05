@@ -1342,20 +1342,20 @@ public class RebalanceUtils {
      */
     public static HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList,
                                                                                             boolean groupByStealerNode) {
-        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        HashMap<Integer, List<RebalancePartitionsInfo>> nodeToPartitionsInfo = Maps.newHashMap();
         if(rebalancePartitionPlanList != null) {
             for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
                 int nodeId = groupByStealerNode ? partitionInfo.getStealerId()
                                                : partitionInfo.getDonorId();
-                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(nodeId);
+                List<RebalancePartitionsInfo> partitionInfos = nodeToPartitionsInfo.get(nodeId);
                 if(partitionInfos == null) {
                     partitionInfos = Lists.newArrayList();
-                    stealerNodeToPlan.put(nodeId, partitionInfos);
+                    nodeToPartitionsInfo.put(nodeId, partitionInfos);
                 }
                 partitionInfos.add(partitionInfo);
             }
         }
-        return stealerNodeToPlan;
+        return nodeToPartitionsInfo;
     }
 
     /**

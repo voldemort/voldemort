@@ -18,10 +18,13 @@ package voldemort.server.rebalance.async;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -57,12 +60,14 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final List<RebalancePartitionsInfo> stealInfos;
     private final StoreRepository storeRepository;
-    private final static Pair<ByteArray, Versioned<byte[]>> END = Pair.create(null, null);
 
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Cluster initialCluster;
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
+
+    private final ExecutorService pushSlavesExecutor;
+    ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool = Lists.newArrayList();
 
     private HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> groupByStores(List<RebalancePartitionsInfo> stealInfos) {
 
@@ -91,6 +96,10 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
+
+        // create executor with # of threads mapping to the max. potential # of
+        // stealer nodes
+        pushSlavesExecutor = Executors.newFixedThreadPool(initialCluster.getNumberOfNodes() - 1);
     }
 
     @Override
@@ -243,36 +252,15 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 final SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>> queue = new SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>();
                 nodeToQueue.put(tuple.getFirst(), queue);
 
-                ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> nodeIterator = new ClosableIterator<Pair<ByteArray, Versioned<byte[]>>>() {
-
-                    public void close() {}
-
-                    public boolean hasNext() {
-                        // Empty => Not yet finished
-                        Pair<ByteArray, Versioned<byte[]>> element = queue.poll();
-                        if(element != null && element.equals(END)) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    }
-
-                    public Pair<ByteArray, Versioned<byte[]>> next() {
-                        try {
-                            return queue.take();
-                        } catch(InterruptedException e) {
-                            logger.info("Next did not return anything");
-                        }
-                        return null;
-                    }
-
-                    public void remove() {
-                        throw new VoldemortException("Remove not supported");
-                    }
-
-                };
-
-                adminClient.updateEntries(tuple.getFirst(), storeName, nodeIterator, null);
+                // TODO: need to fix first two arguments
+                DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(0,
+                                                                                                    "test",
+                                                                                                    tuple.getFirst(),
+                                                                                                    queue,
+                                                                                                    storeName,
+                                                                                                    adminClient);
+                updatePushSlavePool.add(updatePushSlave);
+                pushSlavesExecutor.execute(updatePushSlave);
             }
 
             ClosableIterator<ByteArray> keys = storageEngine.keys();
@@ -296,11 +284,26 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                     }
                 }
             }
+            terminateAllSlaves(updatePushSlavePool);
+        }
+    }
 
-            // Everything is done, put the terminator in
-            for(SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>> queue: nodeToQueue.values()) {
-                queue.add(END);
-            }
+    private void terminateAllSlaves(ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
+        // Everything is done, put the terminator in
+        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
+            it.next().setCompletion();
+        }
+
+        // wait for all async slave to finish
+        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
+            it.next().waitCompletion();
+        }
+    }
+
+    private void terminateAllSlavesAsync(ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
+        // Everything is done, put the terminator in
+        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
+            it.next().setCompletion();
         }
     }
 
@@ -309,6 +312,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         running.set(false);
         updateStatus(getHeader(stealInfos) + "Stop called on rebalance operation");
         logger.info(getHeader(stealInfos) + "Stop called on rebalance operation");
+        terminateAllSlavesAsync(updatePushSlavePool);
         executors.shutdownNow();
     }
 }
