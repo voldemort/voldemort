@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
+import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.SlopStorageEngine;
@@ -73,6 +74,11 @@ public class StoreRepository {
      * Stores that add redirectingSocketStores
      */
     private final ConcurrentMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>> redirectingSocketStores;
+
+    /*
+     * Repair Job object registered with StoreRepository
+     */
+    private RepairJob _repairJob;
 
     public StoreRepository() {
         super();
@@ -219,5 +225,13 @@ public class StoreRepository {
 
     public boolean hasSlopStore() {
         return this.slopStore != null;
+    }
+
+    public RepairJob getRepairJob() {
+        return _repairJob;
+    }
+
+    public void registerRepairJob(RepairJob repairJob) {
+        _repairJob = repairJob;
     }
 }

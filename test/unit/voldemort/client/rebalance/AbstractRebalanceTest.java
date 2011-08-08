@@ -482,7 +482,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                _admin.rebalanceRepair(i);
+                _admin.RepairJob(i);
             }
 
             boolean cleanNode = true;
@@ -583,7 +583,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                _admin.rebalanceRepair(i);
+                _admin.RepairJob(i);
             }
 
             boolean cleanNode = true;
