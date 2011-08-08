@@ -190,7 +190,7 @@ public class VoldemortAdminTool {
               .describedAs("job-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
-        parser.accepts("rebalance-clean", "Clean after rebalancing is done");
+        parser.accepts("repair-job", "Clean after rebalancing is done");
 
         OptionSet options = parser.parse(args);
 
@@ -265,13 +265,13 @@ public class VoldemortAdminTool {
         if(options.has("async")) {
             ops += "b";
         }
-        if(options.has("rebalance-clean")) {
+        if(options.has("repair-job")) {
             ops += "l";
         }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
-                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, rebalance-clean) "
+                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, repair-job) "
                         + "must be specified");
         }
 
@@ -534,7 +534,7 @@ public class VoldemortAdminTool {
         stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
         stream.println("\t4) Clean a node after rebalancing is done");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --rebalance-clean --url [url] --node [node-id]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --repair-job --url [url] --node [node-id]");
 
         parser.printHelpOn(stream);
     }
