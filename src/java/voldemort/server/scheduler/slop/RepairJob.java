@@ -39,31 +39,30 @@ public class RepairJob implements Runnable {
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final Map<String, Long> storeStats;
-    private boolean deleteOnly;
-
-    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
-        this.storeRepo = storeRepo;
-        this.metadataStore = metadataStore;
-        this.repairPermits = Utils.notNull(repairPermits);
-        this.storeStats = Maps.newHashMap();
-        this.deleteOnly = false;
-    }
-
-    public RepairJob(StoreRepository storeRepo,
-                     MetadataStore metadataStore,
-                     Semaphore repairPermits,
-                     boolean deleteOnly) {
-        this(storeRepo, metadataStore, repairPermits);
-        this.deleteOnly = deleteOnly;
-    }
+    private final boolean deleteOnly;
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
                      Semaphore repairPermits,
                      boolean deleteOnly,
                      int deleteBatchSize) {
-        this(storeRepo, metadataStore, repairPermits, deleteOnly);
+        this.storeRepo = storeRepo;
+        this.metadataStore = metadataStore;
+        this.repairPermits = Utils.notNull(repairPermits);
+        this.storeStats = Maps.newHashMap();
+        this.deleteOnly = deleteOnly;
         this.DELETE_BATCH = deleteBatchSize;
+    }
+
+    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
+        this(storeRepo, metadataStore, repairPermits, false, 1000);
+    }
+
+    public RepairJob(StoreRepository storeRepo,
+                     MetadataStore metadataStore,
+                     Semaphore repairPermits,
+                     boolean deleteOnly) {
+        this(storeRepo, metadataStore, repairPermits, deleteOnly, 1000);
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
