@@ -1585,12 +1585,12 @@ public class AdminClient {
      * 
      * @param nodeId The id of the node on which to do the repair
      */
-    public void rebalanceRepair(int nodeId) {
-        VAdminProto.RebalanceRepairRequest.Builder rebalanceRepairRequest = VAdminProto.RebalanceRepairRequest.newBuilder();
+    public void RepairJob(int nodeId) {
+        VAdminProto.RepairJobRequest.Builder rebalanceRepairRequest = VAdminProto.RepairJobRequest.newBuilder();
 
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
-                                                                                          .setRebalanceRepair(rebalanceRepairRequest)
-                                                                                          .setType(VAdminProto.AdminRequestType.REBALANCE_REPAIR)
+                                                                                          .setRepairJob(rebalanceRepairRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.REPAIR_JOB)
                                                                                           .build();
         VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
                                                                                    adminRequest,

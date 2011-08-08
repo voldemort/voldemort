@@ -203,11 +203,11 @@ message RollbackStoreResponse {
   optional Error error = 1;
 }
 
-message RebalanceRepairRequest {
+message RepairJobRequest {
   optional string store_name = 1;
 }
 
-message RebalanceRepairResponse {
+message RepairJobResponse {
   optional Error error = 1;
 }
 
@@ -289,7 +289,7 @@ enum AdminRequestType {
   FAILED_FETCH_STORE = 22;
   GET_RO_STORAGE_FORMAT = 23;
   REBALANCE_STATE_CHANGE = 24;
-  REBALANCE_REPAIR = 25;
+  REPAIR_JOB = 25;
 }
 
 message VoldemortAdminRequest {
@@ -317,5 +317,5 @@ message VoldemortAdminRequest {
   optional FailedFetchStoreRequest failed_fetch_store = 24;
   optional GetROStorageFormatRequest get_ro_storage_format = 25;
   optional RebalanceStateChangeRequest rebalance_state_change = 26;
-  optional RebalanceRepairRequest rebalance_repair = 27;
+  optional RepairJobRequest repair_job = 27;
 }

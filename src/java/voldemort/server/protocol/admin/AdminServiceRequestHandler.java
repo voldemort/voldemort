@@ -250,9 +250,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceStateChange(request.getRebalanceStateChange()));
                 break;
-            case REBALANCE_REPAIR:
-                ProtoUtils.writeMessage(outputStream,
-                                        handleRebalanceRepair(request.getRebalanceRepair()));
+            case REPAIR_JOB:
+                ProtoUtils.writeMessage(outputStream, handleRebalanceRepair(request.getRepairJob()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -548,10 +547,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.RebalanceRepairResponse handleRebalanceRepair(VAdminProto.RebalanceRepairRequest request) {
-        VAdminProto.RebalanceRepairResponse.Builder response = VAdminProto.RebalanceRepairResponse.newBuilder();
+    public VAdminProto.RepairJobResponse handleRebalanceRepair(VAdminProto.RepairJobRequest request) {
+        VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
         try {
-            RepairJob job = new RepairJob(storeRepository, metadataStore, repairSemaphore, true);
+            // RepairJob job = new RepairJob(storeRepository, metadataStore,
+            // repairSemaphore, true);
+            RepairJob job = storeRepository.getRepairJob();
             logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
             job.run();
         } catch(VoldemortException e) {

@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
-    private final int DELETE_BATCH = 20;
+    private final int DELETE_BATCH = 1000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -125,6 +125,7 @@ public class RepairJob implements Runnable {
                                                                                                    metadataStore.getCluster());
                     long repairSlops = 0L;
                     long numDeletedKeys = 0;
+                    long numScannedKeys = 0;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
@@ -149,9 +150,11 @@ public class RepairJob implements Runnable {
                             }
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                             numDeletedKeys++;
-                            if(numDeletedKeys % DELETE_BATCH == 0)
-                                logger.info("Total keys deleted = " + numDeletedKeys);
                         }
+                        numScannedKeys++;
+                        if(numScannedKeys % DELETE_BATCH == 0)
+                            logger.info("#Scanned:" + numScannedKeys + " #Deleted:"
+                                        + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
