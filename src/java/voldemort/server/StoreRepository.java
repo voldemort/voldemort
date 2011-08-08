@@ -78,7 +78,7 @@ public class StoreRepository {
     /*
      * Repair Job object registered with StoreRepository
      */
-    private RepairJob _repairJob;
+    private RepairJob repairJob;
 
     public StoreRepository() {
         super();
@@ -228,10 +228,10 @@ public class StoreRepository {
     }
 
     public RepairJob getRepairJob() {
-        return _repairJob;
+        return repairJob;
     }
 
-    public void registerRepairJob(RepairJob repairJob) {
-        _repairJob = repairJob;
+    public void registerRepairJob(RepairJob job) {
+        repairJob = job;
     }
 }

@@ -423,11 +423,13 @@ public abstract class AbstractRebalanceTest {
                                                                     Lists.newArrayList(3));
 
         // start servers 0 , 1, 2
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("enable.repair", "true");
         List<Integer> serverList = Arrays.asList(0, 1, 2);
         currentCluster = startServers(currentCluster,
                                       rwStoreDefFileWithReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -446,13 +448,13 @@ public abstract class AbstractRebalanceTest {
             ByteArray[] checkKeysNegative = new ByteArray[20];
             List<Integer> movedPartitions = new ArrayList<Integer>();
             movedPartitions.add(3);
-            AdminClient _admin = rebalanceClient.getAdminClient();
+            AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = _admin.fetchKeys(1,
-                                    rwStoreDefWithReplication.getName(),
-                                    movedPartitions,
-                                    null,
-                                    false);
+            keys = admin.fetchKeys(1,
+                                   rwStoreDefWithReplication.getName(),
+                                   movedPartitions,
+                                   null,
+                                   false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -462,11 +464,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(1);
             Iterator<ByteArray> keys2 = null;
-            keys2 = _admin.fetchKeys(1,
-                                     rwStoreDefWithReplication.getName(),
-                                     stablePartitions,
-                                     null,
-                                     false);
+            keys2 = admin.fetchKeys(1,
+                                    rwStoreDefWithReplication.getName(),
+                                    stablePartitions,
+                                    null,
+                                    false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -482,7 +484,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                _admin.RepairJob(i);
+                admin.repairJob(i);
             }
 
             boolean cleanNode = true;
@@ -549,13 +551,13 @@ public abstract class AbstractRebalanceTest {
             ByteArray[] checkKeysNegative = new ByteArray[20];
             List<Integer> movedPartitions = new ArrayList<Integer>();
             movedPartitions.add(3);
-            AdminClient _admin = rebalanceClient.getAdminClient();
+            AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = _admin.fetchKeys(1,
-                                    rwStoreDefWithReplication.getName(),
-                                    movedPartitions,
-                                    null,
-                                    false);
+            keys = admin.fetchKeys(1,
+                                   rwStoreDefWithReplication.getName(),
+                                   movedPartitions,
+                                   null,
+                                   false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -565,11 +567,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(3);
             Iterator<ByteArray> keys2 = null;
-            keys2 = _admin.fetchKeys(0,
-                                     rwStoreDefWithReplication.getName(),
-                                     stablePartitions,
-                                     null,
-                                     false);
+            keys2 = admin.fetchKeys(0,
+                                    rwStoreDefWithReplication.getName(),
+                                    stablePartitions,
+                                    null,
+                                    false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -585,7 +587,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                _admin.RepairJob(i);
+                admin.repairJob(i);
             }
 
             boolean cleanNode = true;

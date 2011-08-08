@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
-    private final int DELETE_BATCH = 1000;
+    private int DELETE_BATCH = 1000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -39,7 +39,7 @@ public class RepairJob implements Runnable {
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final Map<String, Long> storeStats;
-    private final boolean deleteOnly;
+    private boolean deleteOnly;
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
         this.storeRepo = storeRepo;
@@ -53,11 +53,17 @@ public class RepairJob implements Runnable {
                      MetadataStore metadataStore,
                      Semaphore repairPermits,
                      boolean deleteOnly) {
-        this.storeRepo = storeRepo;
-        this.metadataStore = metadataStore;
-        this.repairPermits = Utils.notNull(repairPermits);
-        this.storeStats = Maps.newHashMap();
+        this(storeRepo, metadataStore, repairPermits);
         this.deleteOnly = deleteOnly;
+    }
+
+    public RepairJob(StoreRepository storeRepo,
+                     MetadataStore metadataStore,
+                     Semaphore repairPermits,
+                     boolean deleteOnly,
+                     int deleteBatchSize) {
+        this(storeRepo, metadataStore, repairPermits, deleteOnly);
+        this.DELETE_BATCH = deleteBatchSize;
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
@@ -98,7 +104,6 @@ public class RepairJob implements Runnable {
         Date startTime = new Date();
         boolean terminatedEarly = false;
         logger.info("Started repair job at " + startTime);
-        System.out.println("Started repair job at " + startTime);
 
         Map<String, Long> localStats = Maps.newHashMap();
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
