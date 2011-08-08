@@ -63,6 +63,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Cluster initialCluster;
+    private final Cluster targetCluster;
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
@@ -92,6 +93,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                                                                      + stealInfos);
         this.storeRepository = storeRepository;
         this.stealInfos = stealInfos;
+        this.targetCluster = metadataStore.getCluster();
         this.initialCluster = stealInfos.get(0).getInitialCluster();
 
         // Group the plans by the store names
@@ -99,7 +101,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
         // create executor with # of threads mapping to the max. potential # of
         // stealer nodes
-        pushSlavesExecutor = Executors.newFixedThreadPool(initialCluster.getNumberOfNodes() - 1);
+        pushSlavesExecutor = Executors.newFixedThreadPool(targetCluster.getNumberOfNodes() - 1);
     }
 
     @Override
@@ -268,7 +270,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 ByteArray key = keys.next();
                 List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
                                                                                   optimizedStealerNodeToMappingTuples,
-                                                                                  initialCluster,
+                                                                                  targetCluster,
                                                                                   storeDef);
 
                 if(nodeIds.size() > 0) {
