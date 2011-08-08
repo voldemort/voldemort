@@ -13,6 +13,11 @@ import voldemort.versioning.Versioned;
 
 public class KeyLocationValidation {
 
+    private final int nodeId;
+    private final ByteArray keyList;
+    private final Cluster cluster;
+    private final StoreDefinition storeDef;
+
     public KeyLocationValidation(Cluster cluster,
                                  int nodeId,
                                  StoreDefinition storeDef,
@@ -23,24 +28,21 @@ public class KeyLocationValidation {
         this.storeDef = storeDef;
     }
 
-    private int nodeId;
-    private ByteArray keyList;
-    private Cluster cluster;
-    private StoreDefinition storeDef;
-
     /*
      * Validate location of the 'keyList'
      * 
-     * @param testType Indicates how to validate True: Positive test (the keys
-     * should be present on nodeId). False : Negative test (the keys should not
-     * be present on nodeId)
+     * @param positiveTest Indicates how to validate True: Positive test (the
+     * keys should be present on nodeId). False : Negative test (the keys should
+     * not be present on nodeId)
      */
-    public boolean validate(boolean testType) {
+    public boolean validate(boolean positiveTest) {
+        boolean retVal = false;
+
         SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                               10000,
                                                                               100000,
                                                                               32 * 1024);
-        // Cache connections to all nodes for this store in advance
+        // Cache connections to all nodes for this store and given node
         Store<ByteArray, byte[], byte[]> socketStore = socketStoreFactory.create(storeDef.getName(),
                                                                                  cluster.getNodeById(nodeId)
                                                                                         .getHost(),
@@ -50,12 +52,13 @@ public class KeyLocationValidation {
                                                                                  RequestRoutingType.IGNORE_CHECKS);
         List<Versioned<byte[]>> value = socketStore.get(keyList, null);
 
-        if(testType == false && (value == null || value.size() == 0)) {
-            return true;
+        if(!positiveTest && (value == null || value.size() == 0)) {
+            retVal = true;
         } else if(value != null && value.size() != 0) {
-            return true;
+            retVal = true;
         }
 
-        return false;
+        socketStore.close();
+        return retVal;
     }
 }

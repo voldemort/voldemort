@@ -1585,7 +1585,7 @@ public class AdminClient {
      * 
      * @param nodeId The id of the node on which to do the repair
      */
-    public void RepairJob(int nodeId) {
+    public void repairJob(int nodeId) {
         VAdminProto.RepairJobRequest.Builder rebalanceRepairRequest = VAdminProto.RepairJobRequest.newBuilder();
 
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()

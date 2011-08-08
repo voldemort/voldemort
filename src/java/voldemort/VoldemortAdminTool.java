@@ -430,10 +430,10 @@ public class VoldemortAdminTool {
     private static void executeRepairJob(Integer nodeId, AdminClient adminClient) {
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-                adminClient.RepairJob(node.getId());
+                adminClient.repairJob(node.getId());
             }
         } else {
-            adminClient.RepairJob(nodeId);
+            adminClient.repairJob(nodeId);
         }
     }
 

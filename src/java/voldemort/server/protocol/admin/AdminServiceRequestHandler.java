@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -103,9 +102,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
     private final StreamStats stats;
     private FileFetcher fileFetcher;
 
-    // Rebalance repair semaphore
-    private Semaphore repairSemaphore;
-
     public AdminServiceRequestHandler(ErrorCodeMapper errorCodeMapper,
                                       StorageService storageService,
                                       StoreRepository storeRepository,
@@ -125,9 +121,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
         this.rebalancer = rebalancer;
         this.stats = stats;
         setFetcherClass(voldemortConfig);
-
-        // Rebalance repair semaphore initialization
-        repairSemaphore = new Semaphore(1);
     }
 
     private void setFetcherClass(VoldemortConfig voldemortConfig) {
@@ -550,8 +543,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.RepairJobResponse handleRebalanceRepair(VAdminProto.RepairJobRequest request) {
         VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
         try {
-            // RepairJob job = new RepairJob(storeRepository, metadataStore,
-            // repairSemaphore, true);
             RepairJob job = storeRepository.getRepairJob();
             logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
             job.run();
