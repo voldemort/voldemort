@@ -234,7 +234,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORWRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -283,7 +283,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -328,7 +328,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRORebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -370,7 +370,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -412,7 +412,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testRebalanceCleanPrimary() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
                 { 2 } });
@@ -524,11 +524,13 @@ public abstract class AbstractRebalanceTest {
                                                                     Lists.newArrayList(3));
 
         // start servers 0 , 1, 2
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("enable.repair", "true");
         List<Integer> serverList = Arrays.asList(0, 1, 2);
         currentCluster = startServers(currentCluster,
                                       rwStoreDefFileWithReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -614,7 +616,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -751,7 +753,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    // @Test
+    @Test
     public void testServerSideRouting() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
