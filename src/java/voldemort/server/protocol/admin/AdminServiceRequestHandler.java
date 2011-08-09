@@ -244,7 +244,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                         handleRebalanceStateChange(request.getRebalanceStateChange()));
                 break;
             case REPAIR_JOB:
-                ProtoUtils.writeMessage(outputStream, handleRebalanceRepair(request.getRepairJob()));
+                ProtoUtils.writeMessage(outputStream, handleRepairJob(request.getRepairJob()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -540,7 +540,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.RepairJobResponse handleRebalanceRepair(VAdminProto.RepairJobRequest request) {
+    public VAdminProto.RepairJobResponse handleRepairJob(VAdminProto.RepairJobRequest request) {
         VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
         try {
             RepairJob job = storeRepository.getRepairJob();
