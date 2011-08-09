@@ -55,7 +55,7 @@ public class RepairJob implements Runnable {
     }
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
-        this(storeRepo, metadataStore, repairPermits, false, 1000);
+        this(storeRepo, metadataStore, repairPermits, true, 1000);
     }
 
     public RepairJob(StoreRepository storeRepo,
