@@ -29,7 +29,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
-    private final static int DELETE_BATCH_SIZE = 1000;
+    private final static int DELETE_BATCH_SIZE = 10000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
