@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
-    private int DELETE_BATCH = 1000;
+    private final static int DELETE_BATCH_SIZE = 1000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -40,6 +40,7 @@ public class RepairJob implements Runnable {
     private final MetadataStore metadataStore;
     private final Map<String, Long> storeStats;
     private final boolean deleteOnly;
+    private final int deleteBatchSize;
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
@@ -51,18 +52,18 @@ public class RepairJob implements Runnable {
         this.repairPermits = Utils.notNull(repairPermits);
         this.storeStats = Maps.newHashMap();
         this.deleteOnly = deleteOnly;
-        this.DELETE_BATCH = deleteBatchSize;
+        this.deleteBatchSize = deleteBatchSize;
     }
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
-        this(storeRepo, metadataStore, repairPermits, true, 1000);
+        this(storeRepo, metadataStore, repairPermits, true, DELETE_BATCH_SIZE);
     }
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
                      Semaphore repairPermits,
                      boolean deleteOnly) {
-        this(storeRepo, metadataStore, repairPermits, deleteOnly, 1000);
+        this(storeRepo, metadataStore, repairPermits, deleteOnly, DELETE_BATCH_SIZE);
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
@@ -156,7 +157,7 @@ public class RepairJob implements Runnable {
                             numDeletedKeys++;
                         }
                         numScannedKeys++;
-                        if(numScannedKeys % DELETE_BATCH == 0)
+                        if(numScannedKeys % deleteBatchSize == 0)
                             logger.info("#Scanned:" + numScannedKeys + " #Deleted:"
                                         + numDeletedKeys);
                     }
