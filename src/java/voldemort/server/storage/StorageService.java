@@ -233,7 +233,7 @@ public class StorageService extends AbstractService {
             // Create a repair job object and register it with Store repository
             if(voldemortConfig.isRepairEnabled()) {
                 logger.info("Initializing repair job " + voldemortConfig.getPusherType());
-                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits, true);
+                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 storeRepository.registerRepairJob(job);
             }

@@ -19,7 +19,6 @@ import voldemort.server.StoreRepository;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -39,31 +38,21 @@ public class RepairJob implements Runnable {
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final Map<String, Long> storeStats;
-    private final boolean deleteOnly;
     private final int deleteBatchSize;
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
                      Semaphore repairPermits,
-                     boolean deleteOnly,
                      int deleteBatchSize) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
         this.storeStats = Maps.newHashMap();
-        this.deleteOnly = deleteOnly;
         this.deleteBatchSize = deleteBatchSize;
     }
 
     public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
-        this(storeRepo, metadataStore, repairPermits, true, DELETE_BATCH_SIZE);
-    }
-
-    public RepairJob(StoreRepository storeRepo,
-                     MetadataStore metadataStore,
-                     Semaphore repairPermits,
-                     boolean deleteOnly) {
-        this(storeRepo, metadataStore, repairPermits, deleteOnly, DELETE_BATCH_SIZE);
+        this(storeRepo, metadataStore, repairPermits, DELETE_BATCH_SIZE);
     }
 
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
@@ -116,9 +105,6 @@ public class RepairJob implements Runnable {
             // Get routing factory
             RoutingStrategyFactory routingStrategyFactory = new RoutingStrategyFactory();
 
-            // Get slop store
-            StorageEngine<ByteArray, Slop, byte[]> slopStorageEngine = storeRepo.getSlopStore()
-                                                                                .asSlopStore();
             for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
                 if(isWritableStore(storeDef)) {
                     logger.info("Repairing store " + storeDef.getName());
@@ -137,22 +123,6 @@ public class RepairJob implements Runnable {
                         List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
 
                         if(!hasDestination(nodes)) {
-                            if(!deleteOnly) {
-                                for(Node node: nodes) {
-                                    Slop slop = new Slop(storeDef.getName(),
-                                                         Slop.Operation.PUT,
-                                                         keyAndVal.getFirst(),
-                                                         keyAndVal.getSecond().getValue(),
-                                                         null,
-                                                         node.getId(),
-                                                         new Date());
-                                    Versioned<Slop> slopVersioned = new Versioned<Slop>(slop,
-                                                                                        keyAndVal.getSecond()
-                                                                                                 .getVersion());
-                                    slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
-                                    repairSlops++;
-                                }
-                            }
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                             numDeletedKeys++;
                         }
