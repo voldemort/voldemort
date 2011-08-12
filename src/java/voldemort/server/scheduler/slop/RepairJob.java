@@ -10,7 +10,6 @@ import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -37,7 +36,6 @@ public class RepairJob implements Runnable {
     private final Semaphore repairPermits;
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
-    private final Map<String, Long> storeStats;
     private final int deleteBatchSize;
 
     public RepairJob(StoreRepository storeRepo,
@@ -47,7 +45,6 @@ public class RepairJob implements Runnable {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
-        this.storeStats = Maps.newHashMap();
         this.deleteBatchSize = deleteBatchSize;
     }
 
@@ -58,26 +55,6 @@ public class RepairJob implements Runnable {
     @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
     public void startRepairJob() {
         run();
-    }
-
-    @JmxOperation(description = "Get repair slops per store", impact = MBeanOperationInfo.ACTION)
-    public long getRepairSlopsPerStore(String storeName) {
-        if(!storeStats.containsKey(storeName))
-            return 0L;
-        return storeStats.get(storeName);
-    }
-
-    @JmxGetter(name = "totalRepairSlops", description = "total repair slops")
-    public long totalRepairSlops() {
-        Long totalRepairSlops = new Long(0);
-        for(Long repairSlops: storeStats.values()) {
-            totalRepairSlops += repairSlops;
-        }
-        return totalRepairSlops;
-    }
-
-    public void resetStats(Map<String, Long> storeStatistics) {
-        storeStats.putAll(storeStatistics);
     }
 
     public void run() {
@@ -91,7 +68,6 @@ public class RepairJob implements Runnable {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
 
         Date startTime = new Date();
-        boolean terminatedEarly = false;
         logger.info("Started repair job at " + startTime);
 
         Map<String, Long> localStats = Maps.newHashMap();
@@ -138,13 +114,8 @@ public class RepairJob implements Runnable {
             }
         } catch(Exception e) {
             logger.error(e, e);
-            terminatedEarly = true;
         } finally {
             closeIterator(iterator);
-
-            if(!terminatedEarly) {
-                resetStats(localStats);
-            }
             this.repairPermits.release();
             logger.info("Completed repair job started at " + startTime);
         }
