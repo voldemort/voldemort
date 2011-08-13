@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'voldemort-rb'
-  s.version = '0.1.5'
+  s.version = '0.1.8'
   s.summary = %{A Ruby client for the Voldemort distributed key value store}
   s.description = %Q{voldemort-rb allows you to connect to the Voldemort descentralized key value store.}
   s.authors = ["Alejandro Crosa"]
