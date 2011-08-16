@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -352,8 +351,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
             writeException(outputStream, e);
-            if(logger.isEnabledFor(Level.ERROR))
-                logger.error(e.getMessage(), e);
         }
     }
 
