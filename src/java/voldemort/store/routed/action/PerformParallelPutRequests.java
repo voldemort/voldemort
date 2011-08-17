@@ -35,9 +35,9 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
@@ -243,7 +243,8 @@ public class PerformParallelPutRequests extends
                                                                                                        .getSimpleName()
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
-                                                                                             + " succeeded",
+                                                                                             + " succeeded. Failing nodes : "
+                                                                                             + pipelineData.getFailedNodes(),
                                                                                      pipelineData.getFailures()));
                 pipeline.abort();
                 quorumSatisfied = false;
@@ -292,7 +293,8 @@ public class PerformParallelPutRequests extends
                                                                                                     .getSimpleName()
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
-                                                                                          + " succeeded"));
+                                                                                          + " succeeded. Failing nodes : "
+                                                                                          + pipelineData.getFailedNodes()));
                         pipeline.abort();
                     }
                 }

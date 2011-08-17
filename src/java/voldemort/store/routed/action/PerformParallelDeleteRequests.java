@@ -20,8 +20,8 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Response;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
@@ -222,7 +222,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                                        .getSimpleName()
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
-                                                                                             + " succeeded",
+                                                                                             + " succeeded. Failing nodes : "
+                                                                                             + pipelineData.getFailedNodes(),
                                                                                      pipelineData.getFailures()));
                 pipeline.abort();
                 quorumSatisfied = false;

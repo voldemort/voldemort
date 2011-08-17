@@ -27,8 +27,8 @@ import voldemort.store.Store;
 import voldemort.store.StoreRequest;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
@@ -107,7 +107,8 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                                        .getSimpleName()
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
-                                                                                             + " succeeded",
+                                                                                             + " succeeded. Failing nodes : "
+                                                                                             + pipelineData.getFailedNodes(),
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();
