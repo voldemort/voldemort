@@ -444,10 +444,16 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
-    @JmxOperation(description = "A variety of stats about the BDB for this store.")
+    @JmxOperation(description = "A variety of quickly computable stats about the BDB for this store.")
     public String getBdbStats() {
-        String stats = getStats(false).toString();
-        return stats;
+        return getBdbStats(true);
+    }
+
+    @JmxOperation(description = "A variety of stats about the BDB for this store.")
+    public String getBdbStats(boolean fast) {
+        String dbStats = getStats(fast).toString();
+        logger.debug(dbStats);
+        return dbStats;
     }
 
     private static abstract class BdbIterator<T> implements ClosableIterator<T> {
