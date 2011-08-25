@@ -84,7 +84,7 @@ import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 10;
+    protected static int NUM_KEYS = 100;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRO = "test-ro";
@@ -411,6 +411,59 @@ public abstract class AbstractRebalanceTest {
 
     @Test
     public void testRWRebalanceFourNodes() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
+
+        ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
+        int totalPortNum = nodes.size() * 3;
+        int[] ports = new int[totalPortNum];
+        for(int i = 0; i < nodes.size(); i++) {
+            ports[i * 3] = nodes.get(i).getHttpPort();
+            ports[i * 3 + 1] = nodes.get(i).getSocketPort();
+            ports[i * 3 + 2] = nodes.get(i).getAdminPort();
+        }
+
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+                { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
+
+        // start servers
+        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+        currentCluster = startServers(currentCluster,
+                                      rwStoreDefFileWithReplication,
+                                      serverList,
+                                      null);
+        // Update the cluster information based on the node information
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(currentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            rebalanceAndCheck(currentCluster,
+                              targetCluster,
+                              Lists.newArrayList(rwStoreDefWithReplication),
+                              rebalanceClient,
+                              serverList);
+            checkConsistentMetadata(targetCluster, serverList);
+        } catch(Exception e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+    }
+
+    @Test
+    public void testRWRebalanceWithFailedServers() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
@@ -880,6 +933,10 @@ public abstract class AbstractRebalanceTest {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);
 
                 // expecting exactly one version
+                if(values.size() == 0) {
+                    fail("unable to find value for key=" + entry.getKey() + " on node="
+                         + node.getId());
+                }
                 assertEquals("Expecting exactly one version", 1, values.size());
                 Versioned<byte[]> value = values.get(0);
                 // check version matches (expecting base version for all)

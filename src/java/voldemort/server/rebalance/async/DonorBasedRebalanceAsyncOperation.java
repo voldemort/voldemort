@@ -23,8 +23,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,6 +33,7 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StorageEngine;
@@ -67,7 +67,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
-    private final ExecutorService pushSlavesExecutor;
+    private final AsyncOperationService pushSlavesExecutor;
     ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool = Lists.newArrayList();
 
     private HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> groupByStores(List<RebalancePartitionsInfo> stealInfos) {
@@ -99,9 +99,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
 
-        // create executor with # of threads mapping to the max. potential # of
-        // stealer nodes
-        pushSlavesExecutor = Executors.newFixedThreadPool(targetCluster.getNumberOfNodes() - 1);
+        pushSlavesExecutor = rebalancer.getAsyncOperationService();
     }
 
     @Override
@@ -110,7 +108,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         adminClient = RebalanceUtils.createTempAdminClient(voldemortConfig,
                                                            metadataStore.getCluster(),
                                                            voldemortConfig.getMaxParallelStoresRebalancing());
-        final List<Exception> failures = new ArrayList<Exception>();
+        final CopyOnWriteArrayList<Exception> failures = new CopyOnWriteArrayList<Exception>();
         final ConcurrentLinkedQueue<String> storesRebalancing = new ConcurrentLinkedQueue<String>();
         final ConcurrentLinkedQueue<String> storesCompleted = new ConcurrentLinkedQueue<String>();
         final int totalStoresCount = storeToNodePartitionMapping.keySet().size();
@@ -140,18 +138,18 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                                            stealerNodeToMappingTuples,
                                            isReadOnlyStore);
 
-                            // We finished the store, delete it
-                            storesRebalancing.remove(storeName);
-
-                            // Increment the store count
-                            storesCompleted.add(storeName);
-
                             // Remove the metadata from all the stealer nodes
                             for(Pair<Integer, HashMap<Integer, List<Integer>>> entry: stealerNodeToMappingTuples) {
                                 adminClient.deleteStoreRebalanceState(metadataStore.getNodeId(),
                                                                       entry.getFirst(),
                                                                       storeName);
                             }
+
+                            // We finished the store, delete it
+                            storesRebalancing.remove(storeName);
+
+                            // Increment the store count
+                            storesCompleted.add(storeName);
 
                             updateStatus(getHeader(stealInfos) + "Completed working on "
                                          + storesCompleted.size() + " out of " + totalStoresCount
@@ -176,8 +174,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                              + "Could not complete all stores. Completed stores - "
                              + storesCompleted);
                 throw new VoldemortRebalancingException(getHeader(stealInfos)
-                                                        + "Could not complete all stores. Completed stores - "
-                                                        + storesCompleted);
+                                                                + "Could not complete all stores. Completed stores - "
+                                                                + storesCompleted,
+                                                        failures);
             } else {
                 logger.info(getHeader(stealInfos) + "Rebalance of " + stealInfos
                             + " completed successfully for all " + totalStoresCount + " stores");
@@ -254,15 +253,16 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 final SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>> queue = new SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>();
                 nodeToQueue.put(tuple.getFirst(), queue);
 
-                // TODO: need to fix first two arguments
-                DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(0,
-                                                                                                    "test",
+                int jobId = pushSlavesExecutor.getUniqueRequestId();
+                String jobName = "DonorBasedRebalancePusherSlave for node " + tuple.getFirst();
+                DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(jobId,
+                                                                                                    jobName,
                                                                                                     tuple.getFirst(),
                                                                                                     queue,
                                                                                                     storeName,
                                                                                                     adminClient);
                 updatePushSlavePool.add(updatePushSlave);
-                pushSlavesExecutor.execute(updatePushSlave);
+                pushSlavesExecutor.submitOperation(jobId, updatePushSlave);
             }
 
             ClosableIterator<ByteArray> keys = storageEngine.keys();
@@ -293,7 +293,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
     private void terminateAllSlaves(ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
         // Everything is done, put the terminator in
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().setCompletion();
+            it.next().setCompletion(false, true);
         }
 
         // wait for all async slave to finish
@@ -305,15 +305,15 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
     private void terminateAllSlavesAsync(ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
         // Everything is done, put the terminator in
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().setCompletion();
+            it.next().setCompletion(false, true);
         }
     }
 
     @Override
     public void stop() {
         running.set(false);
-        updateStatus(getHeader(stealInfos) + "Stop called on rebalance operation");
-        logger.info(getHeader(stealInfos) + "Stop called on rebalance operation");
+        updateStatus(getHeader(stealInfos) + "Stop called on donor-based rebalance operation");
+        logger.info(getHeader(stealInfos) + "Stop called on donor-based rebalance operation");
         terminateAllSlavesAsync(updatePushSlavePool);
         executors.shutdownNow();
     }
