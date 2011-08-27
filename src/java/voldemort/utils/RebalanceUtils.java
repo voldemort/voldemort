@@ -273,8 +273,11 @@ public class RebalanceUtils {
                                                                                                                                                  uniqueStores,
                                                                                                                                                  keys));
 
-            System.out.println("Optimization number " + numTries + ": " + minMoves + " moves, "
-                               + minStdDev + " std dev");
+            System.out.println("Optimization number " + numTries + ": "
+                               + minClusterMove.getSecond() + " moves, " + currentStdDev
+                               + " std dev");
+            System.out.println("Current min moves: " + minMoves + "; current min std dev: "
+                               + minStdDev);
 
             if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
                 minMoves = minClusterMove.getSecond();
