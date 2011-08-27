@@ -273,34 +273,35 @@ public class RebalanceUtils {
                                                                                                                                                  uniqueStores,
                                                                                                                                                  keys));
 
+            System.out.println("Optimization number " + numTries + ": " + minMoves + " moves, "
+                               + minStdDev + " std dev");
+
             if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
                 minMoves = minClusterMove.getSecond();
                 minStdDev = currentStdDev;
                 minCluster = minClusterMove.getFirst();
-            }
 
-            System.out.println("Optimization number " + numTries + "] " + minMoves + " moves, "
-                               + minStdDev + " std dev");
+                System.out.println("Current distribution");
+                System.out.println("--------------------");
+                System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
+                                                                                     storeDefs,
+                                                                                     keys));
+                System.out.println("Target distribution");
+                System.out.println("--------------------");
+                System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
+                                                                                     storeDefs,
+                                                                                     keys));
 
-            System.out.println("Current distribution");
-            System.out.println("--------------------");
-            System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                                 storeDefs,
-                                                                                 keys));
-            System.out.println("Target distribution");
-            System.out.println("--------------------");
-            System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
-                                                                                 storeDefs,
-                                                                                 keys));
-
-            // If output directory exists, output the optimized cluster
-            if(outputDir != null) {
-                try {
-                    FileUtils.writeStringToFile(new File(outputDir,
-                                                         RebalanceUtils.finalClusterFileName
-                                                                 + tries),
-                                                new ClusterMapper().writeCluster(minCluster));
-                } catch(Exception e) {}
+                System.out.println("=========================\n");
+                // If output directory exists, output the optimized cluster
+                if(outputDir != null) {
+                    try {
+                        FileUtils.writeStringToFile(new File(outputDir,
+                                                             RebalanceUtils.finalClusterFileName
+                                                                     + numTries),
+                                                    new ClusterMapper().writeCluster(minCluster));
+                    } catch(Exception e) {}
+                }
             }
         }
         return;
