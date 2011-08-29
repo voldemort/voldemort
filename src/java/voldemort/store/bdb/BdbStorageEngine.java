@@ -18,6 +18,7 @@ package voldemort.store.bdb;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.sleepycat.je.EnvironmentStats;
@@ -25,6 +26,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
@@ -38,6 +40,7 @@ import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.CachedCallable;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
@@ -70,6 +73,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private static final Logger logger = Logger.getLogger(BdbStorageEngine.class);
     private static final Hex hexCodec = new Hex();
 
+    // TODO: Make this configurable
+    private static final long STATS_CACHE_TTL_MS = 5 * 1000;
+
+
     private final String name;
     private Database bdbDatabase;
     private final Environment environment;
@@ -79,6 +86,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final LockMode readLockMode;
     private final Serializer<Version> versionSerializer;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
+    private final CachedCallable<EnvironmentStats> fastStatsCallable;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -109,6 +117,14 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         this.isOpen = new AtomicBoolean(true);
         this.cursorPreload = cursorPreload;
         this.readLockMode = readLockMode;
+        Callable<EnvironmentStats> statsCallable = new Callable<EnvironmentStats>() {
+
+            public EnvironmentStats call() throws Exception {
+                return getEnvironmentStats(true);
+            }
+        };
+        this.fastStatsCallable = new CachedCallable<EnvironmentStats>(statsCallable,
+                                                                      STATS_CACHE_TTL_MS);
     }
 
     public String getName() {
@@ -455,6 +471,14 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return getEnvironment().getStats(config);
     }
 
+    private EnvironmentStats getFastStats() {
+        try {
+            return fastStatsCallable.call();
+        } catch(Exception e) {
+            throw new VoldemortException(e);
+        }
+    }
+
     @JmxOperation(description = "A variety of quickly computable stats about the BDB for this store.")
     public String getBdbStats() {
         return getBdbStats(true);
@@ -465,6 +489,46 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         String dbStats = getStats(fast).toString();
         logger.debug(dbStats);
         return dbStats;
+    }
+
+    @JmxGetter(name = "cleanerBackLog", description="The number of files to be cleaned to reach the target utilization.")
+    public long getCleanerBacklog() {
+        try {
+            return getFastStats().getCleanerBacklog();
+        } catch(VoldemortException e) {
+            logger.error(e, e);
+        }
+        return -1;
+    }
+
+    @JmxGetter(name = "numCleanerDeletions", description="The number of cleaner file deletions this session.")
+    public long getNumCleanerDeletions() {
+        try {
+            return getFastStats().getNCleanerDeletions();
+        } catch(VoldemortException e) {
+            logger.error(e, e);
+        }
+        return -1;
+    }
+
+    @JmxGetter(name = "numCleanerEntriesRead", description="The number of cleaner file deletions this session.")
+    public long getNumCleanerEntriesRead() {
+        try {
+            return getFastStats().getNCleanerEntriesRead();
+        } catch(VoldemortException e) {
+            logger.error(e, e);
+        }
+        return -1;
+    }
+
+    @JmxGetter(name = "numCleanerRuns", description="The number of cleaner runs this session.")
+    public long getNumCleanerRuns() {
+        try {
+            return getFastStats().getNCleanerRuns();
+        } catch(VoldemortException e) {
+            logger.error(e, e);
+        }
+        return -1;
     }
 
     private static abstract class BdbIterator<T> implements ClosableIterator<T> {
