@@ -38,6 +38,7 @@ import voldemort.store.StorageInitializationException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CachedCallable;
@@ -76,7 +77,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     // TODO: Make this configurable
     private static final long STATS_CACHE_TTL_MS = 5 * 1000;
 
-
     private final String name;
     private Database bdbDatabase;
     private final Environment environment;
@@ -85,8 +85,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final boolean cursorPreload;
     private final LockMode readLockMode;
     private final Serializer<Version> versionSerializer;
+    private final BdbEnvironmentStats bdbEnvironmentStats;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
-    private final CachedCallable<EnvironmentStats> fastStatsCallable;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -117,14 +117,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         this.isOpen = new AtomicBoolean(true);
         this.cursorPreload = cursorPreload;
         this.readLockMode = readLockMode;
-        Callable<EnvironmentStats> statsCallable = new Callable<EnvironmentStats>() {
-
-            public EnvironmentStats call() throws Exception {
-                return getEnvironmentStats(true);
-            }
-        };
-        this.fastStatsCallable = new CachedCallable<EnvironmentStats>(statsCallable,
-                                                                      STATS_CACHE_TTL_MS);
+        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment, STATS_CACHE_TTL_MS);
     }
 
     public String getName() {
@@ -461,24 +454,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
-    private Environment getEnvironment() {
-        return bdbDatabase.getEnvironment();
-    }
-
-    private EnvironmentStats getEnvironmentStats(boolean fast) {
-        StatsConfig config = new StatsConfig();
-        config.setFast(fast);
-        return getEnvironment().getStats(config);
-    }
-
-    private EnvironmentStats getFastStats() {
-        try {
-            return fastStatsCallable.call();
-        } catch(Exception e) {
-            throw new VoldemortException(e);
-        }
-    }
-
     @JmxOperation(description = "A variety of quickly computable stats about the BDB for this store.")
     public String getBdbStats() {
         return getBdbStats(true);
@@ -491,44 +466,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return dbStats;
     }
 
-    @JmxGetter(name = "cleanerBackLog", description="The number of files to be cleaned to reach the target utilization.")
-    public long getCleanerBacklog() {
-        try {
-            return getFastStats().getCleanerBacklog();
-        } catch(VoldemortException e) {
-            logger.error(e, e);
-        }
-        return -1;
-    }
-
-    @JmxGetter(name = "numCleanerDeletions", description="The number of cleaner file deletions this session.")
-    public long getNumCleanerDeletions() {
-        try {
-            return getFastStats().getNCleanerDeletions();
-        } catch(VoldemortException e) {
-            logger.error(e, e);
-        }
-        return -1;
-    }
-
-    @JmxGetter(name = "numCleanerEntriesRead", description="The number of cleaner file deletions this session.")
-    public long getNumCleanerEntriesRead() {
-        try {
-            return getFastStats().getNCleanerEntriesRead();
-        } catch(VoldemortException e) {
-            logger.error(e, e);
-        }
-        return -1;
-    }
-
-    @JmxGetter(name = "numCleanerRuns", description="The number of cleaner runs this session.")
-    public long getNumCleanerRuns() {
-        try {
-            return getFastStats().getNCleanerRuns();
-        } catch(VoldemortException e) {
-            logger.error(e, e);
-        }
-        return -1;
+    public BdbEnvironmentStats getBdbEnvironmentStats() {
+        return bdbEnvironmentStats;
     }
 
     private static abstract class BdbIterator<T> implements ClosableIterator<T> {
