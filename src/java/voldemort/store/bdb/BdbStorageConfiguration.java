@@ -37,7 +37,6 @@ import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.LockMode;
 import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
 
@@ -118,7 +117,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
             try {
-                LockMode readLockMode = getLockMode();
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 if(voldemortConfig.getBdbCursorPreload()) {
@@ -126,20 +124,16 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                     preloadConfig.setLoadLNs(true);
                     db.preload(preloadConfig);
                 }
+                BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
                 BdbStorageEngine engine = new BdbStorageEngine(storeName,
                                                                environment,
                                                                db,
-                                                               readLockMode,
-                                                               voldemortConfig.getBdbCursorPreload());
+                                                               runtimeConfig);
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
             }
         }
-    }
-
-    private LockMode getLockMode() {
-       return voldemortConfig.getBdbReadUncommitted() ? LockMode.READ_UNCOMMITTED : LockMode.DEFAULT;
     }
 
     private Environment getEnvironment(String storeName) throws DatabaseException {

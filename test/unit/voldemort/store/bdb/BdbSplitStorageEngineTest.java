@@ -201,7 +201,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentA = new Environment(dirA, environmentConfig);
         Database databaseA = environmentA.openDatabase(null, "storeA", databaseConfig);
-        BdbStorageEngine storeA = new BdbStorageEngine("storeA", environmentA, databaseA, LockMode.DEFAULT);
+        BdbStorageEngine storeA = new BdbStorageEngine("storeA", environmentA, databaseA, new BdbRuntimeConfig());
 
         File dirB = new File(bdbMasterDir + "/" + "storeB");
         if(!dirB.exists()) {
@@ -209,7 +209,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentB = new Environment(dirB, environmentConfig);
         Database databaseB = environmentB.openDatabase(null, "storeB", databaseConfig);
-        BdbStorageEngine storeB = new BdbStorageEngine("storeB", environmentB, databaseB, LockMode.DEFAULT);
+        BdbStorageEngine storeB = new BdbStorageEngine("storeB", environmentB, databaseB, new BdbRuntimeConfig());
 
         long maxCacheUsage = 0;
         for(int i = 0; i <= 4; i++) {

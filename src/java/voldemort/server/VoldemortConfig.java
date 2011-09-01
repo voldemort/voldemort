@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
 
+import org.mockito.internal.verification.Times;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
@@ -78,6 +79,7 @@ public class VoldemortConfig implements Serializable {
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
     private boolean bdbFairLatches;
+    private long bdbStatsCacheTtlMs;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -209,6 +211,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
+        this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
 
         // enabling preload make cursor slow for insufficient bdb cache size.
         this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
@@ -1080,6 +1083,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbCheckpointMs(long bdbCheckpointMs) {
         this.bdbCheckpointMs = bdbCheckpointMs;
+    }
+
+    public long getBdbStatsCacheTtlMs() {
+        return this.bdbStatsCacheTtlMs;
+    }
+
+    public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
+        this.bdbStatsCacheTtlMs = statsCacheTtlMs;
     }
 
     public int getSchedulerThreads() {

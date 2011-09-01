@@ -70,9 +70,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private static final Logger logger = Logger.getLogger(BdbStorageEngine.class);
     private static final Hex hexCodec = new Hex();
 
-    // TODO: Make this configurable
-    private static final long STATS_CACHE_TTL_MS = 5 * 1000;
-
     private final String name;
     private Database bdbDatabase;
     private final Environment environment;
@@ -87,15 +84,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     public BdbStorageEngine(String name,
                             Environment environment,
                             Database database,
-                            LockMode readLockMode) {
-        this(name, environment, database, readLockMode, false);
-    }
-
-    public BdbStorageEngine(String name,
-                            Environment environment,
-                            Database database,
-                            LockMode readLockMode,
-                            boolean cursorPreload) {
+                            BdbRuntimeConfig config) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
@@ -111,9 +100,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             }
         };
         this.isOpen = new AtomicBoolean(true);
-        this.cursorPreload = cursorPreload;
-        this.readLockMode = readLockMode;
-        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment, STATS_CACHE_TTL_MS);
+        this.cursorPreload = config.getCursorPreload();
+        this.readLockMode = config.getLockMode();
+        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
+                                                           config.getStatsCacheTtlMs());
     }
 
     public String getName() {
