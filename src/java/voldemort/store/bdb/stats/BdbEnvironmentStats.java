@@ -115,13 +115,13 @@ public class BdbEnvironmentStats {
         return getFastStats().getCleanerBacklog();
     }
 
-    @JmxGetter(name = "NumAcquiredWithContention")
-    public long getNumAcquiredWithContention() {
+    @JmxGetter(name = "NumAcquiresWithContention")
+    public long getNumAcquiresWithContention() {
         return getFastStats().getNAcquiresWithContention();
     }
 
-    @JmxGetter(name = "NumAcquireNoWaiters")
-    public long getNumAcquireNoWaiters() {
+    @JmxGetter(name = "NumAcquiresNoWaiters")
+    public long getNumAcquiresNoWaiters() {
         return getFastStats().getNAcquiresNoWaiters();
     }
 
@@ -193,7 +193,8 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageContended")
     public double getPercentageContended() {
-        return safeGetPercentage(getNumAcquiredWithContention(), getNumAcquireNoWaiters());
+        return safeGetPercentage(getNumAcquiresWithContention(),
+                                 getNumAcquiresWithContention() + getNumAcquiresNoWaiters());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {
