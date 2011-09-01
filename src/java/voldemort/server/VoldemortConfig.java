@@ -74,7 +74,6 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
     private boolean bdbReadUncommitted;
-    private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
@@ -212,9 +211,6 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
-
-        // enabling preload make cursor slow for insufficient bdb cache size.
-        this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -699,21 +695,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
-    }
-
-    /**
-     * Do we preload the cursor or not? The advantage of preloading for cursor
-     * is faster streaming performance, as entries are fetched in disk order.
-     * Incidentally, pre-loading is only a side-effect of what we're really
-     * trying to do: fetch in disk (as opposed to key) order, but there doesn't
-     * seem to be an easy/intuitive way to do for BDB JE.
-     */
-    public boolean getBdbCursorPreload() {
-        return this.bdbCursorPreload;
-    }
-
-    public void setBdbCursorPreload(boolean bdbCursorPreload) {
-        this.bdbCursorPreload = bdbCursorPreload;
     }
 
     /**

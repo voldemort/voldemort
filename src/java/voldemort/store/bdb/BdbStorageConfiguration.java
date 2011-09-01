@@ -119,11 +119,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             try {
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
-                if(voldemortConfig.getBdbCursorPreload()) {
-                    PreloadConfig preloadConfig = new PreloadConfig();
-                    preloadConfig.setLoadLNs(true);
-                    db.preload(preloadConfig);
-                }
                 BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
                 BdbStorageEngine engine = new BdbStorageEngine(storeName,
                                                                environment,

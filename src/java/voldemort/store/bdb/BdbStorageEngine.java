@@ -75,7 +75,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final Environment environment;
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
-    private final boolean cursorPreload;
     private final LockMode readLockMode;
     private final Serializer<Version> versionSerializer;
     private final BdbEnvironmentStats bdbEnvironmentStats;
@@ -100,7 +99,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             }
         };
         this.isOpen = new AtomicBoolean(true);
-        this.cursorPreload = config.getCursorPreload();
         this.readLockMode = config.getLockMode();
         this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
                                                            config.getStatsCacheTtlMs());
@@ -112,12 +110,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
-            if(cursorPreload) {
-                PreloadConfig preloadConfig = new PreloadConfig();
-                preloadConfig.setLoadLNs(true);
-                getBdbDatabase().preload(preloadConfig);
-            }
-
             Cursor cursor = getBdbDatabase().openCursor(null, null);
             return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
