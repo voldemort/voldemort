@@ -191,6 +191,11 @@ public class BdbEnvironmentStats {
                                           getNumReadsTotal() + getNumWritesTotal());
     }
 
+    @JmxGetter(name = "PercentageContended")
+    public double getPercentageContended() {
+        return safeGetPercentage(getNumAcquiredWithContention(), getNumAcquireNoWaiters());
+    }
+
     public static double safeGetPercentage(long rawNum, long total) {
         return total == 0 ? 0.0d : rawNum / (float)total;
     }
