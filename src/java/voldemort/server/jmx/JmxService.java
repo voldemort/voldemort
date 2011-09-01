@@ -28,7 +28,6 @@ import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
-import org.mockito.internal.matchers.InstanceOf;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.cluster.Cluster;
 import voldemort.server.AbstractService;
