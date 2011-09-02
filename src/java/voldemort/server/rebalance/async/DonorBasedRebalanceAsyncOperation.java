@@ -265,29 +265,73 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 pushSlavesExecutor.submitOperation(jobId, updatePushSlave);
             }
 
-            ClosableIterator<ByteArray> keys = storageEngine.keys();
-            while(running.get() && keys.hasNext()) {
-                ByteArray key = keys.next();
-                List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
-                                                                                  optimizedStealerNodeToMappingTuples,
-                                                                                  targetCluster,
-                                                                                  storeDef);
+            fetchEntriesForStealers(storageEngine,
+                                    optimizedStealerNodeToMappingTuples,
+                                    storeDef,
+                                    nodeToQueue,
+                                    storeName);
+        }
+    }
 
-                if(nodeIds.size() > 0) {
-                    List<Versioned<byte[]>> values = storageEngine.get(key, null);
-                    for(Versioned<byte[]> value: values) {
-                        for(int nodeId: nodeIds) {
-                            try {
-                                nodeToQueue.get(nodeId).put(Pair.create(key, value));
-                            } catch(InterruptedException e) {
-                                e.printStackTrace();
-                            }
+    private void fetchEntriesForStealers(StorageEngine<ByteArray, byte[], byte[]> storageEngine,
+                                         Set<Pair<Integer, HashMap<Integer, List<Integer>>>> optimizedStealerNodeToMappingTuples,
+                                         StoreDefinition storeDef,
+                                         HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue,
+                                         String storeName) {
+        int scanned = 0;
+        int[] fetched = new int[targetCluster.getNumberOfNodes()];
+        long startTime = System.currentTimeMillis();
+
+        ClosableIterator<ByteArray> keys = storageEngine.keys();
+
+        while(running.get() && keys.hasNext()) {
+            ByteArray key = keys.next();
+            scanned++;
+            List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                                                                              optimizedStealerNodeToMappingTuples,
+                                                                              targetCluster,
+                                                                              storeDef);
+
+            if(nodeIds.size() > 0) {
+                List<Versioned<byte[]>> values = storageEngine.get(key, null);
+                for(Versioned<byte[]> value: values) {
+                    for(int nodeId: nodeIds) {
+                        try {
+                            fetched[nodeId]++;
+                            nodeToQueue.get(nodeId).put(Pair.create(key, value));
+                        } catch(InterruptedException e) {
+                            e.printStackTrace();
                         }
                     }
                 }
             }
-            terminateAllSlaves(updatePushSlavePool);
+
+            // print progress for every 100k entries.
+            if(0 == scanned % 100000) {
+                printProgress(scanned, fetched, startTime, storeName);
+            }
         }
+        terminateAllSlaves(updatePushSlavePool);
+        close(keys, storeName, scanned, fetched, startTime);
+    }
+
+    private void printProgress(int scanned, int[] fetched, long startTime, String storeName) {
+        logger.info("Successfully scanned " + scanned + " tuples in "
+                    + ((System.currentTimeMillis() - startTime) / 1000) + " s");
+        for(int i = 0; i < fetched.length; i++) {
+            logger.info(fetched[i] + " tuples fetched for store '" + storeName + " for node " + i);
+        }
+    }
+
+    private void close(ClosableIterator<ByteArray> keys,
+                       String storeName,
+                       int scanned,
+                       int[] fetched,
+                       long startTime) {
+
+        printProgress(scanned, fetched, startTime, storeName);
+        if(null != keys)
+            keys.close();
     }
 
     private void terminateAllSlaves(ArrayList<DonorBasedRebalancePusherSlave> updatePushSlavePool) {

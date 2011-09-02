@@ -62,8 +62,9 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                                               }
                                           });
                 // once we get out of updateEntries, we finished all keys
-                logger.info("slave finished...");
                 setCompletion(true, false);
+                logger.info("DonorBasedRebalancePusherSlave finished sending partitions to node "
+                            + nodeId);
             } catch(VoldemortException e) {
                 if(e.getCause() instanceof IOException) {
                     nodeIterator.setRecoveryMode();
@@ -92,8 +93,8 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                     queue.put(END);
                 }
             } catch(InterruptedException e) {
-                logger.info("Unable to send termination message to pusher slave due to the following reason: "
-                            + e.getMessage());
+                logger.info("Unable to send termination message to pusher slave for node " + nodeId
+                            + " due to the following reason: " + e.getMessage());
             } finally {
                 if(immediateTerminate) {
                     markComplete();
