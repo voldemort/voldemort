@@ -34,6 +34,11 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.GET_ALL);
     }
 
+    @JmxGetter(name = "averageGetAllCount", description = "The avg. number of keys in a GET_ALL request.")
+    public double getAverageGetAllCount() {
+        return stats.getGetAllAverageCount();
+    }
+
     @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
     public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);

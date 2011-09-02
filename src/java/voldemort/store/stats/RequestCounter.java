@@ -158,7 +158,7 @@ public class RequestCounter {
     }
 
     /**
-     * Return the aggergated number of keys returned across all getAll calls, taking into account multiple values returned per call.
+     * Return the aggregated number of keys returned across all getAll calls, taking into account multiple values returned per call.
      */
     public long getGetAllAggregatedCount() {
         return getValidAccumulator().getAllAggregatedCount;
