@@ -56,7 +56,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -110,8 +110,8 @@ public class RebalanceUtils {
                     clusterList.add(versionedCluster);
 
                     // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
+                    Occurred occurred = newClock.compare(latestCluster.getVersion());
+                    if(Occurred.AFTER.equals(occurred))
                         latestCluster = versionedCluster;
                 }
             } catch(Exception e) {
@@ -129,7 +129,7 @@ public class RebalanceUtils {
                                            VectorClock newClock) {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
-            if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
+            if(Occurred.CONCURRENTLY.equals(clock.compare(newClock)))
                 throw new VoldemortException("Cluster is in inconsistent state because we got conflicting clocks "
                                              + clock + " and on current node " + newClock);
 
@@ -751,8 +751,8 @@ public class RebalanceUtils {
                     clusterList.add(versionedCluster);
 
                     // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
+                    Occurred occurred = newClock.compare(latestCluster.getVersion());
+                    if(Occurred.AFTER.equals(occurred))
                         latestCluster = versionedCluster;
                 }
 

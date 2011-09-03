@@ -39,14 +39,14 @@ public class VectorClockInconsistencyResolver<T> implements InconsistencyResolve
             boolean found = false;
             for(ListIterator<Versioned<T>> it2 = newItems.listIterator(); it2.hasNext();) {
                 Versioned<T> v2 = it2.next();
-                Occured compare = v1.getVersion().compare(v2.getVersion());
-                if(compare == Occured.AFTER) {
+                Occurred compare = v1.getVersion().compare(v2.getVersion());
+                if(compare == Occurred.AFTER) {
                     if(found)
                         it2.remove();
                     else
                         it2.set(v1);
                 }
-                if(compare != Occured.CONCURRENTLY)
+                if(compare != Occurred.CONCURRENTLY)
                     found = true;
             }
             if(!found)

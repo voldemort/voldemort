@@ -41,7 +41,7 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -310,15 +310,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                                                                                                                                                                 valueEntry,
                                                                                                                                                                 LockMode.RMW)) {
                 VectorClock clock = new VectorClock(valueEntry.getData());
-                Occured occured = value.getVersion().compare(clock);
-                if(occured == Occured.BEFORE)
+                Occurred occurred = value.getVersion().compare(clock);
+                if(occurred == Occurred.BEFORE)
                     throw new ObsoleteVersionException("Key "
                                                        + new String(hexCodec.encode(key.get()))
                                                        + " "
                                                        + value.getVersion().toString()
                                                        + " is obsolete, it is no greater than the current version of "
                                                        + clock + ".");
-                else if(occured == Occured.AFTER)
+                else if(occurred == Occurred.AFTER)
                     // best effort delete of obsolete previous value!
                     cursor.delete();
             }
@@ -358,7 +358,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                                                          LockMode.READ_UNCOMMITTED);
             while(status == OperationStatus.SUCCESS) {
                 // if version is null no comparison is necessary
-                if(new VectorClock(valueEntry.getData()).compare(version) == Occured.BEFORE) {
+                if(new VectorClock(valueEntry.getData()).compare(version) == Occurred.BEFORE) {
                     cursor.delete();
                     deletedSomething = true;
                 }

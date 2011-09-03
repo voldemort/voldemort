@@ -74,7 +74,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Version;
@@ -370,7 +370,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         List<Versioned<byte[]>> found = store.get(aKey, aTransform);
         assertEquals("Invalid number of items found.", 1, found.size());
         assertEquals("Version not incremented properly",
-                     Occured.BEFORE,
+                     Occurred.BEFORE,
                      copy.compare(found.get(0).getVersion()));
     }
 
@@ -428,7 +428,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             List<Version> versions = s1.getVersions(new ByteArray("test".getBytes()));
             for(Version version: versions) {
-                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+                assertEquals(version.compare(versioned.getVersion()), Occurred.BEFORE);
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -548,7 +548,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             List<Version> versions = s3.getVersions(new ByteArray("test".getBytes()));
             for(Version version: versions) {
-                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+                assertEquals(version.compare(versioned.getVersion()), Occurred.BEFORE);
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
