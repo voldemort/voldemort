@@ -46,7 +46,10 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.rebalancer = rebalancer;
         this.stats = new StreamStats();
         if(null != voldemortConfig && voldemortConfig.isJmxEnabled())
-            JmxUtils.registerMbean("admin-streaming", new StreamStatsJmx(stats));
+            JmxUtils.registerMbean(new StreamStatsJmx(stats),
+                                   JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                     + ".voldemort.store.stats",
+                                                             "admin-streaming"));
     }
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
