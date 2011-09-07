@@ -57,7 +57,7 @@ import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -152,8 +152,8 @@ public class RebalanceUtils {
                     clusterList.add(versionedCluster);
 
                     // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
+                    Occurred occurred = newClock.compare(latestCluster.getVersion());
+                    if(Occurred.AFTER.equals(occurred))
                         latestCluster = versionedCluster;
                 }
             } catch(Exception e) {
@@ -171,7 +171,7 @@ public class RebalanceUtils {
                                            VectorClock newClock) {
         for(Versioned<Cluster> versionedCluster: clockList) {
             VectorClock clock = (VectorClock) versionedCluster.getVersion();
-            if(Occured.CONCURRENTLY.equals(clock.compare(newClock)))
+            if(Occurred.CONCURRENTLY.equals(clock.compare(newClock)))
                 throw new VoldemortException("Cluster is in inconsistent state because we got conflicting clocks "
                                              + clock + " and on current node " + newClock);
 
@@ -645,11 +645,18 @@ public class RebalanceUtils {
      * Updates the existing cluster such that we remove partitions mentioned
      * from the stealer node and add them to the donor node
      * 
+     * <<<<<<< HEAD
+     * 
      * @param currentCluster Existing cluster metadata. Both stealer and donor
      *        node should already exist in this metadata
      * @param stealerNodeId Id of node from which we are stealing the partitions
      * @param donorNodeId Id of node to which we are donating
-     * @param donatedPartitions List of partitions we are moving
+     * @param donatedPartitions List of partitions we are moving =======
+     * @param cluster Existing cluster metadata
+     * @param stealerNode Node which steals the partitions from another node
+     * @param donorNode Node which donates partitions to the stealer
+     * @param partitionList List of partitions we are moving >>>>>>>
+     *        upstream/master
      * @return Updated cluster metadata
      */
     public static Cluster createUpdatedCluster(Cluster currentCluster,
@@ -811,8 +818,8 @@ public class RebalanceUtils {
                     clusterList.add(versionedCluster);
 
                     // update latestClock
-                    Occured occured = newClock.compare(latestCluster.getVersion());
-                    if(Occured.AFTER.equals(occured))
+                    Occurred occurred = newClock.compare(latestCluster.getVersion());
+                    if(Occurred.AFTER.equals(occurred))
                         latestCluster = versionedCluster;
                 }
 

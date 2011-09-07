@@ -228,20 +228,14 @@ public class StorageService extends AbstractService {
                                                                                                                                  scanPermits),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
+            }
 
-                // Run the repair job only if slop pusher job is enabled
-                // Also run it only once
-                if(voldemortConfig.isRepairEnabled()) {
-                    cal.add(Calendar.SECOND,
-                            (int) (voldemortConfig.getRepairStartMs() / Time.MS_PER_SECOND));
-                    nextRun = cal.getTime();
-                    logger.info("Initializing repair job " + voldemortConfig.getPusherType()
-                                + " at " + nextRun);
-                    RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
-
-                    JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                    scheduler.schedule("repair", job, nextRun);
-                }
+            // Create a repair job object and register it with Store repository
+            if(voldemortConfig.isRepairEnabled()) {
+                logger.info("Initializing repair job " + voldemortConfig.getPusherType());
+                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+                storeRepository.registerRepairJob(job);
             }
         }
 

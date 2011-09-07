@@ -34,7 +34,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -128,13 +128,13 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         for(File file: files) {
             if(file.getName().equals(key)) {
                 VectorClock clock = readVersion(key);
-                if(value.getVersion().compare(clock) == Occured.AFTER) {
+                if(value.getVersion().compare(clock) == Occurred.AFTER) {
                     // continue
-                } else if(value.getVersion().compare(clock) == Occured.BEFORE) {
+                } else if(value.getVersion().compare(clock) == Occurred.BEFORE) {
                     throw new ObsoleteVersionException("A successor version " + clock
                                                        + "  to this " + value.getVersion()
                                                        + " exists for key " + key);
-                } else if(value.getVersion().compare(clock) == Occured.CONCURRENTLY) {
+                } else if(value.getVersion().compare(clock) == Occurred.CONCURRENTLY) {
                     throw new ObsoleteVersionException("Concurrent Operation not allowed on Metadata.");
                 }
             }

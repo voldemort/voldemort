@@ -199,9 +199,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         return TYPE_NAME;
     }
 
-    public EnvironmentStats getStats(String storeName) {
+    public EnvironmentStats getStats(String storeName, boolean fast) {
         StatsConfig config = new StatsConfig();
-        config.setFast(false);
+        config.setFast(fast);
         try {
             Environment env = getEnvironment(storeName);
             return env.getStats(config);
@@ -210,9 +210,14 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    @JmxOperation(description = "A variety of stats about one BDB environment.")
+    @JmxOperation(description = "A variety of quickly calculated stats about one BDB environment.")
     public String getEnvStatsAsString(String storeName) throws Exception {
-        String envStats = getStats(storeName).toString();
+        return getEnvStatsAsString(storeName, true);
+    }
+
+    @JmxOperation(description = "A variety of stats about one BDB environment.")
+    public String getEnvStatsAsString(String storeName, boolean fast) throws Exception {
+        String envStats = getStats(storeName, fast).toString();
         logger.debug("Bdb Environment stats:\n" + envStats);
         return envStats;
     }

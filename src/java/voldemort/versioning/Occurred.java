@@ -22,7 +22,7 @@ package voldemort.versioning;
  * 
  * 
  */
-public enum Occured {
+public enum Occurred {
     BEFORE,
     AFTER,
     CONCURRENTLY

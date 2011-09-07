@@ -85,12 +85,12 @@ class Connection
     nodes = []
     doc.xpath("/cluster/server").each do |n|
       node = VoldemortNode.new      
-      node.id = n.xpath("//id").text
-      node.host = n.xpath("//host").text
-      node.port = n.xpath("//socket-port").text
-      node.http_port = n.xpath("//http_port").text
-      node.admin_port = n.xpath("//admin-port").text
-      node.partitions = n.xpath("//partitions").text
+      node.id = n.xpath("id").text
+      node.host = n.xpath("host").text
+      node.port = n.xpath("socket-port").text
+      node.http_port = n.xpath("http_port").text
+      node.admin_port = n.xpath("admin-port").text
+      node.partitions = n.xpath("partitions").text
       nodes << node
     end
     nodes
@@ -128,15 +128,15 @@ class Connection
 
   def get(key)
     self.rebalance_connection_if_needed
-    self.get_from(self.db_name, key, true)
+    self.get_from(self.db_name, key, false)
   end
 
   def get_all(keys)
     self.rebalance_connection_if_needed
-    self.get_all_from(self.db_name, keys, true)
+    self.get_all_from(self.db_name, keys, false)
   end
 
-  def put(key, value, version = nil, route = true)
+  def put(key, value, version = nil, route = false)
     self.rebalance_connection_if_needed
     self.put_from(self.db_name, key, value, version, route)
   end

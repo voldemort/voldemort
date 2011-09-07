@@ -10,7 +10,6 @@ import javax.management.MBeanOperationInfo;
 
 import org.apache.log4j.Logger;
 
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
@@ -19,7 +18,6 @@ import voldemort.server.StoreRepository;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -30,6 +28,7 @@ import com.google.common.collect.Maps;
 
 public class RepairJob implements Runnable {
 
+    private final static int DELETE_BATCH_SIZE = 10000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
@@ -37,34 +36,25 @@ public class RepairJob implements Runnable {
     private final Semaphore repairPermits;
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
-    private final Map<String, Long> storeStats;
+    private final int deleteBatchSize;
 
-    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
+    public RepairJob(StoreRepository storeRepo,
+                     MetadataStore metadataStore,
+                     Semaphore repairPermits,
+                     int deleteBatchSize) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
-        this.storeStats = Maps.newHashMap();
-
+        this.deleteBatchSize = deleteBatchSize;
     }
 
-    @JmxOperation(description = "Get repair slops per store", impact = MBeanOperationInfo.ACTION)
-    public long getRepairSlopsPerStore(String storeName) {
-        if(!storeStats.containsKey(storeName))
-            return 0L;
-        return storeStats.get(storeName);
+    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
+        this(storeRepo, metadataStore, repairPermits, DELETE_BATCH_SIZE);
     }
 
-    @JmxGetter(name = "totalRepairSlops", description = "total repair slops")
-    public long totalRepairSlops() {
-        Long totalRepairSlops = new Long(0);
-        for(Long repairSlops: storeStats.values()) {
-            totalRepairSlops += repairSlops;
-        }
-        return totalRepairSlops;
-    }
-
-    public void resetStats(Map<String, Long> storeStatistics) {
-        storeStats.putAll(storeStatistics);
+    @JmxOperation(description = "Start the Repair Job thread", impact = MBeanOperationInfo.ACTION)
+    public void startRepairJob() {
+        run();
     }
 
     public void run() {
@@ -78,7 +68,6 @@ public class RepairJob implements Runnable {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> iterator = null;
 
         Date startTime = new Date();
-        boolean terminatedEarly = false;
         logger.info("Started repair job at " + startTime);
 
         Map<String, Long> localStats = Maps.newHashMap();
@@ -86,14 +75,12 @@ public class RepairJob implements Runnable {
             localStats.put(storeDef.getName(), 0L);
         }
 
-        acquireRepairPermit();
+        if(!acquireRepairPermit())
+            return;
         try {
             // Get routing factory
             RoutingStrategyFactory routingStrategyFactory = new RoutingStrategyFactory();
 
-            // Get slop store
-            StorageEngine<ByteArray, Slop, byte[]> slopStorageEngine = storeRepo.getSlopStore()
-                                                                                .asSlopStore();
             for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
                 if(isWritableStore(storeDef)) {
                     logger.info("Repairing store " + storeDef.getName());
@@ -104,28 +91,21 @@ public class RepairJob implements Runnable {
                     RoutingStrategy routingStrategy = routingStrategyFactory.updateRoutingStrategy(storeDef,
                                                                                                    metadataStore.getCluster());
                     long repairSlops = 0L;
+                    long numDeletedKeys = 0;
+                    long numScannedKeys = 0;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
                         List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
 
                         if(!hasDestination(nodes)) {
-                            for(Node node: nodes) {
-                                Slop slop = new Slop(storeDef.getName(),
-                                                     Slop.Operation.PUT,
-                                                     keyAndVal.getFirst(),
-                                                     keyAndVal.getSecond().getValue(),
-                                                     null,
-                                                     node.getId(),
-                                                     new Date());
-                                Versioned<Slop> slopVersioned = new Versioned<Slop>(slop,
-                                                                                    keyAndVal.getSecond()
-                                                                                             .getVersion());
-                                slopStorageEngine.put(slop.makeKey(), slopVersioned, null);
-                                repairSlops++;
-                            }
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
+                            numDeletedKeys++;
                         }
+                        numScannedKeys++;
+                        if(numScannedKeys % deleteBatchSize == 0)
+                            logger.info("#Scanned:" + numScannedKeys + " #Deleted:"
+                                        + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
@@ -134,13 +114,8 @@ public class RepairJob implements Runnable {
             }
         } catch(Exception e) {
             logger.error(e, e);
-            terminatedEarly = true;
         } finally {
             closeIterator(iterator);
-
-            if(!terminatedEarly) {
-                resetStats(localStats);
-            }
             this.repairPermits.release();
             logger.info("Completed repair job started at " + startTime);
         }
@@ -173,13 +148,14 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private void acquireRepairPermit() {
+    private boolean acquireRepairPermit() {
         logger.info("Acquiring lock to perform repair job ");
-        try {
-            this.repairPermits.acquire();
+        if(this.repairPermits.tryAcquire()) {
             logger.info("Acquired lock to perform repair job ");
-        } catch(InterruptedException e) {
-            throw new IllegalStateException("Repair job interrupted while waiting for permit.", e);
+            return true;
+        } else {
+            logger.error("Aborting Repair Job since another instance is already running! ");
+            return false;
         }
     }
 

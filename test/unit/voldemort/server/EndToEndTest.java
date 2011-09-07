@@ -1,6 +1,7 @@
 package voldemort.server;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 
 import java.io.IOException;
@@ -28,7 +29,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -114,10 +115,13 @@ public class EndToEndTest {
                      v2.getValue());
 
         Map<String, Versioned<String>> capitals = storeClient.getAll(Arrays.asList("Russia",
-                                                                                   "Ukraine"));
+                                                                                   "Ukraine",
+                                                                                   "Japan"));
 
         assertEquals("getAll works as expected", "Moscow", capitals.get("Russia").getValue());
         assertEquals("getAll works as expected", "Kiev", capitals.get("Ukraine").getValue());
+
+        assertFalse("getAll works as expected", capitals.containsKey("Japan"));
 
         storeClient.delete("Ukraine");
         assertNull("delete works as expected", storeClient.get("Ukraine"));
@@ -162,7 +166,7 @@ public class EndToEndTest {
             newValue = "value" + i + 1;
             oldVersion = storeClient.put("key1", oldValue);
             newVersion = storeClient.put("key1", newValue);
-            assertEquals("Version did not advance", Occured.AFTER, newVersion.compare(oldVersion));
+            assertEquals("Version did not advance", Occurred.AFTER, newVersion.compare(oldVersion));
             getVersioned = storeClient.get("key1");
 
             verifyResults(oldVersion, newVersion, getVersioned, newValue);
@@ -175,15 +179,15 @@ public class EndToEndTest {
                                String newValue) {
         // make sure version advances between two puts
         assertEquals("Versions of put did not advance",
-                     Occured.AFTER,
+                     Occurred.AFTER,
                      newVersion.compare(oldVersion));
 
         // make sure version of last put equals version of the get
         assertEquals("Version of put is larger than version of get",
-                     Occured.BEFORE /* before can mean equal, funny! */,
+                     Occurred.BEFORE /* before can mean equal, funny! */,
                      newVersion.compare(getVersioned.getVersion()));
         assertEquals("Version of put is smaller than version of get",
-                     Occured.BEFORE /* before can mean equal, funny! */,
+                     Occurred.BEFORE /* before can mean equal, funny! */,
                      getVersioned.getVersion().compare(newVersion));
 
         // make sure we get what we just put in

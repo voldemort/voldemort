@@ -45,6 +45,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
@@ -246,6 +247,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case DELETE_STORE_REBALANCE_STATE:
                 ProtoUtils.writeMessage(outputStream,
                                         handleDeleteStoreRebalanceState(request.getDeleteStoreRebalanceState()));
+                break;
+            case REPAIR_JOB:
+                ProtoUtils.writeMessage(outputStream, handleRepairJob(request.getRepairJob()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -602,6 +606,19 @@ public class AdminServiceRequestHandler implements RequestHandler {
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("handleRollbackStore failed for request(" + request.toString() + ")", e);
+        }
+        return response.build();
+    }
+
+    public VAdminProto.RepairJobResponse handleRepairJob(VAdminProto.RepairJobRequest request) {
+        VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
+        try {
+            RepairJob job = storeRepository.getRepairJob();
+            logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
+            job.run();
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("Repair job failed for request : " + request.toString() + ")", e);
         }
         return response.build();
     }
@@ -1203,6 +1220,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 // ConfigurationStorageEngine.put for details)
 
                 if(!storeRepository.hasLocalStore(def.getName())) {
+                    if(def.getReplicationFactor() > metadataStore.getCluster().getNumberOfNodes()) {
+                        throw new StoreOperationFailureException("Cannot add a store whose replication factor ( "
+                                                                 + def.getReplicationFactor()
+                                                                 + " ) is greater than the number of nodes ( "
+                                                                 + metadataStore.getCluster()
+                                                                                .getNumberOfNodes()
+                                                                 + " )");
+                    }
+
                     logger.info("Adding new store '" + def.getName() + "'");
                     // open the store
                     storageService.openStore(def);

@@ -54,7 +54,7 @@ class VoldemortJsonBinarySerializer
   
   def to_bytes(object)
     bytes = ''
-    newest_version = 0 # TODO get highest number from map
+    newest_version = type_def_versions.size > 0 ? (type_def_versions.size-1) : 0
     type_def = @type_def_versions[newest_version]
     
     if(@has_version)

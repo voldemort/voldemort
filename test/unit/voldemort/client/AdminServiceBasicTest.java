@@ -213,18 +213,37 @@ public class AdminServiceBasicTest extends TestCase {
     public void testAddStore() throws Exception {
         AdminClient adminClient = getAdminClient();
 
+        // Try to add a store whose replication factor is greater than the
+        // number of nodes
         StoreDefinition definition = new StoreDefinitionBuilder().setName("updateTest")
                                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                                  .setKeySerializer(new SerializerDefinition("string"))
                                                                  .setValueSerializer(new SerializerDefinition("string"))
                                                                  .setRoutingPolicy(RoutingTier.CLIENT)
                                                                  .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                                                 .setReplicationFactor(1)
+                                                                 .setReplicationFactor(3)
                                                                  .setPreferredReads(1)
                                                                  .setRequiredReads(1)
                                                                  .setPreferredWrites(1)
                                                                  .setRequiredWrites(1)
                                                                  .build();
+        try {
+            adminClient.addStore(definition);
+            fail("Should have thrown an exception because we cannot add a store with a replication factor greater than number of nodes");
+        } catch(Exception e) {}
+
+        definition = new StoreDefinitionBuilder().setName("updateTest")
+                                                 .setType(InMemoryStorageConfiguration.TYPE_NAME)
+                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                 .setReplicationFactor(1)
+                                                 .setPreferredReads(1)
+                                                 .setRequiredReads(1)
+                                                 .setPreferredWrites(1)
+                                                 .setRequiredWrites(1)
+                                                 .build();
         adminClient.addStore(definition);
 
         // now test the store
