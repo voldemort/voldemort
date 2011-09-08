@@ -16,21 +16,9 @@
 
 package voldemort.server.protocol.admin;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.StringReader;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.log4j.Logger;
-
 import voldemort.VoldemortException;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.admin.AdminClient;
@@ -54,6 +42,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
+import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -61,25 +50,21 @@ import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.stats.StreamStats;
-import voldemort.utils.ByteArray;
-import voldemort.utils.ByteBufferBackedInputStream;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.ClosableIterator;
-import voldemort.utils.EventThrottler;
-import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.Pair;
-import voldemort.utils.Props;
-import voldemort.utils.RebalanceUtils;
-import voldemort.utils.ReflectUtils;
-import voldemort.utils.Utils;
+import voldemort.utils.*;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Protocol buffers implementation of a {@link RequestHandler}
@@ -245,6 +230,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 break;
             case REPAIR_JOB:
                 ProtoUtils.writeMessage(outputStream, handleRepairJob(request.getRepairJob()));
+                break;
+            case NATIVE_BACKUP:
+                ProtoUtils.writeMessage(outputStream, handleNativeBackup(request.getNativeBackup()));
                 break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
@@ -1316,4 +1304,48 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return storageEngine;
     }
 
+    public VAdminProto.AsyncOperationStatusResponse handleNativeBackup(VAdminProto.NativeBackupRequest request) {
+        final File backupDir = new File(request.getBackupDir());
+        final String storeName = request.getStoreName();
+        int requestId = asyncService.getUniqueRequestId();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
+                .setRequestId(requestId)
+                .setComplete(false)
+                .setDescription("Native backup")
+                .setStatus("started");
+        try {
+            final StorageEngine storageEngine = getStorageEngine(storeRepository, storeName);
+            final long start = System.currentTimeMillis();
+            if (storageEngine instanceof NativeBackupable) {
+
+                asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Native backup") {
+
+                    @Override
+                    public void markComplete() {
+                        long end = System.currentTimeMillis();
+                        status.setStatus("Native backup completed in " + (end - start) + "ms");
+                        status.setComplete(true);
+                    }
+
+                    @Override
+                    public void operate() {
+                        ((NativeBackupable) storageEngine).nativeBackup(backupDir, status);
+                    }
+
+                    @Override
+                    public void stop() {
+                        status.setException(new VoldemortException("Fetcher interrupted"));
+                    }
+                });
+            } else {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, new VoldemortException("Selected store is not native backupable")));
+            }
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
 }

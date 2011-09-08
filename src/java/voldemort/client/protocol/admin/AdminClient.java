@@ -106,7 +106,7 @@ import com.google.protobuf.Message;
  * <li>Used extensively by rebalancing (dynamic node addition/deletion) feature
  * (presently in development).</li>
  * </ul>
- * 
+ *
  */
 public class AdminClient {
 
@@ -130,7 +130,7 @@ public class AdminClient {
     /**
      * Create an instance of AdminClient given a URL of a node in the cluster.
      * The bootstrap URL is used to get the cluster metadata.
-     * 
+     *
      * @param bootstrapURL URL pointing to the bootstrap node
      * @param adminClientConfig Configuration for AdminClient specifying client
      *        parameters eg. <br>
@@ -152,7 +152,7 @@ public class AdminClient {
 
     /**
      * Create an instance of AdminClient given a {@link Cluster} object.
-     * 
+     *
      * @param cluster Initialized cluster object, describing the nodes we wish
      *        to contact
      * @param adminClientConfig Configuration for AdminClient specifying client
@@ -232,7 +232,7 @@ public class AdminClient {
      * flush of the buffer, check the response on the server to check if a
      * {@link VoldemortException} has occured.</li>
      * </ol>
-     * 
+     *
      * @param nodeId Id of the remote node (where we wish to update the entries)
      * @param storeName Store name for the entries
      * @param entryIterator Iterator of key-value pairs for the entries
@@ -357,7 +357,7 @@ public class AdminClient {
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
-     * 
+     *
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param partitionList List of the partitions
@@ -387,7 +387,7 @@ public class AdminClient {
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
-     * 
+     *
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param partitionList List of the partitions
@@ -409,17 +409,17 @@ public class AdminClient {
      * Fetch key/value tuples belonging to this map of replica type to partition
      * list
      * <p>
-     * 
+     *
      * <b>Streaming API</b> - The server keeps sending the messages as it's
      * iterating over the data. Once iteration has finished, the server sends an
      * "end of stream" marker and flushes its buffer. A response indicating a
      * {@link VoldemortException} may be sent at any time during the process.
      * <br>
-     * 
+     *
      * <p>
      * Entries are being streamed <em>as the iteration happens</em> i.e. the
      * whole result set is <b>not</b> buffered in memory.
-     * 
+     *
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param replicaToPartitionList Mapping of replica type to partition list
@@ -502,7 +502,7 @@ public class AdminClient {
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
-     * 
+     *
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param partitionList List of the partitions to retrieve
@@ -532,7 +532,7 @@ public class AdminClient {
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
-     * 
+     *
      * @param nodeId Id of the node to fetch from
      * @param storeName Name of the store
      * @param partitionList List of the partitions to retrieve
@@ -554,7 +554,7 @@ public class AdminClient {
      * Fetch all keys belonging to the map of replica type to partition list.
      * Identical to {@link AdminClient#fetchEntries} but
      * <em>only fetches the keys</em>
-     * 
+     *
      * @param nodeId The node id from where to fetch the keys
      * @param storeName The store name whose keys we want to retrieve
      * @param replicaToPartitionList Map of replica type to corresponding
@@ -630,7 +630,7 @@ public class AdminClient {
      * <p>
      * Recovery mechanism to recover and restore data actively from replicated
      * copies in the cluster.<br>
-     * 
+     *
      * @param nodeId Id of the node to restoreData
      * @param parallelTransfers number of transfers
      * @throws InterruptedException
@@ -682,7 +682,7 @@ public class AdminClient {
     /**
      * For a particular node, finds out all the [replica, partition] tuples it
      * needs to steal in order to be brought back to normal state
-     * 
+     *
      * @param restoringNode The id of the node which needs to be restored
      * @param cluster The cluster definition
      * @param storeDef The store definition to use
@@ -752,7 +752,7 @@ public class AdminClient {
     /**
      * For a particular store and node, runs the replication job. This works
      * only for read-write stores
-     * 
+     *
      * @param restoringNodeId The node which we want to restore
      * @param cluster The cluster metadata
      * @param storeDef The definition of the store which we want to restore
@@ -804,7 +804,7 @@ public class AdminClient {
 
     /**
      * Rebalance a stealer-donor node pair for a set of stores
-     * 
+     *
      * @param stealInfo Partition steal information
      * @return The request id of the async operation
      */
@@ -829,7 +829,7 @@ public class AdminClient {
 
     /**
      * Converts list of partitions to map of replica type to partition list.
-     * 
+     *
      * @param nodeId Node which is donating data
      * @param storeName Name of store
      * @param partitions List of partitions ( primary OR replicas ) to move
@@ -857,8 +857,8 @@ public class AdminClient {
      * See
      * {@link AdminClient#migratePartitions(int, int, String, HashMap, VoldemortFilter, Cluster, boolean)}
      * for more details.
-     * 
-     * 
+     *
+     *
      * @param donorNodeId Node <em>from</em> which the partitions are to be
      *        streamed.
      * @param stealerNodeId Node <em>to</em> which the partitions are to be
@@ -896,7 +896,7 @@ public class AdminClient {
      * {@link voldemort.server.protocol.admin.AsyncOperation} that runs on the
      * stealer node where updates are performed.
      * <p>
-     * 
+     *
      * @param donorNodeId Node <em>from</em> which the partitions are to be
      *        streamed.
      * @param stealerNodeId Node <em>to</em> which the partitions are to be
@@ -960,7 +960,7 @@ public class AdminClient {
      * Delete the store completely (<b>Deletes all data</b>) from the remote
      * node.
      * <p>
-     * 
+     *
      * @param nodeId The node id on which the store is present
      * @param storeName The name of the store
      */
@@ -983,10 +983,10 @@ public class AdminClient {
 
     /**
      * Get the status of an Async Operation running at (remote) node.
-     * 
+     *
      * <b>If The operation is complete, then the operation will be removed from
      * a list of currently running operations.</b>
-     * 
+     *
      * @param nodeId Id on which the operation is running
      * @param requestId Id of the operation itself
      * @return The status of the operation
@@ -1017,7 +1017,7 @@ public class AdminClient {
     /**
      * Retrieves a list of asynchronous request ids on the server. Does not
      * include the completed requests
-     * 
+     *
      * @param nodeId The id of the node whose request ids we want
      * @return List of async request ids
      */
@@ -1028,7 +1028,7 @@ public class AdminClient {
     /**
      * Retrieves a list of asynchronous request ids on the server. Depending on
      * the boolean passed also retrieves the completed requests
-     * 
+     *
      * @param nodeId The id of the node whose request ids we want
      * @param showComplete Boolean to indicate if we want to include the
      *        completed requests as well
@@ -1053,7 +1053,7 @@ public class AdminClient {
 
     /**
      * To stop an asynchronous request on the particular node
-     * 
+     *
      * @param nodeId The id of the node on which the request is running
      * @param requestId The id of the request to terminate
      */
@@ -1084,7 +1084,7 @@ public class AdminClient {
 
     /**
      * Delete all entries belonging to a list of partitions
-     * 
+     *
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
      * @param partitionList List of partitions to delete.
@@ -1106,7 +1106,7 @@ public class AdminClient {
     /**
      * Delete all entries belonging to all the partitions passed as a map of
      * replica_type to partition list. Works only for RW stores.
-     * 
+     *
      * @param nodeId Node on which the entries to be deleted
      * @param storeName Name of the store holding the entries
      * @param replicaToPartitionList Map of replica type to partition list
@@ -1172,9 +1172,9 @@ public class AdminClient {
      * Wait for async task at (remote) nodeId to finish completion, using
      * exponential backoff to poll the task completion status.
      * <p>
-     * 
+     *
      * <i>Logs the status at each status check if debug is enabled.</i>
-     * 
+     *
      * @param nodeId Id of the node to poll
      * @param requestId Id of the request to check
      * @param maxWait Maximum time we'll keep checking a request until we give
@@ -1233,9 +1233,9 @@ public class AdminClient {
      * Wait for async task at (remote) nodeId to finish completion, using
      * exponential backoff to poll the task completion status.
      * <p>
-     * 
+     *
      * <i>Logs the status at each status check if debug is enabled.</i>
-     * 
+     *
      * @param nodeId Id of the node to poll
      * @param requestId Id of the request to check
      * @param maxWait Maximum time we'll keep checking a request until we give
@@ -1253,9 +1253,9 @@ public class AdminClient {
      * Wait till the passed value matches with the metadata value returned by
      * the remote node for the passed key.
      * <p>
-     * 
+     *
      * <i>Logs the status at each status check if debug is enabled.</i>
-     * 
+     *
      * @param nodeId Id of the node to poll
      * @param key metadata key to keep checking for current value
      * @param value metadata value should match for exit criteria.
@@ -1296,14 +1296,14 @@ public class AdminClient {
     /**
      * Update metadata at the given remoteNodeId.
      * <p>
-     * 
+     *
      * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
      * eg.<br>
      * <li>cluster metadata (cluster.xml as string)
      * <li>stores definitions (stores.xml as string)
      * <li>Server states <br <br>
      * See {@link voldemort.store.metadata.MetadataStore} for more information.
-     * 
+     *
      * @param remoteNodeId Id of the node
      * @param key Metadata key to update
      * @param value Value for the metadata key
@@ -1337,7 +1337,7 @@ public class AdminClient {
      * <li>stores definitions (stores.xml as string)
      * <li>Server states <br <br>
      * See {@link voldemort.store.metadata.MetadataStore} for more information.
-     * 
+     *
      * @param remoteNodeId Id of the node
      * @param key Metadata key to update
      * @return Metadata with its associated {@link voldemort.versioning.Version}
@@ -1365,7 +1365,7 @@ public class AdminClient {
      * Update the cluster information {@link MetadataStore#CLUSTER_KEY} on a
      * remote node.
      * <p>
-     * 
+     *
      * @param nodeId Id of the remote node
      * @param cluster The new cluster object
      * @throws VoldemortException
@@ -1380,7 +1380,7 @@ public class AdminClient {
     /**
      * Get the cluster information from a remote node.
      * <p>
-     * 
+     *
      * @param nodeId Node to retrieve information from
      * @return A cluster object with its {@link voldemort.versioning.Version}
      * @throws VoldemortException
@@ -1394,7 +1394,7 @@ public class AdminClient {
     /**
      * Update the store definitions on a remote node.
      * <p>
-     * 
+     *
      * @param nodeId The node id of the machine
      * @param storesList The new store list
      * @throws VoldemortException
@@ -1413,7 +1413,7 @@ public class AdminClient {
     /**
      * Retrieve the store definitions from a remote node.
      * <p>
-     * 
+     *
      * @param nodeId The node id from which we can to remote the store
      *        definition
      * @return The list of store definitions from the remote machine
@@ -1454,7 +1454,7 @@ public class AdminClient {
     /**
      * Add a new store definition to all active nodes in the cluster.
      * <p>
-     * 
+     *
      * @param def the definition of the store to add
      */
     public void addStore(StoreDefinition def) {
@@ -1466,7 +1466,7 @@ public class AdminClient {
     /**
      * Add a new store definition to a particular node
      * <p>
-     * 
+     *
      * @param def the definition of the store to add
      * @param nodeId Node on which to add the store
      */
@@ -1498,7 +1498,7 @@ public class AdminClient {
     /**
      * Delete a store from all active nodes in the cluster
      * <p>
-     * 
+     *
      * @param storeName name of the store to delete
      */
     public void deleteStore(String storeName) {
@@ -1510,7 +1510,7 @@ public class AdminClient {
     /**
      * Delete a store from a particular node
      * <p>
-     * 
+     *
      * @param storeName name of the store to delete
      * @param nodeId Node on which we want to delete a store
      */
@@ -1537,7 +1537,7 @@ public class AdminClient {
 
     /**
      * Set cluster info for AdminClient to use.
-     * 
+     *
      * @param cluster Set the current cluster
      */
     public void setAdminClientCluster(Cluster cluster) {
@@ -1546,7 +1546,7 @@ public class AdminClient {
 
     /**
      * Get the cluster info AdminClient is using.
-     * 
+     *
      * @return Returns the current cluster being used by the admin client
      */
     public Cluster getAdminClientCluster() {
@@ -1556,7 +1556,7 @@ public class AdminClient {
     /**
      * Rollback RO store to most recent backup of the current store
      * <p>
-     * 
+     *
      * @param nodeId The node id on which to rollback
      * @param storeName The name of the RO Store to rollback
      * @param pushVersion The version of the push to revert back to
@@ -1582,7 +1582,7 @@ public class AdminClient {
     /**
      * Repair the stores on a rebalanced node 'nodeId'
      * <p>
-     * 
+     *
      * @param nodeId The id of the node on which to do the repair
      */
     public void repairJob(int nodeId) {
@@ -1606,7 +1606,7 @@ public class AdminClient {
     /**
      * Fetch data from directory 'storeDir' on node id
      * <p>
-     * 
+     *
      * @param nodeId The id of the node on which to fetch the data
      * @param storeName The name of the store
      * @param storeDir The directory from where to read the data
@@ -1645,7 +1645,7 @@ public class AdminClient {
     /**
      * When a fetch store fails, we don't need to keep the pushed data around.
      * This function deletes its...
-     * 
+     *
      * @param nodeId The node id on which to delete the data
      * @param storeName The name of the store
      * @param storeDir The directory to delete
@@ -1671,7 +1671,7 @@ public class AdminClient {
     /**
      * Swap store data atomically on a single node
      * <p>
-     * 
+     *
      * @param nodeId The node id where we would want to swap the data
      * @param storeName Name of the store
      * @param storeDir The directory where the data is present
@@ -1697,7 +1697,7 @@ public class AdminClient {
     /**
      * Returns the read-only storage format - {@link ReadOnlyStorageFormat} for
      * a list of stores
-     * 
+     *
      * @param nodeId The id of the node on which the stores are present
      * @param storeNames List of all the store names
      * @return Returns a map of store name to its corresponding RO storage
@@ -1731,7 +1731,7 @@ public class AdminClient {
      * Important to remember that this may not be the 'current' version since
      * multiple pushes (with greater version numbers) may be in progress
      * currently
-     * 
+     *
      * @param nodeId The id of the node on which the store is present
      * @param storeNames List of all the stores
      * @return Returns a map of store name to the respective store directory
@@ -1761,7 +1761,7 @@ public class AdminClient {
 
     /**
      * Returns the 'current' versions of all RO stores provided
-     * 
+     *
      * @param nodeId The id of the node on which the store is present
      * @param storeNames List of all the RO stores
      * @return Returns a map of store name to the respective max version
@@ -1792,7 +1792,7 @@ public class AdminClient {
 
     /**
      * Returns the 'current' version of RO store
-     * 
+     *
      * @param nodeId The id of the node on which the store is present
      * @param storeNames List of all the stores
      * @return Returns a map of store name to the respective max version number
@@ -1812,7 +1812,7 @@ public class AdminClient {
      * Important to remember that this may not be the 'current' version since
      * multiple pushes (with greater version numbers) may be in progress
      * currently
-     * 
+     *
      * @param nodeId The id of the node on which the store is present
      * @param storeNames List of all the stores
      * @return Returns a map of store name to the respective max version number
@@ -1832,7 +1832,7 @@ public class AdminClient {
      * {@link voldemort.client.protocol.admin.AdminClient#getROMaxVersion(int, List)}
      * where-in we find the max versions on each machine and then return the max
      * of all of them
-     * 
+     *
      * @param storeNames List of all read-only stores
      * @return A map of store-name to their corresponding max version id
      */
@@ -1856,7 +1856,7 @@ public class AdminClient {
 
     /**
      * Update slops which may be meant for multiple stores
-     * 
+     *
      * @param nodeId The id of the node
      * @param entryIterator An iterator over all the slops for this particular
      *        node
@@ -1930,7 +1930,7 @@ public class AdminClient {
     /**
      * Fetch read-only store files to a specified directory. This is run on the
      * stealer node side
-     * 
+     *
      * @param nodeId The node id from where to copy
      * @param storeName The name of the read-only store
      * @param replicaToPartitionList Map of replica type to partition list
@@ -2037,29 +2037,29 @@ public class AdminClient {
     /**
      * Used in rebalancing to indicate change in states. Groups the partition
      * plans on the basis of stealer nodes and sends them over.
-     * 
+     *
      * The various combinations and their order of execution is given below
-     * 
+     *
      * <pre>
      * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
-     * | f | t | t | cluster -> rebalance | 
+     * | f | t | t | cluster -> rebalance |
      * | f | f | t | rebalance |
      * | t | t | f | cluster -> swap |
      * | t | t | t | cluster -> swap -> rebalance |
      * </pre>
-     * 
-     * 
+     *
+     *
      * Similarly for rollback:
-     * 
+     *
      * <pre>
      * | swapRO | changeClusterMetadata | changeRebalanceState | Order |
-     * | f | t | t | remove from rebalance -> cluster  | 
+     * | f | t | t | remove from rebalance -> cluster  |
      * | f | f | t | remove from rebalance |
      * | t | t | f | cluster -> swap |
      * | t | t | t | remove from rebalance -> cluster -> swap  |
      * </pre>
-     * 
-     * 
+     *
+     *
      * @param existingCluster Current cluster
      * @param transitionCluster Transition cluster
      * @param rebalancePartitionPlanList The list of rebalance partition info
@@ -2147,7 +2147,7 @@ public class AdminClient {
 
     /**
      * Single node rebalance state change
-     * 
+     *
      * @param nodeId Stealer node id
      * @param cluster Cluster information which we need to update
      * @param rebalancePartitionPlanList The list of rebalance partition info
@@ -2215,7 +2215,7 @@ public class AdminClient {
     /**
      * Given a list of partition infos, generates a map of stealer node to list
      * of partition infos
-     * 
+     *
      * @param rebalancePartitionPlanList Complete list of partition plans
      * @return Flattens it into a map on a per stealer node basis
      */
@@ -2234,4 +2234,35 @@ public class AdminClient {
         return stealerNodeToPlan;
     }
 
+    /**
+     * Native backup a store
+     *
+     * @param nodeId The node id to backup
+     * @param storeName The name of the store to backup
+     * @param destinationDirPath The destination path
+     */
+    public void nativeBackup(int nodeId,
+                             String storeName,
+                             String destinationDirPath) {
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+
+        VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
+                .setStoreName(storeName)
+                .setBackupDir(destinationDirPath)
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setNativeBackup(nativeBackupRequest)
+                .setType(VAdminProto.AdminRequestType.NATIVE_BACKUP)
+                .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                adminRequest,
+                VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if (response.hasError()) {
+            throwException(response.getError());
+        }
+
+        int asyncId = response.getRequestId();
+        waitForCompletion(nodeId, asyncId, 3, TimeUnit.MINUTES);
+    }
 }
