@@ -187,8 +187,14 @@ public class BdbEnvironmentStats {
     @Experimental
     @JmxGetter(name = "PercentageCacheHits")
     public double getPercentageCacheHits() {
-        return 100.0d - safeGetPercentage(getNumNotResident(),
-                                          getNumReadsTotal() + getNumWritesTotal());
+        return 1.0d - getPercentageCacheMisses();
+    }
+
+    @Experimental
+    @JmxGetter(name = "PercentageCacheMisses")
+    public double getPercentageCacheMisses() {
+        return safeGetPercentage(getNumCacheMiss(),
+                                 getNumReadsTotal() + getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageContended")
