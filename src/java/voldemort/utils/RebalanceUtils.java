@@ -645,18 +645,11 @@ public class RebalanceUtils {
      * Updates the existing cluster such that we remove partitions mentioned
      * from the stealer node and add them to the donor node
      * 
-     * <<<<<<< HEAD
-     * 
      * @param currentCluster Existing cluster metadata. Both stealer and donor
      *        node should already exist in this metadata
      * @param stealerNodeId Id of node from which we are stealing the partitions
-     * @param donorNodeId Id of node to which we are donating
-     * @param donatedPartitions List of partitions we are moving =======
-     * @param cluster Existing cluster metadata
-     * @param stealerNode Node which steals the partitions from another node
-     * @param donorNode Node which donates partitions to the stealer
-     * @param partitionList List of partitions we are moving >>>>>>>
-     *        upstream/master
+     * @param donatedPartitions List of partitions we are moving
+     * @param partitionList List of partitions we are moving
      * @return Updated cluster metadata
      */
     public static Cluster createUpdatedCluster(Cluster currentCluster,

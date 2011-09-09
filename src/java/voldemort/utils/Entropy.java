@@ -225,6 +225,9 @@ public class Entropy {
                                                              false);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
+                                    // entropy returns distinct keys from each
+                                    // node - record the key only if this node
+                                    // holds the primary partition of the key
                                     if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
                                                                          .subList(0, 1))
                                                      .contains(node.getId())) {
@@ -251,6 +254,9 @@ public class Entropy {
                                                          false);
                             while(keys.hasNext() && numKeysStored < numKeys) {
                                 ByteArray key = keys.next();
+                                // entropy returns distinct keys from each
+                                // node - record the key only if this node
+                                // holds the primary partition of the key
                                 if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
                                                                      .subList(0, 1))
                                                  .contains(nodeId)) {

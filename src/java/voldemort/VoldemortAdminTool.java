@@ -684,9 +684,8 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId,
-                                             key,
-                                             Versioned.value(value.toString(), updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
+                                                                                 updatedVersion));
         }
     }
 
@@ -747,10 +746,10 @@ public class VoldemortAdminTool {
 
     }
 
-    public static void executeGetMetadata(Integer nodeId,
-                                          AdminClient adminClient,
-                                          String metadataKey,
-                                          String outputDir) throws IOException {
+    private static void executeGetMetadata(Integer nodeId,
+                                           AdminClient adminClient,
+                                           String metadataKey,
+                                           String outputDir) throws IOException {
         File directory = null;
         if(outputDir != null) {
             directory = new File(outputDir);
