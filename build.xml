@@ -86,6 +86,7 @@
   </target>
 
   <target name="buildtest" description="Compile test classes">
+  	<java-avro-compiler src="${commontestsrc.dir}/voldemort/config" classpath="test-classpath"/>
     <replace-dir dir="${testclasses.dir}" />
     <copy todir="${testclasses.dir}">
       <fileset dir="${commontestsrc.dir}">
@@ -130,7 +131,7 @@
       <arg line="${proto.sources}"/>
     </exec>
   </target>
-
+	
   <target name="jar" depends="build" description="Build server jar file">
     <jar destfile="${dist.dir}/${name}-${curr.release}.jar">
       <fileset dir="${classes.dir}">
@@ -336,6 +337,23 @@
     </tar>
     </sequential>
   </macrodef>
+	
+  <macrodef name="java-avro-compiler">
+	<attribute name="src"/>
+    <attribute name="classpath"/>
+	<sequential>
+	  <taskdef name="schema" classname="org.apache.avro.specific.SchemaTask">
+		<classpath refid="@{classpath}" />
+	  </taskdef>
+		
+	  <schema destdir="${commontestsrc.dir}">
+		<fileset dir="@{src}">
+	  	  <include name="**/*.avsc" />
+		</fileset>
+	  </schema>
+	</sequential>
+  </macrodef>
+
 
   <target name="snapshot"  description="Create a release-snapshot zip file with everything pre-built.">
     <create-release-artifacts version="${curr.release.snapshot}" />
