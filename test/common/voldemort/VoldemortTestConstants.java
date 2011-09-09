@@ -118,4 +118,24 @@ public class VoldemortTestConstants {
         return readString("config/single-store-322.xml");
     }
 
+    public static String getTestSpecificRecordSchemaWithNamespace1() {
+        return readString("config/TestSpecificRecordNS.avsc.v1");
+    }
+
+    public static String getTestSpecificRecordSchema1() {
+        return readString("config/TestSpecificRecord.avsc.v1");
+    }
+
+    public static String getTestSpecificRecordSchemaWithNamespace2() {
+        return readString("config/TestSpecificRecordNS.avsc.v2");
+    }
+
+    public static String getTestSpecificRecordSchema2() {
+        return readString("config/TestSpecificRecord.avsc.v2");
+    }
+
+    public static String getTestSpecificRecordSchemaActual() {
+        return readString("config/TestSpecificRecord.avsc");
+    }
+
 }

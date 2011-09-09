@@ -1,0 +1,8 @@
+{
+	"type": "record",
+	"name": "TestRecord",
+	"fields" : [
+		{"name": "f1", "type": "string"},
+		{"name": "f2", "type": "string", "default": "d2"}
+	]
+}
