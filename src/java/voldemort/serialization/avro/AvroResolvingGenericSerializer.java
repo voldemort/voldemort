@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.DatumReader;
@@ -12,8 +11,7 @@ import org.apache.avro.io.DatumWriter;
 
 import voldemort.serialization.SerializerDefinition;
 
-public class AvroResolvingGenericSerializer<T extends GenericData.Record> extends
-        AvroResolvingSerializer<T> {
+public class AvroResolvingGenericSerializer<T> extends AvroResolvingSerializer<T> {
 
     public AvroResolvingGenericSerializer(SerializerDefinition serializerDef) {
         super(serializerDef);

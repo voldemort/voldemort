@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumReader;
@@ -17,7 +16,7 @@ import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 
-public abstract class AvroResolvingSerializer<T extends IndexedRecord> implements Serializer<T> {
+public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
 
     private final Map<Integer, Schema> schemaVersions;
     private final Schema currentSchema;
