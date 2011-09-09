@@ -49,10 +49,6 @@ public class SerializationUtils {
         return javaPair[1].trim();
     }
 
-    public static String getJavaClassFromAvroSchema(String schemaInfo) {
-
-    }
-
     public static void close(ByteArrayOutputStream stream) {
         if(stream != null) {
             try {
