@@ -1,0 +1,9 @@
+{
+	"type": "record",
+	"name": "TestRecord",
+	"namespace": "voldemort",
+	"fields" : [
+		{"name": "f1", "type": "string"},
+		{"name": "f2", "type": "string", "default": "d2"}
+	]
+}

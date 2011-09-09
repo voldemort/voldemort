@@ -24,6 +24,8 @@ import org.apache.thrift.TBase;
 
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.AvroReflectiveSerializer;
+import voldemort.serialization.avro.AvroResolvingGenericSerializer;
+import voldemort.serialization.avro.AvroResolvingSpecificSerializer;
 import voldemort.serialization.avro.AvroSpecificSerializer;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
@@ -49,6 +51,8 @@ public class DefaultSerializerFactory implements SerializerFactory {
     private static final String AVRO_GENERIC_TYPE_NAME = "avro-generic";
     private static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
     private static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
+    private static final String AVRO_RESOLVING_SPECIFIC_TYPE_NAME = "avro-specific-resolving";
+    private static final String AVRO_RESOLVING_GENERIC_TYPE_NAME = "avro-generic-resolving";
 
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
@@ -72,13 +76,17 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {
-            return new ThriftSerializer<TBase<?,?>>(serializerDef.getCurrentSchemaInfo());
+            return new ThriftSerializer<TBase<?, ?>>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_GENERIC_TYPE_NAME)) {
             return new AvroGenericSerializer(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_SPECIFIC_TYPE_NAME)) {
             return new AvroSpecificSerializer<SpecificRecord>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_REFLECTIVE_TYPE_NAME)) {
             return new AvroReflectiveSerializer<Object>(serializerDef.getCurrentSchemaInfo());
+        } else if(name.equals(AVRO_RESOLVING_SPECIFIC_TYPE_NAME)) {
+            return new AvroResolvingSpecificSerializer<SpecificRecord>(serializerDef);
+        } else if(name.equals(AVRO_RESOLVING_GENERIC_TYPE_NAME)) {
+            return new AvroResolvingGenericSerializer(serializerDef);
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());
