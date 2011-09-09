@@ -19,7 +19,6 @@ package voldemort.serialization;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.specific.SpecificRecord;
 import org.apache.thrift.TBase;
 
@@ -85,9 +84,9 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(AVRO_REFLECTIVE_TYPE_NAME)) {
             return new AvroReflectiveSerializer<Object>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_RESOLVING_SPECIFIC_TYPE_NAME)) {
-            return new AvroResolvingSpecificSerializer(serializerDef);
+            return new AvroResolvingSpecificSerializer<SpecificRecord>(serializerDef);
         } else if(name.equals(AVRO_RESOLVING_GENERIC_TYPE_NAME)) {
-            return new AvroResolvingGenericSerializer<GenericData.Record>(serializerDef);
+            return new AvroResolvingGenericSerializer(serializerDef);
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());
