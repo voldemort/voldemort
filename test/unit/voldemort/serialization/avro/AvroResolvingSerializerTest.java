@@ -1,7 +1,9 @@
 package voldemort.serialization.avro;
 
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import junit.framework.TestCase;
@@ -16,9 +18,11 @@ import voldemort.TestRecord;
 import voldemort.VoldemortTestConstants;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteUtils;
+import voldemort.xml.StoreDefinitionsMapper;
 
-public class AvroResolvingSpecificSerializerTest extends TestCase {
+public class AvroResolvingSerializerTest extends TestCase {
 
     String SCHEMA1 = VoldemortTestConstants.getTestSpecificRecordSchema1();
     String SCHEMA2 = VoldemortTestConstants.getTestSpecificRecordSchema2();
@@ -46,6 +50,36 @@ public class AvroResolvingSpecificSerializerTest extends TestCase {
         s1 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"string\"}]}");
         s2 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"int\"}]}");
         assertNotSame(s1.hashCode(), s2.hashCode());
+    }
+
+    public void testStoresXML() {
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getAvroStoresXml()));
+        StoreDefinition storeDef = storeDefs.get(0);
+        SerializerDefinition serializerDef = storeDef.getValueSerializer();
+
+        // Create a serializer with version=1
+        Map<Integer, String> schemaInfo = new HashMap<Integer, String>();
+        schemaInfo.put(1, serializerDef.getSchemaInfo(1));
+        SerializerDefinition newSerializerDef = new SerializerDefinition("test",
+                                                                         schemaInfo,
+                                                                         true,
+                                                                         null);
+
+        Serializer<GenericData.Record> serializer = new AvroResolvingGenericSerializer<GenericData.Record>(newSerializerDef);
+        GenericData.Record datum = new GenericData.Record(Schema.parse(newSerializerDef.getCurrentSchemaInfo()));
+        datum.put("f1", new Utf8("foo"));
+        byte[] bytes = serializer.toBytes(datum);
+
+        // Create a serializer with all versions
+        serializer = new AvroResolvingGenericSerializer<GenericData.Record>(serializerDef);
+        GenericData.Record datum1 = serializer.toObject(bytes);
+        assertTrue(datum1.get("f1").equals(datum.get("f1")));
+        assertTrue(datum1.get("f2")
+                         .equals(new Utf8(Schema.parse(serializerDef.getCurrentSchemaInfo())
+                                                .getField("f2")
+                                                .defaultValue()
+                                                .getTextValue())));
     }
 
     public void testSingleInvalidSchemaInfo() {

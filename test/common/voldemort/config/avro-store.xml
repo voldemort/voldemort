@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<stores>
+  <store>
+    <name>test-avro-evolving-schema</name>
+    <persistence>memory</persistence>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <preferred-reads>1</preferred-reads>
+    <required-reads>1</required-reads>
+    <preferred-writes>1</preferred-writes>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>avro-generic-resolving</type>
+      <schema-info version="1">{"name":"TestRecord","type":"record","fields":[{"name":"f1","type":"string"}]}</schema-info>
+      <schema-info version="2">{"name":"TestRecord","type":"record","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"string","default":"d2"}]}</schema-info>
+    </value-serializer>
+  </store>
+</stores>

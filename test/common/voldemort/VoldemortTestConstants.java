@@ -138,4 +138,8 @@ public class VoldemortTestConstants {
         return readString("config/TestSpecificRecord.avsc");
     }
 
+    public static String getAvroStoresXml() {
+        return readString("config/avro-store.xml");
+    }
+
 }
