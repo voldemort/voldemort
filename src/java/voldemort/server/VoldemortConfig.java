@@ -131,6 +131,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
+    private boolean enableJmxClusterName;
 
     private List<String> storageConfigurations;
 
@@ -277,6 +278,7 @@ public class VoldemortConfig implements Serializable {
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
         this.enableRepair = props.getBoolean("enable.repair", false);
+        this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -1391,6 +1393,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setMaxParallelStoresRebalancing(boolean rebalancingOptimization) {
         this.rebalancingOptimization = rebalancingOptimization;
+    }
+
+    public boolean isEnableJmxClusterName() {
+        return enableJmxClusterName;
+    }
+
+    public void setEnableJmxClusterName(boolean enableJmxClusterName) {
+        this.enableJmxClusterName = enableJmxClusterName;
     }
 
 }

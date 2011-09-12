@@ -76,11 +76,16 @@ public class JmxService extends AbstractService {
         for(VoldemortService service: services)
             registerBean(service, JmxUtils.createObjectName(service.getClass()));
         for(Store<ByteArray, byte[], byte[]> store: this.storeRepository.getAllStorageEngines()) {
-            registerBean(store,
-                         JmxUtils.createObjectName(this.cluster.getName()
-                                                           + "."
-                                                           + JmxUtils.getPackageName(store.getClass()),
-                                                   store.getName()));
+            if(server.getVoldemortConfig().isEnableJmxClusterName())
+                registerBean(store,
+                             JmxUtils.createObjectName(this.cluster.getName()
+                                                               + "."
+                                                               + JmxUtils.getPackageName(store.getClass()),
+                                                       store.getName()));
+            else
+                registerBean(store,
+                             JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                       store.getName()));
         }
     }
 
