@@ -6,11 +6,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema;
-import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.Encoder;
 
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
@@ -58,7 +59,7 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
             byte[] versionBytes = ByteBuffer.allocate(4).putInt(currentVersion).array();
             out.write(versionBytes);
             // Write the serialized Avro object as the remaining bytes
-            BinaryEncoder encoder = new BinaryEncoder(out);
+            Encoder encoder = new BinaryEncoder(out);
             writer.write(object, encoder);
             encoder.flush();
             out.close();
@@ -84,7 +85,7 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
 
             // Read the bytes into T object
             DatumReader<T> datumReader = readers.get(version);
-            BinaryDecoder decoder = decoderFactory.createBinaryDecoder(b, null);
+            Decoder decoder = decoderFactory.createBinaryDecoder(b, null);
             return datumReader.read(null, decoder);
         } catch(Exception e) {
             throw new RuntimeException(e);
@@ -92,7 +93,7 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
     }
 
     public static Integer getSchemaVersion(Schema schema) {
-        return schema.toString().hashCode();
+        return schema.hashCode();
     }
 
     public static Integer getSchemaVersion(String schemaAsString) {

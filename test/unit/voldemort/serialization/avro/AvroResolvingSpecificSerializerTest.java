@@ -26,6 +26,28 @@ public class AvroResolvingSpecificSerializerTest extends TestCase {
     String SCHEMA2NS = VoldemortTestConstants.getTestSpecificRecordSchemaWithNamespace2();
     String SCHEMA = TestRecord.SCHEMA$.toString();
 
+    public void testSchemaHashCode() {
+        // Check various things that affect hashCode
+        // Base case
+        assertEquals(Schema.parse(SCHEMA1).hashCode(), Schema.parse(SCHEMA1).hashCode());
+        // Check docs
+        Schema s1 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"string\"}]}");
+        Schema s2 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"doc\":\"field docs\",\"type\":\"string\"}]}");
+        assertEquals(s1.hashCode(), s2.hashCode());
+        // Check field order
+        s1 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"string\"},{\"name\":\"f2\",\"type\":\"string\"}]}");
+        s2 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f2\",\"type\":\"string\"},{\"name\":\"f1\",\"type\":\"string\"}]}");
+        assertNotSame(s1.hashCode(), s2.hashCode());
+        // Check namespace
+        assertNotSame(Schema.parse(SCHEMA1).hashCode(), Schema.parse(SCHEMA1NS).hashCode());
+        // Different fields
+        assertNotSame(Schema.parse(SCHEMA1).hashCode(), Schema.parse(SCHEMA2).hashCode());
+        // Field types
+        s1 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"string\"}]}");
+        s2 = Schema.parse("{\"type\":\"record\",\"name\":\"TestRecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"int\"}]}");
+        assertNotSame(s1.hashCode(), s2.hashCode());
+    }
+
     public void testSingleInvalidSchemaInfo() {
         SerializerDefinition serializerDef = new SerializerDefinition("test", "null");
         try {
