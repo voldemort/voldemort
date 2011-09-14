@@ -418,7 +418,7 @@ public class StorageService extends AbstractService {
                     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                     ObjectName name = null;
                     if(this.voldemortConfig.isEnableJmxClusterName())
-                        name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                        name = JmxUtils.createObjectName(cluster.getName()
                                                                  + "."
                                                                  + JmxUtils.getPackageName(RedirectingStore.class),
                                                          store.getName());
