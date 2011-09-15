@@ -279,22 +279,26 @@ public class RebalanceUtils {
             System.out.println("Current min moves: " + minMoves + "; current min std dev: "
                                + minStdDev);
 
-            if(currentStdDev < minStdDev && minClusterMove.getSecond() < minMoves) {
+            if(currentStdDev < minStdDev) {
+                if(minClusterMove.getSecond() > minMoves) {
+                    System.out.println("Warning: the newly chosen cluster requires "
+                                       + (minClusterMove.getSecond() - minMoves)
+                                       + " addition moves!");
+                }
                 minMoves = minClusterMove.getSecond();
                 minStdDev = currentStdDev;
                 minCluster = minClusterMove.getFirst();
 
                 System.out.println("Current distribution");
-                System.out.println("--------------------");
                 System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
                                                                                      storeDefs,
                                                                                      keys));
+                System.out.println("-------------------------\n");
+
                 System.out.println("Target distribution");
-                System.out.println("--------------------");
                 System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
                                                                                      storeDefs,
                                                                                      keys));
-
                 System.out.println("=========================\n");
                 // If output directory exists, output the optimized cluster
                 if(outputDir != null) {
@@ -307,6 +311,14 @@ public class RebalanceUtils {
                 }
             }
         }
+
+        System.out.println("\n==========================");
+        System.out.println("Final distribution");
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(minCluster,
+                                                                             storeDefs,
+                                                                             keys));
+        System.out.println("=========================\n");
+
         return;
 
     }
