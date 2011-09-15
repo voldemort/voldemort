@@ -8,4 +8,4 @@ rm -rf $DATADIR
 mkdir $DATADIR
 
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --output-dir $DATADIR --current-cluster $WORKDIR/less-nodes-cluster.xml --current-stores $WORKDIR/stores.xml --entropy false --keys 10000
+bin/voldemort-rebalance.sh --output-dir $DATADIR --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --entropy false --keys 10000

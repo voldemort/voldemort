@@ -1,7 +1,6 @@
 #!/bin/bash
 
 source setup_env.inc
-ENDMETADATA=end-cluster.xml
 TERMSTRING="Successfully terminated rebalance all tasks"
 CLUSTERGENLOG=cluster_gen.log
 
@@ -26,25 +25,18 @@ do
   fi
 
   $remote_call "cd $REMOTEWORK; source setup_env.inc; cd \$WORKDIR; rm -rf \$LOGDIR; rm -rf \$TMPCLUSTER; mkdir \$LOGDIR; mkdir \$TMPCLUSTER"
-  $remote_call "cd $REMOTEWORK; source setup_env.inc; cd \$WORKDIR; rm -rf \${TESTCFG_PREFIX}$i/config/*; mkdir -p \${TESTCFG_PREFIX}$i; cp -rf $CONFIGSOURCE$i/config \${TESTCFG_PREFIX}$i/"
+  $remote_call "cd $REMOTEWORK; source setup_env.inc; cd \$WORKDIR; cp \$METADIR/initial-cluster.xml \${TESTCFG_PREFIX}$i/config/cluster.xml; cp \$METADIR/stores.xml \${TESTCFG_PREFIX}$i/config/stores.xml"
   if [ "$1" == "reload" -o "$1" == "copy" ]
   then
     $remote_call "cd $REMOTEWORK; source setup_env.inc; cd \$WORKDIR; rm -rf \${TESTCFG_PREFIX}$i/data/bdb/*"
   fi
 done
 
-# restore servers to their initial state
-#echo Restore server initial state
-#$WORKDIR/RestoreServers.sh
-
 # generate the target cluster.xml
 echo Generate target cluster.xml
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --current-cluster $WORKDIR/less-nodes-cluster.xml --current-stores $WORKDIR/stores.xml --target-cluster $WORKDIR/more-nodes-cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
+bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/final-cluster.xml --generate --output-dir $WORKDIR > $LOGDIR/$CLUSTERGENLOG
 cd $WORKDIR
-
-# save the end-cluster.xml
-cp $WORKDIR/final-cluster.xml $WORKDIR/$ENDMETADATA
 
 if [ "$1" == "copy" ]
 then
@@ -82,7 +74,6 @@ then
 fi
 
 echo starting rebalance
-cp $WORKDIR/more-nodes-cluster.xml $WORKDIR/initial-cluster.xml
 LOGFILE=rebalance.log.`date +%H%M%S`
 $WORKDIR/StartRebalanceProcess.sh $LOGFILE
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1

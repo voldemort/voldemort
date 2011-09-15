@@ -3,10 +3,9 @@
 source setup_env.inc
 LOGFILE=$1
 LOGDIR=$WORKDIR/log
-ENDMETADATA=end-cluster.xml
 
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --current-cluster $WORKDIR/initial-cluster.xml --current-stores $WORKDIR/stores.xml --target-cluster $WORKDIR/$ENDMETADATA --parallelism 2 --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
+bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/final-cluster.xml --parallelism 2 --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
 
 echo Checking for nodes rebalancing readniess... 
 # make sure rebalancing starts
