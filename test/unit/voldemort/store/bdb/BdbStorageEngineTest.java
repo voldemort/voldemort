@@ -227,7 +227,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         String error = Arrays.toString(expected) + " does not equal " + Arrays.toString(actual);
         assertEquals(error, expected.length, actual.length);
         for (int i = 0; i < expected.length; i++) {
-            assertEquals(error, expected[0], actual[0]);
+            assertEquals(error, expected[i], actual[i]);
         }
     }
 
