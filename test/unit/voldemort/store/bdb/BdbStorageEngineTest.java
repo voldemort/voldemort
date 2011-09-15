@@ -16,19 +16,10 @@
 
 package voldemort.store.bdb;
 
-import java.io.File;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import com.sleepycat.je.*;
 import org.apache.commons.io.FileDeleteStrategy;
-
 import voldemort.TestUtils;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
@@ -38,11 +29,16 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseConfig;
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.LockMode;
+import java.io.File;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 
@@ -205,5 +201,42 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         keepRunning.set(false);
         executor.shutdown();
         assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
+    public void testNativeBackup() throws Exception {
+        File backupToDir = File.createTempFile("bdb-storage", "bkp");
+        backupToDir.delete();
+        backupToDir.mkdir();
+        try {
+            store.nativeBackup(backupToDir, new AsyncOperationStatus(0, "dummy"));
+            // Check that one file was copied
+            assertArrayEquals(backupToDir.list(), new String[]{"00000000.jdb"});
+            File backupFile = backupToDir.listFiles()[0];
+
+            store.nativeBackup(backupToDir, new AsyncOperationStatus(0, "dummy"));
+            // Check that there are now two files, and the first one hasn't changed
+            assertArrayEquals(backupToDir.list(), new String[]{"00000000.jdb", "00000001.jdb"});
+            assertEquals(backupFile.lastModified(), backupToDir.listFiles()[0].lastModified());
+        } finally {
+            deleteDir(backupToDir);
+        }
+
+    }
+
+    private static void assertArrayEquals(Object[] expected, Object[] actual) {
+        String error = Arrays.toString(expected) + " does not equal " + Arrays.toString(actual);
+        assertEquals(error, expected.length, actual.length);
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(error, expected[0], actual[0]);
+        }
+    }
+
+    private boolean deleteDir(File dir) {
+        if (dir.isDirectory()) {
+            for (File file : dir.listFiles()) {
+                deleteDir(file);
+            }
+        }
+        return dir.delete();
     }
 }
