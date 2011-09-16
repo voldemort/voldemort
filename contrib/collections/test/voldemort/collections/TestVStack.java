@@ -14,9 +14,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
 
 /**
- * @author jko
- * 
- *         Unit tests for voldemort stack implementation.
+ * Unit tests for voldemort stack implementation.
  */
 public class TestVStack extends TestCase {
 

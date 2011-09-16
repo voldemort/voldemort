@@ -203,8 +203,6 @@ public class VLinkedPagedList<I, LK extends Comparable<LK>> implements Iterable<
      * Reverse order comparison of VPageIndexEntry objects. Only compares the
      * lastIndex component.
      * 
-     * @author jko
-     * 
      * @param <LK>
      */
     private static class IndexEntryComparator<LK extends Comparable<LK>> implements

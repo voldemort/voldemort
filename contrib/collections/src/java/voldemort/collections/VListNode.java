@@ -7,11 +7,9 @@ import java.util.Map;
 import voldemort.utils.Identified;
 
 /**
- * @author jko
- * 
- *         Immutable wrapper around an object that adds a Integer id, nextId,
- *         previousId, and stable. Used for implementing larger list-based
- *         structures in voldemort.
+ * Immutable wrapper around an object that adds a Integer id, nextId,
+ * previousId, and stable. Used for implementing larger list-based structures in
+ * voldemort.
  */
 public class VListNode<T> extends Identified<T, Integer> {
 

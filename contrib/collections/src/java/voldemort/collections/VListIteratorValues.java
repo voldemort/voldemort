@@ -1,12 +1,8 @@
 package voldemort.collections;
 
-
 /**
- * @author jko
- * 
- *         Wrapper around VListIterator that strips out the version information.
- *         Only useful when no further storage operations will be done on these
- *         values.
+ * Wrapper around VListIterator that strips out the version information. Only
+ * useful when no further storage operations will be done on these values.
  */
 public class VListIteratorValues<E> implements MappedListIterator<Integer, E> {
 

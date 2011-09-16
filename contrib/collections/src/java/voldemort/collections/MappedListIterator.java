@@ -4,12 +4,10 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * @author jko
- * 
- *         Analogous to ListIterator, except for us with a map-backed list. The
- *         main difference is that these lists are not indexed by sequential
- *         number, but instead referred to by an id whose order has nothing to
- *         do with the position of the element in the list.
+ * Analogous to ListIterator, except for use with a map-backed list. The main
+ * difference is that these lists are not indexed by sequential number, but
+ * instead referred to by an id whose order has nothing to do with the position
+ * of the element in the list.
  * 
  * @param <K> the type of the key used by the underlying map
  * @param <E> the type of the elements being stored

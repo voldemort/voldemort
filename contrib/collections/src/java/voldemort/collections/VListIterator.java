@@ -5,7 +5,6 @@ import java.util.NoSuchElementException;
 import voldemort.versioning.Versioned;
 
 /**
- * @author jko
  * 
  */
 public class VListIterator<E> implements MappedListIterator<Integer, Versioned<E>> {

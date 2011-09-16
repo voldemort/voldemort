@@ -10,7 +10,6 @@ import java.util.NoSuchElementException;
 import voldemort.serialization.Serializer;
 
 /**
- * @author jko
  * 
  */
 public class VLinkedPagedListIterator<I, LK extends Comparable<LK>> implements

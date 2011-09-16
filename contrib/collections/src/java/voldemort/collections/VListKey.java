@@ -7,9 +7,7 @@ import java.util.Map;
 import voldemort.utils.Identified;
 
 /**
- * @author jko
- * 
- *         Pointer to a VListNode.
+ * Pointer to a VListNode.
  */
 public class VListKey<T> extends Identified<T, Integer> {
 
@@ -28,6 +26,7 @@ public class VListKey<T> extends Identified<T, Integer> {
         return _map;
     }
 
+    @Override
     public String toString() {
         return _map.toString();
     }
