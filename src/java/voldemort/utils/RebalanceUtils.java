@@ -279,7 +279,7 @@ public class RebalanceUtils {
             System.out.println("Current min moves: " + minMoves + "; current min std dev: "
                                + minStdDev);
 
-            if(currentStdDev < minStdDev) {
+            if(currentStdDev <= minStdDev) {
                 if(minClusterMove.getSecond() > minMoves) {
                     System.out.println("Warning: the newly chosen cluster requires "
                                        + (minClusterMove.getSecond() - minMoves)
@@ -318,6 +318,14 @@ public class RebalanceUtils {
                                                                              storeDefs,
                                                                              keys));
         System.out.println("=========================\n");
+
+        // If output directory exists, output the optimized cluster
+        if(outputDir != null) {
+            try {
+                FileUtils.writeStringToFile(new File(outputDir, RebalanceUtils.finalClusterFileName),
+                                            new ClusterMapper().writeCluster(minCluster));
+            } catch(Exception e) {}
+        }
 
         return;
 
