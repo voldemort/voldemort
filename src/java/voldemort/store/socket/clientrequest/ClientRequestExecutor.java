@@ -28,7 +28,6 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
-import voldemort.utils.SelectorManager;
 import voldemort.utils.SelectorManagerWorker;
 import voldemort.utils.Time;
 
@@ -98,7 +97,6 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(timeoutMs == -1) {
             this.expiration = -1;
         } else {
-            timeoutMs -= SelectorManager.SELECTOR_POLL_MS;
             this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs);
 
             if(this.expiration < System.nanoTime())
