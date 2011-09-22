@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -86,7 +85,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         int attempts = Math.min(preferred, nodes.size());
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         final CountDownLatch latch = new CountDownLatch(attempts);
-        final AtomicBoolean doneWaiting = new AtomicBoolean(false);
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -99,11 +97,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
-
-                    // If timed out, no point in processing the response.
-                    if(doneWaiting.get() == true)
-                        return;
-
                     if(logger.isTraceEnabled())
                         logger.trace(pipeline.getOperation().getSimpleName()
                                      + " response received (" + requestTime + " ms.) from node "
@@ -151,7 +144,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
         try {
             latch.await(timeoutMs, TimeUnit.MILLISECONDS);
-            doneWaiting.compareAndSet(false, true);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);

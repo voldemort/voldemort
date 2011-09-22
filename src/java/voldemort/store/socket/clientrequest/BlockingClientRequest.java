@@ -77,4 +77,12 @@ public class BlockingClientRequest<T> implements ClientRequest<T> {
         return delegate.formatRequest(outputStream);
     }
 
+    public void timeOut() {
+        delegate.timeOut();
+    }
+
+    public boolean isTimedOut() {
+        return delegate.isTimedOut();
+    }
+
 }

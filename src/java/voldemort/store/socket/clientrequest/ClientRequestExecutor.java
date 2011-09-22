@@ -50,11 +50,13 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     private ClientRequest<?> clientRequest;
 
     private long expiration;
+    private boolean isExpired;
 
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
                                  int socketBufferSize) {
         super(selector, socketChannel, socketBufferSize);
+        isExpired = false;
     }
 
     public SocketChannel getSocketChannel() {
@@ -79,6 +81,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(logger.isEnabledFor(Level.WARN))
             logger.warn("Client request associated with " + socketChannel.socket() + " timed out");
 
+        isExpired = true;
         close();
 
         return false;
@@ -264,7 +267,10 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         clientRequest = null;
         expiration = 0;
 
-        local.complete();
+        if(isExpired)
+            local.timeOut();
+        else
+            local.complete();
 
         if(logger.isTraceEnabled())
             logger.trace("Marked client associated with " + socketChannel.socket() + " as complete");
