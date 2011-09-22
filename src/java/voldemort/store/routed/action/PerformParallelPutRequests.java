@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 
@@ -35,9 +36,9 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Response;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
@@ -105,6 +106,7 @@ public class PerformParallelPutRequests extends
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
         final CountDownLatch attemptsLatch = new CountDownLatch(attempts);
         final CountDownLatch blocksLatch = new CountDownLatch(blocks);
+        final AtomicBoolean doneWaiting = new AtomicBoolean(false);
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -117,6 +119,11 @@ public class PerformParallelPutRequests extends
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
+
+                    // If timed out, no point in processing the response.
+                    if(doneWaiting.get() == true)
+                        return;
+
                     if(logger.isTraceEnabled())
                         logger.trace(pipeline.getOperation().getSimpleName()
                                      + " response received (" + requestTime + " ms.) from node "
@@ -180,6 +187,7 @@ public class PerformParallelPutRequests extends
             long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
             if(remainingNs > 0)
                 blocksLatch.await(remainingNs, TimeUnit.NANOSECONDS);
+            doneWaiting.compareAndSet(false, true);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
