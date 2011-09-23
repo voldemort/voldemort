@@ -1,7 +1,6 @@
 package voldemort.serialization.avro;
 
 import java.io.StringReader;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,8 +134,9 @@ public class AvroResolvingSerializerTest extends TestCase {
         obj.f2 = new Utf8("bar");
         obj.f3 = 42;
         byte[] bytes = serializer.toBytes(obj);
-        ByteBuffer bb = ByteBuffer.wrap(bytes, 0, 4);
-        assertTrue(((Integer) bb.getInt()).equals(AvroResolvingSerializer.getSchemaVersion(SCHEMA)));
+        Byte versionByte = bytes[0];
+        assertEquals((Integer) (versionByte.intValue()),
+                     (Integer) serializerDef.getCurrentSchemaVersion());
     }
 
     public void testMissingSchema() {
@@ -148,7 +148,7 @@ public class AvroResolvingSerializerTest extends TestCase {
         obj.f3 = 42;
         byte[] bytes = serializer.toBytes(obj);
         // Change the version bytes to something bogus
-        bytes[0] ^= (byte) 0xFF;
+        bytes[0] = ((Integer) 0xFF).byteValue();
         try {
             serializer.toObject(bytes);
 
@@ -179,13 +179,7 @@ public class AvroResolvingSerializerTest extends TestCase {
         // Write it as the current Schema
         byte[] bytes = serializer1.toBytes(datum);
         // Fix the version bytes so it resolves the correct Schema
-        byte[] versionBytes = ByteBuffer.allocate(4)
-                                        .putInt(AvroResolvingSerializer.getSchemaVersion(SCHEMA1NS))
-                                        .array();
-        bytes[0] = versionBytes[0];
-        bytes[1] = versionBytes[1];
-        bytes[2] = versionBytes[2];
-        bytes[3] = versionBytes[3];
+        bytes[0] = ((Integer) 0x01).byteValue();
 
         TestRecord datum1 = serializer.toObject(bytes);
         assertTrue(datum1.f1.equals(datum.get("f1")));
@@ -203,8 +197,8 @@ public class AvroResolvingSerializerTest extends TestCase {
 
         // Second serializer
         Map<Integer, String> schemaInfo2 = new HashMap<Integer, String>();
-        schemaInfo2.put(1, SCHEMA1);
-        schemaInfo2.put(2, SCHEMA2);
+        schemaInfo2.put(0, SCHEMA1);
+        schemaInfo2.put(1, SCHEMA2);
         SerializerDefinition serializerDef2 = new SerializerDefinition("test",
                                                                        schemaInfo2,
                                                                        true,
