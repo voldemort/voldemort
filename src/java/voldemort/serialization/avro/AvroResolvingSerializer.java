@@ -12,6 +12,8 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import voldemort.serialization.SerializationException;
 import voldemort.serialization.Serializer;
@@ -19,34 +21,43 @@ import voldemort.serialization.SerializerDefinition;
 
 public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
 
-    private final Map<Integer, Schema> schemaVersions;
+    protected static final Log LOG = LogFactory.getLog(AvroResolvingSerializer.class);
+    private final Map<Byte, Schema> avroSchemaVersions;
     private final Schema currentSchema;
-    private final Integer currentVersion;
+    private Byte currentAvroSchemaVersion;
     private final DatumWriter<T> writer;
-    private final Map<Integer, DatumReader<T>> readers = new HashMap<Integer, DatumReader<T>>();
+    private final Map<Byte, DatumReader<T>> readers = new HashMap<Byte, DatumReader<T>>();
     private DecoderFactory decoderFactory = new DecoderFactory();
 
     public AvroResolvingSerializer(SerializerDefinition serializerDef) {
         Map<Integer, String> allSchemaInfos = serializerDef.getAllSchemaInfoVersions();
 
         // Parse the SerializerDefinition and load up the Schemas into a map
-        schemaVersions = loadSchemas(allSchemaInfos);
-        currentVersion = getCurrentSchemaVersion(serializerDef);
-        currentSchema = schemaVersions.get(currentVersion);
-        if(currentSchema == null) {
+        avroSchemaVersions = loadSchemas(allSchemaInfos);
+
+        // Make sure the "current" schema is loaded
+        currentSchema = getCurrentSchema(serializerDef);
+        for(Map.Entry<Byte, Schema> entry: avroSchemaVersions.entrySet()) {
+            if(entry.getValue().equals(currentSchema)) {
+                currentAvroSchemaVersion = entry.getKey();
+                break;
+            }
+        }
+        if(currentAvroSchemaVersion == null) {
             throw new IllegalArgumentException("Most recent Schema is not included in the schema-info");
         }
 
-        // Create a DatumReader and DatumWriter for each Schema
-        for(Map.Entry<Integer, Schema> entry: schemaVersions.entrySet()) {
+        // Create a DatumReader for each schema and a DatumWriter for the
+        // current schema
+        for(Map.Entry<Byte, Schema> entry: avroSchemaVersions.entrySet()) {
             readers.put(entry.getKey(), createDatumReader(entry.getValue(), currentSchema));
         }
         writer = createDatumWriter(currentSchema);
     }
 
-    protected abstract Integer getCurrentSchemaVersion(SerializerDefinition serializerDef);
+    protected abstract Schema getCurrentSchema(SerializerDefinition serializerDef);
 
-    protected abstract Map<Integer, Schema> loadSchemas(Map<Integer, String> allSchemaInfos);
+    protected abstract Map<Byte, Schema> loadSchemas(Map<Integer, String> allSchemaInfos);
 
     protected abstract DatumWriter<T> createDatumWriter(Schema schema);
 
@@ -55,8 +66,8 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
     public byte[] toBytes(T object) {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            // Write the version as the first 4 bytes
-            byte[] versionBytes = ByteBuffer.allocate(4).putInt(currentVersion).array();
+            // Write the version as the first byte
+            byte[] versionBytes = ByteBuffer.allocate(1).put(currentAvroSchemaVersion).array();
             out.write(versionBytes);
             // Write the serialized Avro object as the remaining bytes
             Encoder encoder = new BinaryEncoder(out);
@@ -73,11 +84,11 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
     public T toObject(byte[] bytes) {
         try {
             ByteBuffer bb = ByteBuffer.wrap(bytes);
-            // First 4 bytes are the version
-            Integer version = bb.getInt();
-            if(schemaVersions.containsKey(version) == false) {
-                throw new SerializationException("Unknown Schema version found in serialized value");
-                // TODO: what to do here?
+            // First byte is the version
+            Byte version = bb.get();
+            if(avroSchemaVersions.containsKey(version) == false) {
+                throw new SerializationException("Unknown Schema version (" + version
+                                                 + ") found in serialized value");
             }
             // Read the remaining bytes, this is the serialized Avro object
             byte[] b = new byte[bb.remaining()];
@@ -91,13 +102,4 @@ public abstract class AvroResolvingSerializer<T> implements Serializer<T> {
             throw new RuntimeException(e);
         }
     }
-
-    public static Integer getSchemaVersion(Schema schema) {
-        return schema.hashCode();
-    }
-
-    public static Integer getSchemaVersion(String schemaAsString) {
-        return getSchemaVersion(Schema.parse(schemaAsString));
-    }
-
 }

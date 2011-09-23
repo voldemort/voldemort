@@ -31,11 +31,11 @@ public class AvroResolvingSpecificSerializer<T extends SpecificRecord> extends
     }
 
     @Override
-    protected Map<Integer, Schema> loadSchemas(Map<Integer, String> allSchemaInfos) {
-        Map<Integer, Schema> schemaVersions = new HashMap<Integer, Schema>();
+    protected Map<Byte, Schema> loadSchemas(Map<Integer, String> allSchemaInfos) {
+        Map<Byte, Schema> schemaVersions = new HashMap<Byte, Schema>();
         String fullName = null;
-        for(String schemaInfo: allSchemaInfos.values()) {
-            Schema schema = Schema.parse(schemaInfo);
+        for(Map.Entry<Integer, String> entry: allSchemaInfos.entrySet()) {
+            Schema schema = Schema.parse(entry.getValue());
             // Make sure each version of the Schema is for the same class name
             if(fullName == null) {
                 fullName = schema.getFullName();
@@ -48,24 +48,31 @@ public class AvroResolvingSpecificSerializer<T extends SpecificRecord> extends
             if(schema.getType() != Schema.Type.RECORD) {
                 throw new IllegalArgumentException("Avro schema must be a \"record\" type schema");
             }
-            schemaVersions.put(getSchemaVersion(schema), schema);
+            Integer version = entry.getKey();
+            if(version > Byte.MAX_VALUE) {
+                throw new IllegalArgumentException("Cannot have schema version higher than "
+                                                   + Byte.MAX_VALUE);
+            }
+            schemaVersions.put(version.byteValue(), schema);
+            LOG.info("Loaded schema version (" + version + ")");
         }
         return schemaVersions;
     }
 
     @Override
-    protected Integer getCurrentSchemaVersion(SerializerDefinition serializerDef) {
-        // Make sure we can instantiate the class, and that it extends
-        // SpecificRecord
+    protected Schema getCurrentSchema(SerializerDefinition serializerDef) {
         try {
+            // The current schema is the one extracted from the class
             String schemaInfo = serializerDef.getCurrentSchemaInfo();
             Schema schema = Schema.parse(schemaInfo);
+            // Make sure we can instantiate the class, and that it extends
+            // SpecificRecord
             String fullName = schema.getFullName();
             Class<T> clazz = (Class<T>) Class.forName(fullName);
             if(!SpecificRecord.class.isAssignableFrom(clazz))
                 throw new IllegalArgumentException("Class provided should implement SpecificRecord");
             T inst = clazz.newInstance();
-            return getSchemaVersion(inst.getSchema());
+            return inst.getSchema();
         } catch(ClassNotFoundException e) {
             throw new SerializationException(e);
         } catch(IllegalAccessException e) {
