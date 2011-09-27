@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -89,12 +89,14 @@ public abstract class AbstractRebalanceTest {
     protected static int NUM_KEYS = 100;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
+    protected static String testStoreNameRW2 = "test2";
     protected static String testStoreNameRO = "test-ro";
 
     protected static String storeDefFileWithoutReplication;
     protected static String storeDefFileWithReplication;
     protected static String roStoreDefFileWithReplication;
     protected static String rwStoreDefFileWithReplication;
+    protected static String rwTwoStoreDefFileWithReplication;
 
     private List<StoreDefinition> storeDefWithoutReplication;
     private List<StoreDefinition> storeDefWithReplication;
@@ -102,6 +104,7 @@ public abstract class AbstractRebalanceTest {
     private StoreDefinition rwStoreDefWithoutReplication;
     private StoreDefinition roStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication;
+    private StoreDefinition rwStoreDefWithReplication2;
 
     protected SocketStoreFactory socketStoreFactory;
     HashMap<String, String> testEntries;
@@ -175,10 +178,29 @@ public abstract class AbstractRebalanceTest {
                                                                 .setPreferredWrites(1)
                                                                 .setRequiredWrites(1)
                                                                 .build();
+        rwStoreDefWithReplication2 = new StoreDefinitionBuilder().setName(testStoreNameRW2)
+                                                                 .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                                 .setRoutingPolicy(RoutingTier.SERVER)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(2)
+                                                                 .setPreferredReads(1)
+                                                                 .setRequiredReads(1)
+                                                                 .setPreferredWrites(1)
+                                                                 .setRequiredWrites(1)
+                                                                 .build();
+
         file = File.createTempFile("rw-stores-", ".xml");
         FileUtils.writeStringToFile(file,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication)));
         rwStoreDefFileWithReplication = file.getAbsolutePath();
+
+        file = File.createTempFile("rw-two-stores-", ".xml");
+        FileUtils.writeStringToFile(file,
+                                    new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication,
+                                                                                                   rwStoreDefWithReplication2)));
+        rwTwoStoreDefFileWithReplication = file.getAbsolutePath();
 
         storeDefWithReplication = Lists.newArrayList(roStoreDefWithReplication,
                                                      rwStoreDefWithReplication);
@@ -634,7 +656,7 @@ public abstract class AbstractRebalanceTest {
         // start servers
         List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
         currentCluster = startServers(currentCluster,
-                                      rwStoreDefFileWithReplication,
+                                      rwTwoStoreDefFileWithReplication,
                                       serverList,
                                       null);
         // Update the cluster information based on the node information
@@ -652,10 +674,15 @@ public abstract class AbstractRebalanceTest {
                          rwStoreDefWithReplication,
                          rebalanceClient.getAdminClient(),
                          false);
+            populateData(currentCluster,
+                         rwStoreDefWithReplication2,
+                         rebalanceClient.getAdminClient(),
+                         false);
 
             rebalanceAndCheck(currentCluster,
                               targetCluster,
-                              Lists.newArrayList(rwStoreDefWithReplication),
+                              Lists.newArrayList(rwStoreDefWithReplication,
+                                                 rwStoreDefWithReplication2),
                               rebalanceClient,
                               serverList);
             checkConsistentMetadata(targetCluster, serverList);
@@ -963,9 +990,8 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(), getSocketStore(testStoreNameRW,
-                                                          node.getHost(),
-                                                          node.getSocketPort()));
+                storeMap.put(node.getId(),
+                             getSocketStore(testStoreNameRW, node.getHost(), node.getSocketPort()));
 
             }
 
