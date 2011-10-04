@@ -120,4 +120,14 @@ public class StoreStatsJmxTest {
         stats.recordGetAllTime(200, 2, 0, 1001);  // requested 2, got 0
         assertEquals(0.5, jmx.getPercentGetAllReturningEmptyResponse(), 0.0);
     }
+
+    @Test
+    public void testAverageGetAllCount() {
+        StoreStats stats = new StoreStats();
+        StoreStatsJmx jmx = new StoreStatsJmx(stats);
+        stats.recordGetAllTime(100, 2, 2, 1000);
+        assertEquals(2.0, jmx.getAverageGetAllCount(), 0.0);
+        stats.recordGetAllTime(100, 4, 4, 1000);
+        assertEquals(3.0, jmx.getAverageGetAllCount(), 0.0);
+    }
 }
