@@ -376,7 +376,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     @Test
     public void testObsoleteMasterFails() {
-        // write me
+    // write me
     }
 
     @Test
