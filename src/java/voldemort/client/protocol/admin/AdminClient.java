@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -49,8 +49,8 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -125,6 +125,8 @@ public class AdminClient {
     // 1000 entry default flush count
     private static final long FLUSH_COUNT = 1000;
     private static final long MAX_FLUSH_TIMER = Long.MAX_VALUE;
+    private static final long PRINT_STATS_THRESHOLD = 1000;
+    private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
     private final AdminClientConfig adminClientConfig;
 
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
@@ -269,6 +271,7 @@ public class AdminClient {
         DataInputStream inputStream = sands.getInputStream();
         boolean firstMessage = true;
         long flushTimer = MAX_FLUSH_TIMER;
+        long printStatsTimer = System.currentTimeMillis() + PRINT_STATS_INTERVAL;
         long entryCount = 0;
 
         try {
@@ -298,7 +301,6 @@ public class AdminClient {
                         flushWithCallback(0, entryCount, flushCount, flushCallback, outputStream);
                         // reset the flush timer
                         flushTimer = System.currentTimeMillis() + flushInterval;
-                        entryCount = 0;
                         firstMessage = false;
                     } else {
                         ProtoUtils.writeMessage(outputStream, updateRequest.build());
@@ -309,8 +311,14 @@ public class AdminClient {
                                              outputStream)) {
                             // reset counters after each flush
                             flushTimer = System.currentTimeMillis() + flushInterval;
-                            entryCount = 0;
                         }
+                    }
+
+                    if(printStatsTimer <= System.currentTimeMillis()
+                       || 0 == entryCount % PRINT_STATS_THRESHOLD) {
+                        logger.info("UpdatePartitionEntries: fetched " + entryCount + " to node "
+                                    + nodeId + " for store " + storeName);
+                        printStatsTimer = System.currentTimeMillis() + PRINT_STATS_INTERVAL;
                     }
                 }
                 ProtoUtils.writeEndOfStream(outputStream);
@@ -337,7 +345,7 @@ public class AdminClient {
                                       Runnable callback,
                                       DataOutputStream outputStream) throws IOException {
         boolean flushed = false;
-        if(flushTimer <= System.currentTimeMillis() || entryCounter >= flushCount) {
+        if(flushTimer <= System.currentTimeMillis() || 0 == entryCounter % flushCount) {
             outputStream.flush();
             if(null != callback) {
                 callback.run();
@@ -345,6 +353,14 @@ public class AdminClient {
             flushed = true;
         }
         return flushed;
+    }
+
+    private void printUpdateEntriesStats(long printStatsTimer,
+                                         long entryCounter,
+                                         long printStatsThreshold,
+                                         int nodeId,
+                                         String storeName) {
+
     }
 
     private void initiateFetchRequest(DataOutputStream outputStream,
