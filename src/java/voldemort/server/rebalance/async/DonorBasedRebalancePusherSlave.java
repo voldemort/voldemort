@@ -63,8 +63,8 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                                           });
                 // once we get out of updateEntries, we finished all keys
                 setCompletion(true, false);
-                logger.info("DonorBasedRebalancePusherSlave finished sending partitions to node "
-                            + nodeId);
+                logger.info("DonorBasedRebalancePusherSlave finished sending partitions for store "
+                            + storeName + " to node " + nodeId);
             } catch(VoldemortException e) {
                 if(e.getCause() instanceof IOException) {
                     nodeIterator.setRecoveryMode();

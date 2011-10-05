@@ -5,7 +5,7 @@ LOGFILE=$1
 LOGDIR=$WORKDIR/log
 
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/final-cluster.xml --parallelism 2 --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
+bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/final-cluster.xml --batch 100 --parallelism 10 --stealer-based false --output-dir $WORKDIR > $LOGDIR/$LOGFILE 2>&1 &
 
 echo Checking for nodes rebalancing readniess... 
 # make sure rebalancing starts
