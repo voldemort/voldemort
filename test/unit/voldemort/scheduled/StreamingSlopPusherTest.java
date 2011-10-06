@@ -509,4 +509,130 @@ public class StreamingSlopPusherTest {
 
         stopServers(0, 1);
     }
+
+    @Test
+    public void testServerReplacementWithoutBounce() throws IOException, InterruptedException {
+        startServers(0, 2);
+
+        // Put into slop store 0
+        StorageEngine<ByteArray, Slop, byte[]> slopStoreNode0 = getVoldemortServer(0).getStoreRepository()
+                                                                                     .getSlopStore()
+                                                                                     .asSlopStore();
+
+        // Generate slops for 1
+        final List<Versioned<Slop>> entrySet1 = ServerTestUtils.createRandomSlops(1,
+                                                                                  50,
+                                                                                  "test-replication-memory",
+                                                                                  "users",
+                                                                                  "test-replication-persistent",
+                                                                                  "test-readrepair-memory",
+                                                                                  "test-consistent",
+                                                                                  "test-consistent-with-pref-list");
+        // Generate slops for 2
+        final List<Versioned<Slop>> entrySet2 = ServerTestUtils.createRandomSlops(2,
+                                                                                  50,
+                                                                                  "test-replication-memory",
+                                                                                  "users",
+                                                                                  "test-replication-persistent",
+                                                                                  "test-readrepair-memory",
+                                                                                  "test-consistent",
+                                                                                  "test-consistent-with-pref-list");
+
+        populateSlops(0, slopStoreNode0, entrySet1, entrySet2);
+
+        StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
+                                                                   getVoldemortServer(0).getMetadataStore(),
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                               .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                                                                                                                         metadataStore,
+                                                                                                                                                                         configs[0]))),
+                                                                   configs[0],
+                                                                   new Semaphore(1));
+
+        pusher.run();
+
+        // Give some time for the slops to go over
+        Thread.sleep(10000);
+
+        // Now check if the slops went through and also got deleted
+        Iterator<Versioned<Slop>> entryIterator = entrySet2.listIterator();
+        while(entryIterator.hasNext()) {
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
+            StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
+                                                                                  .getStorageEngine(nextSlop.getStoreName());
+            if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
+                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
+                                                                               null).size());
+                assertEquals("entry value should match",
+                             new String(nextSlop.getValue()),
+                             new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
+            } else if(nextSlop.getOperation().equals(Slop.Operation.DELETE)) {
+                assertEquals("entry value should match", 0, store.get(nextSlop.getKey(), null)
+                                                                 .size());
+            }
+
+            // did it get deleted correctly
+            assertEquals("slop should have gone", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
+                                                                   .size());
+        }
+
+        entryIterator = entrySet1.listIterator();
+        while(entryIterator.hasNext()) {
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
+            // did it get deleted correctly
+            assertNotSame("slop should be there", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
+                                                                   .size());
+        }
+
+        // Check counts
+        SlopStorageEngine slopEngine = getVoldemortServer(0).getStoreRepository().getSlopStore();
+        assertEquals(slopEngine.getOutstandingTotal(), 50);
+        assertEquals(slopEngine.getOutstandingByNode().get(1), new Long(50));
+        assertEquals(slopEngine.getOutstandingByNode().get(2), new Long(0));
+
+        // now replace server 1 with a new host and start it
+        cluster = ServerTestUtils.updateClusterWithNewHost(cluster, 1);
+        startServers(1);
+
+        // update the meatadata store with the new cluster on node 0 and 2 (the
+        // two servers that are running)
+        servers[0].getMetadataStore().put(MetadataStore.CLUSTER_KEY, cluster);
+        servers[2].getMetadataStore().put(MetadataStore.CLUSTER_KEY, cluster);
+
+        // Give some time for the pusher job to figure out that server1 is up
+        Thread.sleep(35000);
+
+        // start the pusher job again
+        pusher.run();
+
+        // Give some time for the slops to go over
+        Thread.sleep(10000);
+
+        // make sure the slot for server 1 is pushed to the new host
+        // Now check if the slops went through and also got deleted
+        entryIterator = entrySet1.listIterator();
+        while(entryIterator.hasNext()) {
+            Versioned<Slop> versionedSlop = entryIterator.next();
+            Slop nextSlop = versionedSlop.getValue();
+            StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
+                                                                                  .getStorageEngine(nextSlop.getStoreName());
+            if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
+                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
+                                                                               null).size());
+                assertEquals("entry value should match",
+                             new String(nextSlop.getValue()),
+                             new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
+            } else if(nextSlop.getOperation().equals(Slop.Operation.DELETE)) {
+                assertEquals("entry value should match", 0, store.get(nextSlop.getKey(), null)
+                                                                 .size());
+            }
+
+            // did it get deleted correctly
+            assertEquals("slop should have gone", 0, slopStoreNode0.get(nextSlop.makeKey(), null)
+                                                                   .size());
+        }
+
+    }
 }

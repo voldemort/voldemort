@@ -57,16 +57,17 @@ public class StreamingSlopPusherJob implements Runnable {
     private final MetadataStore metadataStore;
     private final StoreRepository storeRepo;
     private final FailureDetector failureDetector;
-    private final ConcurrentMap<Integer, SynchronousQueue<Versioned<Slop>>> slopQueues;
-    private final ExecutorService consumerExecutor;
+    private ConcurrentMap<Integer, SynchronousQueue<Versioned<Slop>>> slopQueues;
+    private ExecutorService consumerExecutor;
     private final EventThrottler readThrottler;
     private AdminClient adminClient;
-    private final Cluster cluster;
+    private Cluster cluster;
 
     private final List<Future> consumerResults;
     private final VoldemortConfig voldemortConfig;
     private final Map<Integer, Set<Integer>> zoneMapping;
-    private final ConcurrentHashMap<Integer, Long> attemptedByNode, succeededByNode;
+    private ConcurrentHashMap<Integer, Long> attemptedByNode;
+    private ConcurrentHashMap<Integer, Long> succeededByNode;
     private final Semaphore repairPermits;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
@@ -79,30 +80,15 @@ public class StreamingSlopPusherJob implements Runnable {
         this.failureDetector = failureDetector;
         this.voldemortConfig = voldemortConfig;
         this.repairPermits = Utils.notNull(repairPermits);
-
-        this.cluster = metadataStore.getCluster();
-        this.slopQueues = new ConcurrentHashMap<Integer, SynchronousQueue<Versioned<Slop>>>(cluster.getNumberOfNodes());
-        this.consumerExecutor = Executors.newFixedThreadPool(cluster.getNumberOfNodes(),
-                                                             new ThreadFactory() {
-
-                                                                 public Thread newThread(Runnable r) {
-                                                                     Thread thread = new Thread(r);
-                                                                     thread.setName("slop-pusher");
-                                                                     return thread;
-                                                                 }
-                                                             });
-
         this.readThrottler = new EventThrottler(voldemortConfig.getSlopMaxReadBytesPerSec());
         this.adminClient = null;
         this.consumerResults = Lists.newArrayList();
-        this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
-        this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
-
         this.zoneMapping = Maps.newHashMap();
-
     }
 
     public void run() {
+        // load the metadata before each run, in case the cluster is changed
+        loadMetadata();
 
         // don't try to run slop pusher job when rebalancing
         if(metadataStore.getServerState()
@@ -275,6 +261,22 @@ public class StreamingSlopPusherJob implements Runnable {
             this.repairPermits.release();
         }
 
+    }
+
+    private void loadMetadata() {
+        this.cluster = metadataStore.getCluster();
+        this.slopQueues = new ConcurrentHashMap<Integer, SynchronousQueue<Versioned<Slop>>>(cluster.getNumberOfNodes());
+        this.consumerExecutor = Executors.newFixedThreadPool(cluster.getNumberOfNodes(),
+                                                             new ThreadFactory() {
+
+                                                                 public Thread newThread(Runnable r) {
+                                                                     Thread thread = new Thread(r);
+                                                                     thread.setName("slop-pusher");
+                                                                     return thread;
+                                                                 }
+                                                             });
+        this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
+        this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
     }
 
     private void stopAdminClient() {

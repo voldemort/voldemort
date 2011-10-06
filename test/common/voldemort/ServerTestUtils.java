@@ -25,9 +25,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
@@ -279,6 +281,46 @@ public class ServerTestUtils {
         }
 
         return new Cluster("test-cluster", nodes);
+    }
+
+    /**
+     * Update a cluster by replacing the specified server with a new host, i.e.
+     * new ports since they are all localhost
+     * 
+     * @param original The original cluster to be updated
+     * @param serverIds The ids of the server to be replaced with new hosts
+     * @return updated cluster
+     */
+    public static Cluster updateClusterWithNewHost(Cluster original, int... serverIds) {
+        int highestPortInuse = 0;
+
+        for(Node node: original.getNodes()) {
+            int nodeMaxPort = 0;
+            nodeMaxPort = Math.max(nodeMaxPort, node.getAdminPort());
+            nodeMaxPort = Math.max(nodeMaxPort, node.getHttpPort());
+            nodeMaxPort = Math.max(nodeMaxPort, node.getSocketPort());
+            highestPortInuse = Math.max(highestPortInuse, nodeMaxPort);
+        }
+
+        Set<Integer> newNodesSet = new HashSet<Integer>(serverIds.length);
+        for(int id: serverIds) {
+            newNodesSet.add(id);
+        }
+
+        List<Node> newNodeList = new ArrayList<Node>(serverIds.length);
+        for(Node node: original.getNodes()) {
+            if(newNodesSet.contains(node.getId())) {
+                node = new Node(node.getId(),
+                                "localhost",
+                                ++highestPortInuse,
+                                ++highestPortInuse,
+                                ++highestPortInuse,
+                                node.getPartitionIds());
+            }
+            newNodeList.add(node);
+        }
+
+        return new Cluster(original.getName(), newNodeList);
     }
 
     /**
