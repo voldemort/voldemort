@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -674,6 +674,7 @@ public abstract class AbstractRebalanceTest {
                          rwStoreDefWithReplication,
                          rebalanceClient.getAdminClient(),
                          false);
+
             populateData(currentCluster,
                          rwStoreDefWithReplication2,
                          rebalanceClient.getAdminClient(),
@@ -990,8 +991,9 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(),
-                             getSocketStore(testStoreNameRW, node.getHost(), node.getSocketPort()));
+                storeMap.put(node.getId(), getSocketStore(storeDef.getName(),
+                                                          node.getHost(),
+                                                          node.getSocketPort()));
 
             }
 
