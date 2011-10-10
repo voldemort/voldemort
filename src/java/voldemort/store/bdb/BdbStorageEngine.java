@@ -35,6 +35,7 @@ import voldemort.store.StorageInitializationException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.ClosableIterator;
@@ -74,23 +75,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final Environment environment;
     private final VersionedSerializer<byte[]> versionedSerializer;
     private final AtomicBoolean isOpen;
-    private final boolean cursorPreload;
     private final LockMode readLockMode;
     private final Serializer<Version> versionSerializer;
+    private final BdbEnvironmentStats bdbEnvironmentStats;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
 
     public BdbStorageEngine(String name,
                             Environment environment,
                             Database database,
-                            LockMode readLockMode) {
-        this(name, environment, database, readLockMode, false);
-    }
-
-    public BdbStorageEngine(String name,
-                            Environment environment,
-                            Database database,
-                            LockMode readLockMode,
-                            boolean cursorPreload) {
+                            BdbRuntimeConfig config) {
         this.name = Utils.notNull(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
@@ -106,8 +99,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             }
         };
         this.isOpen = new AtomicBoolean(true);
-        this.cursorPreload = cursorPreload;
-        this.readLockMode = readLockMode;
+        this.readLockMode = config.getLockMode();
+        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
+                                                           config.getStatsCacheTtlMs());
     }
 
     public String getName() {
@@ -116,12 +110,6 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
-            if(cursorPreload) {
-                PreloadConfig preloadConfig = new PreloadConfig();
-                preloadConfig.setLoadLNs(true);
-                getBdbDatabase().preload(preloadConfig);
-            }
-
             Cursor cursor = getBdbDatabase().openCursor(null, null);
             return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
@@ -454,6 +442,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         String dbStats = getStats(fast).toString();
         logger.debug(dbStats);
         return dbStats;
+    }
+
+    public BdbEnvironmentStats getBdbEnvironmentStats() {
+        return bdbEnvironmentStats;
     }
 
     private static abstract class BdbIterator<T> implements ClosableIterator<T> {
