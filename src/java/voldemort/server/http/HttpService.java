@@ -17,12 +17,13 @@
 package voldemort.server.http;
 
 import org.apache.log4j.Logger;
-import org.mortbay.jetty.Connector;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.nio.SelectChannelConnector;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
-import org.mortbay.thread.QueuedThreadPool;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
@@ -56,7 +57,7 @@ public class HttpService extends AbstractService {
     private final VelocityEngine velocityEngine;
     private final RequestHandler requestHandler;
     private Server httpServer;
-    private Context context;
+    private ContextHandler context;
 
     @SuppressWarnings("unused")
     public HttpService(VoldemortServer server,
@@ -88,11 +89,11 @@ public class HttpService extends AbstractService {
             threadPool.setName("VoldemortHttp");
             threadPool.setMaxThreads(this.numberOfThreads);
             Server httpServer = new Server();
-            httpServer.setConnectors(new Connector[] { connector });
+            httpServer.addConnector( connector );
             httpServer.setThreadPool(threadPool);
             httpServer.setSendServerVersion(false);
             httpServer.setSendDateHeader(false);
-            Context context = new Context(httpServer, "/", Context.NO_SESSIONS);
+            ServletContextHandler context = new ServletContextHandler( httpServer, "/", false, true );
             context.setAttribute(VoldemortServletContextListener.SERVER_KEY, server);
             context.setAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY,
                                  velocityEngine);

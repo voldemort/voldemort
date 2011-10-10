@@ -18,8 +18,8 @@ package voldemort.client;
 
 import org.junit.After;
 import org.junit.Before;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.servlet.Context;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
 
 import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
@@ -33,7 +33,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
     private HttpStore httpStore;
     private Server server;
-    private Context context;
+    private ContextHandler context;
     private String url;
 
     @Override

@@ -17,8 +17,8 @@
 package voldemort.store.http;
 
 import org.apache.commons.httpclient.HttpClient;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.servlet.Context;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
 
 import voldemort.ServerTestUtils;
 import voldemort.VoldemortTestConstants;
@@ -44,7 +44,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
 
     private HttpStore httpStore;
     private Server server;
-    private Context context;
+    private ContextHandler context;
 
     @Override
     public void setUp() throws Exception {

@@ -33,9 +33,10 @@ import java.util.Set;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
@@ -192,7 +193,7 @@ public class ServerTestUtils {
         return storeFactory.create(storeName, host, port, type, requestRoutingType);
     }
 
-    public static Context getJettyServer(String clusterXml,
+    public static ContextHandler getJettyServer(String clusterXml,
                                          String storesXml,
                                          String storeName,
                                          RequestFormatType requestFormat,
@@ -202,7 +203,7 @@ public class ServerTestUtils {
         // initialize servlet
         Server server = new Server(port);
         server.setSendServerVersion(false);
-        Context context = new Context(server, "/", Context.NO_SESSIONS);
+        ServletContextHandler context = new ServletContextHandler(server, "/", false, true);
 
         RequestHandler handler = getSocketRequestHandlerFactory(clusterXml, storesXml, repository).getRequestHandler(requestFormat);
         context.addServlet(new ServletHolder(new StoreServlet(handler)), "/stores");
