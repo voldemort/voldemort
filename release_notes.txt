@@ -3,7 +3,7 @@ Release 0.90.1 on 10/10/2011
 Changes made since 0.90
 
  * Updated the documentation for Voldemort shell tool in NOTES
- * Added Admin API to perform BDB data cleanup (repairJob) 
+ * Added Admin API to perform Bdb data cleanup (repairJob) 
    and corresponding unit tests
  * Fixes in restore from replication, store creation code
  * Improved failure detector configuration. ThresholdFailureDetector 
