@@ -35,7 +35,7 @@ done
 # generate the target cluster.xml
 echo Generate target cluster.xml
 cd $VLDMDIR
-bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/target-cluster.xml --generate --output-dir $METADIR > $LOGDIR/$CLUSTERGENLOG
+bin/voldemort-rebalance.sh --current-cluster $METADIR/target-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/initial-cluster.xml --generate --output-dir $METADIR > $LOGDIR/$CLUSTERGENLOG
 cd $WORKDIR
 
 if [ "$1" == "copy" ]
