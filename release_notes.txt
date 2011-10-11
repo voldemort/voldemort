@@ -1,3 +1,24 @@
+Release 0.90.1 on 10/10/2011
+
+Changes made since 0.90
+
+ * Updated the documentation for Voldemort shell tool in NOTES
+ * Added Admin API to perform BDB data cleanup (repairJob) 
+   and corresponding unit tests
+ * Fixes in restore from replication, store creation code
+ * Improved failure detector configuration. ThresholdFailureDetector 
+   is now the default option
+ * Multiple Fixes to the Voldemort ruby client
+ * Added additional Jmx metrics to expose Bdb environment statistics, 
+   caching statistics and Voldemort batch operation statistics
+ * Updated default timeout for restore 'from replica' to 365 days
+ * New feature in the performance tool: '--use-sample' option enables 
+   'read, write back unmodified' transactions in place of writes in 
+   the workload (allows for testing read-write transactions on stores 
+   with complex schemas)
+ * Added the ability to dynamically update cluster.xml and 
+   reinitialize the scheduler
+
 Release 0.90 on 7/10/2011
 
 Changes made since 0.81
