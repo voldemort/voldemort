@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.SynchronousQueue;
@@ -201,7 +201,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         for(RebalancePartitionsInfo info: stealInfos) {
             stealerNodeIds.add(info.getStealerId());
         }
-        return " Donor " + stealInfos.get(0).getDonorId() + ", Donor " + stealerNodeIds + "] ";
+        return " Donor " + stealInfos.get(0).getDonorId() + ", Stealer " + stealerNodeIds + "] ";
     }
 
     /**
