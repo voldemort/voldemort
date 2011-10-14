@@ -17,6 +17,7 @@
 package voldemort.store.bdb;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -29,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.TestUtils;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ByteArray;
@@ -208,5 +210,42 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         keepRunning.set(false);
         executor.shutdown();
         assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
+    public void testNativeBackup() throws Exception {
+        File backupToDir = File.createTempFile("bdb-storage", "bkp");
+        backupToDir.delete();
+        backupToDir.mkdir();
+        try {
+            store.nativeBackup(backupToDir, new AsyncOperationStatus(0, "dummy"));
+            // Check that one file was copied
+            assertArrayEquals(backupToDir.list(), new String[]{"00000000.jdb"});
+            long backupFileModified = backupToDir.listFiles()[0].lastModified();
+
+            store.nativeBackup(backupToDir, new AsyncOperationStatus(0, "dummy"));
+            // Check that there are now two files, and the first one hasn't changed
+            assertArrayEquals(backupToDir.list(), new String[]{"00000000.jdb", "00000001.jdb"});
+            assertEquals(backupFileModified, backupToDir.listFiles()[0].lastModified());
+        } finally {
+            deleteDir(backupToDir);
+        }
+
+    }
+
+    private static void assertArrayEquals(Object[] expected, Object[] actual) {
+        String error = Arrays.toString(expected) + " does not equal " + Arrays.toString(actual);
+        assertEquals(error, expected.length, actual.length);
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(error, expected[i], actual[i]);
+        }
+    }
+
+    private boolean deleteDir(File dir) {
+        if (dir.isDirectory()) {
+            for (File file : dir.listFiles()) {
+                deleteDir(file);
+            }
+        }
+        return dir.delete();
     }
 }

@@ -16,6 +16,7 @@
 
 package voldemort.store.bdb;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,6 +29,7 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.VersionedSerializer;
+import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.PersistenceFailureException;
 import voldemort.store.StorageEngine;
@@ -35,6 +37,7 @@ import voldemort.store.StorageInitializationException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
+import voldemort.store.backup.NativeBackupable;
 import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -56,7 +59,6 @@ import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
-import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
 import com.sleepycat.je.Transaction;
 
@@ -65,7 +67,7 @@ import com.sleepycat.je.Transaction;
  * 
  * 
  */
-public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]>, NativeBackupable {
 
     private static final Logger logger = Logger.getLogger(BdbStorageEngine.class);
     private static final Hex hexCodec = new Hex();
@@ -570,5 +572,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
     public boolean isPartitionAware() {
         return false;
+    }
+
+    public void nativeBackup(File toDir, AsyncOperationStatus status) {
+        new BdbNativeBackup(environment).performBackup(toDir, status);
     }
 }
