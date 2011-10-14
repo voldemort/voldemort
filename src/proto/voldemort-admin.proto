@@ -265,6 +265,11 @@ message RebalanceStateChangeResponse {
   optional Error error = 1;
 }
 
+message NativeBackupRequest {
+  required string store_name = 1;
+  required string backup_dir = 2;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -290,6 +295,7 @@ enum AdminRequestType {
   GET_RO_STORAGE_FORMAT = 23;
   REBALANCE_STATE_CHANGE = 24;
   REPAIR_JOB = 25;
+  NATIVE_BACKUP = 26;
 }
 
 message VoldemortAdminRequest {
@@ -318,4 +324,5 @@ message VoldemortAdminRequest {
   optional GetROStorageFormatRequest get_ro_storage_format = 25;
   optional RebalanceStateChangeRequest rebalance_state_change = 26;
   optional RepairJobRequest repair_job = 27;
+  optional NativeBackupRequest native_backup = 28;
 }
