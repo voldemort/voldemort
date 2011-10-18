@@ -14,7 +14,6 @@
     <value-serializer>
       <type>string</type>
     </value-serializer>
-    <retention-days>1</retention-days>
   </store>
   <store>
     <name>test2</name>
@@ -29,6 +28,5 @@
     <value-serializer>
       <type>string</type>
     </value-serializer>
-    <retention-days>1</retention-days>
   </store>
 </stores>
