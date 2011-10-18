@@ -108,6 +108,11 @@ public class StoreStats {
         return counters.get(op).getAverageSizeInBytes();
     }
 
+    public double getGetAllAverageCount() {
+        long total = getGetAllAggregatedCount();
+        return total == 0 ? 0.0d : total / counters.get(Tracked.GET_ALL).getCount();
+    }
+
     public long getGetAllAggregatedCount() {
         return counters.get(Tracked.GET_ALL).getGetAllAggregatedCount();
     }

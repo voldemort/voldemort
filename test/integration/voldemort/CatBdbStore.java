@@ -22,6 +22,7 @@ import java.util.Iterator;
 import voldemort.serialization.StringSerializer;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageEngine;
+import voldemort.store.bdb.BdbRuntimeConfig;
 import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.store.serialized.SerializingStorageEngine;
 import voldemort.utils.ByteArray;
@@ -62,7 +63,7 @@ public class CatBdbStore {
         StorageEngine<ByteArray, byte[], byte[]> store = new BdbStorageEngine(storeName,
                                                                               environment,
                                                                               database,
-                                                                              LockMode.READ_UNCOMMITTED);
+                                                                              new BdbRuntimeConfig());
         StorageEngine<String, String, String> stringStore = SerializingStorageEngine.wrap(store,
                                                                                           new StringSerializer(),
                                                                                           new StringSerializer(),
