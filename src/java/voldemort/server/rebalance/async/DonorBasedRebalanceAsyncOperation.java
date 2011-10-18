@@ -263,7 +263,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
                 int jobId = pushSlavesExecutor.getUniqueRequestId();
                 String jobName = "DonorBasedRebalancePusherSlave for store " + storeName
-                                 + " no node " + tuple.getFirst();
+                                 + " on node " + tuple.getFirst();
                 DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(jobId,
                                                                                                     jobName,
                                                                                                     tuple.getFirst(),
