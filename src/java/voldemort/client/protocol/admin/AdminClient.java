@@ -355,14 +355,6 @@ public class AdminClient {
         return flushed;
     }
 
-    private void printUpdateEntriesStats(long printStatsTimer,
-                                         long entryCounter,
-                                         long printStatsThreshold,
-                                         int nodeId,
-                                         String storeName) {
-
-    }
-
     private void initiateFetchRequest(DataOutputStream outputStream,
                                       String storeName,
                                       HashMap<Integer, List<Integer>> replicaToPartitionList,
