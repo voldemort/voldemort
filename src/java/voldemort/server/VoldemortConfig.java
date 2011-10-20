@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
 
+import org.mockito.internal.verification.Times;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
@@ -73,11 +74,11 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
     private boolean bdbReadUncommitted;
-    private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
     private boolean bdbFairLatches;
+    private long bdbStatsCacheTtlMs;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -209,9 +210,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
-
-        // enabling preload make cursor slow for insufficient bdb cache size.
-        this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
+        this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -699,21 +698,6 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Do we preload the cursor or not? The advantage of preloading for cursor
-     * is faster streaming performance, as entries are fetched in disk order.
-     * Incidentally, pre-loading is only a side-effect of what we're really
-     * trying to do: fetch in disk (as opposed to key) order, but there doesn't
-     * seem to be an easy/intuitive way to do for BDB JE.
-     */
-    public boolean getBdbCursorPreload() {
-        return this.bdbCursorPreload;
-    }
-
-    public void setBdbCursorPreload(boolean bdbCursorPreload) {
-        this.bdbCursorPreload = bdbCursorPreload;
-    }
-
-    /**
      * The comfortable number of threads the threadpool will attempt to
      * maintain. Specified by "core.threads" default: max(1, floor(0.5 *
      * max.threads))
@@ -1080,6 +1064,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbCheckpointMs(long bdbCheckpointMs) {
         this.bdbCheckpointMs = bdbCheckpointMs;
+    }
+
+    public long getBdbStatsCacheTtlMs() {
+        return this.bdbStatsCacheTtlMs;
+    }
+
+    public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
+        this.bdbStatsCacheTtlMs = statsCacheTtlMs;
     }
 
     public int getSchedulerThreads() {

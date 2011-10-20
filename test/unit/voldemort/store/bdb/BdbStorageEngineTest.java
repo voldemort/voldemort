@@ -54,6 +54,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     private File tempDir;
     private BdbStorageEngine store;
     private DatabaseConfig databaseConfig;
+    private BdbRuntimeConfig runtimeConfig;
 
     @Override
     protected void setUp() throws Exception {
@@ -69,7 +70,9 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         databaseConfig.setTransactional(true);
         databaseConfig.setSortedDuplicates(true);
         this.database = environment.openDatabase(null, "test", databaseConfig);
-        this.store = new BdbStorageEngine("test", this.environment, this.database, LOCK_MODE);
+        this.runtimeConfig = new BdbRuntimeConfig();
+        runtimeConfig.setLockMode(LOCK_MODE);
+        this.store = new BdbStorageEngine("test", this.environment, this.database, runtimeConfig);
     }
 
     @Override
@@ -96,7 +99,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         this.environment.close();
         this.environment = new Environment(this.tempDir, envConfig);
         this.database = environment.openDatabase(null, "test", databaseConfig);
-        this.store = new BdbStorageEngine("test", this.environment, this.database, LOCK_MODE);
+        this.store = new BdbStorageEngine("test", this.environment, this.database, runtimeConfig);
         List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()), null);
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
@@ -104,25 +107,25 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 
     public void testEquals() {
         String name = "someName";
-        assertEquals(new BdbStorageEngine(name, environment, database, LOCK_MODE),
-                     new BdbStorageEngine(name, environment, database, LOCK_MODE));
+        assertEquals(new BdbStorageEngine(name, environment, database, runtimeConfig),
+                     new BdbStorageEngine(name, environment, database, runtimeConfig));
     }
 
     public void testNullConstructorParameters() {
         try {
-            new BdbStorageEngine(null, environment, database, LOCK_MODE);
+            new BdbStorageEngine(null, environment, database, runtimeConfig);
         } catch(IllegalArgumentException e) {
             return;
         }
         fail("No exception thrown for null name.");
         try {
-            new BdbStorageEngine("name", null, database, LOCK_MODE);
+            new BdbStorageEngine("name", null, database, runtimeConfig);
         } catch(IllegalArgumentException e) {
             return;
         }
         fail("No exception thrown for null environment.");
         try {
-            new BdbStorageEngine("name", environment, null, LOCK_MODE);
+            new BdbStorageEngine("name", environment, null, runtimeConfig);
         } catch(IllegalArgumentException e) {
             return;
         }
