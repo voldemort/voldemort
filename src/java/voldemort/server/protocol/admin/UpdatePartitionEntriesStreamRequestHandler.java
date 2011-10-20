@@ -97,6 +97,11 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
             }
 
             if(size == -1) {
+                long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                logger.info("Update entries successfully updated " + counter
+                            + " entries for store '" + storageEngine.getName() + "' in "
+                            + totalTime + " s");
+
                 if(logger.isTraceEnabled())
                     logger.trace("Message size -1, completed partition update");
                 stats.recordNetworkTime(handle, System.nanoTime() - startNs);

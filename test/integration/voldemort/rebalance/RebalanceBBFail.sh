@@ -33,10 +33,12 @@ do
 done
 
 # generate the target cluster.xml
-echo Generate target cluster.xml
-cd $VLDMDIR
-bin/voldemort-rebalance.sh --current-cluster $METADIR/initial-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/target-cluster.xml --generate --output-dir $METADIR > $LOGDIR/$CLUSTERGENLOG
-cd $WORKDIR
+if [ $GENERATE_CLUSTER == "TRUE" ]; then
+  echo Generate target cluster.xml
+  cd $VLDMDIR
+  bin/voldemort-rebalance.sh --current-cluster $METADIR/target-cluster.xml --current-stores $METADIR/stores.xml --target-cluster $METADIR/initial-cluster.xml --generate --output-dir $METADIR > $LOGDIR/$CLUSTERGENLOG
+  cd $WORKDIR
+fi
 
 if [ "$1" == "copy" ]
 then
@@ -78,22 +80,40 @@ LOGFILE=rebalance.log.`date +%H%M%S`
 $WORKDIR/StartRebalanceProcess.sh $LOGFILE
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
 
-while [ 1 ]
-do
-  # Randomly kill servers after some random time period 
-  # and make sure rollback is successful and all metadata are as expected
-  # If rebalance finishes, exit
-  $WORKDIR/RandomWaitKillAndVerify.sh $LOGFILE
-  let EXITCODE="$?"
-  if [ "$EXITCODE" -eq "9" ]
-  then
-    # all done, exit
-    exit 0
-  fi
 
-  # restart rebalance
-  echo restarting rebalance
-  LOGFILE=rebalance.log.`date +%H%M%S`
-  $WORKDIR/StartRebalanceProcess.sh $LOGFILE
-done
+if [ "$KILLMODE" == "STEALER-ONLY" ]; then
+  while [ 1 ]; do
+    $WORKDIR/RandomKillStealer.sh $LOGFILE
+    let EXITCODE="$?"
+    if [ "$EXITCODE" -eq "9" ]; then
+      # all done, exit
+      $WORKDIR/ValidateData.sh
+      let EXITCODE="$?"
+      if [ "$EXITCODE" -ne "0" ]; then
+	  echo "Data validation failed! Check $LOGDIR/$LOGFILE for details!"
+	  exit $EXITCODE
+      else
+          echo "Rebalancing finished successfully !!!"
+          exit 0
+      fi
+    fi
+  done
+else
+  while [ 1 ]; do
+    # Randomly kill servers after some random time period 
+    # and make sure rollback is successful and all metadata are as expected
+    # If rebalance finishes, exit
+    $WORKDIR/RandomWaitKillAndVerify.sh $LOGFILE
+    let EXITCODE="$?"
+    if [ "$EXITCODE" -eq "9" ]; then
+      # all done, exit
+      echo "Rebalancing finished successfully !!!"
+      exit 0
+    fi
 
+    # restart rebalance
+    echo restarting rebalance
+    LOGFILE=rebalance.log.`date +%H%M%S`
+    $WORKDIR/StartRebalanceProcess.sh $LOGFILE
+  done
+fi

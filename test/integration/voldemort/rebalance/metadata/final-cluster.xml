@@ -14,7 +14,7 @@
     <http-port>8081</http-port>
     <socket-port>6666</socket-port>
     <admin-port>6667</admin-port>
-    <partitions>0, 1, 4, 5, 6, 12, 20, 21, 25, 32, 33, 34, 42, 43, 44, 45, 46, 51, 52, 55, 66, 70, 72, 75, 76, 78, 91, 92, 93, 105, 111</partitions>
+    <partitions>1, 4, 5, 6, 20, 32, 33, 34, 42, 43, 44, 45, 46, 51, 52, 75, 76, 91, 92, 93, 105</partitions>
     <zone-id>0</zone-id>
   </server>
   <server>
@@ -23,7 +23,7 @@
     <http-port>8081</http-port>
     <socket-port>6668</socket-port>
     <admin-port>6669</admin-port>
-    <partitions>2, 10, 13, 15, 16, 17, 22, 26, 30, 31, 40, 48, 56, 57, 58, 61, 64, 65, 68, 79, 83, 86, 89, 107, 109, 110, 114, 115, 119</partitions>
+    <partitions>2, 10, 13, 15, 16, 17, 22, 26, 48, 56, 57, 58, 65, 79, 109, 110, 114, 115, 119</partitions>
     <zone-id>0</zone-id>
   </server>
   <server>
@@ -32,7 +32,7 @@
     <http-port>8081</http-port>
     <socket-port>6670</socket-port>
     <admin-port>6671</admin-port>
-    <partitions>3, 7, 11, 23, 24, 27, 28, 29, 39, 49, 54, 59, 60, 67, 73, 77, 80, 82, 84, 87, 95, 96, 98, 101, 103, 108, 112, 113, 117, 118</partitions>
+    <partitions>7, 11, 23, 24, 27, 28, 29, 49, 54, 59, 60, 67, 73, 80, 96, 101, 112, 113, 117, 118</partitions>
     <zone-id>1</zone-id>
   </server>
   <server>
@@ -41,7 +41,7 @@
     <http-port>8081</http-port>
     <socket-port>6672</socket-port>
     <admin-port>6673</admin-port>
-    <partitions>8, 9, 14, 18, 19, 35, 36, 37, 38, 41, 47, 50, 53, 62, 63, 69, 71, 74, 81, 85, 88, 90, 94, 97, 99, 100, 102, 104, 106, 116</partitions>
+    <partitions>8, 9, 18, 19, 36, 37, 38, 47, 50, 62, 63, 81, 85, 88, 90, 94, 97, 99, 104, 106</partitions>
     <zone-id>1</zone-id>
   </server>
   <server>
@@ -50,7 +50,7 @@
     <http-port>8081</http-port>
     <socket-port>6674</socket-port>
     <admin-port>6675</admin-port>
-    <partitions></partitions>
+    <partitions>3, 14, 25, 30, 35, 39, 41, 55, 61, 64, 66, 68, 72, 78, 82, 84, 87, 100, 107, 116</partitions>
     <zone-id>0</zone-id>
   </server>
   <server>
@@ -59,7 +59,7 @@
     <http-port>8081</http-port>
     <socket-port>6676</socket-port>
     <admin-port>6677</admin-port>
-    <partitions />
+    <partitions>0, 12, 21, 31, 40, 53, 69, 70, 71, 74, 77, 83, 86, 89, 95, 98, 102, 103, 108, 111</partitions>
     <zone-id>1</zone-id>
   </server>
 </cluster>

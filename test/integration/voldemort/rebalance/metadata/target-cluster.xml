@@ -44,22 +44,4 @@
     <partitions>8, 9, 14, 18, 19, 35, 36, 37, 38, 41, 47, 50, 53, 62, 63, 69, 71, 74, 81, 85, 88, 90, 94, 97, 99, 100, 102, 104, 106, 116</partitions>
     <zone-id>1</zone-id>
   </server>
-  <server>
-    <id>4</id>
-    <host>miner16.qa</host>
-    <http-port>8081</http-port>
-    <socket-port>6674</socket-port>
-    <admin-port>6675</admin-port>
-    <partitions></partitions>
-    <zone-id>0</zone-id>
-  </server>
-  <server>
-    <id>5</id>
-    <host>miner17.qa</host>
-    <http-port>8081</http-port>
-    <socket-port>6676</socket-port>
-    <admin-port>6677</admin-port>
-    <partitions />
-    <zone-id>1</zone-id>
-  </server>
 </cluster>

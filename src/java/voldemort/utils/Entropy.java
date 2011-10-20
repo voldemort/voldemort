@@ -35,6 +35,7 @@ public class Entropy {
 
     private int nodeId;
     private long numKeys;
+    private boolean verboseLogging;
 
     public static long DEFAULT_NUM_KEYS = 10000;
 
@@ -47,6 +48,7 @@ public class Entropy {
     public Entropy(int nodeId) {
         this.nodeId = nodeId;
         this.numKeys = DEFAULT_NUM_KEYS;
+        this.verboseLogging = false;
     }
 
     /**
@@ -56,9 +58,10 @@ public class Entropy {
      *        nodeId must be valid.
      * @param numKeys Number of keys
      */
-    public Entropy(int nodeId, long numKeys) {
+    public Entropy(int nodeId, long numKeys, boolean verboseLogging) {
         this.nodeId = nodeId;
         this.numKeys = numKeys;
+        this.verboseLogging = verboseLogging;
     }
 
     public static void main(String args[]) throws IOException {
@@ -92,6 +95,8 @@ public class Entropy {
               .ofType(Long.class);
         parser.accepts("negative-test",
                        "Check for keys that dont belong on the given nodeId are not present");
+        parser.accepts("verbose-logging",
+                       "Verbose logging such as keys found missing on specific nodes");
 
         OptionSet options = parser.parse(args);
 
@@ -119,6 +124,7 @@ public class Entropy {
         long numKeys = CmdUtils.valueOf(options, "num-keys", Entropy.DEFAULT_NUM_KEYS);
         int nodeId = CmdUtils.valueOf(options, "node", 0);
         boolean opType = CmdUtils.valueOf(options, "op-type", false);
+        boolean verboseLogging = options.has("verbose-logging");
 
         File outputDir = new File(outputDirPath);
 
@@ -139,7 +145,7 @@ public class Entropy {
         Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
-        Entropy detector = new Entropy(nodeId, numKeys);
+        Entropy detector = new Entropy(nodeId, numKeys, verboseLogging);
 
         detector.generateEntropy(cluster, storeDefs, outputDir, opType, negativeTest);
     }
@@ -340,6 +346,18 @@ public class Entropy {
 
                                     if(value == null || value.size() == 0) {
                                         missingKey = true;
+
+                                        if(this.verboseLogging) {
+                                            String stringKey = ByteUtils.getString(key, "UTF-8");
+                                            System.out.println("missing key=" + stringKey
+                                                               + " on node=" + node.getId());
+                                            System.out.println("is value null "
+                                                               + ((value == null) ? "true"
+                                                                                 : "false"));
+                                            System.out.println("is size zero "
+                                                               + ((value.size() == 0) ? "true"
+                                                                                     : "false"));
+                                        }
                                     }
                                 }
                                 if(!missingKey)

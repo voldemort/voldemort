@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -49,8 +49,8 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
+import voldemort.client.protocol.pb.VProto;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -125,7 +125,7 @@ public class AdminClient {
     // 1000 entry default flush count
     private static final long FLUSH_COUNT = 1000;
     private static final long MAX_FLUSH_TIMER = Long.MAX_VALUE;
-    private static final long PRINT_STATS_THRESHOLD = 1000;
+    private static final long PRINT_STATS_THRESHOLD = 10000;
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
     private final AdminClientConfig adminClientConfig;
 
@@ -353,14 +353,6 @@ public class AdminClient {
             flushed = true;
         }
         return flushed;
-    }
-
-    private void printUpdateEntriesStats(long printStatsTimer,
-                                         long entryCounter,
-                                         long printStatsThreshold,
-                                         int nodeId,
-                                         String storeName) {
-
     }
 
     private void initiateFetchRequest(DataOutputStream outputStream,

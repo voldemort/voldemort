@@ -25,7 +25,7 @@ DATADIR=$WORKDIR/data
 vldm_dir=$VLDMDIR
 work_dir=$REBALANCE_TEST_DIR
 REMOTEUSER=hadoop
-DATASOURCE=/home/$REMOTEUSER/VOLDEMORT-RO-PUSH/CONFIG_AND_DATA_DO_NO_DELETE/test_config
+DATASOURCE=/raid10/DONT-REMOVE/test_config
 REMOTEVLD=/home/hadoop/voldemort
 REMOTEWORK=$REMOTEVLD/test/integration/voldemort/rebalance
 
@@ -40,6 +40,8 @@ TOTAL_OLD_SERVERS=4
 #SERVER_MACHINES=(localhost localhost localhost)
 SERVER_MACHINES=(miner12.qa.linkedin.com miner13.qa.linkedin.com miner14.qa.linkedin.com miner15.qa.linkedin.com miner16.qa.linkedin.com miner17.qa.linkedin.com)
 SERVER_PORT=(6667 6669 6671 6673 6675 6677)
+KILLMODE="STEALER-ONLY"
+GENERATE_CLUSTER="FALSE"
 
 set -x
 

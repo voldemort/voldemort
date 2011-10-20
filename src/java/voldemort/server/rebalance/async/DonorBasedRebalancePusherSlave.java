@@ -70,10 +70,11 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                     nodeIterator.setRecoveryMode();
                     // we terminated due to remote error, keep retrying after
                     // sleeping for a bit
-                    logger.error("Exception received while pushing entries to remote node "
-                                 + nodeId + ". Will retry again after 10000 seconds");
+                    logger.error("Exception received while pushing entries for store " + storeName
+                                 + " to remote node " + nodeId
+                                 + ". Will retry again after 5 minutes");
                     logger.error(e.getCause());
-                    Thread.sleep(10000);
+                    Thread.sleep(30000);
                 } else {
                     throw e;
                 }

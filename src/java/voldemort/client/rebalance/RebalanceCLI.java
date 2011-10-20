@@ -98,6 +98,8 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(Boolean.class)
                   .describedAs("boolean");
+            parser.accepts("verbose-logging",
+                           "Verbose logging such as keys found missing on specific nodes during post-rebalancing entropy verification");
 
             OptionSet options = parser.parse(args);
 
@@ -178,8 +180,9 @@ public class RebalanceCLI {
                     }
 
                     boolean entropy = (Boolean) options.valueOf("entropy");
+                    boolean verbose = options.has("verbose-logging");
                     long numKeys = CmdUtils.valueOf(options, "keys", Entropy.DEFAULT_NUM_KEYS);
-                    Entropy generator = new Entropy(-1, numKeys);
+                    Entropy generator = new Entropy(-1, numKeys, verbose);
                     generator.generateEntropy(currentCluster,
                                               storeDefs,
                                               new File(config.getOutputDirectory()),

@@ -919,6 +919,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                         initialCluster,
                                                                                                                         0);
                                 long numTuples = 0;
+                                long startTime = System.currentTimeMillis();
                                 while(running.get() && entriesIterator.hasNext()) {
                                     Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
@@ -931,24 +932,28 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                         logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
                                     }
 
+                                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
                                     throttler.maybeThrottle(key.length() + valueSize(value));
-                                    if((numTuples % 10000) == 0 && numTuples > 0) {
+                                    if((numTuples % 100000) == 0 && numTuples > 0) {
                                         logger.info(numTuples + " entries copied from node "
-                                                    + nodeId + " for store '" + storeName + "'");
+                                                    + nodeId + " for store '" + storeName + "'c");
                                         updateStatus(numTuples + " entries copied from node "
-                                                     + nodeId + " for store '" + storeName + "'");
+                                                     + nodeId + " for store '" + storeName
+                                                     + "' in " + totalTime + " seconds");
                                     }
                                     numTuples++;
                                 }
 
+                                long totalTime = (System.currentTimeMillis() - startTime) / 1000;
                                 if(running.get()) {
                                     logger.info("Completed fetching " + numTuples
                                                 + " entries from node " + nodeId + " for store '"
-                                                + storeName + "'");
+                                                + storeName + "' in " + totalTime + " seconds");
                                 } else {
                                     logger.info("Fetch and update stopped after fetching "
                                                 + numTuples + " entries for node " + nodeId
-                                                + " for store '" + storeName + "'");
+                                                + " for store '" + storeName + "' in " + totalTime
+                                                + " seconds");
                                 }
                             } else {
                                 logger.info("No entries to fetch from node " + nodeId

@@ -7,7 +7,6 @@ LOGDIR=$WORKDIR/log
 LOGFILE=$1
 ERROR_MSG="ERROR Unsuccessfully terminated rebalance operation"
 TERMSTRING="Successfully terminated rebalance all tasks"
-SERVSTRING="VoldemortServer $TESTCFG_PREFIX"
 
 # sleep for 10-1800 seconds
 SLEEP_RANGE=900
