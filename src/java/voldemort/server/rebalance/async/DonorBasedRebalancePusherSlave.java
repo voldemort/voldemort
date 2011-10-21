@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -21,13 +22,12 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
 
     protected final static Logger logger = Logger.getLogger(DonorBasedRebalancePusherSlave.class);
 
-    private final static Pair<ByteArray, Versioned<byte[]>> END = Pair.create(null, null);
-
     private int nodeId;
     private BlockingQueue<Pair<ByteArray, Versioned<byte[]>>> queue;
     private String storeName;
     private AdminClient adminClient;
     private ResumableIterator<Pair<ByteArray, Versioned<byte[]>>> nodeIterator = new ResumableIterator<Pair<ByteArray, Versioned<byte[]>>>();
+    private AtomicBoolean stopRequested;
 
     public DonorBasedRebalancePusherSlave(int id,
                                           String description,
@@ -40,31 +40,17 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         this.queue = queue;
         this.storeName = storeName;
         this.adminClient = adminClient;
+        this.stopRequested.set(false);
     }
 
     @Override
     public void operate() throws Exception {
-
-        while(!getStatus().isComplete()) {
+        logger.info("DonorBasedRebalancePusherSlave begains to send partitions for store "
+                    + storeName + " to node " + nodeId);
+        while(!isStopRequest()) {
             try {
-                adminClient.updateEntries(nodeId,
-                                          storeName,
-                                          nodeIterator,
-                                          null,
-                                          5000 /* 5 second flush interval */,
-                                          1000 /* flush after sending 1k entries */,
-                                          new Runnable() {
-
-                                              // clear all msg in the recovery
-                                              // list when flushed
-                                              public void run() {
-                                                  nodeIterator.purge();
-                                              }
-                                          });
-                // once we get out of updateEntries, we finished all keys
-                setCompletion(true, false);
-                logger.info("DonorBasedRebalancePusherSlave finished sending partitions for store "
-                            + storeName + " to node " + nodeId);
+                adminClient.updateEntries(nodeId, storeName, nodeIterator, null);
+                nodeIterator.purge();
             } catch(VoldemortException e) {
                 if(e.getCause() instanceof IOException) {
                     nodeIterator.setRecoveryMode();
@@ -80,29 +66,45 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                 }
             }
         }
+        setCompletion();
+        logger.info("DonorBasedRebalancePusherSlave finished sending partitions for store "
+                    + storeName + " to node " + nodeId);
+    }
+
+    public void setStopRequest() {
+        stopRequested.set(true);
+    }
+
+    public boolean isStopRequest() {
+        return stopRequested.get();
     }
 
     @Override
     public void stop() {
-        setCompletion(true, true);
+        requestCompletion();
     }
 
-    public synchronized void setCompletion(boolean immediateTerminate, boolean notifySlave) {
-        if(!getStatus().isComplete()) {
-            try {
-                if(notifySlave) {
-                    queue.put(END);
-                }
-            } catch(InterruptedException e) {
-                logger.info("Unable to send termination message to pusher slave for node " + nodeId
-                            + " due to the following reason: " + e.getMessage());
-            } finally {
-                if(immediateTerminate) {
-                    markComplete();
-                    notifyAll();
-                }
-            }
+    /**
+     * This function will set the request for stop first; Then insert 'END' into
+     * the queue so slave will return from updateEntries. Noted that this order
+     * shall not be changed or the slave will enter updateEntries again.
+     * 
+     * @param immediateTerminate
+     * @param notifySlave
+     */
+    public synchronized void requestCompletion() {
+        try {
+            setStopRequest();
+            queue.put(DonorBasedRebalanceAsyncOperation.END);
+        } catch(InterruptedException e) {
+            logger.info("Unable to send termination message to pusher slave for node " + nodeId
+                        + " due to the following reason: " + e.getMessage());
         }
+    }
+
+    public synchronized void setCompletion() {
+        getStatus().setComplete(true);
+        notifyAll();
     }
 
     public synchronized void waitCompletion() {
@@ -113,7 +115,8 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                 // check for status every 10 seconds
                 wait(10000);
             } catch(InterruptedException e) {
-
+                logger.info("Existing wait loop due to interrupt.");
+                break;
             }
         }
     }
@@ -139,36 +142,41 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         // only purge if we are NOT in recovery mode
         public void purge() {
             if(!recoveryModeOn) {
+                logger.info("DonorBasedRebalancePusherSlave successfully sent "
+                            + tentativeList.size() + " entries to node " + nodeId + "for store "
+                            + storeName);
                 tentativeList.clear();
+            } else {
+                logger.error("purge called while recovery mode is on!!!!!");
             }
         }
 
         // return when something is available, blocked otherwise
         public boolean hasNext() {
-            while(null == currentElem) {
+            boolean hasNext = false;
+            if(null == currentElem) {
                 try {
                     currentElem = getNextElem();
                 } catch(InterruptedException e) {
                     logger.info("hasNext is interrupted while waiting for the next elem.");
                 }
             }
-            if(currentElem != null && currentElem.equals(END)) {
-                return false;
-            } else {
-                return true;
+            if(null != currentElem && !currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
+                hasNext = true;
             }
+            return hasNext;
         }
 
         // return the element when one or more is available, blocked
         // otherwise
         public Pair<ByteArray, Versioned<byte[]>> next() {
-            while(null == currentElem) {
+            if(null == currentElem) {
                 try {
                     currentElem = getNextElem();
                 } catch(InterruptedException e) {
                     logger.info("next is interrupted while waiting for the next elem.");
                 }
-                if(currentElem != null && currentElem.equals(END)) {
+                if(null == currentElem || currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
                     throw new NoSuchElementException();
                 }
             }
@@ -207,5 +215,5 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
             throw new VoldemortException("Remove not supported");
         }
 
-    };
+    }
 }

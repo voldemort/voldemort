@@ -120,11 +120,6 @@ public class AdminClient {
 
     // Parameters for exponential back off
     private static final long INITIAL_DELAY = 250; // Initial delay
-    // 5 second default flush interval
-    private static final long FLUSH_INTERVAL = 5000;
-    // 1000 entry default flush count
-    private static final long FLUSH_COUNT = 1000;
-    private static final long MAX_FLUSH_TIMER = Long.MAX_VALUE;
     private static final long PRINT_STATS_THRESHOLD = 10000;
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
     private final AdminClientConfig adminClientConfig;
@@ -252,16 +247,6 @@ public class AdminClient {
                               String storeName,
                               Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
                               VoldemortFilter filter) {
-        updateEntries(nodeId, storeName, entryIterator, filter, FLUSH_INTERVAL, FLUSH_COUNT, null);
-    }
-
-    public void updateEntries(int nodeId,
-                              String storeName,
-                              Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator,
-                              VoldemortFilter filter,
-                              final long flushInterval,
-                              final long flushCount,
-                              Runnable flushCallback) {
         Node node = this.getAdminClientCluster().getNodeById(nodeId);
         SocketDestination destination = new SocketDestination(node.getHost(),
                                                               node.getAdminPort(),
@@ -270,7 +255,6 @@ public class AdminClient {
         DataOutputStream outputStream = sands.getOutputStream();
         DataInputStream inputStream = sands.getInputStream();
         boolean firstMessage = true;
-        long flushTimer = MAX_FLUSH_TIMER;
         long printStatsTimer = System.currentTimeMillis() + PRINT_STATS_INTERVAL;
         long entryCount = 0;
 
@@ -296,35 +280,20 @@ public class AdminClient {
                                                                                  .setType(VAdminProto.AdminRequestType.UPDATE_PARTITION_ENTRIES)
                                                                                  .setUpdatePartitionEntries(updateRequest)
                                                                                  .build());
-                        // flush the first message regardless by passing in 0 as
-                        // the flushTimer
-                        flushWithCallback(0, entryCount, flushCount, flushCallback, outputStream);
-                        // reset the flush timer
-                        flushTimer = System.currentTimeMillis() + flushInterval;
+                        outputStream.flush();
                         firstMessage = false;
                     } else {
                         ProtoUtils.writeMessage(outputStream, updateRequest.build());
-                        if(flushWithCallback(flushTimer,
-                                             entryCount,
-                                             flushCount,
-                                             flushCallback,
-                                             outputStream)) {
-                            // reset counters after each flush
-                            flushTimer = System.currentTimeMillis() + flushInterval;
+                        if(printStatsTimer <= System.currentTimeMillis()
+                           || 0 == entryCount % PRINT_STATS_THRESHOLD) {
+                            logger.info("UpdatePartitionEntries: fetched " + entryCount
+                                        + " to node " + nodeId + " for store " + storeName);
+                            printStatsTimer = System.currentTimeMillis() + PRINT_STATS_INTERVAL;
                         }
-                    }
-
-                    if(printStatsTimer <= System.currentTimeMillis()
-                       || 0 == entryCount % PRINT_STATS_THRESHOLD) {
-                        logger.info("UpdatePartitionEntries: fetched " + entryCount + " to node "
-                                    + nodeId + " for store " + storeName);
-                        printStatsTimer = System.currentTimeMillis() + PRINT_STATS_INTERVAL;
                     }
                 }
                 ProtoUtils.writeEndOfStream(outputStream);
-                // flush the last message regardless by passing in 0 as the
-                // flushTimer
-                flushWithCallback(0, entryCount, flushCount, flushCallback, outputStream);
+                outputStream.flush();
                 VAdminProto.UpdatePartitionEntriesResponse.Builder updateResponse = ProtoUtils.readToBuilder(inputStream,
                                                                                                              VAdminProto.UpdatePartitionEntriesResponse.newBuilder());
                 if(updateResponse.hasError()) {
@@ -337,22 +306,6 @@ public class AdminClient {
         } finally {
             pool.checkin(destination, sands);
         }
-    }
-
-    private boolean flushWithCallback(long flushTimer,
-                                      long entryCounter,
-                                      long flushCount,
-                                      Runnable callback,
-                                      DataOutputStream outputStream) throws IOException {
-        boolean flushed = false;
-        if(flushTimer <= System.currentTimeMillis() || 0 == entryCounter % flushCount) {
-            outputStream.flush();
-            if(null != callback) {
-                callback.run();
-            }
-            flushed = true;
-        }
-        return flushed;
     }
 
     private void initiateFetchRequest(DataOutputStream outputStream,

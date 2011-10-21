@@ -258,6 +258,7 @@ public class RebalanceCLI {
         stream.println("a) --current-cluster <path> --current-stores <path> --entropy <true / false> --output-dir <path> [ Runs the entropy calculator if "
                        + "--entropy is true. Else dumps keys to the directory ]");
         stream.println("\t (i) --keys [ Number of keys ( per store ) we calculate entropy for ]");
+        stream.println("\t (ii) --verbose-logging [ print keys found missing during entropy ]");
         parser.printHelpOn(stream);
     }
 }

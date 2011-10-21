@@ -59,6 +59,13 @@ import com.google.common.collect.Sets;
  */
 public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
+    public final static Pair<ByteArray, Versioned<byte[]>> END = Pair.create(null, null);
+
+    // Batch 500 entries for each fetchUpdate call.
+    private static final int FETCHUPDATE_BATCH_SIZE = 500;
+    // Print scanned entries every 100k
+    private static final int SCAN_PROGRESS_COUNT = 100000;
+
     private final List<RebalancePartitionsInfo> stealInfos;
     private final StoreRepository storeRepository;
 
@@ -294,35 +301,48 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
         ClosableIterator<ByteArray> keys = storageEngine.keys();
 
-        while(running.get() && keys.hasNext()) {
-            ByteArray key = keys.next();
-            scanned++;
-            List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
-                                                                              optimizedStealerNodeToMappingTuples,
-                                                                              targetCluster,
-                                                                              storeDef);
+        try {
+            while(running.get() && keys.hasNext()) {
+                ByteArray key = keys.next();
+                scanned++;
+                List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                                                                                  optimizedStealerNodeToMappingTuples,
+                                                                                  targetCluster,
+                                                                                  storeDef);
 
-            if(nodeIds.size() > 0) {
-                List<Versioned<byte[]>> values = storageEngine.get(key, null);
-                for(Versioned<byte[]> value: values) {
-                    for(int nodeId: nodeIds) {
-                        try {
-                            fetched[nodeId]++;
-                            nodeToQueue.get(nodeId).put(Pair.create(key, value));
-                        } catch(InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
+                if(nodeIds.size() > 0) {
+                    List<Versioned<byte[]>> values = storageEngine.get(key, null);
+                    putAll(nodeIds, key, values, nodeToQueue, fetched);
+                }
+
+                // print progress for every 100k entries.
+                if(0 == scanned % SCAN_PROGRESS_COUNT) {
+                    printProgress(scanned, fetched, startTime, storeName);
                 }
             }
+            terminateAllSlaves(updatePushSlavePool.get(storeName));
+        } catch(InterruptedException e) {
+            logger.info("InterruptedException received while sending entries to remote nodes, the process is terminating...");
+            terminateAllSlavesAsync(updatePushSlavePool.get(storeName));
+        } finally {
+            close(keys, storeName, scanned, fetched, startTime);
+        }
+    }
 
-            // print progress for every 100k entries.
-            if(0 == scanned % 100000) {
-                printProgress(scanned, fetched, startTime, storeName);
+    private void putAll(List<Integer> dests,
+                        ByteArray key,
+                        List<Versioned<byte[]>> values,
+                        HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue,
+                        int[] fetched) throws InterruptedException {
+        for(Versioned<byte[]> value: values) {
+            for(int nodeId: dests) {
+                fetched[nodeId]++;
+                nodeToQueue.get(nodeId).put(Pair.create(key, value));
+                if(0 == fetched[nodeId] % FETCHUPDATE_BATCH_SIZE) {
+                    nodeToQueue.get(nodeId).put(END);
+                }
             }
         }
-        terminateAllSlaves(updatePushSlavePool.get(storeName));
-        close(keys, storeName, scanned, fetched, startTime);
     }
 
     private void printProgress(int scanned, int[] fetched, long startTime, String storeName) {
@@ -346,20 +366,22 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private void terminateAllSlaves(List<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
         // Everything is done, put the terminator in
+        logger.info("Terminating DonorBasedRebalancePushSlaves...");
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().setCompletion(false, true);
+            it.next().requestCompletion();
         }
 
         // wait for all async slave to finish
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
             it.next().waitCompletion();
         }
+        logger.info("All DonorBasedRebalancePushSlaves terminated successfully.");
     }
 
     private void terminateAllSlavesAsync(List<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
-        // Everything is done, put the terminator in
+        logger.info("Terminating DonorBasedRebalancePushSlaves asynchronously");
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().setCompletion(false, true);
+            it.next().setCompletion();
         }
     }
 
