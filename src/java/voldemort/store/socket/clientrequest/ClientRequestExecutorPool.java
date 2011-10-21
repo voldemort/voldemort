@@ -183,7 +183,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         return this.pool.getTotalResourceCount();
     }
 
-    @JmxGetter(name = "numberOfIdleConnections", description = "The number of active connections.")
+    @JmxGetter(name = "numberOfIdleConnections", description = "The number of idle connections.")
     public int getNumberOfCheckedInConnections() {
         return this.pool.getCheckedInResourceCount();
     }
