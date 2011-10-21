@@ -80,6 +80,13 @@ LOGFILE=rebalance.log.`date +%H%M%S`
 $WORKDIR/StartRebalanceProcess.sh $LOGFILE
 grep "${TERMSTRING}" $LOGDIR/$LOGFILE > /dev/null 2>&1
 
+ERROR_MSG="ERROR Unsuccessfully terminated rebalance operation"
+TERMSTRING="Successfully terminated rebalance all tasks"
+if [ "$KILLMODE" == "NONE" ]; then
+  echo waiting for rebalancing process to terminate...
+  $WORKDIR/WaitforOutput.sh "$ERROR_MSG" "$TERMSTRING" $LOGDIR/$LOGFILE
+  exit 0
+fi
 
 if [ "$KILLMODE" == "STEALER-ONLY" ]; then
   while [ 1 ]; do

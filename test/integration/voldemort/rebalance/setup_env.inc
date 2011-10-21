@@ -41,6 +41,7 @@ TOTAL_OLD_SERVERS=4
 SERVER_MACHINES=(miner12.qa.linkedin.com miner13.qa.linkedin.com miner14.qa.linkedin.com miner15.qa.linkedin.com miner16.qa.linkedin.com miner17.qa.linkedin.com)
 SERVER_PORT=(6667 6669 6671 6673 6675 6677)
 KILLMODE="STEALER-ONLY"
+#KILLMODE="NONE"
 GENERATE_CLUSTER="FALSE"
 
 set -x
