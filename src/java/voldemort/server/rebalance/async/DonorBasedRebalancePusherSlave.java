@@ -40,7 +40,7 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         this.queue = queue;
         this.storeName = storeName;
         this.adminClient = adminClient;
-        this.stopRequested.set(false);
+        this.stopRequested = new AtomicBoolean(false);
     }
 
     @Override
