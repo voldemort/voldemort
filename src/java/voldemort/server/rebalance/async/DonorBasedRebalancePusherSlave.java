@@ -142,9 +142,6 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         // only purge if we are NOT in recovery mode
         public void purge() {
             if(!recoveryModeOn) {
-                logger.info("DonorBasedRebalancePusherSlave successfully sent "
-                            + tentativeList.size() + " entries to node " + nodeId + "for store "
-                            + storeName);
                 tentativeList.clear();
             } else {
                 logger.error("purge called while recovery mode is on!!!!!");
@@ -154,11 +151,12 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         // return when something is available, blocked otherwise
         public boolean hasNext() {
             boolean hasNext = false;
-            if(null == currentElem) {
+            while(null == currentElem) {
                 try {
                     currentElem = getNextElem();
                 } catch(InterruptedException e) {
-                    logger.info("hasNext is interrupted while waiting for the next elem.");
+                    logger.info("hasNext is interrupted while waiting for the next elem, existing...");
+                    break;
                 }
             }
             if(null != currentElem && !currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
@@ -170,11 +168,12 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         // return the element when one or more is available, blocked
         // otherwise
         public Pair<ByteArray, Versioned<byte[]>> next() {
-            if(null == currentElem) {
+            while(null == currentElem) {
                 try {
                     currentElem = getNextElem();
                 } catch(InterruptedException e) {
-                    logger.info("next is interrupted while waiting for the next elem.");
+                    logger.info("next is interrupted while waiting for the next elem, existing...");
+                    break;
                 }
                 if(null == currentElem || currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
                     throw new NoSuchElementException();

@@ -62,7 +62,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
     public final static Pair<ByteArray, Versioned<byte[]>> END = Pair.create(null, null);
 
     // Batch 500 entries for each fetchUpdate call.
-    private static final int FETCHUPDATE_BATCH_SIZE = 500;
+    private static final int FETCHUPDATE_BATCH_SIZE = 1000;
     // Print scanned entries every 100k
     private static final int SCAN_PROGRESS_COUNT = 100000;
 
