@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -86,7 +86,7 @@ import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 100;
+    protected static int NUM_KEYS = 10100;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -665,7 +665,7 @@ public abstract class AbstractRebalanceTest {
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
         config.setStealerBasedRebalancing(!useDonorBased());
-        config.setPrimaryPartitionBatchSize(10);
+        config.setPrimaryPartitionBatchSize(100);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -990,10 +990,9 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(),
-                             getSocketStore(storeDef.getName(),
-                                            node.getHost(),
-                                            node.getSocketPort()));
+                storeMap.put(node.getId(), getSocketStore(storeDef.getName(),
+                                                          node.getHost(),
+                                                          node.getSocketPort()));
 
             }
 

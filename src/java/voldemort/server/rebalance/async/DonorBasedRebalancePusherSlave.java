@@ -49,6 +49,7 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                     + storeName + " to node " + nodeId);
         while(!isStopRequest()) {
             try {
+                nodeIterator.reset();
                 adminClient.updateEntries(nodeId, storeName, nodeIterator, null);
                 nodeIterator.purge();
             } catch(VoldemortException e) {
@@ -146,6 +147,10 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
             } else {
                 logger.error("purge called while recovery mode is on!!!!!");
             }
+        }
+
+        public void reset() {
+            this.currentElem = null;
         }
 
         // return when something is available, blocked otherwise
