@@ -94,7 +94,7 @@ public class StoreStatsJmx {
         return stats.getCount(Tracked.EXCEPTION);
     }
 
-    @JmxGetter(name = "averageOperationTimeInMs", description = "The total nuber of all operations that have occured.")
+    @JmxGetter(name = "averageOperationTimeInMs", description = "The total number of all operations that have occured.")
     public double getAvgOperationCompletionTimeInMs() {
         double sum = 0.0;
         double weightedTime = 0.0;
@@ -111,7 +111,7 @@ public class StoreStatsJmx {
             return weightedTime / sum;
     }
 
-    @JmxGetter(name = "AllOperationThroughput", description = "The number of exceptions since the last reset.")
+    @JmxGetter(name = "AllOperationThroughput", description = "The throughput of all operations.")
     public double getOperationThroughput() {
         return stats.getThroughput(Tracked.DELETE) + stats.getThroughput(Tracked.GET)
                + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
