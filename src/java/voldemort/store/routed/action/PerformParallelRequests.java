@@ -33,9 +33,9 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.nonblockingstore.NonblockingStoreCallback;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
+import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 
