@@ -40,6 +40,8 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     private volatile boolean isParsed = false;
 
+    private volatile boolean isTimedOut = false;
+
     protected abstract void formatRequestInternal(DataOutputStream outputStream) throws IOException;
 
     protected abstract T parseResponseInternal(DataInputStream inputStream) throws IOException;
@@ -91,6 +93,14 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
 
     public boolean isComplete() {
         return isComplete;
+    }
+
+    public final void timeOut() {
+        isTimedOut = true;
+    }
+
+    public boolean isTimedOut() {
+        return isTimedOut;
     }
 
 }
