@@ -34,6 +34,10 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.GET_ALL);
     }
 
+    public float getGetAllThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET_ALL);
+    }
+
     @JmxGetter(name = "averageGetAllCount", description = "The avg. number of keys in a GET_ALL request.")
     public double getAverageGetAllCount() {
         return stats.getGetAllAverageCount();
@@ -49,9 +53,14 @@ public class StoreStatsJmx {
         return stats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests.")
+    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests in bytes.")
     public float getGetThroughput() {
         return stats.getThroughput(Tracked.GET);
+    }
+
+    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests.")
+    public float getGetThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET);
     }
 
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
@@ -67,6 +76,11 @@ public class StoreStatsJmx {
     @JmxGetter(name = "PutThroughput", description = "Throughput of PUT requests.")
     public float getPutThroughput() {
         return stats.getThroughput(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "PutThroughput", description = "Throughput of PUT requests in bytes.")
+    public float getPutThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
@@ -115,6 +129,12 @@ public class StoreStatsJmx {
     public double getOperationThroughput() {
         return stats.getThroughput(Tracked.DELETE) + stats.getThroughput(Tracked.GET)
                + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "AllOperationThroughputInBytes", description = "Throughput of all operations in bytes.")
+    public double getOperationThroghputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET) + stats.getThroughputInBytes(Tracked.GET_ALL)
+                + stats.getThroughputInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "percentGetReturningEmptyResponse", description = "The percentage of calls to GET for which no value was found.")
