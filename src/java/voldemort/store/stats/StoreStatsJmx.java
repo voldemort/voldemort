@@ -34,6 +34,7 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.GET_ALL);
     }
 
+    @JmxGetter(name = "GetAllThroughputInBytes", description = "Throughput of GET_ALL requests in bytes.")
     public float getGetAllThroughputInBytes() {
         return stats.getThroughputInBytes(Tracked.GET_ALL);
     }
@@ -53,12 +54,12 @@ public class StoreStatsJmx {
         return stats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests in bytes.")
+    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests")
     public float getGetThroughput() {
         return stats.getThroughput(Tracked.GET);
     }
 
-    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests.")
+    @JmxGetter(name = "GetThroughputInBytes", description = "Throughput of GET requests in bytes.")
     public float getGetThroughputInBytes() {
         return stats.getThroughputInBytes(Tracked.GET);
     }
@@ -78,7 +79,7 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.PUT);
     }
 
-    @JmxGetter(name = "PutThroughput", description = "Throughput of PUT requests in bytes.")
+    @JmxGetter(name = "PutThroughputInBytes", description = "Throughput of PUT requests in bytes.")
     public float getPutThroughputInBytes() {
         return stats.getThroughputInBytes(Tracked.PUT);
     }
