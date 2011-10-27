@@ -191,6 +191,15 @@ public class VoldemortAdminTool {
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
         parser.accepts("repair-job", "Clean after rebalancing is done");
+        parser.accepts("native-backup",
+                "Perform a native backup")
+                .withRequiredArg()
+                .describedAs("store-name")
+                .ofType(String.class);
+        parser.accepts("backup-dir")
+                .withRequiredArg()
+                .describedAs("backup-directory")
+                .ofType(String.class);
 
         OptionSet options = parser.parse(args);
 
@@ -206,7 +215,8 @@ public class VoldemortAdminTool {
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
-                 || options.has("truncate") || options.has("clear-rebalancing-metadata") || options.has("async"))) {
+                     || options.has("truncate") || options.has("clear-rebalancing-metadata") || options.has("async")
+                     || options.has("native-backup"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -268,11 +278,17 @@ public class VoldemortAdminTool {
         if(options.has("repair-job")) {
             ops += "l";
         }
+        if(options.has("native-backup")) {
+            if (!options.has("backup-dir")) {
+                Utils.croak("A backup directory must be specified with dir");
+            }
+            ops += "n";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
-                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, repair-job) "
-                        + "must be specified");
+                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
+                        + "repair-job, native-backup) must be specified");
         }
 
         List<String> storeNames = null;
@@ -420,6 +436,11 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("l")) {
                 executeRepairJob(nodeId, adminClient);
+            }
+            if (ops.contains("n")) {
+                String backupDir = (String) options.valueOf("backup-dir");
+                String storeName = (String) options.valueOf("native-backup");
+                adminClient.nativeBackup(nodeId, storeName, backupDir);
             }
         } catch(Exception e) {
             e.printStackTrace();

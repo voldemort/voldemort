@@ -2234,4 +2234,35 @@ public class AdminClient {
         return stealerNodeToPlan;
     }
 
+    /**
+     * Native backup a store
+     *
+     * @param nodeId The node id to backup
+     * @param storeName The name of the store to backup
+     * @param destinationDirPath The destination path
+     */
+    public void nativeBackup(int nodeId,
+                             String storeName,
+                             String destinationDirPath) {
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+
+        VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
+                .setStoreName(storeName)
+                .setBackupDir(destinationDirPath)
+                .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                .setNativeBackup(nativeBackupRequest)
+                .setType(VAdminProto.AdminRequestType.NATIVE_BACKUP)
+                .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                adminRequest,
+                VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if (response.hasError()) {
+            throwException(response.getError());
+        }
+
+        int asyncId = response.getRequestId();
+        waitForCompletion(nodeId, asyncId, 3, TimeUnit.MINUTES);
+    }
 }
