@@ -34,6 +34,11 @@ public class StoreStatsJmx {
         return stats.getThroughput(Tracked.GET_ALL);
     }
 
+    @JmxGetter(name = "GetAllThroughputInBytes", description = "Throughput of GET_ALL requests in bytes.")
+    public float getGetAllThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET_ALL);
+    }
+
     @JmxGetter(name = "averageGetAllCount", description = "The avg. number of keys in a GET_ALL request.")
     public double getAverageGetAllCount() {
         return stats.getGetAllAverageCount();
@@ -49,9 +54,14 @@ public class StoreStatsJmx {
         return stats.getAvgTimeInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests.")
+    @JmxGetter(name = "GetThroughput", description = "Throughput of GET requests")
     public float getGetThroughput() {
         return stats.getThroughput(Tracked.GET);
+    }
+
+    @JmxGetter(name = "GetThroughputInBytes", description = "Throughput of GET requests in bytes.")
+    public float getGetThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET);
     }
 
     @JmxGetter(name = "numberOfCallsToPut", description = "The number of calls to PUT since the last reset.")
@@ -67,6 +77,11 @@ public class StoreStatsJmx {
     @JmxGetter(name = "PutThroughput", description = "Throughput of PUT requests.")
     public float getPutThroughput() {
         return stats.getThroughput(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "PutThroughputInBytes", description = "Throughput of PUT requests in bytes.")
+    public float getPutThroughputInBytes() {
+        return stats.getThroughputInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "numberOfCallsToDelete", description = "The number of calls to DELETE since the last reset.")
@@ -94,7 +109,7 @@ public class StoreStatsJmx {
         return stats.getCount(Tracked.EXCEPTION);
     }
 
-    @JmxGetter(name = "averageOperationTimeInMs", description = "The total nuber of all operations that have occured.")
+    @JmxGetter(name = "averageOperationTimeInMs", description = "The total number of all operations that have occured.")
     public double getAvgOperationCompletionTimeInMs() {
         double sum = 0.0;
         double weightedTime = 0.0;
@@ -111,10 +126,16 @@ public class StoreStatsJmx {
             return weightedTime / sum;
     }
 
-    @JmxGetter(name = "AllOperationThroughput", description = "The number of exceptions since the last reset.")
+    @JmxGetter(name = "AllOperationThroughput", description = "The throughput of all operations.")
     public double getOperationThroughput() {
         return stats.getThroughput(Tracked.DELETE) + stats.getThroughput(Tracked.GET)
                + stats.getThroughput(Tracked.GET_ALL) + stats.getThroughput(Tracked.PUT);
+    }
+
+    @JmxGetter(name = "AllOperationThroughputInBytes", description = "Throughput of all operations in bytes.")
+    public double getOperationThroghputInBytes() {
+        return stats.getThroughputInBytes(Tracked.GET) + stats.getThroughputInBytes(Tracked.GET_ALL)
+                + stats.getThroughputInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "percentGetReturningEmptyResponse", description = "The percentage of calls to GET for which no value was found.")
