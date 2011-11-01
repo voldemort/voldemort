@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
 
-import org.mockito.internal.verification.Times;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
@@ -276,7 +275,7 @@ public class VoldemortConfig implements Serializable {
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableRepair = props.getBoolean("enable.repair", false);
+        this.enableRepair = props.getBoolean("enable.repair", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);

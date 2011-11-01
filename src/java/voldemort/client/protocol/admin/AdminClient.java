@@ -1674,14 +1674,22 @@ public class AdminClient {
                                                                                           .setRepairJob(repairJobRequest)
                                                                                           .setType(VAdminProto.AdminRequestType.REPAIR_JOB)
                                                                                           .build();
-        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
-                                                                                   adminRequest,
-                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        SocketDestination destination = new SocketDestination(node.getHost(),
+                                                              node.getAdminPort(),
+                                                              RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        SocketAndStreams sands = pool.checkout(destination);
 
-        if(response.hasError()) {
-            throwException(response.getError());
+        try {
+            DataOutputStream outputStream = sands.getOutputStream();
+            ProtoUtils.writeMessage(outputStream, adminRequest);
+            outputStream.flush();
+        } catch(IOException e) {
+            close(sands.getSocket());
+            throw new VoldemortException(e);
+        } finally {
+            pool.checkin(destination, sands);
         }
-
         return;
     }
 
