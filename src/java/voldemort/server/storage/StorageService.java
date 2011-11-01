@@ -58,7 +58,6 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
-import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;

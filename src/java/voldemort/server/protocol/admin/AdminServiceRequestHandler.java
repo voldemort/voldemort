@@ -45,7 +45,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
-import voldemort.server.scheduler.slop.RepairJob;
+import voldemort.server.storage.RepairJob;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
@@ -613,12 +613,25 @@ public class AdminServiceRequestHandler implements RequestHandler {
     public VAdminProto.RepairJobResponse handleRepairJob(VAdminProto.RepairJobRequest request) {
         VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
         try {
-            RepairJob job = storeRepository.getRepairJob();
-            if(job != null) {
-                logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
-                job.run();
-            } else
-                logger.error("RepairJob is not scheduled.");
+            int requestId = asyncService.getUniqueRequestId();
+            asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Repair Job") {
+
+                @Override
+                public void operate() {
+                    RepairJob job = storeRepository.getRepairJob();
+                    if(job != null) {
+                        logger.info("Starting the repair job now on ID : "
+                                    + metadataStore.getNodeId());
+                        job.run();
+                    } else
+                        logger.error("RepairJob is not initialized.");
+                }
+
+                @Override
+                public void stop() {
+                    status.setException(new VoldemortException("Repair job interrupted"));
+                }
+            });
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("Repair job failed for request : " + request.toString() + ")", e);
