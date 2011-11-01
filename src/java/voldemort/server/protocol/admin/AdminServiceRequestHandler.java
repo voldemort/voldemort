@@ -544,8 +544,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
         VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
         try {
             RepairJob job = storeRepository.getRepairJob();
-            logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
-            job.run();
+            if(job != null) {
+                logger.info("Starting the repair job now on ID : " + metadataStore.getNodeId());
+                job.run();
+            } else
+                logger.error("RepairJob is not scheduled.");
         } catch(VoldemortException e) {
             response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
             logger.error("Repair job failed for request : " + request.toString() + ")", e);
