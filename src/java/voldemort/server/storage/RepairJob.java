@@ -1,4 +1,4 @@
-package voldemort.server.scheduler.slop;
+package voldemort.server.storage;
 
 import java.util.Arrays;
 import java.util.Date;
