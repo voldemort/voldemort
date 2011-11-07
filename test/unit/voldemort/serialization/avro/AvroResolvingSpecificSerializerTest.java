@@ -1,6 +1,5 @@
 package voldemort.serialization.avro;
 
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -72,15 +71,19 @@ public class AvroResolvingSpecificSerializerTest extends TestCase {
     }
 
     public void testVersionBytes() {
-        SerializerDefinition serializerDef = new SerializerDefinition("test", SCHEMA);
+        Map<Integer, String> schemaInfo = new HashMap<Integer, String>();
+        schemaInfo.put(1, SCHEMA);
+        SerializerDefinition serializerDef = new SerializerDefinition("test",
+                                                                      schemaInfo,
+                                                                      true,
+                                                                      null);
         Serializer<SpecificRecord> serializer = new AvroResolvingSpecificSerializer<SpecificRecord>(serializerDef);
         TestRecord obj = new TestRecord();
         obj.f1 = new Utf8("foo");
         obj.f2 = new Utf8("bar");
         obj.f3 = 42;
         byte[] bytes = serializer.toBytes(obj);
-        ByteBuffer bb = ByteBuffer.wrap(bytes, 0, 4);
-        assertTrue(((Integer) bb.getInt()).equals(AvroResolvingSerializer.getSchemaVersion(SCHEMA)));
+        assertEquals(bytes[0], 1);
     }
 
     public void testMissingSchema() {
@@ -104,40 +107,36 @@ public class AvroResolvingSpecificSerializerTest extends TestCase {
 
     public void testMigrateSpecificDatum() {
         // First serializer
-        SerializerDefinition serializerDef1 = new SerializerDefinition("test", SCHEMA1);
+        Map<Integer, String> schemaInfo1 = new HashMap<Integer, String>();
+        schemaInfo1.put(1, SCHEMA1NS);
+        SerializerDefinition serializerDef1 = new SerializerDefinition("test",
+                                                                       schemaInfo1,
+                                                                       true,
+                                                                       null);
         Serializer<GenericData.Record> serializer1 = new AvroResolvingGenericSerializer<GenericData.Record>(serializerDef1);
 
         // Second serializer
-        Map<Integer, String> schemaInfo = new HashMap<Integer, String>();
-        schemaInfo.put(1, SCHEMA1NS);
-        schemaInfo.put(2, SCHEMA2NS);
-        schemaInfo.put(3, SCHEMA);
-        SerializerDefinition serializerDef = new SerializerDefinition("test",
-                                                                      schemaInfo,
-                                                                      true,
-                                                                      null);
-        Serializer<TestRecord> serializer = new AvroResolvingSpecificSerializer<TestRecord>(serializerDef);
-        GenericData.Record datum = new GenericData.Record(Schema.parse(SCHEMA1));
-        datum.put("f1", new Utf8("foo"));
+        Map<Integer, String> schemaInfo2 = new HashMap<Integer, String>();
+        schemaInfo2.put(1, SCHEMA1NS);
+        schemaInfo2.put(2, SCHEMA);
+        SerializerDefinition serializerDef2 = new SerializerDefinition("test",
+                                                                       schemaInfo2,
+                                                                       true,
+                                                                       null);
+        Serializer<TestRecord> serializer2 = new AvroResolvingSpecificSerializer<TestRecord>(serializerDef2);
 
-        // Write it as the current Schema
+        // Write it as the old Schema
+        GenericData.Record datum = new GenericData.Record(Schema.parse(SCHEMA1NS));
+        datum.put("f1", new Utf8("foo"));
         byte[] bytes = serializer1.toBytes(datum);
         // Fix the version bytes so it resolves the correct Schema
-        byte[] versionBytes = ByteBuffer.allocate(4)
-                                        .putInt(AvroResolvingSerializer.getSchemaVersion(SCHEMA1NS))
-                                        .array();
-        bytes[0] = versionBytes[0];
-        bytes[1] = versionBytes[1];
-        bytes[2] = versionBytes[2];
-        bytes[3] = versionBytes[3];
+        bytes[0] = 1;
 
-        TestRecord datum1 = serializer.toObject(bytes);
+        // Read is with the new serializer
+        Schema schema2 = Schema.parse(SCHEMA2NS);
+        TestRecord datum1 = serializer2.toObject(bytes);
         assertTrue(datum1.f1.equals(datum.get("f1")));
-        assertTrue(datum1.f2.equals(new Utf8(Schema.parse(SCHEMA)
-                                                   .getField("f2")
-                                                   .defaultValue()
-                                                   .getTextValue())));
-        assertEquals(datum1.f3, Schema.parse(SCHEMA).getField("f3").defaultValue().getIntValue());
+        assertTrue(datum1.f2.equals(new Utf8(schema2.getField("f2").defaultValue().getTextValue())));
     }
 
     public void testMigrateGenericDatum() {
@@ -160,6 +159,8 @@ public class AvroResolvingSpecificSerializerTest extends TestCase {
 
         // Write it as the current Schema
         byte[] bytes = serializer1.toBytes(datum);
+        // Fix the version byte
+        bytes[0] = 1;
 
         // Read it back as a different Schema
         GenericData.Record datum1 = serializer2.toObject(bytes);
