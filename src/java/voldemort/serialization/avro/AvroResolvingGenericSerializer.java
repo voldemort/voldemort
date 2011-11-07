@@ -28,18 +28,26 @@ public class AvroResolvingGenericSerializer<T> extends AvroResolvingSerializer<T
     }
 
     @Override
-    protected Map<Integer, Schema> loadSchemas(Map<Integer, String> allSchemaInfos) {
-        Map<Integer, Schema> schemaVersions = new HashMap<Integer, Schema>();
-        for(String schemaInfo: allSchemaInfos.values()) {
-            Schema schema = Schema.parse(schemaInfo);
-            schemaVersions.put(getSchemaVersion(schema), schema);
+    protected Map<Byte, Schema> loadSchemas(Map<Integer, String> allSchemaInfos) {
+        Map<Byte, Schema> schemaVersions = new HashMap<Byte, Schema>();
+        for(Map.Entry<Integer, String> entry: allSchemaInfos.entrySet()) {
+            // Make sure we can parse the schema
+            Schema schema = Schema.parse(entry.getValue());
+            // Check that the version is less than 256
+            Integer version = entry.getKey();
+            if(version > Byte.MAX_VALUE) {
+                throw new IllegalArgumentException("Cannot have schema version higher than "
+                                                   + Byte.MAX_VALUE);
+            }
+            schemaVersions.put(version.byteValue(), schema);
+            LOG.info("Loaded schema version (" + version + ")");
         }
         return schemaVersions;
     }
 
     @Override
-    protected Integer getCurrentSchemaVersion(SerializerDefinition serializerDef) {
+    protected Schema getCurrentSchema(SerializerDefinition serializerDef) {
         String schemaInfo = serializerDef.getCurrentSchemaInfo();
-        return getSchemaVersion(schemaInfo);
+        return Schema.parse(schemaInfo);
     }
 }
