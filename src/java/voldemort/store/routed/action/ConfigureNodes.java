@@ -32,6 +32,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 
 public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
         AbstractConfigureNodes<ByteArray, V, PD> {
@@ -93,10 +94,11 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
 
             nodes = new ArrayList<Node>();
             LinkedList<Integer> zoneProximityList = this.clientZone.getProximityList();
-            if(pipeline.getOperation() != Operation.PUT) {
-                // GET, GET_VERSIONS, DELETE
+            if(pipeline.getOperation() != Operation.PUT
+               && pipeline.getOperation() != Operation.DELETE) {
+                // GET, GET_VERSIONS
 
-                // Add a node from every zone
+                // Add a node from every zone, upto a max of zoneCountReads.
                 for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
                     List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
                     if(zoneNodes != null && zoneNodes.size() > 0) {
@@ -118,6 +120,15 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
                 }
             }
 
+        }
+        if(logger.isDebugEnabled()) {
+            StringBuilder nodeStr = new StringBuilder();
+            for(Node node: nodes) {
+                nodeStr.append(node.getId() + ",");
+            }
+            logger.debug(String.format("Key %s Nodes after routing %s",
+                                       ByteUtils.toHexString(key.get()),
+                                       nodeStr));
         }
         pipelineData.setNodes(nodes);
         pipeline.addEvent(completeEvent);

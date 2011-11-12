@@ -145,6 +145,32 @@ public class Cluster implements Serializable {
         return builder.toString();
     }
 
+    /**
+     * Return a detailed string representation of the current cluster
+     * 
+     * @param isDetailed
+     * @return
+     */
+    public String toString(boolean isDetailed) {
+        if(!isDetailed) {
+            return toString();
+        }
+        StringBuilder builder = new StringBuilder(String.format("Cluster [%s] Nodes [%d] Zones [%d] Partitions [%d]\n",
+                                                                getName(),
+                                                                getNumberOfNodes(),
+                                                                getNumberOfZones(),
+                                                                getNumberOfPartitions()));
+        for(Zone zone: getZones()) {
+            builder.append(zone.toString());
+            builder.append("\n");
+        }
+        for(Node node: getNodes()) {
+            builder.append(node.toString());
+            builder.append("\n");
+        }
+        return builder.toString();
+    }
+
     @Override
     public boolean equals(Object second) {
         if(this == second)

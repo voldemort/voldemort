@@ -130,7 +130,8 @@ public class Node implements Serializable, Comparable<Node> {
 
     @Override
     public String toString() {
-        return "Node" + getId() + " in zone " + getZoneId() + " partitionList:" + partitions;
+        return "Node " + getHost() + " Id:" + getId() + " in zone " + getZoneId()
+               + " partitionList:" + partitions;
     }
 
     @Override

@@ -54,6 +54,7 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.strategy.HintedHandoffStrategy;
 import voldemort.store.slop.strategy.HintedHandoffStrategyFactory;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -197,6 +198,13 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                        blockingStoreRequest));
 
         pipeline.addEvent(Event.STARTED);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug(String.format("Operation %s Key %s",
+                                       pipeline.getOperation().getSimpleName(),
+                                       ByteUtils.toHexString(key.get())));
+        }
+
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -264,6 +272,16 @@ public class PipelineRoutedStore extends RoutedStore {
                                                          readRepairer));
 
         pipeline.addEvent(Event.STARTED);
+
+        if(logger.isDebugEnabled()) {
+            StringBuilder keyStr = new StringBuilder();
+            for(ByteArray key: keys) {
+                keyStr.append(ByteUtils.toHexString(key.get()) + ",");
+            }
+            logger.debug(String.format("Operation %s Keys %s",
+                                       pipeline.getOperation().getSimpleName(),
+                                       keyStr.toString()));
+        }
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -332,6 +350,11 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                    blockingStoreRequest));
 
         pipeline.addEvent(Event.STARTED);
+        if(logger.isDebugEnabled()) {
+            logger.debug(String.format("Operation %s Key %s",
+                                       pipeline.getOperation().getSimpleName(),
+                                       ByteUtils.toHexString(key.get())));
+        }
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -404,6 +427,11 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         pipeline.addEvent(Event.STARTED);
+        if(logger.isDebugEnabled()) {
+            logger.debug(String.format("Operation %s Key %s",
+                                       pipeline.getOperation().getSimpleName(),
+                                       ByteUtils.toHexString(key.get())));
+        }
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
@@ -503,6 +531,11 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                  time));
 
         pipeline.addEvent(Event.STARTED);
+        if(logger.isDebugEnabled()) {
+            logger.debug(String.format("Operation %s Key %s",
+                                       pipeline.getOperation().getSimpleName(),
+                                       ByteUtils.toHexString(key.get())));
+        }
         pipeline.execute();
 
         if(pipelineData.getFatalError() != null)
