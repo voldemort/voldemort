@@ -77,7 +77,8 @@ public class ZoneRoutingStrategy extends ConsistentRoutingStrategy {
         }
 
         for(int i = 0; i < getPartitionToNode().length; i++) {
-            // add this one if we haven't already
+            // add this one if we haven't already, and it can satisfy some zone
+            // replicationFactor
             Node currentNode = getNodeByPartition(index);
             if(!preferenceNodesList.contains(currentNode)) {
                 preferenceNodesList.add(currentNode);
@@ -96,6 +97,14 @@ public class ZoneRoutingStrategy extends ConsistentRoutingStrategy {
         return replicationPartitionsList;
     }
 
+    /**
+     * Check if we still need more nodes from the given zone and reduce the
+     * zoneReplicationFactor count accordingly.
+     * 
+     * @param requiredRepFactor
+     * @param zoneId
+     * @return
+     */
     private boolean checkZoneRequirement(HashMap<Integer, Integer> requiredRepFactor, int zoneId) {
         if(requiredRepFactor.containsKey(zoneId)) {
             if(requiredRepFactor.get(zoneId) == 0) {
