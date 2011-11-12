@@ -23,9 +23,10 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineData;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 
 public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>> extends
         AbstractAction<K, V, PD> {
@@ -49,19 +50,31 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
 
     protected List<Node> getNodes(ByteArray key) {
         List<Node> nodes = new ArrayList<Node>();
+        List<Integer> failedNodes = new ArrayList<Integer>();
+        List<Integer> allNodes = new ArrayList<Integer>();
 
         for(Node node: routingStrategy.routeRequest(key.get())) {
+            allNodes.add(node.getId());
             if(failureDetector.isAvailable(node))
                 nodes.add(node);
-            else
+            else {
                 pipelineData.addFailedNode(node);
+                failedNodes.add(node.getId());
+                if(logger.isDebugEnabled()) {
+                    logger.debug(String.format("Key %s Node %d down",
+                                               ByteUtils.toHexString(key.get()),
+                                               node.getId()));
+                }
+            }
         }
 
-        if(nodes.size() < required)
+        if(nodes.size() < required) {
             throw new InsufficientOperationalNodesException("Only " + nodes.size()
-                                                            + " nodes in preference list, but "
-                                                            + required + " required.");
-
+                                                            + " nodes up in preference list "
+                                                            + allNodes + ", but " + required
+                                                            + " required. Nodes down: "
+                                                            + failedNodes);
+        }
         return nodes;
     }
 }
