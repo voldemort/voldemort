@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -173,6 +174,9 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
+                                                                                     new ArrayList<Node>(pipelineData.getReplicationSet()),
+                                                                                     new ArrayList<Node>(pipelineData.getNodes()),
+                                                                                     new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();

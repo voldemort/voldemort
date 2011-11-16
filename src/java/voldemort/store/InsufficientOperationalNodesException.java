@@ -16,10 +16,15 @@
 
 package voldemort.store;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Node;
 
 /**
  * Thrown if an operation fails due to too few reachable nodes.
@@ -31,6 +36,8 @@ public class InsufficientOperationalNodesException extends VoldemortException {
     private static final long serialVersionUID = 1L;
 
     private Collection<? extends Throwable> causes;
+
+    private final Logger logger = Logger.getLogger(getClass());
 
     public InsufficientOperationalNodesException(String s, Throwable e) {
         super(s, e);
@@ -57,8 +64,42 @@ public class InsufficientOperationalNodesException extends VoldemortException {
         this.causes = failures;
     }
 
+    public InsufficientOperationalNodesException(String message,
+                                                 List<Node> replicationSet,
+                                                 List<Node> preferenceList,
+                                                 List<Node> failedList,
+                                                 Collection<? extends Throwable> failures) {
+        this(message.toString()
+                     + " Original replication set :"
+                     + stripNodeIds(replicationSet)
+                     + " Known failed nodes before operation :"
+                     + stripNodeIds(replicationSet.removeAll(preferenceList) ? replicationSet
+                                                                            : replicationSet)
+                     + " Estimated live nodes in preference list :" + stripNodeIds(preferenceList)
+                     + " New failed nodes during operation :"
+                     + stripNodeIds(failedList.removeAll(replicationSet) ? failedList : failedList),
+             failures.size() > 0 ? failures.iterator().next() : null);
+        if(logger.isDebugEnabled()) {
+            logger.debug(this.getMessage());
+        }
+    }
+
     public Collection<? extends Throwable> getCauses() {
         return this.causes;
     }
 
+    /**
+     * Helper method to get a list of node ids.
+     * 
+     * @param nodeList
+     */
+    private static List<Integer> stripNodeIds(List<Node> nodeList) {
+        List<Integer> nodeidList = new ArrayList<Integer>();
+        if(nodeList != null) {
+            for(Node node: nodeList) {
+                nodeidList.add(node.getId());
+            }
+        }
+        return nodeidList;
+    }
 }
