@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -25,8 +26,8 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.Store;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.PutPipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
@@ -133,6 +134,9 @@ public class PerformSerialPutRequests extends
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
+                                                                                     new ArrayList<Node>(pipelineData.getReplicationSet()),
+                                                                                     new ArrayList<Node>(pipelineData.getNodes()),
+                                                                                     new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
                 pipeline.abort();
             } else {

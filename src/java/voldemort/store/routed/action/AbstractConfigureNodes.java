@@ -50,16 +50,13 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
 
     protected List<Node> getNodes(ByteArray key) {
         List<Node> nodes = new ArrayList<Node>();
-        List<Integer> failedNodes = new ArrayList<Integer>();
-        List<Integer> allNodes = new ArrayList<Integer>();
 
-        for(Node node: routingStrategy.routeRequest(key.get())) {
-            allNodes.add(node.getId());
+        pipelineData.setReplicationSet(routingStrategy.routeRequest(key.get()));
+        for(Node node: pipelineData.getReplicationSet()) {
             if(failureDetector.isAvailable(node))
                 nodes.add(node);
             else {
                 pipelineData.addFailedNode(node);
-                failedNodes.add(node.getId());
                 if(logger.isDebugEnabled()) {
                     logger.debug(String.format("Key %s Node %d down",
                                                ByteUtils.toHexString(key.get()),
@@ -69,11 +66,21 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
         }
 
         if(nodes.size() < required) {
-            throw new InsufficientOperationalNodesException("Only " + nodes.size()
-                                                            + " nodes up in preference list "
-                                                            + allNodes + ", but " + required
-                                                            + " required. Nodes down: "
-                                                            + failedNodes);
+            List<Integer> failedNodes = new ArrayList<Integer>();
+            List<Integer> allNodes = new ArrayList<Integer>();
+            for(Node node: pipelineData.getReplicationSet()) {
+                allNodes.add(node.getId());
+            }
+            for(Node node: pipelineData.getFailedNodes()) {
+                failedNodes.add(node.getId());
+            }
+            String errorMessage = "Only " + nodes.size() + " nodes up in preference list"
+                                  + ", but " + required + " required. Replication set: " + allNodes
+                                  + "Nodes down: " + failedNodes;
+            if(logger.isDebugEnabled()) {
+                logger.debug(errorMessage);
+            }
+            throw new InsufficientOperationalNodesException(errorMessage);
         }
         return nodes;
     }

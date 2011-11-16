@@ -417,6 +417,7 @@ public class StoreDefinition implements Serializable {
                + getPreferredWrites() + ", view-target = " + getViewTargetStoreName()
                + ", value-transformation = " + getValueTransformation() + ", retention-days = "
                + getRetentionDays() + ", throttle-rate = " + getRetentionScanThrottleRate()
+               + ", zone-replication-factor = " + getZoneReplicationFactor()
                + ", zone-count-reads = " + getZoneCountReads() + ", zone-count-writes = "
                + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
