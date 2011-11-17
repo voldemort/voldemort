@@ -109,8 +109,6 @@ public class InsufficientOperationalNodesException extends VoldemortException {
      */
     private static List<Node> difference(List<Node> listA, List<Node> listB) {
         listA.removeAll(listB);
-        System.out.println(">>>>>>List A" + listA);
-        System.out.println(">>>>>>List B" + listB);
         return listA;
     }
 }
