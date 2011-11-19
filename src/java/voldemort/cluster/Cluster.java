@@ -155,19 +155,12 @@ public class Cluster implements Serializable {
         if(!isDetailed) {
             return toString();
         }
-        StringBuilder builder = new StringBuilder(String.format("Cluster [%s] Nodes [%d] Zones [%d] Partitions [%d]\n",
-                                                                getName(),
-                                                                getNumberOfNodes(),
-                                                                getNumberOfZones(),
-                                                                getNumberOfPartitions()));
-        for(Zone zone: getZones()) {
-            builder.append(zone.toString());
-            builder.append("\n");
-        }
-        for(Node node: getNodes()) {
-            builder.append(node.toString());
-            builder.append("\n");
-        }
+        StringBuilder builder = new StringBuilder("Cluster [" + getName() + "] Nodes ["
+                                                  + getNumberOfNodes() + "] Zones ["
+                                                  + getNumberOfZones() + "] Partitions ["
+                                                  + getNumberOfPartitions() + "]");
+        builder.append(" Zone Info [" + getZones() + "]");
+        builder.append(" Node Info [" + getNodes() + "]");
         return builder.toString();
     }
 

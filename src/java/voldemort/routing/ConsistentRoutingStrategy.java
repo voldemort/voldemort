@@ -53,7 +53,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     private final Node[] partitionToNode;
     private final HashFunction hash;
 
-    private final Logger logger = Logger.getLogger(ConsistentRoutingStrategy.class);
+    private static final Logger logger = Logger.getLogger(ConsistentRoutingStrategy.class);
 
     public ConsistentRoutingStrategy(Collection<Node> nodes, int numReplicas) {
         this(new FnvHashFunction(), nodes, numReplicas);
@@ -117,10 +117,8 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
             for(int partition: partitionList) {
                 nodeList.append(partitionToNode[partition].getId() + ",");
             }
-            logger.debug(String.format("Key %s mapped to Nodes [%s] Partitions [%s]",
-                                       ByteUtils.toHexString(key),
-                                       nodeList,
-                                       partitionList));
+            logger.debug("Key " + ByteUtils.toHexString(key) + " mapped to Nodes [" + nodeList
+                         + "] Partitions [" + partitionList + "]");
         }
         return preferenceList;
     }
@@ -176,9 +174,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         // to get the master partition
         int index = abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Key %s primary partition %d",
-                                       ByteUtils.toHexString(key),
-                                       index));
+            logger.debug("Key " + ByteUtils.toHexString(key) + " primary partition " + index);
         }
         // Now based on the preference list, pick the replicating partitions and
         // return

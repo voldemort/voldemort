@@ -200,9 +200,8 @@ public class PipelineRoutedStore extends RoutedStore {
         pipeline.addEvent(Event.STARTED);
 
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Operation %s Key %s",
-                                       pipeline.getOperation().getSimpleName(),
-                                       ByteUtils.toHexString(key.get())));
+            logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Key "
+                         + ByteUtils.toHexString(key.get()));
         }
 
         pipeline.execute();
@@ -278,9 +277,8 @@ public class PipelineRoutedStore extends RoutedStore {
             for(ByteArray key: keys) {
                 keyStr.append(ByteUtils.toHexString(key.get()) + ",");
             }
-            logger.debug(String.format("Operation %s Keys %s",
-                                       pipeline.getOperation().getSimpleName(),
-                                       keyStr.toString()));
+            logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Keys "
+                         + keyStr.toString());
         }
         pipeline.execute();
 
@@ -351,9 +349,8 @@ public class PipelineRoutedStore extends RoutedStore {
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Operation %s Key %s",
-                                       pipeline.getOperation().getSimpleName(),
-                                       ByteUtils.toHexString(key.get())));
+            logger.debug("Operation  " + pipeline.getOperation().getSimpleName() + "Key "
+                         + ByteUtils.toHexString(key.get()));
         }
         pipeline.execute();
 
@@ -428,9 +425,8 @@ public class PipelineRoutedStore extends RoutedStore {
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Operation %s Key %s",
-                                       pipeline.getOperation().getSimpleName(),
-                                       ByteUtils.toHexString(key.get())));
+            logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Key "
+                         + ByteUtils.toHexString(key.get()));
         }
         pipeline.execute();
 
@@ -532,9 +528,8 @@ public class PipelineRoutedStore extends RoutedStore {
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Operation %s Key %s",
-                                       pipeline.getOperation().getSimpleName(),
-                                       ByteUtils.toHexString(key.get())));
+            logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Key "
+                         + ByteUtils.toHexString(key.get()));
         }
         pipeline.execute();
 
