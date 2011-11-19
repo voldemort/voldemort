@@ -37,7 +37,7 @@ public class InsufficientOperationalNodesException extends VoldemortException {
 
     private Collection<? extends Throwable> causes;
 
-    private final Logger logger = Logger.getLogger(getClass());
+    private static final Logger logger = Logger.getLogger(InsufficientOperationalNodesException.class);
 
     public InsufficientOperationalNodesException(String s, Throwable e) {
         super(s, e);
@@ -69,7 +69,7 @@ public class InsufficientOperationalNodesException extends VoldemortException {
                                                  List<Node> preferenceList,
                                                  List<Node> failedList,
                                                  Collection<? extends Throwable> failures) {
-        this(message.toString() + " Original replication set :" + stripNodeIds(replicationSet)
+        this(message + " Original replication set :" + stripNodeIds(replicationSet)
                      + " Known failed nodes before operation :"
                      + stripNodeIds(difference(replicationSet, preferenceList))
                      + " Estimated live nodes in preference list :" + stripNodeIds(preferenceList)
@@ -108,7 +108,8 @@ public class InsufficientOperationalNodesException extends VoldemortException {
      * @return
      */
     private static List<Node> difference(List<Node> listA, List<Node> listB) {
-        listA.removeAll(listB);
+        if(listA != null && listB != null)
+            listA.removeAll(listB);
         return listA;
     }
 }

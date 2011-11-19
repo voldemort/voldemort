@@ -58,9 +58,8 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
             else {
                 pipelineData.addFailedNode(node);
                 if(logger.isDebugEnabled()) {
-                    logger.debug(String.format("Key %s Node %d down",
-                                               ByteUtils.toHexString(key.get()),
-                                               node.getId()));
+                    logger.debug("Key " + ByteUtils.toHexString(key.get()) + " Node "
+                                 + node.getId() + " down");
                 }
             }
         }

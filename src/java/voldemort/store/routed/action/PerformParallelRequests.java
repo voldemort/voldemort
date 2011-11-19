@@ -191,12 +191,10 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                     pipeline.addEvent(completeEvent);
                 } else {
                     if(logger.isDebugEnabled()) {
-                        logger.debug(String.format("Operation  %s failed due to insufficent zone responses, required %d"
-                                                           + " obtained %d %s",
-                                                   pipeline.getOperation().getSimpleName(),
-                                                   pipelineData.getZonesRequired(),
-                                                   zonesSatisfied,
-                                                   pipelineData.getZoneResponses()));
+                        logger.debug("Operation " + pipeline.getOperation().getSimpleName()
+                                     + "failed due to insufficent zone responses, required "
+                                     + pipelineData.getZonesRequired() + " obtained "
+                                     + zonesSatisfied + " " + pipelineData.getZoneResponses());
                     }
                     if(this.insufficientZonesEvent != null) {
                         pipeline.addEvent(this.insufficientZonesEvent);

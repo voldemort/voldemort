@@ -142,10 +142,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                 InconsistencyResolver<Versioned<V>> resolver) {
 
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Client zone-id [%s]", clientZoneId));
-            logger.debug(String.format("Attempting to obtain metadata for store [%s] ", storeName));
+            logger.debug("Client zone-id [" + clientZoneId + "]");
+            logger.debug("Attempting to obtain metadata for store [" + storeName + "] ");
             for(URI uri: bootstrapUrls) {
-                logger.debug(String.format("Client Bootstrap url [%s]", uri));
+                logger.debug("Client Bootstrap url [" + uri + "]");
             }
         }
         // Get cluster and store metadata
@@ -154,8 +154,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
 
         if(logger.isDebugEnabled()) {
-            logger.debug(String.format("Obtained cluster metadata xml \n %s", clusterXml));
-            logger.debug(String.format("Obtained stores  metadata xml \n %s", storesXml));
+            logger.debug("Obtained cluster metadata xml" + clusterXml);
+            logger.debug("Obtained stores  metadata xml" + storesXml);
         }
 
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),

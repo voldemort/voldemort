@@ -126,9 +126,8 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
             for(Node node: nodes) {
                 nodeStr.append(node.getId() + ",");
             }
-            logger.debug(String.format("Key %s final preference list to contact %s",
-                                       ByteUtils.toHexString(key.get()),
-                                       nodeStr));
+            logger.debug("Key " + ByteUtils.toHexString(key.get())
+                         + " final preference list to contact " + nodeStr);
         }
         pipelineData.setNodes(nodes);
         pipeline.addEvent(completeEvent);
