@@ -94,11 +94,11 @@ public class ConfigureNodes<V, PD extends BasicPipelineData<V>> extends
 
             nodes = new ArrayList<Node>();
             LinkedList<Integer> zoneProximityList = this.clientZone.getProximityList();
-            if(pipeline.getOperation() != Operation.PUT
-               && pipeline.getOperation() != Operation.DELETE) {
-                // GET, GET_VERSIONS
+            if(pipeline.getOperation() != Operation.PUT) {
+                // GET, GET_VERSIONS, DELETE
 
-                // Add a node from every zone, upto a max of zoneCountReads.
+                // Add a node from every zone, upto a max of 
+                // zoneCountReads/zoneCountWrites.
                 for(int index = 0; index < pipelineData.getZonesRequired(); index++) {
                     List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
                     if(zoneNodes != null && zoneNodes.size() > 0) {
