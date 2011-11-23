@@ -136,9 +136,9 @@ public class VoldemortServer extends AbstractService {
                             + "] does not seem to match current node.");
             }
         } catch(UnknownHostException uhe) {
-            logger.warn("Unable to obtain IP information for current node");
+            logger.warn("Unable to obtain IP information for current node", uhe);
         } catch(SecurityException se) {
-            logger.warn("Security Manager does not permit obtaining IP Information");
+            logger.warn("Security Manager does not permit obtaining IP Information", se);
         }
     }
 
