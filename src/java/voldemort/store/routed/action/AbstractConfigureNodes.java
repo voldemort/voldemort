@@ -52,6 +52,11 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
         List<Node> nodes = new ArrayList<Node>();
 
         pipelineData.setReplicationSet(routingStrategy.routeRequest(key.get()));
+        // raise an error if no server has any partitions defined
+        if(pipelineData.getReplicationSet().size() == 0) {
+            throw new IllegalArgumentException("All servers configured with no partitions");
+        }
+
         for(Node node: pipelineData.getReplicationSet()) {
             if(failureDetector.isAvailable(node))
                 nodes.add(node);
