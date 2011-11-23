@@ -135,7 +135,11 @@ public class VoldemortServer extends AbstractService {
                 logger.info("Configured hostname [" + this.identityNode.getHost()
                             + "] does not seem to match current node.");
             }
-        } catch(UnknownHostException uhe) {}
+        } catch(UnknownHostException uhe) {
+            logger.warn("Unable to obtain IP information for current node");
+        } catch(SecurityException se) {
+            logger.warn("Security Manager does not permit obtaining IP Information");
+        }
     }
 
     private List<VoldemortService> createServices() {
