@@ -421,7 +421,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.get(new ByteArray("test".getBytes()), null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + 130, elapsed < 130);
         }
 
         start = System.nanoTime();
