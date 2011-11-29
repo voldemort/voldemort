@@ -12,6 +12,8 @@
 	<classpathentry kind="src" path="example/java"/>
 	<classpathentry kind="src" path="contrib/krati/src/java"/>
 	<classpathentry kind="src" path="contrib/krati/test"/>
+	<classpathentry kind="src" path="contrib/collections/src/java"/>
+	<classpathentry kind="src" path="contrib/collections/test"/>	
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/catalina-ant.jar"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.3.jar"/>
