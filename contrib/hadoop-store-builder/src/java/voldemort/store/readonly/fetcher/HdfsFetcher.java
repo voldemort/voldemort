@@ -45,7 +45,7 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.EventThrottler;
+import voldemort.utils.DynamicEventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
@@ -66,7 +66,8 @@ public class HdfsFetcher implements FileFetcher {
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
     private AsyncOperationStatus status;
-    private EventThrottler throttler = null;
+    private DynamicEventThrottler throttler = null;
+    private long numJobs = 0;
 
     public HdfsFetcher(Props props) {
         this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
@@ -86,13 +87,17 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
         if(this.maxBytesPerSecond != null)
-            this.throttler = new EventThrottler(this.maxBytesPerSecond);
+            this.throttler = new DynamicEventThrottler(this.maxBytesPerSecond);
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
         this.status = null;
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
+        synchronized(this) {
+            numJobs++;
+            throttler.updateRate(this.maxBytesPerSecond / numJobs);
+        }
         Path path = new Path(sourceFileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
