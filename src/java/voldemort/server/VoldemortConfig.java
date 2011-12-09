@@ -76,6 +76,8 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
+    private int bdbLogFaultReadSize;
+    private int bdbLogIteratorReadSize;
     private boolean bdbFairLatches;
     private long bdbStatsCacheTtlMs;
 
@@ -206,6 +208,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
         this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
+        this.bdbLogFaultReadSize = props.getInt("bdb.log.fault.read.size", 2048);
+        this.bdbLogIteratorReadSize = props.getInt("bdb.log.iterator.read.size", 8192);
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
@@ -646,6 +650,22 @@ public class VoldemortConfig implements Serializable {
 
     public int getBdbLockNLockTables() {
         return bdbLockNLockTables;
+    }
+
+    public void setBdbLogFaultReadSize(int bdbLogFaultReadSize) {
+        this.bdbLogFaultReadSize = bdbLogFaultReadSize;
+    }
+
+    public int getBdbLogFaultReadSize() {
+        return bdbLogFaultReadSize;
+    }
+
+    public void setBdbLogIteratorReadSize(int bdbLogIteratorReadSize) {
+        this.bdbLogIteratorReadSize = bdbLogIteratorReadSize;
+    }
+
+    public int getBdbLogIteratorReadSize() {
+        return bdbLogIteratorReadSize;
     }
 
     public boolean getBdbFairLatches() {
