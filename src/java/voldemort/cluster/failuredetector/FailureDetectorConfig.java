@@ -20,8 +20,10 @@ import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
+import com.google.common.collect.ImmutableSet;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -542,8 +544,8 @@ public class FailureDetectorConfig {
      * @return Collection of Node instances, usually determined from the Cluster
      */
 
-    public Collection<Node> getNodes() {
-        return nodes;
+    public synchronized Collection<Node> getNodes() {
+        return ImmutableSet.copyOf(nodes);
     }
 
     /**
@@ -554,9 +556,15 @@ public class FailureDetectorConfig {
      *        Cluster; must be non-null
      */
 
-    public FailureDetectorConfig setNodes(Collection<Node> nodes) {
-        this.nodes = Utils.notNull(nodes);
+    public synchronized FailureDetectorConfig setNodes(Collection<Node> nodes) {
+        Utils.notNull(nodes);
+        this.nodes = new HashSet<Node>(nodes);
         return this;
+    }
+
+    public synchronized void addNode(Node node) {
+        Utils.notNull(node);
+        nodes.add(node);
     }
 
     public StoreVerifier getStoreVerifier() {
