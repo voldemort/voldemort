@@ -41,8 +41,4 @@ clean:
 
 .cc.o:
 	$(CC) $(CFLAGS) $< -o $@
-
-	g++  -lpthread -shared -Wl,--whole-archive -lleveldb -lsnappy -Wl,--no-whole-archive -lc -Wl,-soname  -Wl,libldb.so src/main/cpp/voldemort_store_leveldb_leveldbjni_DB.o src/main/cpp/voldemort_store_leveldb_leveldbjni_DbIterator.o src/main/cpp/voldemort_store_leveldb_leveldbjni_DbOptions.o src/main/cpp/voldemort_store_leveldb_leveldbjni_ReadOptions.o src/main/cpp/voldemort_store_leveldb_leveldbjni_WriteOptions.o      -o native/Linux-x86_64/libldb.so                                              
-	
-	
-	g++ -o lib/libldb.so -shared -I$JAVA_HOME/include -I../leveldb/include -L./leveldb/ -L./snappy-1.0.4/.libs/ -Wl,--whole-archive -lleveldb -lsnappy -Wl,--no-whole-archive -lc -Wl,-soname -Wl,libldb.so target/*.o                                                                                                                               
+                                                
