@@ -1,0 +1,13 @@
+Index: build_detect_platform
+===================================================================
+--- build_detect_platform (revision 47)
++++ build_detect_platform (working copy)
+@@ -22,7 +22,7 @@
+         ;;
+     Linux)
+         PLATFORM=OS_LINUX
+-        echo "PLATFORM_CFLAGS=-pthread -DOS_LINUX" >> build_config.mk
++        echo "PLATFORM_CFLAGS=-pthread -fPIC -DOS_LINUX" >> build_config.mk
+         echo "PLATFORM_LDFLAGS=-lpthread"  >> build_config.mk
+         ;;
+     SunOS)
