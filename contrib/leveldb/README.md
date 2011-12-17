@@ -25,11 +25,12 @@ Just execute :
     
     cd contrib/leveldb
     ./make.sh # to build leveldb and leveldbjni
-    . /setenv.sh # set the java library path, required before running test or voldemort server
+    . ./setenv.sh # set the java library path, required before running test or voldemort server
 
 Build voldemort : 
 
     ant # at the root of voldemort
+    ant contrib-junit # optional, to run the unit test
 
 The script should download snappy and leveldb for build. (note this is not very suitable for a release build as we get leveldb's trunk)
 
