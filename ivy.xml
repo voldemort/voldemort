@@ -42,6 +42,7 @@
     <dependency org="com.ning" name="compress-lzf" rev="0.9.1" conf="compile->default"/>
     <dependency org="org.iq80.snappy" name="snappy" rev="0.1" conf="compile->default"/>
     <dependency org="jline" name="jline" rev="0.9.94" conf="runtime->default"/>
+    <dependency org="commons-collections" name="commons-collections" rev="3.2.1" conf="runtime->default"/>
     <dependency org="colt" name="colt" rev="1.2.0" conf="test->default"/>
     <dependency org="commons-pool" name="commons-pool" rev="1.5.2" conf="test->default"/>
     <dependency org="junit" name="junit" rev="4.6" conf="test->default"/>
