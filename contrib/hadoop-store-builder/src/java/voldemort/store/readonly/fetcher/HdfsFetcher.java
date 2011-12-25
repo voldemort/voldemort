@@ -94,10 +94,13 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
-        synchronized(this) {
-            numJobs++;
-            throttler.updateRate(this.maxBytesPerSecond / numJobs);
-        }
+        if(throttler != null)
+            synchronized(this) {
+                numJobs++;
+                long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
+                                              : this.maxBytesPerSecond;
+                throttler.updateRate(updatedRate);
+            }
         Path path = new Path(sourceFileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
@@ -124,6 +127,13 @@ public class HdfsFetcher implements FileFetcher {
                 return null;
             }
         } finally {
+            if(throttler != null)
+                synchronized(this) {
+                    numJobs--;
+                    long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
+                                                  : this.maxBytesPerSecond;
+                    throttler.updateRate(updatedRate);
+                }
             JmxUtils.unregisterMbean(jmxName);
         }
     }

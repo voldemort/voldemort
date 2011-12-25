@@ -48,7 +48,10 @@ public class EventThrottler {
 
     public synchronized void maybeThrottle(int eventsSeen) {
         long rateLimit = getRate();
-        System.err.println("Rate = " + rateLimit);
+
+        if(logger.isDebugEnabled())
+            logger.debug("Rate = " + rateLimit);
+
         eventsSeenInLastInterval += eventsSeen;
         long now = time.getNanoseconds();
         long ellapsedNs = now - startTime;
@@ -62,6 +65,7 @@ public class EventThrottler {
                 double maxEventsPerMs = rateLimit / (double) Time.MS_PER_SECOND;
                 long ellapsedMs = ellapsedNs / Time.NS_PER_MS;
                 long sleepTime = Math.round(eventsSeenInLastInterval / maxEventsPerMs - ellapsedMs);
+
                 if(logger.isDebugEnabled())
                     logger.debug("Natural rate is " + eventsPerSec
                                  + " events/sec max allowed rate is " + rateLimit
