@@ -276,37 +276,6 @@ public class JsonReader {
                || ch == ',' || ch == -1;
     }
 
-    public int readInt() {
-        skipWhitespace();
-        int val = 0;
-        boolean isPositive;
-        if(current() == '-') {
-            isPositive = false;
-            next();
-        } else if(current() == '+') {
-            isPositive = true;
-            next();
-        } else {
-            isPositive = true;
-        }
-        skipWhitespace();
-        if(!Character.isDigit(current()))
-            throw new SerializationException("Expected a digit while trying to parse number, but got '"
-                                             + currentChar()
-                                             + "' at line "
-                                             + getCurrentLineNumber()
-                                             + " character "
-                                             + getCurrentLineOffset() + ": " + getCurrentContext());
-        while(Character.isDigit(current())) {
-            val *= 10;
-            val += (current() - '0');
-            next();
-        }
-        if(!isPositive)
-            val = -val;
-        return val;
-    }
-
     public long readLong() {
         skipWhitespace();
         long val = 0;
