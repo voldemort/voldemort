@@ -248,14 +248,14 @@ public class JsonReader {
 
     public Number readNumber() {
         skipWhitespace();
-        int intPiece = readInt();
+        long longPiece = readLong();
 
         // if int is all we have, return it
         if(isTerminator(current()))
-            return intPiece;
+            return longPiece;
 
         // okay its a double, check for exponent
-        double doublePiece = intPiece;
+        double doublePiece = longPiece;
         if(current() == '.')
             doublePiece += readFraction();
         if(current() == 'e' || current() == 'E') {
@@ -306,6 +306,39 @@ public class JsonReader {
             val = -val;
         return val;
     }
+
+    public long readLong() {
+        skipWhitespace();
+        long val = 0;
+        boolean isPositive;
+        if(current() == '-') {
+            isPositive = false;
+            next();
+        } else if(current() == '+') {
+            isPositive = true;
+            next();
+        } else {
+            isPositive = true;
+        }
+        skipWhitespace();
+        if(!Character.isDigit(current()))
+            throw new SerializationException("Expected a digit while trying to parse number, but got '"
+                                             + currentChar()
+                                             + "' at line "
+                                             + getCurrentLineNumber()
+                                             + " character "
+                                             + getCurrentLineOffset() + ": " + getCurrentContext());
+        while(Character.isDigit(current())) {
+            val *= 10;
+            val += (current() - '0');
+            next();
+        }
+        if(!isPositive)
+            val = -val;
+        return val;
+    }
+
+
 
     public double readFraction() {
         skip('.');
