@@ -9,7 +9,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -20,6 +19,7 @@ import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.utils.VoldemortIOUtils;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
@@ -80,9 +80,9 @@ public class HttpStoreSwapper extends StoreSwapper {
 
                     HttpResponse httpResponse = httpClient.execute(post);
                     int responseCode = httpResponse.getStatusLine().getStatusCode();
-                    String response = IOUtils.toString(httpResponse.getEntity().getContent());
-                    // TODO: clip response to 30K .
-                    // post.getResponseBodyAsString(30000);
+                    String response = VoldemortIOUtils.toString(httpResponse.getEntity()
+                                                                                  .getContent(),
+                                                                      30000);
 
                     if(responseCode != 200)
                         throw new VoldemortException("Fetch request on node "
@@ -174,9 +174,9 @@ public class HttpStoreSwapper extends StoreSwapper {
 
                 HttpResponse httpResponse = httpClient.execute(post);
                 int responseCode = httpResponse.getStatusLine().getStatusCode();
-                String previousDir = IOUtils.toString(httpResponse.getEntity().getContent());
-                // TODO: clip response to 30K .
-                // post.getResponseBodyAsString(30000);
+                String previousDir = VoldemortIOUtils.toString(httpResponse.getEntity()
+                                                                                 .getContent(),
+                                                                     30000);
 
                 if(responseCode != 200)
                     throw new VoldemortException("Swap request on node " + node.getId() + " ("
@@ -269,4 +269,5 @@ public class HttpStoreSwapper extends StoreSwapper {
         if(exception != null)
             throw new VoldemortException(exception);
     }
+
 }
