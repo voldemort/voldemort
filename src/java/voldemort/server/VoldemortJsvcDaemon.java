@@ -47,7 +47,7 @@ public class VoldemortJsvcDaemon {
             if(args.length == 0)
                 config = VoldemortConfig.loadFromEnvironmentVariable();
             else if(args.length == 1)
-                config = VoldemortConfig.loadFromVoldemortHome(args[0], null);
+                config = VoldemortConfig.loadFromVoldemortHome(args[0]);
             else if(args.length == 2)
                 config = VoldemortConfig.loadFromVoldemortHome(args[0], args[1]);
             else
