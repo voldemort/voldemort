@@ -48,6 +48,7 @@ public class VoldemortConfig implements Serializable {
 
     private static final long serialVersionUID = 1;
     public static final String VOLDEMORT_HOME_VAR_NAME = "VOLDEMORT_HOME";
+    public static final String VOLDEMORT_CONFIG_DIR = "VOLDEMORT_CONFIG_DIR";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
     public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
 
@@ -398,17 +399,33 @@ public class VoldemortConfig implements Serializable {
                                              + VoldemortConfig.VOLDEMORT_HOME_VAR_NAME
                                              + " has been defined, set it!");
 
-        return loadFromVoldemortHome(voldemortHome);
+        String voldemortConfigDir = System.getenv(VoldemortConfig.VOLDEMORT_CONFIG_DIR);
+        if(voldemortConfigDir != null) {
+            if(!Utils.isReadableDir(voldemortConfigDir))
+                throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_CONFIG_DIR, "
+                                                 + voldemortConfigDir
+                                                 + " failed. That is not a readable directory.");
+        }
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
     }
 
     public static VoldemortConfig loadFromVoldemortHome(String voldemortHome) {
+        String voldemortConfigDir = voldemortHome + File.separator + "config";
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
+
+    }
+
+    public static VoldemortConfig loadFromVoldemortHome(String voldemortHome,
+                                                        String voldemortConfigDir) {
         if(!Utils.isReadableDir(voldemortHome))
             throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_HOME, "
                                              + voldemortHome
                                              + " failed. That is not a readable directory.");
 
-        String propertiesFile = voldemortHome + File.separator + "config" + File.separator
-                                + "server.properties";
+        if(voldemortConfigDir == null) {
+            voldemortConfigDir = voldemortHome + File.separator + "config";
+        }
+        String propertiesFile = voldemortConfigDir + File.separator + "server.properties";
         if(!Utils.isReadableFile(propertiesFile))
             throw new ConfigurationException(propertiesFile
                                              + " is not a readable configuration file.");
@@ -417,6 +434,7 @@ public class VoldemortConfig implements Serializable {
         try {
             properties = new Props(new File(propertiesFile));
             properties.put("voldemort.home", voldemortHome);
+            properties.put("metadata.directory", voldemortConfigDir);
         } catch(IOException e) {
             throw new ConfigurationException(e);
         }
