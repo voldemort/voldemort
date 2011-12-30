@@ -6,6 +6,7 @@ dist
 *.iws
 *#
 .#*
+test-output
 node.id
 rebalancing.slave.list
 server.state

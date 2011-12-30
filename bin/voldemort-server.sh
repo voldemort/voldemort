@@ -16,9 +16,9 @@
 #  limitations under the License.
 #
 
-if [ $# -gt 1 ];
+if [ $# -gt 2 ];
 then
-	echo 'USAGE: bin/voldemort-server.sh [voldemort_home]'
+	echo 'USAGE: bin/voldemort-server.sh [voldemort_home] [voldemort_config_dir]'
 	exit 1
 fi
 
