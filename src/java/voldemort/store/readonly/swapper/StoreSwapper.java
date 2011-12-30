@@ -11,11 +11,12 @@ import java.util.concurrent.TimeUnit;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 
-import org.apache.commons.httpclient.HostConfiguration;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.io.FileUtils;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
@@ -31,8 +32,8 @@ import com.google.common.collect.ImmutableSet;
 /**
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
  * HTTP.
- * 
- * 
+ *
+ *
  */
 public abstract class StoreSwapper {
 
@@ -119,14 +120,15 @@ public abstract class StoreSwapper {
             adminClient = new AdminClient(cluster, new AdminClientConfig());
             swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
         } else {
-            HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
-
             int numConnections = cluster.getNumberOfNodes() + 3;
-            manager.getParams().setMaxTotalConnections(numConnections);
-            manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
-                                                         numConnections);
-            HttpClient client = new HttpClient(manager);
-            client.getParams().setParameter("http.socket.timeout", timeoutMs);
+            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+            DefaultHttpClient client = new DefaultHttpClient(connectionManager);
+
+            HttpParams clientParams = client.getParams();
+
+            connectionManager.setMaxTotal(numConnections);
+            connectionManager.setDefaultMaxPerRoute(numConnections);
+            HttpConnectionParams.setSoTimeout(clientParams, timeoutMs);
 
             swapper = new HttpStoreSwapper(cluster, executor, client, mgmtPath);
         }

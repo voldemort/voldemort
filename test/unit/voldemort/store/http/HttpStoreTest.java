@@ -16,7 +16,10 @@
 
 package voldemort.store.http;
 
-import org.apache.commons.httpclient.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 
@@ -65,8 +68,13 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
         ByteArray key = new ByteArray("test".getBytes());
         RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
-        HttpClient client = new HttpClient();
-        client.getHttpConnectionManager().getParams().setConnectionTimeout(5000);
+
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+
+        DefaultHttpClient client = new DefaultHttpClient(connectionManager);
+        HttpParams clientParams = client.getParams();
+        HttpConnectionParams.setConnectionTimeout(clientParams, 5000);
+
         HttpStore badUrlHttpStore = new HttpStore("test", url, port, client, requestFormat, false);
         try {
             badUrlHttpStore.put(key,

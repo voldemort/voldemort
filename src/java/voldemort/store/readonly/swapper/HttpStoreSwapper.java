@@ -9,8 +9,11 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.params.HttpParams;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -64,22 +67,31 @@ public class HttpStoreSwapper extends StoreSwapper {
 
                 public String call() throws Exception {
                     String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
-                    PostMethod post = new PostMethod(url);
-                    post.addParameter("operation", "fetch");
+                    HttpPost post = new HttpPost(url);
+                    HttpParams params = post.getParams();
+                    params.setParameter("operation", "fetch");
                     String storeDir = basePath + "/node-" + node.getId();
-                    post.addParameter("dir", storeDir);
-                    post.addParameter("store", storeName);
+                    params.setParameter("dir", storeDir);
+                    params.setParameter("store", storeName);
                     if(pushVersion > 0)
-                        post.addParameter("pushVersion", Long.toString(pushVersion));
+                        params.setParameter("pushVersion", Long.toString(pushVersion));
 
                     logger.info("Invoking fetch for node " + node.getId() + " for " + storeDir);
 
-                    int responseCode = httpClient.executeMethod(post);
-                    String response = post.getResponseBodyAsString(30000);
+                    HttpResponse httpResponse = httpClient.execute(post);
+                    int responseCode = httpResponse.getStatusLine().getStatusCode();
+                    String response = IOUtils.toString(httpResponse.getEntity().getContent());
+                    // TODO: clip response to 30K .
+                    // post.getResponseBodyAsString(30000);
 
                     if(responseCode != 200)
-                        throw new VoldemortException("Fetch request on node " + node.getId() + " ("
-                                                     + url + ") failed: " + post.getStatusText());
+                        throw new VoldemortException("Fetch request on node "
+                                                     + node.getId()
+                                                     + " ("
+                                                     + url
+                                                     + ") failed: "
+                                                     + httpResponse.getStatusLine()
+                                                                   .getReasonPhrase());
                     logger.info("Fetch succeeded on node " + node.getId());
                     return response.trim();
                 }
@@ -107,14 +119,16 @@ public class HttpStoreSwapper extends StoreSwapper {
                     try {
                         String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
                                      + readOnlyMgmtPath;
-                        PostMethod post = new PostMethod(url);
-                        post.addParameter("operation", "failed-fetch");
-                        post.addParameter("dir", results.get(successfulNodeId));
-                        post.addParameter("store", storeName);
+                        HttpPost post = new HttpPost(url);
+                        HttpParams params = post.getParams();
+                        params.setParameter("operation", "failed-fetch");
+                        params.setParameter("dir", results.get(successfulNodeId));
+                        params.setParameter("store", storeName);
                         logger.info("Deleting fetched data from node " + successfulNodeId);
 
-                        int responseCode = httpClient.executeMethod(post);
-                        String response = post.getStatusText();
+                        HttpResponse httpResponse = httpClient.execute(post);
+                        int responseCode = httpResponse.getStatusLine().getStatusCode();
+                        String response = httpResponse.getStatusLine().getReasonPhrase();
 
                         if(responseCode == 200) {
                             logger.info("Deleted successfully on node " + successfulNodeId);
@@ -150,19 +164,24 @@ public class HttpStoreSwapper extends StoreSwapper {
         for(final Node node: cluster.getNodes()) {
             try {
                 String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
-                PostMethod post = new PostMethod(url);
-                post.addParameter("operation", "swap");
+                HttpPost post = new HttpPost(url);
+                HttpParams params = post.getParams();
+                params.setParameter("operation", "swap");
                 String dir = fetchFiles.get(node.getId());
                 logger.info("Attempting swap for node " + node.getId() + " dir = " + dir);
-                post.addParameter("dir", dir);
-                post.addParameter("store", storeName);
+                params.setParameter("dir", dir);
+                params.setParameter("store", storeName);
 
-                int responseCode = httpClient.executeMethod(post);
-                String previousDir = post.getResponseBodyAsString(30000);
+                HttpResponse httpResponse = httpClient.execute(post);
+                int responseCode = httpResponse.getStatusLine().getStatusCode();
+                String previousDir = IOUtils.toString(httpResponse.getEntity().getContent());
+                // TODO: clip response to 30K .
+                // post.getResponseBodyAsString(30000);
 
                 if(responseCode != 200)
                     throw new VoldemortException("Swap request on node " + node.getId() + " ("
-                                                 + url + ") failed: " + post.getStatusText());
+                                                 + url + ") failed: "
+                                                 + httpResponse.getStatusLine().getReasonPhrase());
                 logger.info("Swap succeeded on node " + node.getId());
                 previousDirs.put(node.getId(), previousDir);
             } catch(Exception e) {
@@ -179,16 +198,18 @@ public class HttpStoreSwapper extends StoreSwapper {
                     try {
                         String url = cluster.getNodeById(successfulNodeId).getHttpUrl() + "/"
                                      + readOnlyMgmtPath;
-                        PostMethod post = new PostMethod(url);
-                        post.addParameter("operation", "rollback");
-                        post.addParameter("store", storeName);
-                        post.addParameter("pushVersion",
-                                          Long.toString(ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId)))));
+                        HttpPost post = new HttpPost(url);
+                        HttpParams params = post.getParams();
+                        params.setParameter("operation", "rollback");
+                        params.setParameter("store", storeName);
+                        params.setParameter("pushVersion",
+                                            Long.toString(ReadOnlyUtils.getVersionId(new File(previousDirs.get(successfulNodeId)))));
 
                         logger.info("Rolling back data on successful node " + successfulNodeId);
 
-                        int responseCode = httpClient.executeMethod(post);
-                        String response = post.getStatusText();
+                        HttpResponse httpResponse = httpClient.execute(post);
+                        int responseCode = httpResponse.getStatusLine().getStatusCode();
+                        String response = httpResponse.getStatusLine().getReasonPhrase();
 
                         if(responseCode == 200) {
                             logger.info("Rollback succeeded for node " + successfulNodeId);
@@ -223,13 +244,16 @@ public class HttpStoreSwapper extends StoreSwapper {
                 logger.info("Attempting rollback for node " + node.getId() + " storeName = "
                             + storeName);
                 String url = node.getHttpUrl() + "/" + readOnlyMgmtPath;
-                PostMethod post = new PostMethod(url);
-                post.addParameter("operation", "rollback");
-                post.addParameter("store", storeName);
-                post.addParameter("pushVersion", Long.toString(pushVersion));
+                HttpPost post = new HttpPost(url);
+                HttpParams params = post.getParams();
 
-                int responseCode = httpClient.executeMethod(post);
-                String response = post.getStatusText();
+                params.setParameter("operation", "rollback");
+                params.setParameter("store", storeName);
+                params.setParameter("pushVersion", Long.toString(pushVersion));
+
+                HttpResponse httpResponse = httpClient.execute(post);
+                int responseCode = httpResponse.getStatusLine().getStatusCode();
+                String response = httpResponse.getStatusLine().getReasonPhrase();
                 if(responseCode == 200) {
                     logger.info("Rollback succeeded for node " + node.getId());
                 } else {

@@ -1,4 +1,4 @@
-#Fri Sep 18 15:20:52 BST 2009
+#Fri Dec 30 14:37:10 PST 2011
 eclipse.preferences.version=1
 org.eclipse.jdt.core.codeComplete.argumentPrefixes=
 org.eclipse.jdt.core.codeComplete.argumentSuffixes=
@@ -149,9 +149,12 @@ org.eclipse.jdt.core.formatter.indent_statements_compare_to_body=true
 org.eclipse.jdt.core.formatter.indent_switchstatements_compare_to_cases=true
 org.eclipse.jdt.core.formatter.indent_switchstatements_compare_to_switch=true
 org.eclipse.jdt.core.formatter.indentation.size=4
+org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_field=insert
 org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_local_variable=insert
-org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_member=insert
+org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_method=insert
+org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_package=insert
 org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_parameter=do not insert
+org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_type=insert
 org.eclipse.jdt.core.formatter.insert_new_line_after_opening_brace_in_array_initializer=do not insert
 org.eclipse.jdt.core.formatter.insert_new_line_at_end_of_file_if_missing=do not insert
 org.eclipse.jdt.core.formatter.insert_new_line_before_catch_in_try_statement=do not insert

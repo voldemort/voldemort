@@ -193,7 +193,6 @@
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
-      <bootclasspath refid="bootref-classpath" />
     </javac>
     <copy todir="${contrib.classes.dir}">
       <fileset dir="${contrib.root.dir}/ec2-testing/resources" />

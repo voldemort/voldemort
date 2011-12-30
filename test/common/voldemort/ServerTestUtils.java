@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
-import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -214,7 +214,7 @@ public class ServerTestUtils {
         return new HttpStore(storeName,
                              "localhost",
                              port,
-                             new HttpClient(),
+                             new DefaultHttpClient(),
                              new RequestFormatFactory().getRequestFormat(format),
                              false);
     }
