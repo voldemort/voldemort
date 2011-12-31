@@ -94,12 +94,8 @@ public class VoldemortIOUtils {
         int n = 0;
         long remaining = limit;
         while(remaining > 0) {
-            if(remaining > DEFAULT_BUFFER_SIZE) {
-                n = input.read(buffer);
-            } else {
-                char[] remainingbuffer = new char[(int) remaining];
-                n = input.read(remainingbuffer);
-            }
+            n = (remaining > DEFAULT_BUFFER_SIZE) ? input.read(buffer)
+                                                 : input.read(buffer, 0, (int) remaining);
             if(n == -1) {
                 break;
             }
