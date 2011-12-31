@@ -43,6 +43,7 @@ import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.VoldemortIOUtils;
 
 /**
  * A {@link voldemort.client.StoreClientFactory StoreClientFactory} that creates
@@ -137,6 +138,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     public void close() {
         super.close();
         // should timeout connections on its own
+        VoldemortIOUtils.closeQuietly(this.httpClient);
     }
 
 }

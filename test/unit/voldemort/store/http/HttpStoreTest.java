@@ -18,6 +18,7 @@ package voldemort.store.http;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -37,6 +38,7 @@ import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -51,6 +53,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
     private HttpStore httpStore;
     private Server server;
     private Context context;
+    private HttpClient httpClient;
 
     @Override
     public void setUp() throws Exception {
@@ -65,7 +68,8 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         server = context.getServer();
         httpStore = ServerTestUtils.getHttpStore("users",
                                                  RequestFormatType.VOLDEMORT_V1,
-                                                 node.getHttpPort());
+                                                 node.getHttpPort(),
+                                                 httpClient);
     }
 
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
@@ -98,6 +102,8 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         } catch(Exception e) {
             assertTrue(e.getClass().equals(expected));
         }
+
+        client.getConnectionManager().shutdown();
     }
 
     public void testBadUrl() {
@@ -118,6 +124,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         httpStore.close();
         server.stop();
         context.destroy();
+        VoldemortIOUtils.closeQuietly(httpClient);
     }
 
     @Override

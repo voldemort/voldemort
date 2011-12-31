@@ -50,6 +50,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.Utils;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
@@ -151,7 +152,7 @@ public class StoreSwapperTest extends TestCase {
     @Test
     public void testHttpStoreSwapper() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
+        DefaultHttpClient client = null;
         try {
             // Use the http store swapper
             ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
@@ -159,7 +160,7 @@ public class StoreSwapperTest extends TestCase {
             connectionManager.setMaxTotal(10);
             connectionManager.setDefaultMaxPerRoute(10);
 
-            DefaultHttpClient client = new DefaultHttpClient(connectionManager);
+            client = new DefaultHttpClient(connectionManager);
 
             StoreSwapper swapper = new HttpStoreSwapper(cluster,
                                                         executor,
@@ -170,6 +171,7 @@ public class StoreSwapperTest extends TestCase {
             testFetchSwap(swapper);
         } finally {
             executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
@@ -194,7 +196,7 @@ public class StoreSwapperTest extends TestCase {
     @Test
     public void testHttpStoreSwapperWithoutRollback() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
+        DefaultHttpClient client = null;
         try {
             // Use the http store swapper
 
@@ -203,7 +205,7 @@ public class StoreSwapperTest extends TestCase {
             connectionManager.setMaxTotal(10);
             connectionManager.setDefaultMaxPerRoute(10);
 
-            DefaultHttpClient client = new DefaultHttpClient(connectionManager);
+            client = new DefaultHttpClient(connectionManager);
             StoreSwapper swapper = new HttpStoreSwapper(cluster,
                                                         executor,
                                                         client,
@@ -213,6 +215,7 @@ public class StoreSwapperTest extends TestCase {
             testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
         }
     }
 

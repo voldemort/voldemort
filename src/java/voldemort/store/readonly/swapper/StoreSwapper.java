@@ -14,7 +14,6 @@ import joptsimple.OptionSet;
 import org.apache.commons.io.FileUtils;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.log4j.Logger;
@@ -24,6 +23,7 @@ import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Time;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.xml.ClusterMapper;
 
 import com.google.common.base.Joiner;
@@ -32,8 +32,8 @@ import com.google.common.collect.ImmutableSet;
 /**
  * A helper class to invoke the FETCH and SWAP operations on a remote store via
  * HTTP.
- *
- *
+ * 
+ * 
  */
 public abstract class StoreSwapper {
 
@@ -116,21 +116,22 @@ public abstract class StoreSwapper {
         StoreSwapper swapper = null;
         AdminClient adminClient = null;
 
+        DefaultHttpClient httpClient = null;
         if(useAdminServices) {
             adminClient = new AdminClient(cluster, new AdminClientConfig());
             swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
         } else {
             int numConnections = cluster.getNumberOfNodes() + 3;
             ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
-            DefaultHttpClient client = new DefaultHttpClient(connectionManager);
+            httpClient = new DefaultHttpClient(connectionManager);
 
-            HttpParams clientParams = client.getParams();
+            HttpParams clientParams = httpClient.getParams();
 
             connectionManager.setMaxTotal(numConnections);
             connectionManager.setDefaultMaxPerRoute(numConnections);
             HttpConnectionParams.setSoTimeout(clientParams, timeoutMs);
 
-            swapper = new HttpStoreSwapper(cluster, executor, client, mgmtPath);
+            swapper = new HttpStoreSwapper(cluster, executor, httpClient, mgmtPath);
         }
 
         try {
@@ -148,6 +149,7 @@ public abstract class StoreSwapper {
                 adminClient.stop();
             executor.shutdownNow();
             executor.awaitTermination(1, TimeUnit.SECONDS);
+            VoldemortIOUtils.closeQuietly(httpClient);
         }
         System.exit(0);
     }

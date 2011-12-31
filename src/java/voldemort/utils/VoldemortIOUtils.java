@@ -25,6 +25,7 @@ import java.io.Writer;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
 import org.apache.log4j.Logger;
 
 public class VoldemortIOUtils {
@@ -49,6 +50,12 @@ public class VoldemortIOUtils {
 
     public static void closeQuietly(final HttpResponse httpResponse) {
         closeQuietly(httpResponse, "");
+    }
+
+    public static void closeQuietly(HttpClient httpClient) {
+        if(httpClient != null) {
+            httpClient.getConnectionManager().shutdown();
+        }
     }
 
     public static String toString(final InputStream input, final String encoding, final long limit)

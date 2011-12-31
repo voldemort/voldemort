@@ -73,7 +73,7 @@ public class HttpClientBench {
         };
         perfTest.run(numRequests, numThreads);
         perfTest.printStats();
-
+        VoldemortIOUtils.closeQuietly(client);
         System.exit(1);
     }
 

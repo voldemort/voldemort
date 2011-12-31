@@ -45,6 +45,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.versioning.Versioned;
 
 public class RemoteStoreComparisonTest {
@@ -209,5 +210,8 @@ public class RemoteStoreComparisonTest {
         httpReadTest.printStats();
 
         httpService.stop();
+
+        VoldemortIOUtils.closeQuietly(httpClient);
+
     }
 }
