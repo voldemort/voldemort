@@ -235,8 +235,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -620,8 +622,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -1205,8 +1209,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -1683,8 +1689,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -2067,12 +2075,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string file_name = 1;
     public static final int FILE_NAME_FIELD_NUMBER = 1;
-    private Object fileName_;
+    private java.lang.Object fileName_;
     public boolean hasFileName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getFileName() {
-      Object ref = fileName_;
+      java.lang.Object ref = fileName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -2086,7 +2094,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getFileNameBytes() {
-      Object ref = fileName_;
+      java.lang.Object ref = fileName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -2159,8 +2167,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -2404,12 +2414,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string file_name = 1;
-      private Object fileName_ = "";
+      private java.lang.Object fileName_ = "";
       public boolean hasFileName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getFileName() {
-        Object ref = fileName_;
+        java.lang.Object ref = fileName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           fileName_ = s;
@@ -2591,8 +2601,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -3025,12 +3037,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -3044,7 +3056,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -3151,8 +3163,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -3446,12 +3460,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -3764,8 +3778,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -4148,12 +4164,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string name = 1;
     public static final int NAME_FIELD_NUMBER = 1;
-    private Object name_;
+    private java.lang.Object name_;
     public boolean hasName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getName() {
-      Object ref = name_;
+      java.lang.Object ref = name_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -4167,7 +4183,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getNameBytes() {
-      Object ref = name_;
+      java.lang.Object ref = name_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -4240,8 +4256,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -4485,12 +4503,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string name = 1;
-      private Object name_ = "";
+      private java.lang.Object name_ = "";
       public boolean hasName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getName() {
-        Object ref = name_;
+        java.lang.Object ref = name_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           name_ = s;
@@ -4614,12 +4632,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -4633,7 +4651,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -4793,8 +4811,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -5125,12 +5145,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -5449,8 +5469,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -5839,12 +5861,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -5858,7 +5880,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -5944,8 +5966,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -6225,12 +6249,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -6543,12 +6567,12 @@ public final class VAdminProto {
     
     // required string store = 2;
     public static final int STORE_FIELD_NUMBER = 2;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -6562,7 +6586,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -6608,12 +6632,12 @@ public final class VAdminProto {
     
     // optional string initial_cluster = 6;
     public static final int INITIAL_CLUSTER_FIELD_NUMBER = 6;
-    private Object initialCluster_;
+    private java.lang.Object initialCluster_;
     public boolean hasInitialCluster() {
       return ((bitField0_ & 0x00000010) == 0x00000010);
     }
     public String getInitialCluster() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -6627,7 +6651,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getInitialClusterBytes() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -6730,8 +6754,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -7272,12 +7298,12 @@ public final class VAdminProto {
       }
       
       // required string store = 2;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -7440,12 +7466,12 @@ public final class VAdminProto {
       }
       
       // optional string initial_cluster = 6;
-      private Object initialCluster_ = "";
+      private java.lang.Object initialCluster_ = "";
       public boolean hasInitialCluster() {
         return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       public String getInitialCluster() {
-        Object ref = initialCluster_;
+        java.lang.Object ref = initialCluster_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           initialCluster_ = s;
@@ -7632,8 +7658,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -8192,12 +8220,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -8211,7 +8239,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -8258,12 +8286,12 @@ public final class VAdminProto {
     
     // optional string initial_cluster = 4;
     public static final int INITIAL_CLUSTER_FIELD_NUMBER = 4;
-    private Object initialCluster_;
+    private java.lang.Object initialCluster_;
     public boolean hasInitialCluster() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     public String getInitialCluster() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -8277,7 +8305,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getInitialClusterBytes() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -8364,8 +8392,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -8692,12 +8722,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -9004,12 +9034,12 @@ public final class VAdminProto {
       }
       
       // optional string initial_cluster = 4;
-      private Object initialCluster_ = "";
+      private java.lang.Object initialCluster_ = "";
       public boolean hasInitialCluster() {
         return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       public String getInitialCluster() {
-        Object ref = initialCluster_;
+        java.lang.Object ref = initialCluster_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           initialCluster_ = s;
@@ -9164,8 +9194,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -9616,12 +9648,12 @@ public final class VAdminProto {
     
     // required string store = 2;
     public static final int STORE_FIELD_NUMBER = 2;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -9635,7 +9667,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -9682,12 +9714,12 @@ public final class VAdminProto {
     
     // optional string initial_cluster = 5;
     public static final int INITIAL_CLUSTER_FIELD_NUMBER = 5;
-    private Object initialCluster_;
+    private java.lang.Object initialCluster_;
     public boolean hasInitialCluster() {
       return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     public String getInitialCluster() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -9701,7 +9733,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getInitialClusterBytes() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -9818,8 +9850,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -10199,12 +10233,12 @@ public final class VAdminProto {
       }
       
       // required string store = 2;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -10511,12 +10545,12 @@ public final class VAdminProto {
       }
       
       // optional string initial_cluster = 5;
-      private Object initialCluster_ = "";
+      private java.lang.Object initialCluster_ = "";
       public boolean hasInitialCluster() {
         return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       public String getInitialCluster() {
-        Object ref = initialCluster_;
+        java.lang.Object ref = initialCluster_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           initialCluster_ = s;
@@ -10664,8 +10698,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -11008,8 +11044,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -11358,8 +11396,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -11786,8 +11826,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -12168,8 +12210,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -12704,8 +12748,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -13086,12 +13132,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -13105,7 +13151,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -13191,8 +13237,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -13472,12 +13520,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -13846,12 +13894,12 @@ public final class VAdminProto {
     
     // required string initial_cluster = 6;
     public static final int INITIAL_CLUSTER_FIELD_NUMBER = 6;
-    private Object initialCluster_;
+    private java.lang.Object initialCluster_;
     public boolean hasInitialCluster() {
       return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     public String getInitialCluster() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -13865,7 +13913,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getInitialClusterBytes() {
-      Object ref = initialCluster_;
+      java.lang.Object ref = initialCluster_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -13980,8 +14028,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -14804,12 +14854,12 @@ public final class VAdminProto {
       }
       
       // required string initial_cluster = 6;
-      private Object initialCluster_ = "";
+      private java.lang.Object initialCluster_ = "";
       public boolean hasInitialCluster() {
         return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       public String getInitialCluster() {
-        Object ref = initialCluster_;
+        java.lang.Object ref = initialCluster_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           initialCluster_ = s;
@@ -14944,8 +14994,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -15392,8 +15444,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -15914,12 +15968,12 @@ public final class VAdminProto {
     
     // optional string description = 2;
     public static final int DESCRIPTION_FIELD_NUMBER = 2;
-    private Object description_;
+    private java.lang.Object description_;
     public boolean hasDescription() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getDescription() {
-      Object ref = description_;
+      java.lang.Object ref = description_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -15933,7 +15987,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getDescriptionBytes() {
-      Object ref = description_;
+      java.lang.Object ref = description_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -15946,12 +16000,12 @@ public final class VAdminProto {
     
     // optional string status = 3;
     public static final int STATUS_FIELD_NUMBER = 3;
-    private Object status_;
+    private java.lang.Object status_;
     public boolean hasStatus() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     public String getStatus() {
-      Object ref = status_;
+      java.lang.Object ref = status_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -15965,7 +16019,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStatusBytes() {
-      Object ref = status_;
+      java.lang.Object ref = status_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -16073,8 +16127,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -16392,12 +16448,12 @@ public final class VAdminProto {
       }
       
       // optional string description = 2;
-      private Object description_ = "";
+      private java.lang.Object description_ = "";
       public boolean hasDescription() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getDescription() {
-        Object ref = description_;
+        java.lang.Object ref = description_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           description_ = s;
@@ -16428,12 +16484,12 @@ public final class VAdminProto {
       }
       
       // optional string status = 3;
-      private Object status_ = "";
+      private java.lang.Object status_ = "";
       public boolean hasStatus() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       public String getStatus() {
-        Object ref = status_;
+        java.lang.Object ref = status_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           status_ = s;
@@ -16623,12 +16679,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -16642,7 +16698,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -16693,8 +16749,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -16920,12 +16978,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -17058,8 +17116,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -17438,12 +17498,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string storeDefinition = 1;
     public static final int STOREDEFINITION_FIELD_NUMBER = 1;
-    private Object storeDefinition_;
+    private java.lang.Object storeDefinition_;
     public boolean hasStoreDefinition() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreDefinition() {
-      Object ref = storeDefinition_;
+      java.lang.Object ref = storeDefinition_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -17457,7 +17517,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreDefinitionBytes() {
-      Object ref = storeDefinition_;
+      java.lang.Object ref = storeDefinition_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -17508,8 +17568,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -17735,12 +17797,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string storeDefinition = 1;
-      private Object storeDefinition_ = "";
+      private java.lang.Object storeDefinition_ = "";
       public boolean hasStoreDefinition() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreDefinition() {
-        Object ref = storeDefinition_;
+        java.lang.Object ref = storeDefinition_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeDefinition_ = s;
@@ -17873,8 +17935,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -18253,12 +18317,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string storeName = 1;
     public static final int STORENAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -18272,7 +18336,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -18323,8 +18387,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -18550,12 +18616,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string storeName = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -18688,8 +18754,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -19076,12 +19144,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -19095,7 +19163,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -19108,12 +19176,12 @@ public final class VAdminProto {
     
     // required string store_dir = 2;
     public static final int STORE_DIR_FIELD_NUMBER = 2;
-    private Object storeDir_;
+    private java.lang.Object storeDir_;
     public boolean hasStoreDir() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getStoreDir() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -19127,7 +19195,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreDirBytes() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -19208,8 +19276,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -19467,12 +19537,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -19503,12 +19573,12 @@ public final class VAdminProto {
       }
       
       // required string store_dir = 2;
-      private Object storeDir_ = "";
+      private java.lang.Object storeDir_ = "";
       public boolean hasStoreDir() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStoreDir() {
-        Object ref = storeDir_;
+        java.lang.Object ref = storeDir_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeDir_ = s;
@@ -19612,12 +19682,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -19631,7 +19701,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -19644,12 +19714,12 @@ public final class VAdminProto {
     
     // required string store_dir = 2;
     public static final int STORE_DIR_FIELD_NUMBER = 2;
-    private Object storeDir_;
+    private java.lang.Object storeDir_;
     public boolean hasStoreDir() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getStoreDir() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -19663,7 +19733,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreDirBytes() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -19726,8 +19796,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -19971,12 +20043,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -20007,12 +20079,12 @@ public final class VAdminProto {
       }
       
       // required string store_dir = 2;
-      private Object storeDir_ = "";
+      private java.lang.Object storeDir_ = "";
       public boolean hasStoreDir() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStoreDir() {
-        Object ref = storeDir_;
+        java.lang.Object ref = storeDir_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeDir_ = s;
@@ -20109,12 +20181,12 @@ public final class VAdminProto {
     
     // optional string previous_store_dir = 2;
     public static final int PREVIOUS_STORE_DIR_FIELD_NUMBER = 2;
-    private Object previousStoreDir_;
+    private java.lang.Object previousStoreDir_;
     public boolean hasPreviousStoreDir() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getPreviousStoreDir() {
-      Object ref = previousStoreDir_;
+      java.lang.Object ref = previousStoreDir_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -20128,7 +20200,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getPreviousStoreDirBytes() {
-      Object ref = previousStoreDir_;
+      java.lang.Object ref = previousStoreDir_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -20189,8 +20261,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -20535,12 +20609,12 @@ public final class VAdminProto {
       }
       
       // optional string previous_store_dir = 2;
-      private Object previousStoreDir_ = "";
+      private java.lang.Object previousStoreDir_ = "";
       public boolean hasPreviousStoreDir() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getPreviousStoreDir() {
-        Object ref = previousStoreDir_;
+        java.lang.Object ref = previousStoreDir_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           previousStoreDir_ = s;
@@ -20623,12 +20697,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -20642,7 +20716,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -20715,8 +20789,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -20960,12 +21036,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -21119,8 +21195,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -21499,12 +21577,12 @@ public final class VAdminProto {
     private int bitField0_;
     // optional string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -21518,7 +21596,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -21565,8 +21643,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -21788,12 +21868,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // optional string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -21926,8 +22006,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -22310,12 +22392,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -22329,7 +22411,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -22342,12 +22424,12 @@ public final class VAdminProto {
     
     // required string store_dir = 2;
     public static final int STORE_DIR_FIELD_NUMBER = 2;
-    private Object storeDir_;
+    private java.lang.Object storeDir_;
     public boolean hasStoreDir() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getStoreDir() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -22361,7 +22443,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreDirBytes() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -22424,8 +22506,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -22669,12 +22753,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -22705,12 +22789,12 @@ public final class VAdminProto {
       }
       
       // required string store_dir = 2;
-      private Object storeDir_ = "";
+      private java.lang.Object storeDir_ = "";
       public boolean hasStoreDir() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStoreDir() {
-        Object ref = storeDir_;
+        java.lang.Object ref = storeDir_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeDir_ = s;
@@ -22842,8 +22926,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -23275,8 +23361,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -23948,8 +24036,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -24381,8 +24471,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -25054,8 +25146,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -25487,8 +25581,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -26111,12 +26207,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -26130,7 +26226,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -26143,12 +26239,12 @@ public final class VAdminProto {
     
     // required string store_dir = 2;
     public static final int STORE_DIR_FIELD_NUMBER = 2;
-    private Object storeDir_;
+    private java.lang.Object storeDir_;
     public boolean hasStoreDir() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getStoreDir() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -26162,7 +26258,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreDirBytes() {
-      Object ref = storeDir_;
+      java.lang.Object ref = storeDir_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -26225,8 +26321,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -26470,12 +26568,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -26506,12 +26604,12 @@ public final class VAdminProto {
       }
       
       // required string store_dir = 2;
-      private Object storeDir_ = "";
+      private java.lang.Object storeDir_ = "";
       public boolean hasStoreDir() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getStoreDir() {
-        Object ref = storeDir_;
+        java.lang.Object ref = storeDir_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeDir_ = s;
@@ -26644,8 +26742,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -27071,12 +27171,12 @@ public final class VAdminProto {
     
     // required string cluster_string = 2;
     public static final int CLUSTER_STRING_FIELD_NUMBER = 2;
-    private Object clusterString_;
+    private java.lang.Object clusterString_;
     public boolean hasClusterString() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getClusterString() {
-      Object ref = clusterString_;
+      java.lang.Object ref = clusterString_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -27090,7 +27190,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getClusterStringBytes() {
-      Object ref = clusterString_;
+      java.lang.Object ref = clusterString_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -27243,8 +27343,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -27782,12 +27884,12 @@ public final class VAdminProto {
       }
       
       // required string cluster_string = 2;
-      private Object clusterString_ = "";
+      private java.lang.Object clusterString_ = "";
       public boolean hasClusterString() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getClusterString() {
-        Object ref = clusterString_;
+        java.lang.Object ref = clusterString_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           clusterString_ = s;
@@ -28004,8 +28106,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -28388,12 +28492,12 @@ public final class VAdminProto {
     private int bitField0_;
     // required string store_name = 1;
     public static final int STORE_NAME_FIELD_NUMBER = 1;
-    private Object storeName_;
+    private java.lang.Object storeName_;
     public boolean hasStoreName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStoreName() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -28407,7 +28511,7 @@ public final class VAdminProto {
       }
     }
     private com.google.protobuf.ByteString getStoreNameBytes() {
-      Object ref = storeName_;
+      java.lang.Object ref = storeName_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -28480,8 +28584,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -28725,12 +28831,12 @@ public final class VAdminProto {
       private int bitField0_;
       
       // required string store_name = 1;
-      private Object storeName_ = "";
+      private java.lang.Object storeName_ = "";
       public boolean hasStoreName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStoreName() {
-        Object ref = storeName_;
+        java.lang.Object ref = storeName_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           storeName_ = s;
@@ -28884,8 +28990,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -30120,8 +30228,10 @@ public final class VAdminProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     

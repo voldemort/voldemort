@@ -66,12 +66,12 @@ public final class VSlopProto {
     private int bitField0_;
     // optional string store = 1;
     public static final int STORE_FIELD_NUMBER = 1;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -85,7 +85,7 @@ public final class VSlopProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -98,12 +98,12 @@ public final class VSlopProto {
     
     // optional string operation = 2;
     public static final int OPERATION_FIELD_NUMBER = 2;
-    private Object operation_;
+    private java.lang.Object operation_;
     public boolean hasOperation() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getOperation() {
-      Object ref = operation_;
+      java.lang.Object ref = operation_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -117,7 +117,7 @@ public final class VSlopProto {
       }
     }
     private com.google.protobuf.ByteString getOperationBytes() {
-      Object ref = operation_;
+      java.lang.Object ref = operation_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -244,8 +244,10 @@ public final class VSlopProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -537,12 +539,12 @@ public final class VSlopProto {
       private int bitField0_;
       
       // optional string store = 1;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
@@ -573,12 +575,12 @@ public final class VSlopProto {
       }
       
       // optional string operation = 2;
-      private Object operation_ = "";
+      private java.lang.Object operation_ = "";
       public boolean hasOperation() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getOperation() {
-        Object ref = operation_;
+        java.lang.Object ref = operation_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           operation_ = s;

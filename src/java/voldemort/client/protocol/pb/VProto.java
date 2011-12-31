@@ -198,8 +198,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -622,8 +624,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -1236,8 +1240,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -1674,12 +1680,12 @@ public final class VProto {
     
     // required string error_message = 2;
     public static final int ERROR_MESSAGE_FIELD_NUMBER = 2;
-    private Object errorMessage_;
+    private java.lang.Object errorMessage_;
     public boolean hasErrorMessage() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     public String getErrorMessage() {
-      Object ref = errorMessage_;
+      java.lang.Object ref = errorMessage_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -1693,7 +1699,7 @@ public final class VProto {
       }
     }
     private com.google.protobuf.ByteString getErrorMessageBytes() {
-      Object ref = errorMessage_;
+      java.lang.Object ref = errorMessage_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -1756,8 +1762,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -2022,12 +2030,12 @@ public final class VProto {
       }
       
       // required string error_message = 2;
-      private Object errorMessage_ = "";
+      private java.lang.Object errorMessage_ = "";
       public boolean hasErrorMessage() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       public String getErrorMessage() {
-        Object ref = errorMessage_;
+        java.lang.Object ref = errorMessage_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           errorMessage_ = s;
@@ -2199,8 +2207,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -2804,8 +2814,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -3236,8 +3248,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -3955,8 +3969,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -4695,8 +4711,10 @@ public final class VProto {
         return size;
       }
       
+      private static final long serialVersionUID = 0L;
       @java.lang.Override
-      protected Object writeReplace() throws java.io.ObjectStreamException {
+      protected java.lang.Object writeReplace()
+          throws java.io.ObjectStreamException {
         return super.writeReplace();
       }
       
@@ -5088,8 +5106,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -5755,8 +5775,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -6479,8 +6501,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -6995,8 +7019,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -7457,8 +7483,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -7961,8 +7989,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -8432,12 +8462,12 @@ public final class VProto {
     
     // required string store = 3;
     public static final int STORE_FIELD_NUMBER = 3;
-    private Object store_;
+    private java.lang.Object store_;
     public boolean hasStore() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     public String getStore() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         return (String) ref;
       } else {
@@ -8451,7 +8481,7 @@ public final class VProto {
       }
     }
     private com.google.protobuf.ByteString getStoreBytes() {
-      Object ref = store_;
+      java.lang.Object ref = store_;
       if (ref instanceof String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8((String) ref);
@@ -8646,8 +8676,10 @@ public final class VProto {
       return size;
     }
     
+    private static final long serialVersionUID = 0L;
     @java.lang.Override
-    protected Object writeReplace() throws java.io.ObjectStreamException {
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
       return super.writeReplace();
     }
     
@@ -9100,12 +9132,12 @@ public final class VProto {
       }
       
       // required string store = 3;
-      private Object store_ = "";
+      private java.lang.Object store_ = "";
       public boolean hasStore() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       public String getStore() {
-        Object ref = store_;
+        java.lang.Object ref = store_;
         if (!(ref instanceof String)) {
           String s = ((com.google.protobuf.ByteString) ref).toStringUtf8();
           store_ = s;
