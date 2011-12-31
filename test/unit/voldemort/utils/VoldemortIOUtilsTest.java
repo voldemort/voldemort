@@ -37,7 +37,7 @@ public class VoldemortIOUtilsTest {
 
     @Test
     public void testCloseQuietlyNullHttpResponse() {
-        VoldemortIOUtils.closeQuietly(null);
+        VoldemortIOUtils.closeQuietly((HttpResponse) null);
     }
 
     @Test
