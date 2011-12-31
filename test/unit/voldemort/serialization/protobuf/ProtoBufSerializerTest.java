@@ -31,6 +31,10 @@ public class ProtoBufSerializerTest extends TestCase {
             throw new UnsupportedOperationException();
         }
 
+        protected com.google.protobuf.Message.Builder newBuilderForType(BuilderParent parent) {
+            throw new UnsupportedOperationException();
+        }
+
         public com.google.protobuf.Message.Builder toBuilder() {
             throw new UnsupportedOperationException();
         }
@@ -66,6 +70,7 @@ public class ProtoBufSerializerTest extends TestCase {
         public static MessageStub parseFrom(byte[] bytes) {
             return new MessageStub(bytes);
         }
+
     }
 
     public void testValidSchemaInfo() {
