@@ -16,7 +16,10 @@
 
 package voldemort.store.http;
 
+import java.util.concurrent.TimeUnit;
+
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
@@ -69,7 +72,9 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         ByteArray key = new ByteArray("test".getBytes());
         RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
 
-        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        5000,
+                                                                                        TimeUnit.MILLISECONDS);
 
         DefaultHttpClient client = new DefaultHttpClient(connectionManager);
         HttpParams clientParams = client.getParams();

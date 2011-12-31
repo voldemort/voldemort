@@ -27,6 +27,7 @@ import org.apache.http.client.params.CookiePolicy;
 import org.apache.http.client.params.HttpClientParams;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpConnectionParams;
@@ -61,7 +62,9 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
     public HttpStoreClientFactory(ClientConfig config) {
         super(config);
-        ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager();
+        ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                          TimeUnit.MILLISECONDS);
         mgr.setMaxTotal(config.getMaxTotalConnections());
         mgr.setDefaultMaxPerRoute(config.getMaxConnectionsPerNode());
 

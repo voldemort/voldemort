@@ -16,6 +16,8 @@
 
 package voldemort.performance;
 
+import java.util.concurrent.TimeUnit;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.HttpClient;
@@ -24,6 +26,7 @@ import org.apache.http.client.params.CookiePolicy;
 import org.apache.http.client.params.HttpClientParams;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.CoreProtocolPNames;
@@ -75,7 +78,10 @@ public class HttpClientBench {
     }
 
     private static HttpClient createClient() {
-        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        DEFAULT_CONNECTION_MANAGER_TIMEOUT,
+                                                                                        TimeUnit.MILLISECONDS);
+
         DefaultHttpClient httpClient = new DefaultHttpClient(connectionManager);
 
         HttpParams clientParams = httpClient.getParams();
