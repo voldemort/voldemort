@@ -25,9 +25,9 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -168,8 +168,9 @@ public class RemoteStoreComparisonTest {
         HttpParams clientParams = httpClient.getParams();
         httpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
         HttpClientParams.setCookiePolicy(clientParams, CookiePolicy.IGNORE_COOKIES);
-        clientParams.setParameter(CoreProtocolPNames.USER_AGENT, "test-agent");
-        clientParams.setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
+        HttpProtocolParams.setUserAgent(clientParams, "test-agent");
+        HttpProtocolParams.setVersion(clientParams, HttpVersion.HTTP_1_1);
+
         HttpConnectionParams.setConnectionTimeout(clientParams, 10000);
 
         connectionManager.setMaxTotal(numThreads);

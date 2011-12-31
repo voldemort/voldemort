@@ -29,9 +29,9 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
-import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -71,15 +71,18 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
         this.httpClient = new DefaultHttpClient(mgr);
         HttpParams clientParams = this.httpClient.getParams();
-        clientParams.setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
+
+        HttpProtocolParams.setUserAgent(clientParams, VOLDEMORT_USER_AGENT);
+        HttpProtocolParams.setVersion(clientParams, HttpVersion.HTTP_1_1);
+
         HttpConnectionParams.setConnectionTimeout(clientParams,
                                                   config.getConnectionTimeout(TimeUnit.MILLISECONDS));
         HttpConnectionParams.setSoTimeout(clientParams,
                                           config.getSocketTimeout(TimeUnit.MILLISECONDS));
+        HttpConnectionParams.setStaleCheckingEnabled(clientParams, false);
+
         this.httpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
         HttpClientParams.setCookiePolicy(clientParams, CookiePolicy.IGNORE_COOKIES);
-        clientParams.setParameter(CoreProtocolPNames.USER_AGENT, VOLDEMORT_USER_AGENT);
-        HttpConnectionParams.setStaleCheckingEnabled(clientParams, false);
 
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
