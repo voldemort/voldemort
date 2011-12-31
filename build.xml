@@ -14,13 +14,13 @@
     </fileset>
     <pathelement path="${classes.dir}" />
   </path>
-
+	
   <path id="bootref-classpath">
     <fileset dir="${java5.home}/lib">
       <include name="rt.jar" />
     </fileset>
   </path>
-
+	
 
   <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
@@ -86,6 +86,8 @@
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
+    <echo message="JAVA_HOME = ${java5.home}" />
+  	<echo message="JAVA5_HOME = ${java5.home}" />
     <javac destdir="${classes.dir}" source="1.5" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
@@ -112,7 +114,7 @@
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
       <classpath refid="main-classpath" />
-      <bootclasspath refid="bootref-classpath" />
+      <bootclasspath refid="bootref-classpath" />    	
     </javac>
   </target>
 
@@ -193,7 +195,7 @@
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />
       <classpath refid="contrib-classpath" />
-      <bootclasspath refid="bootref-classpath" />
+      <bootclasspath refid="bootref-classpath" />    	
     </javac>
     <copy todir="${contrib.classes.dir}">
       <fileset dir="${contrib.root.dir}/ec2-testing/resources" />
@@ -396,7 +398,7 @@
       <report todir="${testhtml.dir}" format="frames" />
     </junitreport>
   </target>
-
+ 
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="contrib-test-classpath" />
