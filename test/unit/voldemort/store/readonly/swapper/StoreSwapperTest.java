@@ -27,10 +27,8 @@ import java.util.concurrent.Executors;
 
 import junit.framework.TestCase;
 
-import org.apache.commons.httpclient.HostConfiguration;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,12 +50,14 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.Utils;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
+*
  */
 public class StoreSwapperTest extends TestCase {
 
@@ -152,14 +152,16 @@ public class StoreSwapperTest extends TestCase {
     @Test
     public void testHttpStoreSwapper() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
+        DefaultHttpClient client = null;
         try {
             // Use the http store swapper
-            HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
-            manager.getParams().setMaxTotalConnections(10);
-            manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
-                                                         10);
-            HttpClient client = new HttpClient(manager);
+            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+
+            connectionManager.setMaxTotal(10);
+            connectionManager.setDefaultMaxPerRoute(10);
+
+            client = new DefaultHttpClient(connectionManager);
+
             StoreSwapper swapper = new HttpStoreSwapper(cluster,
                                                         executor,
                                                         client,
@@ -169,6 +171,7 @@ public class StoreSwapperTest extends TestCase {
             testFetchSwap(swapper);
         } finally {
             executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
@@ -193,14 +196,16 @@ public class StoreSwapperTest extends TestCase {
     @Test
     public void testHttpStoreSwapperWithoutRollback() throws Exception {
         ExecutorService executor = Executors.newCachedThreadPool();
-
+        DefaultHttpClient client = null;
         try {
             // Use the http store swapper
-            HttpConnectionManager manager = new MultiThreadedHttpConnectionManager();
-            manager.getParams().setMaxTotalConnections(10);
-            manager.getParams().setMaxConnectionsPerHost(HostConfiguration.ANY_HOST_CONFIGURATION,
-                                                         10);
-            HttpClient client = new HttpClient(manager);
+
+            ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+
+            connectionManager.setMaxTotal(10);
+            connectionManager.setDefaultMaxPerRoute(10);
+
+            client = new DefaultHttpClient(connectionManager);
             StoreSwapper swapper = new HttpStoreSwapper(cluster,
                                                         executor,
                                                         client,
@@ -210,6 +215,7 @@ public class StoreSwapperTest extends TestCase {
             testFetchSwapWithoutRollback(swapper);
         } finally {
             executor.shutdown();
+            VoldemortIOUtils.closeQuietly(client);
         }
     }
 
