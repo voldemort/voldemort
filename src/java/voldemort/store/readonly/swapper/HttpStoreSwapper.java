@@ -2,6 +2,7 @@ package voldemort.store.readonly.swapper;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,7 @@ public class HttpStoreSwapper extends StoreSwapper {
                         InputStream is = httpResponse.getEntity().getContent();
                         String response = VoldemortIOUtils.toString(is, 30000);
 
-                        if(responseCode != 200)
+                        if(responseCode != HttpURLConnection.HTTP_OK)
                             throw new VoldemortException("Fetch request on node "
                                                          + node.getId()
                                                          + " ("
@@ -186,7 +187,7 @@ public class HttpStoreSwapper extends StoreSwapper {
                 String previousDir = VoldemortIOUtils.toString(httpResponse.getEntity()
                                                                            .getContent(), 30000);
 
-                if(responseCode != 200)
+                if(responseCode != HttpURLConnection.HTTP_OK)
                     throw new VoldemortException("Swap request on node " + node.getId() + " ("
                                                  + url + ") failed: "
                                                  + httpResponse.getStatusLine().getReasonPhrase());
