@@ -2,8 +2,12 @@ package voldemort.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpVersion;
+import org.apache.http.message.BasicHttpResponse;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -29,6 +33,20 @@ public class VoldemortIOUtilsTest {
         InputStream is = getClass().getResourceAsStream("maze.c.input");
         String str2 = VoldemortIOUtils.toString(is, upperBound);
         Assert.assertTrue(str2.length() <= upperBound);
+    }
+
+    @Test
+    public void testCloseQuietlyNullHttpResponse() {
+        VoldemortIOUtils.closeQuietly(null);
+    }
+
+    @Test
+    public void testCloseQuietlyNullEntity() {
+        HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1,
+                                                      HttpURLConnection.HTTP_OK,
+                                                      "");
+        response.setEntity(null);
+        VoldemortIOUtils.closeQuietly(response);
     }
 
 }

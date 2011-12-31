@@ -30,6 +30,8 @@ import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 
+import voldemort.utils.VoldemortIOUtils;
+
 public class HttpClientBench {
 
     private static final int DEFAULT_CONNECTION_MANAGER_TIMEOUT = 100000;
@@ -54,12 +56,15 @@ public class HttpClientBench {
 
             @Override
             public void doOperation(int index) {
-                HttpGet get = new HttpGet(url);
+                HttpResponse response = null;
                 try {
-                    HttpResponse response = client.execute(get);
+                    HttpGet get = new HttpGet(url);
+                    response = client.execute(get);
                     response.getEntity().consumeContent();
                 } catch(Exception e) {
                     e.printStackTrace();
+                } finally {
+                    VoldemortIOUtils.closeQuietly(response);
                 }
             }
         };
