@@ -88,7 +88,7 @@ public class HttpClientBench {
 
         clientParams.setBooleanParameter(CoreConnectionPNames.TCP_NODELAY, false);
 
-        clientParams.setIntParameter("http.socket.receivebuffer", 60000);
+        clientParams.setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, 60000);
         clientParams.setParameter(CoreProtocolPNames.USER_AGENT, VOLDEMORT_USER_AGENT);
         // HostConfiguration hostConfig = new HostConfiguration();
         // hostConfig.setHost("localhost");
