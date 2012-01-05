@@ -66,6 +66,11 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
                                                  RequestFormatType.VOLDEMORT_V1,
                                                  node.getHttpPort());
         server = context.getServer();
+
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        5000,
+                                                                                        TimeUnit.MILLISECONDS);
+        httpClient = new DefaultHttpClient(connectionManager);
         httpStore = ServerTestUtils.getHttpStore("users",
                                                  RequestFormatType.VOLDEMORT_V1,
                                                  node.getHttpPort(),
@@ -76,15 +81,15 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         ByteArray key = new ByteArray("test".getBytes());
         RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
 
-        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
-                                                                                        5000,
-                                                                                        TimeUnit.MILLISECONDS);
-
-        DefaultHttpClient client = new DefaultHttpClient(connectionManager);
-        HttpParams clientParams = client.getParams();
+        HttpParams clientParams = httpClient.getParams();
         HttpConnectionParams.setConnectionTimeout(clientParams, 5000);
 
-        HttpStore badUrlHttpStore = new HttpStore("test", url, port, client, requestFormat, false);
+        HttpStore badUrlHttpStore = new HttpStore("test",
+                                                  url,
+                                                  port,
+                                                  httpClient,
+                                                  requestFormat,
+                                                  false);
         try {
             badUrlHttpStore.put(key,
                                 new Versioned<byte[]>("value".getBytes(), new VectorClock()),
@@ -102,8 +107,6 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         } catch(Exception e) {
             assertTrue(e.getClass().equals(expected));
         }
-
-        client.getConnectionManager().shutdown();
     }
 
     public void testBadUrl() {
