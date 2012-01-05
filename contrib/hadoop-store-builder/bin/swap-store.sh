@@ -18,6 +18,13 @@
 
 base_dir=$(dirname $0)/../../../
 
+
+if [ -z "$VOLDEMORT_CONFIG_DIR" ]; then
+  VOLDEMORT_CONFIG_DIR=$base_dir/config
+fi
+
+source $VOLDEMORT_CONFIG_DIR/voldemort-env.sh
+
 for file in $base_dir/dist/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
@@ -30,4 +37,5 @@ done
 
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
-java -Dlog4j.configuration=$base_dir/src/java/log4j.properties -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@ 
+echo "Using JAVA_HOME = $JAVA_HOME"
+exec $JAVA_HOME/bin/java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@
