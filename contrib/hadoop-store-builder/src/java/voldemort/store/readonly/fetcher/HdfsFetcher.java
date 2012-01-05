@@ -86,8 +86,11 @@ public class HdfsFetcher implements FileFetcher {
 
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
-        if(this.maxBytesPerSecond != null)
+        if(this.maxBytesPerSecond != null) {
             this.throttler = new DynamicEventThrottler(this.maxBytesPerSecond);
+            logger.info("Initializing Dynamic Event throttler with rate : "
+                        + this.maxBytesPerSecond + " bytes / sec");
+        }
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
         this.status = null;
@@ -99,6 +102,8 @@ public class HdfsFetcher implements FileFetcher {
                 numJobs++;
                 long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
                                               : this.maxBytesPerSecond;
+                logger.info("# Jobs = " + numJobs + ". Updating throttling rate to : "
+                            + updatedRate + " bytes / sec");
                 throttler.updateRate(updatedRate);
             }
         Path path = new Path(sourceFileUrl);
@@ -132,6 +137,8 @@ public class HdfsFetcher implements FileFetcher {
                     numJobs--;
                     long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
                                                   : this.maxBytesPerSecond;
+                    logger.info("# Jobs = " + numJobs + ". Updating throttling rate to : "
+                                + updatedRate + " bytes / sec");
                     throttler.updateRate(updatedRate);
                 }
             JmxUtils.unregisterMbean(jmxName);
