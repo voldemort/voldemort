@@ -278,6 +278,11 @@ message DeleteStoreRebalanceStateResponse {
   optional Error error = 1;
 }
 
+message NativeBackupRequest {
+  required string store_name = 1;
+  required string backup_dir = 2;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -305,6 +310,7 @@ enum AdminRequestType {
   REPAIR_JOB = 25;
   INITIATE_REBALANCE_NODE_ON_DONOR = 26;
   DELETE_STORE_REBALANCE_STATE = 27;
+  NATIVE_BACKUP = 28;
 }
 
 message VoldemortAdminRequest {
@@ -335,4 +341,5 @@ message VoldemortAdminRequest {
   optional RepairJobRequest repair_job = 27;  
   optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
   optional DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
+  optional NativeBackupRequest native_backup = 30;
 }

@@ -2303,4 +2303,55 @@ public class AdminClient {
         }
     }
 
+    /**
+     * Given a list of partition infos, generates a map of stealer node to list
+     * of partition infos
+     * 
+     * @param rebalancePartitionPlanList Complete list of partition plans
+     * @return Flattens it into a map on a per stealer node basis
+     */
+    private HashMap<Integer, List<RebalancePartitionsInfo>> groupPartitionsInfoByStealerNode(List<RebalancePartitionsInfo> rebalancePartitionPlanList) {
+        HashMap<Integer, List<RebalancePartitionsInfo>> stealerNodeToPlan = Maps.newHashMap();
+        if(rebalancePartitionPlanList != null) {
+            for(RebalancePartitionsInfo partitionInfo: rebalancePartitionPlanList) {
+                List<RebalancePartitionsInfo> partitionInfos = stealerNodeToPlan.get(partitionInfo.getStealerId());
+                if(partitionInfos == null) {
+                    partitionInfos = Lists.newArrayList();
+                    stealerNodeToPlan.put(partitionInfo.getStealerId(), partitionInfos);
+                }
+                partitionInfos.add(partitionInfo);
+            }
+        }
+        return stealerNodeToPlan;
+    }
+
+    /**
+     * Native backup a store
+     * 
+     * @param nodeId The node id to backup
+     * @param storeName The name of the store to backup
+     * @param destinationDirPath The destination path
+     * @param minutes to wait for operation to complete
+     */
+    public void nativeBackup(int nodeId, String storeName, String destinationDirPath, int timeOut) {
+
+        VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
+                                                                                             .setStoreName(storeName)
+                                                                                             .setBackupDir(destinationDirPath)
+                                                                                             .build();
+        VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                          .setNativeBackup(nativeBackupRequest)
+                                                                                          .setType(VAdminProto.AdminRequestType.NATIVE_BACKUP)
+                                                                                          .build();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = sendAndReceive(nodeId,
+                                                                                   adminRequest,
+                                                                                   VAdminProto.AsyncOperationStatusResponse.newBuilder());
+
+        if(response.hasError()) {
+            throwException(response.getError());
+        }
+
+        int asyncId = response.getRequestId();
+        waitForCompletion(nodeId, asyncId, timeOut, TimeUnit.MINUTES);
+    }
 }
