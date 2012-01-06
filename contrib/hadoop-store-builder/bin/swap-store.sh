@@ -38,4 +38,4 @@ done
 CLASSPATH=$CLASSPATH:$base_dir/dist/resources
 
 echo "Using JAVA_HOME = $JAVA_HOME"
-exec $JAVA_HOME/bin/java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@
+exec $JAVA_HOME/bin/java -Dlog4j.configuration=file:$VOLDEMORT_CONFIG_DIR/log4j.properties -server -Xmx128M -cp $CLASSPATH voldemort.store.readonly.swapper.StoreSwapper $@

@@ -55,4 +55,4 @@ fi
 
 export CLASSPATH
 echo "Using JAVA_HOME = $JAVA_HOME"
-exec $JAVA_HOME/bin/java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+exec $JAVA_HOME/bin/java -Dlog4j.configuration=file:$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
