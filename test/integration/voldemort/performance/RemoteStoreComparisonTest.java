@@ -16,15 +16,18 @@
 
 package voldemort.performance;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HostConfiguration;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpVersion;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.cookie.CookiePolicy;
-import org.apache.commons.httpclient.params.HttpClientParams;
-import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpVersion;
+import org.apache.http.client.params.CookiePolicy;
+import org.apache.http.client.params.HttpClientParams;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
@@ -42,6 +45,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.versioning.Versioned;
 
 public class RemoteStoreComparisonTest {
@@ -154,21 +158,25 @@ public class RemoteStoreComparisonTest {
                                                   numThreads,
                                                   8080);
         httpService.start();
-        HttpClient httpClient = new HttpClient(new MultiThreadedHttpConnectionManager());
-        HttpClientParams clientParams = httpClient.getParams();
-        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
-                                  new DefaultHttpMethodRetryHandler(0, false));
-        clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
-        clientParams.setParameter("http.useragent", "test-agent");
-        HostConfiguration hostConfig = new HostConfiguration();
-        hostConfig.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
-        httpClient.setHostConfiguration(hostConfig);
-        HttpConnectionManagerParams managerParams = httpClient.getHttpConnectionManager()
-                                                              .getParams();
-        managerParams.setConnectionTimeout(10000);
-        managerParams.setMaxTotalConnections(numThreads);
-        managerParams.setStaleCheckingEnabled(false);
-        managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(), numThreads);
+
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        10000,
+                                                                                        TimeUnit.MILLISECONDS);
+
+        DefaultHttpClient httpClient = new DefaultHttpClient(connectionManager);
+
+        HttpParams clientParams = httpClient.getParams();
+        httpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
+        HttpClientParams.setCookiePolicy(clientParams, CookiePolicy.IGNORE_COOKIES);
+        HttpProtocolParams.setUserAgent(clientParams, "test-agent");
+        HttpProtocolParams.setVersion(clientParams, HttpVersion.HTTP_1_1);
+
+        HttpConnectionParams.setConnectionTimeout(clientParams, 10000);
+
+        connectionManager.setMaxTotal(numThreads);
+        connectionManager.setDefaultMaxPerRoute(numThreads);
+        HttpConnectionParams.setStaleCheckingEnabled(clientParams, false);
+
         final HttpStore httpStore = new HttpStore("test",
                                                   "localhost",
                                                   8080,
@@ -203,5 +211,8 @@ public class RemoteStoreComparisonTest {
         httpReadTest.printStats();
 
         httpService.stop();
+
+        VoldemortIOUtils.closeQuietly(httpClient);
+
     }
 }

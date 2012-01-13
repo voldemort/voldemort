@@ -286,8 +286,11 @@ public class VoldemortServer extends AbstractService {
                 config = VoldemortConfig.loadFromEnvironmentVariable();
             else if(args.length == 1)
                 config = VoldemortConfig.loadFromVoldemortHome(args[0]);
+            else if(args.length == 2)
+                config = VoldemortConfig.loadFromVoldemortHome(args[0], args[1]);
             else
-                croak("USAGE: java " + VoldemortServer.class.getName() + " [voldemort_home_dir]");
+                croak("USAGE: java " + VoldemortServer.class.getName()
+                      + " [voldemort_home_dir] [voldemort_config_dir]");
         } catch(Exception e) {
             logger.error(e);
             Utils.croak("Error while loading configuration: " + e.getMessage());
