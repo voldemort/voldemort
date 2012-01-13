@@ -87,9 +87,11 @@ import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
+import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -107,10 +109,15 @@ public class StorageService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
 
+    private static final long DEFAULT_FETCH_RATE = 0;
+
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
+
+    /* Dynamic throttle limit required for read-only stores */
+    private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
     private final Semaphore scanPermits;
@@ -152,6 +159,15 @@ public class StorageService extends AbstractService {
         this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                          this.clientThreadPool,
                                                          voldemortConfig.getClientRoutingTimeoutMs());
+
+        /*
+         * Initialize the dynamic throttle limit based on the per node limit
+         * config
+         */
+        Props props = this.voldemortConfig.getAllProps();
+        long rate = props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
+                                                                  : DEFAULT_FETCH_RATE;
+        this.dynThrottleLimit = new DynamicThrottleLimit(rate);
     }
 
     private void initStorageConfig(String configClassName) {
@@ -794,6 +810,10 @@ public class StorageService extends AbstractService {
 
     public SocketStoreFactory getSocketStoreFactory() {
         return storeFactory;
+    }
+
+    public DynamicThrottleLimit getDynThrottleLimit() {
+        return dynThrottleLimit;
     }
 
 }

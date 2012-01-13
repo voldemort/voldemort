@@ -46,15 +46,15 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.DynamicEventThrottler;
+import voldemort.utils.DynamicThrottleLimit;
+import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 
-/**
+/*
  * A fetcher that fetches the store files from HDFS
- * 
- * 
  */
 public class HdfsFetcher implements FileFetcher {
 
@@ -66,7 +66,7 @@ public class HdfsFetcher implements FileFetcher {
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
     private AsyncOperationStatus status;
-    private DynamicEventThrottler throttler = null;
+    private EventThrottler throttler = null;
     private long numJobs = 0;
 
     public HdfsFetcher(Props props) {
@@ -80,6 +80,16 @@ public class HdfsFetcher implements FileFetcher {
                     + reportingIntervalBytes);
     }
 
+    public HdfsFetcher(Props props, DynamicThrottleLimit dynThrottleLimit) {
+        this(dynThrottleLimit,
+             props.getBytes("fetcher.reporting.interval.bytes", REPORTING_INTERVAL_BYTES),
+             (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
+
+        logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
+                    + ", buffer size " + bufferSize + ", reporting interval bytes "
+                    + reportingIntervalBytes);
+    }
+
     public HdfsFetcher() {
         this((Long) null, REPORTING_INTERVAL_BYTES, DEFAULT_BUFFER_SIZE);
     }
@@ -87,7 +97,23 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
         if(this.maxBytesPerSecond != null) {
-            this.throttler = new DynamicEventThrottler(this.maxBytesPerSecond);
+            // this.throttler = new
+            // DynamicEventThrottler(this.maxBytesPerSecond);
+            this.throttler = new EventThrottler(this.maxBytesPerSecond);
+            logger.info("Initializing Dynamic Event throttler with rate : "
+                        + this.maxBytesPerSecond + " bytes / sec");
+        }
+        this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
+        this.bufferSize = bufferSize;
+        this.status = null;
+    }
+
+    public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
+                       Long reportingIntervalBytes,
+                       int bufferSize) {
+        this.maxBytesPerSecond = dynThrottleLimit.getRate();
+        if(this.maxBytesPerSecond != null) {
+            this.throttler = new DynamicEventThrottler(dynThrottleLimit);
             logger.info("Initializing Dynamic Event throttler with rate : "
                         + this.maxBytesPerSecond + " bytes / sec");
         }
@@ -97,15 +123,11 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
-        if(throttler != null)
-            synchronized(this) {
-                numJobs++;
-                long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
-                                              : this.maxBytesPerSecond;
-                logger.info("# Jobs = " + numJobs + ". Updating throttling rate to : "
-                            + updatedRate + " bytes / sec");
-                throttler.updateRate(updatedRate);
-            }
+        if(throttler != null) {
+            DynamicEventThrottler dynThrottler = (DynamicEventThrottler) this.throttler;
+            dynThrottler.incrementNumJobs();
+        }
+
         Path path = new Path(sourceFileUrl);
         Configuration config = new Configuration();
         config.setInt("io.socket.receive.buffer", bufferSize);
@@ -132,15 +154,10 @@ public class HdfsFetcher implements FileFetcher {
                 return null;
             }
         } finally {
-            if(throttler != null)
-                synchronized(this) {
-                    numJobs--;
-                    long updatedRate = numJobs > 0 ? this.maxBytesPerSecond / numJobs
-                                                  : this.maxBytesPerSecond;
-                    logger.info("# Jobs = " + numJobs + ". Updating throttling rate to : "
-                                + updatedRate + " bytes / sec");
-                    throttler.updateRate(updatedRate);
-                }
+            if(throttler != null) {
+                DynamicEventThrottler dynThrottler = (DynamicEventThrottler) this.throttler;
+                dynThrottler.decrementNumJobs();
+            }
             JmxUtils.unregisterMbean(jmxName);
         }
     }
