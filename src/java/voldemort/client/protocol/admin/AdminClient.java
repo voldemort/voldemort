@@ -2332,12 +2332,21 @@ public class AdminClient {
      * @param storeName The name of the store to backup
      * @param destinationDirPath The destination path
      * @param minutes to wait for operation to complete
+     * @param verify should the file checksums be verified
+     * @param isIncremental is the backup incremental
      */
-    public void nativeBackup(int nodeId, String storeName, String destinationDirPath, int timeOut) {
+    public void nativeBackup(int nodeId,
+                             String storeName,
+                             String destinationDirPath,
+                             int timeOut,
+                             boolean verify,
+                             boolean isIncremental) {
 
         VAdminProto.NativeBackupRequest nativeBackupRequest = VAdminProto.NativeBackupRequest.newBuilder()
                                                                                              .setStoreName(storeName)
                                                                                              .setBackupDir(destinationDirPath)
+                                                                                             .setIncremental(isIncremental)
+                                                                                             .setVerifyFiles(verify)
                                                                                              .build();
         VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
                                                                                           .setNativeBackup(nativeBackupRequest)

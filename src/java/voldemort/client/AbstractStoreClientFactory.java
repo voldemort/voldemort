@@ -140,9 +140,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
 
+        logger.info("Client zone-id [" + clientZoneId
+                    + "] Attempting to obtain metadata for store [" + storeName + "] ");
         if(logger.isDebugEnabled()) {
-            logger.debug("Client zone-id [" + clientZoneId + "]");
-            logger.debug("Attempting to obtain metadata for store [" + storeName + "] ");
             for(URI uri: bootstrapUrls) {
                 logger.debug("Client Bootstrap url [" + uri + "]");
             }

@@ -281,6 +281,8 @@ message DeleteStoreRebalanceStateResponse {
 message NativeBackupRequest {
   required string store_name = 1;
   required string backup_dir = 2;
+  required bool   verify_files = 3;
+  required bool   incremental = 4;
 }
 
 enum AdminRequestType {

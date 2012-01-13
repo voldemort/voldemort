@@ -1392,6 +1392,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public VAdminProto.AsyncOperationStatusResponse handleNativeBackup(VAdminProto.NativeBackupRequest request) {
         final File backupDir = new File(request.getBackupDir());
+        final boolean isIncremental = request.getIncremental();
+        final boolean verifyFiles = request.getVerifyFiles();
         final String storeName = request.getStoreName();
         int requestId = asyncService.getUniqueRequestId();
         VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
@@ -1416,7 +1418,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                     @Override
                     public void operate() {
-                        ((NativeBackupable) storageEngine).nativeBackup(backupDir, status);
+                        ((NativeBackupable) storageEngine).nativeBackup(backupDir,
+                                                                        verifyFiles,
+                                                                        isIncremental,
+                                                                        status);
                     }
 
                     @Override

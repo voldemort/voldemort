@@ -102,8 +102,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         };
         this.isOpen = new AtomicBoolean(true);
         this.readLockMode = config.getLockMode();
-        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
-                                                           config.getStatsCacheTtlMs());
+        this.bdbEnvironmentStats = new BdbEnvironmentStats(environment, config.getStatsCacheTtlMs());
     }
 
     public String getName() {
@@ -574,7 +573,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return false;
     }
 
-    public void nativeBackup(File toDir, AsyncOperationStatus status) {
-        new BdbNativeBackup(environment).performBackup(toDir, status);
+    public void nativeBackup(File toDir,
+                             boolean verifyFiles,
+                             boolean isIncremental,
+                             AsyncOperationStatus status) {
+        new BdbNativeBackup(environment, verifyFiles, isIncremental).performBackup(toDir, status);
     }
 }

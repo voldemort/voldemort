@@ -203,6 +203,11 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("minutes to wait for backup completion, default 30 mins")
               .ofType(Integer.class);
+        parser.accepts("backup-verify",
+                       "If provided, backup will also verify checksum (with extra overhead)");
+        parser.accepts("backup-incremental",
+                       "Perform an incremental backup for point-in-time recovery."
+                               + " By default backup has latest consistent snapshot.");
 
         OptionSet options = parser.parse(args);
 
@@ -444,7 +449,12 @@ public class VoldemortAdminTool {
                 String backupDir = (String) options.valueOf("backup-dir");
                 String storeName = (String) options.valueOf("native-backup");
                 int timeout = CmdUtils.valueOf(options, "backup-timeout", 30);
-                adminClient.nativeBackup(nodeId, storeName, backupDir, timeout);
+                adminClient.nativeBackup(nodeId,
+                                         storeName,
+                                         backupDir,
+                                         timeout,
+                                         options.has("backup-verify"),
+                                         options.has("backup-incremental"));
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -561,7 +571,8 @@ public class VoldemortAdminTool {
         stream.println("\t4) Clean a node after rebalancing is done");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --repair-job --url [url] --node [node-id]");
         stream.println("\t5) Backup bdb data natively");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] --backup-timeout [mins] --url [url] --node [node-id]");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] "
+                       + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
 
         parser.printHelpOn(stream);
     }

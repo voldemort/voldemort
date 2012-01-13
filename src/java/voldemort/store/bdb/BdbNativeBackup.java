@@ -5,29 +5,40 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.channels.FileChannel;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.HashSet;
 
 import voldemort.VoldemortException;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 
-import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.util.DbBackup;
+import com.sleepycat.je.util.LogVerificationInputStream;
 
 /**
  * Handles native backups for the BDB storage engine
  */
 public class BdbNativeBackup {
 
-    public static final String BDB_EXT = ".jdb";
+    private static final String BDB_EXT = ".jdb";
+    private static final int LOGVERIFY_BUFSIZE = 1024;
 
     private final Environment env;
     private final File databaseDir;
 
-    public BdbNativeBackup(Environment env) {
+    private final boolean verifyFiles;
+    private final boolean isIncremental;
+    private DbBackup backupHelper;
+
+    public BdbNativeBackup(Environment env, boolean verifyFiles, boolean isIncremental) {
         this.env = env;
+        this.verifyFiles = verifyFiles;
+        this.isIncremental = isIncremental;
         this.databaseDir = env.getHome();
     }
 
@@ -38,7 +49,6 @@ public class BdbNativeBackup {
         Long lastFileInPrevBackup = determineLastFile(backupDir, status);
 
         try {
-            DbBackup backupHelper;
 
             if(lastFileInPrevBackup == null) {
                 backupHelper = new DbBackup(env);
@@ -58,7 +68,7 @@ public class BdbNativeBackup {
                 // cleaned and disk usage will bloat.
                 backupHelper.endBackup();
             }
-        } catch(DatabaseException e) {
+        } catch(Exception e) {
             throw new VoldemortException("Error performing native backup", e);
         }
     }
@@ -73,7 +83,7 @@ public class BdbNativeBackup {
                 }
                 String part = name.substring(0, name.length() - BDB_EXT.length());
                 try {
-                    Long.parseLong(part);
+                    Long.parseLong(part, 16);
                 } catch(NumberFormatException nfe) {
                     status.setStatus("Warning: " + BDB_EXT
                                      + " file whose name is not a number, ignoring: " + name);
@@ -127,7 +137,11 @@ public class BdbNativeBackup {
             File dest = new File(backupDir, name);
             status.setStatus(String.format("% 3d%% Copying %s", total * 100 / size, name));
             try {
-                copyFile(source, dest);
+                if(verifyFiles) {
+                    verifiedCopyFile(source, dest);
+                } else {
+                    copyFile(source, dest);
+                }
             } catch(IOException e) {
                 // If the destination file exists, delete it
                 if(dest.exists()) {
@@ -141,9 +155,75 @@ public class BdbNativeBackup {
             total += source.length();
         }
 
+        if(isIncremental) {
+            try {
+                recordBackupSet(backupDir);
+            } catch(IOException e) {
+                throw new VoldemortException("Error attempting to write backup records for ", e);
+            }
+        } else {
+            cleanStaleFiles(backupDir, status);
+        }
     }
 
-    // Fast NIO copy method
+    /**
+     * Records the list of backedup files into a text file
+     * 
+     * @param filesInEnv
+     * @param backupDir
+     */
+    private void recordBackupSet(File backupDir) throws IOException {
+        String[] filesInEnv = env.getHome().list();
+        SimpleDateFormat format = new SimpleDateFormat("yyyy_MM_dd_kk_mm_ss");
+        String recordFileName = "backupset-" + format.format(new Date());
+        File recordFile = new File(backupDir, recordFileName);
+        if(recordFile.exists()) {
+            recordFile.renameTo(new File(backupDir, recordFileName + ".old"));
+        }
+
+        PrintStream backupRecord = new PrintStream(new FileOutputStream(recordFile));
+        backupRecord.println("Lastfile:" + Long.toHexString(backupHelper.getLastFileInBackupSet()));
+        if(filesInEnv != null) {
+            for(String file: filesInEnv) {
+                if(file.endsWith(BDB_EXT))
+                    backupRecord.println(file);
+            }
+        }
+        backupRecord.close();
+    }
+
+    /**
+     * For recovery from the latest consistent snapshot, we should clean up the
+     * old files from the previous backup set, else we will fill the disk with
+     * useless log files
+     * 
+     * @param backupDir
+     */
+    private void cleanStaleFiles(File backupDir, AsyncOperationStatus status) {
+        String[] filesInEnv = env.getHome().list();
+        String[] filesInBackupDir = backupDir.list();
+        if(filesInEnv != null && filesInBackupDir != null) {
+            HashSet<String> envFileSet = new HashSet<String>();
+            for(String file: filesInEnv)
+                envFileSet.add(file);
+            // delete all files in backup which are currently not in environment
+            for(String file: filesInBackupDir) {
+                if(file.endsWith(BDB_EXT) && !envFileSet.contains(file)) {
+                    status.setStatus("Deleting stale jdb file :" + file);
+                    File staleJdbFile = new File(backupDir, file);
+                    staleJdbFile.delete();
+                }
+            }
+        }
+    }
+
+    /**
+     * File copy using fast NIO zero copy method
+     * 
+     * @param sourceFile
+     * @param destFile
+     * @throws IOException
+     */
     private void copyFile(File sourceFile, File destFile) throws IOException {
         if(!destFile.exists()) {
             destFile.createNewFile();
@@ -158,6 +238,46 @@ public class BdbNativeBackup {
         } finally {
             if(source != null) {
                 source.close();
+            }
+            if(destination != null) {
+                destination.close();
+            }
+        }
+    }
+
+    /**
+     * Copies the jdb log files, with additional verification of the checksums.
+     * 
+     * @param sourceFile
+     * @param destFile
+     * @throws IOException
+     */
+    private void verifiedCopyFile(File sourceFile, File destFile) throws IOException {
+        if(!destFile.exists()) {
+            destFile.createNewFile();
+        }
+
+        FileInputStream source = null;
+        FileOutputStream destination = null;
+        LogVerificationInputStream verifyStream = null;
+        try {
+            source = new FileInputStream(sourceFile);
+            destination = new FileOutputStream(destFile);
+            verifyStream = new LogVerificationInputStream(env, source, sourceFile.getName());
+
+            final byte[] buf = new byte[LOGVERIFY_BUFSIZE];
+
+            while(true) {
+                final int len = verifyStream.read(buf);
+                if(len < 0) {
+                    break;
+                }
+                destination.write(buf, 0, len);
+            }
+
+        } finally {
+            if(verifyStream != null) {
+                verifyStream.close();
             }
             if(destination != null) {
                 destination.close();
