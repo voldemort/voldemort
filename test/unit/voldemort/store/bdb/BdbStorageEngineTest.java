@@ -227,7 +227,9 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
             store.nativeBackup(backupToDir, false, false, new AsyncOperationStatus(0, "dummy"));
             // Check that there are now two files, and the first one hasn't
             // changed
-            assertArrayEquals(backupToDir.list(), new String[] { "00000000.jdb", "00000001.jdb" });
+            String[] backedUp = backupToDir.list();
+            Arrays.sort(backedUp);
+            assertArrayEquals(backedUp, new String[] { "00000000.jdb", "00000001.jdb" });
             assertEquals(backupFileModified, backupToDir.listFiles()[0].lastModified());
         } finally {
             deleteDir(backupToDir);
