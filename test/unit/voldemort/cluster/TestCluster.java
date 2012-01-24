@@ -16,7 +16,7 @@
 
 package voldemort.cluster;
 
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
 import java.util.Arrays;

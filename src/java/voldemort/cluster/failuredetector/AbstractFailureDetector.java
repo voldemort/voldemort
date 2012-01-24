@@ -220,6 +220,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
             nodeStatus = createNodeStatus(failureDetectorConfig.getTime().getMilliseconds());
             nodeStatusMap.put(node, nodeStatus);
+            if(!failureDetectorConfig.getNodes().contains(node)) {
+                failureDetectorConfig.addNode(node);
+            }
         }
 
         return nodeStatus;
