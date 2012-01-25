@@ -1,12 +1,12 @@
-package voldemort;
+package voldemort.cluster.failuredetector;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Node;
-import voldemort.cluster.failuredetector.BasicStoreVerifier;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.UnreachableStoreException;
@@ -45,6 +45,10 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
         errorStores.put(node.getId(), voldemortException);
     }
 
+    public void addStore(Node node) {
+        stores.put(node.getId(), createStore());
+    }
+
     public static MutableStoreVerifier create(Map<Integer, Store<ByteArray, byte[], byte[]>> stores) {
         return new MutableStoreVerifier(stores);
     }
@@ -53,44 +57,48 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
         Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
 
         for(Node node: nodes) {
-            stores.put(node.getId(), new Store<ByteArray, byte[], byte[]>() {
-
-                public void close() throws VoldemortException {}
-
-                public boolean delete(ByteArray key, Version version) throws VoldemortException {
-                    return false;
-                }
-
-                public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
-                        throws VoldemortException {
-                    return null;
-                }
-
-                public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
-                                                                      Map<ByteArray, byte[]> transforms)
-                        throws VoldemortException {
-                    return null;
-                }
-
-                public Object getCapability(StoreCapabilityType capability) {
-                    return null;
-                }
-
-                public String getName() {
-                    return null;
-                }
-
-                public List<Version> getVersions(ByteArray key) {
-                    return null;
-                }
-
-                public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
-                        throws VoldemortException {}
-
-            });
+            stores.put(node.getId(), createStore());
         }
 
         return new MutableStoreVerifier(stores);
+    }
+
+    private static Store<ByteArray, byte[], byte[]> createStore() {
+        return new Store<ByteArray, byte[], byte[]>() {
+
+            public void close() throws VoldemortException {}
+
+            public boolean delete(ByteArray key, Version version) throws VoldemortException {
+                return false;
+            }
+
+            public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
+                    throws VoldemortException {
+                return null;
+            }
+
+            public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
+                                                                  Map<ByteArray, byte[]> transforms)
+                    throws VoldemortException {
+                return null;
+            }
+
+            public Object getCapability(StoreCapabilityType capability) {
+                return null;
+            }
+
+            public String getName() {
+                return null;
+            }
+
+            public List<Version> getVersions(ByteArray key) {
+                return null;
+            }
+
+            public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+                    throws VoldemortException {}
+
+        };
     }
 
 }

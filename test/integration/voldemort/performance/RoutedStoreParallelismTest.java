@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.MutableStoreVerifier;
+import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;

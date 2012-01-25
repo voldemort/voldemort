@@ -20,8 +20,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.VoldemortTestConstants.getTenNodeCluster;
 
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
@@ -38,16 +39,18 @@ import com.google.common.collect.Iterables;
 
 public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
 
+    private MutableStoreVerifier storeVerifier;
+
     @Override
     public FailureDetector createFailureDetector() throws Exception {
+        storeVerifier = create(cluster.getNodes());
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(ThresholdFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setAsyncRecoveryInterval(250)
                                                                                  .setThresholdInterval(500)
                                                                                  .setNodes(cluster.getNodes())
-                                                                                 .setStoreVerifier(create(cluster.getNodes()))
+                                                                                 .setStoreVerifier(storeVerifier)
                                                                                  .setTime(time);
-
         return create(failureDetectorConfig, true);
     }
 
@@ -166,4 +169,18 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
         recordSuccess(failureDetector, node);
     }
 
+    @Test
+    public void testChangeMetadata() throws Exception {
+        cluster = getTenNodeCluster();
+        Node node = cluster.getNodeById(9);
+        storeVerifier.addStore(node);
+        failureDetector.recordException(node,
+                                        0,
+                                        new UnreachableStoreException("intentionalerror",
+                                                                      new ConnectException("intentionalerror")));
+
+        assertEquals(false, failureDetector.isAvailable(node));
+        Thread.sleep(failureDetector.getConfig().getAsyncRecoveryInterval() * 2);
+        assertEquals(true, failureDetector.isAvailable(node));
+    }
 }
