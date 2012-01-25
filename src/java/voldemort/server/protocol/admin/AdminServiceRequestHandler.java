@@ -800,6 +800,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 updateStatus(message);
                                 logger.info(message);
                             }
+                        } catch(VoldemortException ve) {
+                            String errorMessage = "File fetcher failed for "
+                                                  + fetchUrl
+                                                  + " and store '"
+                                                  + storeName
+                                                  + "' due to too many push jobs happening at the same time.";
+                            updateStatus(errorMessage);
+                            logger.error(errorMessage);
+                            throw new VoldemortException(errorMessage);
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
                         }
