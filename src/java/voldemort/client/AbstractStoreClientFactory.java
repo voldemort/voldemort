@@ -139,10 +139,24 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
+
+        logger.info("Client zone-id [" + clientZoneId
+                    + "] Attempting to obtain metadata for store [" + storeName + "] ");
+        if(logger.isDebugEnabled()) {
+            for(URI uri: bootstrapUrls) {
+                logger.debug("Client Bootstrap url [" + uri + "]");
+            }
+        }
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
         String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Obtained cluster metadata xml" + clusterXml);
+            logger.debug("Obtained stores  metadata xml" + storesXml);
+        }
+
         List<StoreDefinition> storeDefs = storeMapper.readStoreList(new StringReader(storesXml),
                                                                     false);
         StoreDefinition storeDef = null;
@@ -152,6 +166,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(storeDef == null)
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
 
+        if(logger.isDebugEnabled()) {
+            logger.debug(cluster.toString(true));
+            logger.debug(storeDef.toString());
+        }
         boolean repairReads = !storeDef.isView();
 
         // construct mapping

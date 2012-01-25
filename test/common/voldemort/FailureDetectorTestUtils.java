@@ -18,6 +18,7 @@ package voldemort;
 
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.store.UnreachableStoreException;
 
 public class FailureDetectorTestUtils {

@@ -19,6 +19,8 @@ import static org.junit.Assert.assertArrayEquals;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import com.ning.compress.lzf.LZFDecoder;
+import com.ning.compress.lzf.LZFEncoder;
 
 import junit.framework.TestCase;
 

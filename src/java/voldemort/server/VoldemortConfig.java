@@ -48,6 +48,7 @@ public class VoldemortConfig implements Serializable {
 
     private static final long serialVersionUID = 1;
     public static final String VOLDEMORT_HOME_VAR_NAME = "VOLDEMORT_HOME";
+    public static final String VOLDEMORT_CONFIG_DIR = "VOLDEMORT_CONFIG_DIR";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
     public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
 
@@ -76,6 +77,8 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
+    private int bdbLogFaultReadSize;
+    private int bdbLogIteratorReadSize;
     private boolean bdbFairLatches;
     private long bdbStatsCacheTtlMs;
 
@@ -206,6 +209,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
         this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
+        this.bdbLogFaultReadSize = props.getInt("bdb.log.fault.read.size", 2048);
+        this.bdbLogIteratorReadSize = props.getInt("bdb.log.iterator.read.size", 8192);
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
@@ -394,17 +399,33 @@ public class VoldemortConfig implements Serializable {
                                              + VoldemortConfig.VOLDEMORT_HOME_VAR_NAME
                                              + " has been defined, set it!");
 
-        return loadFromVoldemortHome(voldemortHome);
+        String voldemortConfigDir = System.getenv(VoldemortConfig.VOLDEMORT_CONFIG_DIR);
+        if(voldemortConfigDir != null) {
+            if(!Utils.isReadableDir(voldemortConfigDir))
+                throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_CONFIG_DIR, "
+                                                 + voldemortConfigDir
+                                                 + " failed. That is not a readable directory.");
+        }
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
     }
 
     public static VoldemortConfig loadFromVoldemortHome(String voldemortHome) {
+        String voldemortConfigDir = voldemortHome + File.separator + "config";
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
+
+    }
+
+    public static VoldemortConfig loadFromVoldemortHome(String voldemortHome,
+                                                        String voldemortConfigDir) {
         if(!Utils.isReadableDir(voldemortHome))
             throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_HOME, "
                                              + voldemortHome
                                              + " failed. That is not a readable directory.");
 
-        String propertiesFile = voldemortHome + File.separator + "config" + File.separator
-                                + "server.properties";
+        if(voldemortConfigDir == null) {
+            voldemortConfigDir = voldemortHome + File.separator + "config";
+        }
+        String propertiesFile = voldemortConfigDir + File.separator + "server.properties";
         if(!Utils.isReadableFile(propertiesFile))
             throw new ConfigurationException(propertiesFile
                                              + " is not a readable configuration file.");
@@ -413,6 +434,7 @@ public class VoldemortConfig implements Serializable {
         try {
             properties = new Props(new File(propertiesFile));
             properties.put("voldemort.home", voldemortHome);
+            properties.put("metadata.directory", voldemortConfigDir);
         } catch(IOException e) {
             throw new ConfigurationException(e);
         }
@@ -646,6 +668,22 @@ public class VoldemortConfig implements Serializable {
 
     public int getBdbLockNLockTables() {
         return bdbLockNLockTables;
+    }
+
+    public void setBdbLogFaultReadSize(int bdbLogFaultReadSize) {
+        this.bdbLogFaultReadSize = bdbLogFaultReadSize;
+    }
+
+    public int getBdbLogFaultReadSize() {
+        return bdbLogFaultReadSize;
+    }
+
+    public void setBdbLogIteratorReadSize(int bdbLogIteratorReadSize) {
+        this.bdbLogIteratorReadSize = bdbLogIteratorReadSize;
+    }
+
+    public int getBdbLogIteratorReadSize() {
+        return bdbLogIteratorReadSize;
     }
 
     public boolean getBdbFairLatches() {

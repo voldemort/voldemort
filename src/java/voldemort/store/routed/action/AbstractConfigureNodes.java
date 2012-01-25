@@ -23,9 +23,10 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
-import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.PipelineData;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 
 public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>> extends
         AbstractAction<K, V, PD> {
@@ -50,18 +51,41 @@ public abstract class AbstractConfigureNodes<K, V, PD extends PipelineData<K, V>
     protected List<Node> getNodes(ByteArray key) {
         List<Node> nodes = new ArrayList<Node>();
 
-        for(Node node: routingStrategy.routeRequest(key.get())) {
-            if(failureDetector.isAvailable(node))
-                nodes.add(node);
-            else
-                pipelineData.addFailedNode(node);
+        pipelineData.setReplicationSet(routingStrategy.routeRequest(key.get()));
+        // raise an error if no server has any partitions defined
+        if(pipelineData.getReplicationSet().size() == 0) {
+            throw new IllegalArgumentException("All servers configured with no partitions");
         }
 
-        if(nodes.size() < required)
-            throw new InsufficientOperationalNodesException("Only " + nodes.size()
-                                                            + " nodes in preference list, but "
-                                                            + required + " required.");
+        for(Node node: pipelineData.getReplicationSet()) {
+            if(failureDetector.isAvailable(node))
+                nodes.add(node);
+            else {
+                pipelineData.addFailedNode(node);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("Key " + ByteUtils.toHexString(key.get()) + " Node "
+                                 + node.getId() + " down");
+                }
+            }
+        }
 
+        if(nodes.size() < required) {
+            List<Integer> failedNodes = new ArrayList<Integer>();
+            List<Integer> allNodes = new ArrayList<Integer>();
+            for(Node node: pipelineData.getReplicationSet()) {
+                allNodes.add(node.getId());
+            }
+            for(Node node: pipelineData.getFailedNodes()) {
+                failedNodes.add(node.getId());
+            }
+            String errorMessage = "Only " + nodes.size() + " nodes up in preference list"
+                                  + ", but " + required + " required. Replication set: " + allNodes
+                                  + "Nodes down: " + failedNodes;
+            if(logger.isDebugEnabled()) {
+                logger.debug(errorMessage);
+            }
+            throw new InsufficientOperationalNodesException(errorMessage);
+        }
         return nodes;
     }
 }

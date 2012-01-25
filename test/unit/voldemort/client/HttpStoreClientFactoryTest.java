@@ -16,6 +16,8 @@
 
 package voldemort.client;
 
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.junit.After;
 import org.junit.Before;
 import org.mortbay.jetty.Server;
@@ -25,9 +27,10 @@ import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.SerializerFactory;
 import voldemort.store.http.HttpStore;
+import voldemort.utils.VoldemortIOUtils;
 
 /**
- * 
+ *
  */
 public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
 
@@ -35,6 +38,7 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
     private Server server;
     private Context context;
     private String url;
+    private HttpClient httpClient;
 
     @Override
     @Before
@@ -46,9 +50,11 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
                                                  RequestFormatType.VOLDEMORT_V1,
                                                  getLocalNode().getHttpPort());
         server = context.getServer();
+        httpClient = new DefaultHttpClient();
         httpStore = ServerTestUtils.getHttpStore(getValidStoreName(),
                                                  RequestFormatType.VOLDEMORT_V1,
-                                                 getLocalNode().getHttpPort());
+                                                 getLocalNode().getHttpPort(),
+                                                 httpClient);
         url = getLocalNode().getHttpUrl().toString();
     }
 
@@ -58,6 +64,8 @@ public class HttpStoreClientFactoryTest extends AbstractStoreClientFactoryTest {
         httpStore.close();
         server.stop();
         context.destroy();
+        VoldemortIOUtils.closeQuietly(httpClient);
+
     }
 
     @Override

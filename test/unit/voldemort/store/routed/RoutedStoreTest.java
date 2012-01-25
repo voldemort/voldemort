@@ -18,7 +18,7 @@ package voldemort.store.routed;
 
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
@@ -421,7 +421,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.get(new ByteArray("test".getBytes()), null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + 130, elapsed < 130);
         }
 
         start = System.nanoTime();

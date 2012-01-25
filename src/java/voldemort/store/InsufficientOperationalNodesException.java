@@ -16,10 +16,15 @@
 
 package voldemort.store;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+
+import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.Node;
 
 /**
  * Thrown if an operation fails due to too few reachable nodes.
@@ -31,6 +36,8 @@ public class InsufficientOperationalNodesException extends VoldemortException {
     private static final long serialVersionUID = 1L;
 
     private Collection<? extends Throwable> causes;
+
+    private static final Logger logger = Logger.getLogger(InsufficientOperationalNodesException.class);
 
     public InsufficientOperationalNodesException(String s, Throwable e) {
         super(s, e);
@@ -57,8 +64,52 @@ public class InsufficientOperationalNodesException extends VoldemortException {
         this.causes = failures;
     }
 
+    public InsufficientOperationalNodesException(String message,
+                                                 List<Node> replicationSet,
+                                                 List<Node> preferenceList,
+                                                 List<Node> failedList,
+                                                 Collection<? extends Throwable> failures) {
+        this(message + " Original replication set :" + stripNodeIds(replicationSet)
+                     + " Known failed nodes before operation :"
+                     + stripNodeIds(difference(replicationSet, preferenceList))
+                     + " Estimated live nodes in preference list :" + stripNodeIds(preferenceList)
+                     + " New failed nodes during operation :"
+                     + stripNodeIds(difference(failedList, replicationSet)),
+             failures.size() > 0 ? failures.iterator().next() : null);
+        if(logger.isDebugEnabled()) {
+            logger.debug(this.getMessage());
+        }
+    }
+
     public Collection<? extends Throwable> getCauses() {
         return this.causes;
     }
 
+    /**
+     * Helper method to get a list of node ids.
+     * 
+     * @param nodeList
+     */
+    private static List<Integer> stripNodeIds(List<Node> nodeList) {
+        List<Integer> nodeidList = new ArrayList<Integer>();
+        if(nodeList != null) {
+            for(Node node: nodeList) {
+                nodeidList.add(node.getId());
+            }
+        }
+        return nodeidList;
+    }
+
+    /**
+     * Computes A-B
+     * 
+     * @param listA
+     * @param listB
+     * @return
+     */
+    private static List<Node> difference(List<Node> listA, List<Node> listB) {
+        if(listA != null && listB != null)
+            listA.removeAll(listB);
+        return listA;
+    }
 }

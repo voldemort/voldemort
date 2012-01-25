@@ -2,8 +2,8 @@ package voldemort.store.compress;
 
 import java.io.IOException;
 
-import voldemort.store.compress.lzf.LZFDecoder;
-import voldemort.store.compress.lzf.LZFEncoder;
+import com.ning.compress.lzf.LZFDecoder;
+import com.ning.compress.lzf.LZFEncoder;
 
 /**
  * Implementation of CompressionStrategy for the LZF format. LZF is optimized

@@ -11,6 +11,8 @@ public class CompressionStrategyFactory {
             return new GzipCompressionStrategy();
         if(compression.getType().equals("lzf"))
             return new LzfCompressionStrategy();
+        if(compression.getType().equals("snappy"))
+            return new SnappyCompressionStrategy();
         throw new IllegalArgumentException("Unsupported compression algorithm: "
                                            + compression.getType());
     }

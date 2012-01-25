@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -27,8 +28,8 @@ import voldemort.store.Store;
 import voldemort.store.StoreRequest;
 import voldemort.store.routed.BasicPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
@@ -108,6 +109,9 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
                                                                                              + " succeeded",
+                                                                                     new ArrayList<Node>(pipelineData.getReplicationSet()),
+                                                                                     new ArrayList<Node>(pipelineData.getNodes()),
+                                                                                     new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();

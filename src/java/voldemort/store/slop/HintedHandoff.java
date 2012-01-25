@@ -42,7 +42,7 @@ import voldemort.versioning.Versioned;
  * Hinted handoff: if, when processing a pipeline for a given request, failures
  * shall occur on specific nodes, the requests for these failed nodes should be
  * queued up on other, currently available nodes. Semantics of the operation
- * should not change i.e., if <code>requires-writes</code> are not met, the
+ * should not change i.e., if <code>required-writes</code> are not met, the
  * request should still be considered a failure.
  */
 public class HintedHandoff {

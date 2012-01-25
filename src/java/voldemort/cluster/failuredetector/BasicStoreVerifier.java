@@ -32,7 +32,7 @@ import voldemort.store.UnreachableStoreException;
 
 public class BasicStoreVerifier<K, V, T> implements StoreVerifier {
 
-    private final Map<Integer, Store<K, V, T>> stores;
+    protected final Map<Integer, Store<K, V, T>> stores;
 
     private final K key;
 
@@ -51,5 +51,4 @@ public class BasicStoreVerifier<K, V, T> implements StoreVerifier {
         // This is our test.
         store.get(key, null);
     }
-
 }

@@ -16,7 +16,14 @@
 
 package voldemort.store.http;
 
-import org.apache.commons.httpclient.HttpClient;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 
@@ -31,6 +38,7 @@ import voldemort.store.AbstractByteArrayStoreTest;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.utils.ByteArray;
+import voldemort.utils.VoldemortIOUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -45,6 +53,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
     private HttpStore httpStore;
     private Server server;
     private Context context;
+    private HttpClient httpClient;
 
     @Override
     public void setUp() throws Exception {
@@ -57,17 +66,30 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
                                                  RequestFormatType.VOLDEMORT_V1,
                                                  node.getHttpPort());
         server = context.getServer();
+
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        5000,
+                                                                                        TimeUnit.MILLISECONDS);
+        httpClient = new DefaultHttpClient(connectionManager);
         httpStore = ServerTestUtils.getHttpStore("users",
                                                  RequestFormatType.VOLDEMORT_V1,
-                                                 node.getHttpPort());
+                                                 node.getHttpPort(),
+                                                 httpClient);
     }
 
     public <T extends Exception> void testBadUrlOrPort(String url, int port, Class<T> expected) {
         ByteArray key = new ByteArray("test".getBytes());
         RequestFormat requestFormat = new RequestFormatFactory().getRequestFormat(RequestFormatType.VOLDEMORT_V1);
-        HttpClient client = new HttpClient();
-        client.getHttpConnectionManager().getParams().setConnectionTimeout(5000);
-        HttpStore badUrlHttpStore = new HttpStore("test", url, port, client, requestFormat, false);
+
+        HttpParams clientParams = httpClient.getParams();
+        HttpConnectionParams.setConnectionTimeout(clientParams, 5000);
+
+        HttpStore badUrlHttpStore = new HttpStore("test",
+                                                  url,
+                                                  port,
+                                                  httpClient,
+                                                  requestFormat,
+                                                  false);
         try {
             badUrlHttpStore.put(key,
                                 new Versioned<byte[]>("value".getBytes(), new VectorClock()),
@@ -105,6 +127,7 @@ public class HttpStoreTest extends AbstractByteArrayStoreTest {
         httpStore.close();
         server.stop();
         context.destroy();
+        VoldemortIOUtils.closeQuietly(httpClient);
     }
 
     @Override
