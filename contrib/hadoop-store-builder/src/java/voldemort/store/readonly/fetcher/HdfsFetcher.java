@@ -100,11 +100,7 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
         this.maxBytesPerSecond = maxBytesPerSecond;
         if(this.maxBytesPerSecond != null) {
-            // this.throttler = new
-            // DynamicEventThrottler(this.maxBytesPerSecond);
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
-            logger.info("Initializing Dynamic Event throttler with rate : "
-                        + this.maxBytesPerSecond + " bytes / sec");
         }
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
@@ -115,15 +111,13 @@ public class HdfsFetcher implements FileFetcher {
                        Long reportingIntervalBytes,
                        int bufferSize,
                        long minBytesPerSecond) {
-        if(dynThrottleLimit != null)
+        if(dynThrottleLimit != null) {
             this.maxBytesPerSecond = dynThrottleLimit.getRate();
-        else
-            this.maxBytesPerSecond = null;
-        if(this.maxBytesPerSecond != null) {
             this.throttler = new DynamicEventThrottler(dynThrottleLimit);
             logger.info("Initializing Dynamic Event throttler with rate : "
                         + this.maxBytesPerSecond + " bytes / sec");
-        }
+        } else
+            this.maxBytesPerSecond = null;
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
         this.status = null;
