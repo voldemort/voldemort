@@ -14,11 +14,7 @@ public class DynamicThrottleLimit {
     }
 
     public long getRate() {
-        long retVal;
-        synchronized(this) {
-            retVal = this.dynamicRatePerSecond;
-        }
-        return retVal;
+        return this.dynamicRatePerSecond;
     }
 
     public void incrementNumJobs() {

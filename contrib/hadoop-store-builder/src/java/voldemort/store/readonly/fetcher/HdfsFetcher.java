@@ -111,9 +111,10 @@ public class HdfsFetcher implements FileFetcher {
                        Long reportingIntervalBytes,
                        int bufferSize,
                        long minBytesPerSecond) {
-        if(dynThrottleLimit != null) {
+        if(dynThrottleLimit != null && dynThrottleLimit.getRate() != 0) {
             this.maxBytesPerSecond = dynThrottleLimit.getRate();
             this.throttler = new DynamicEventThrottler(dynThrottleLimit);
+            this.globalThrottleLimit = dynThrottleLimit;
             logger.info("Initializing Dynamic Event throttler with rate : "
                         + this.maxBytesPerSecond + " bytes / sec");
         } else
@@ -122,7 +123,6 @@ public class HdfsFetcher implements FileFetcher {
         this.bufferSize = bufferSize;
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
-        this.globalThrottleLimit = dynThrottleLimit;
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {

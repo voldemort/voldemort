@@ -20,16 +20,8 @@ public class DynamicEventThrottler extends EventThrottler {
         super(time, ratePerSecond, intervalMs);
     }
 
-    public void updateRate(long l) {
+    public synchronized void updateRate(long l) {
         this.dynamicRatePerSecond = l;
-    }
-
-    public void incrementNumJobs() {
-        this.dynThrottleLimit.incrementNumJobs();
-    }
-
-    public void decrementNumJobs() {
-        this.dynThrottleLimit.decrementNumJobs();
     }
 
     @Override
