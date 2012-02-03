@@ -91,7 +91,6 @@ import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
@@ -108,8 +107,6 @@ import voldemort.versioning.Versioned;
 public class StorageService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
-
-    private static final long DEFAULT_FETCH_RATE = 0;
 
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
@@ -162,12 +159,14 @@ public class StorageService extends AbstractService {
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit
-         * config
+         * config only if read-only engine is being used.
          */
-        Props props = this.voldemortConfig.getAllProps();
-        long rate = props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
-                                                                  : DEFAULT_FETCH_RATE;
-        this.dynThrottleLimit = new DynamicThrottleLimit(rate);
+        if(this.voldemortConfig.getStorageConfigurations()
+                               .contains(ReadOnlyStorageConfiguration.class.getName())) {
+            long rate = this.voldemortConfig.getMaxBytesPerSecond();
+            this.dynThrottleLimit = new DynamicThrottleLimit(rate);
+        } else
+            this.dynThrottleLimit = null;
     }
 
     private void initStorageConfig(String configClassName) {

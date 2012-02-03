@@ -66,7 +66,6 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
-import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
@@ -132,11 +131,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     Class<?> cls = Class.forName(className.trim());
                     this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
                                                                                   new Class<?>[] {
-                                                                                          Props.class,
+                                                                                          VoldemortConfig.class,
                                                                                           storageService.getDynThrottleLimit()
                                                                                                         .getClass() },
                                                                                   new Object[] {
-                                                                                          voldemortConfig.getAllProps(),
+                                                                                          voldemortConfig,
                                                                                           storageService.getDynThrottleLimit() });
                 } catch(Exception e) {
                     throw new VoldemortException("Error loading file fetcher class " + className, e);

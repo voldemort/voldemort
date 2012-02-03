@@ -51,6 +51,8 @@ public class VoldemortConfig implements Serializable {
     public static final String VOLDEMORT_CONFIG_DIR = "VOLDEMORT_CONFIG_DIR";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
     public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
+    public static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
+    public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private int nodeId;
 
@@ -92,6 +94,10 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyStorageDir;
     private String readOnlySearchStrategy;
     private int readOnlyDeleteBackupTimeMs;
+    private long maxBytesPerSecond;
+    private long minBytesPerSecond;
+    private long reportingIntervalBytes;
+    private int fetcherBufferSize;
 
     private int coreThreads;
     private int maxThreads;
@@ -224,6 +230,12 @@ public class VoldemortConfig implements Serializable {
                                                                              + File.separator
                                                                              + "read-only");
         this.readOnlyDeleteBackupTimeMs = props.getInt("readonly.delete.backup.ms", 0);
+        this.maxBytesPerSecond = props.getBytes("fetcher.max.bytes.per.sec", 0);
+        this.minBytesPerSecond = props.getBytes("fetcher.min.bytes.per.sec", 0);
+        this.reportingIntervalBytes = props.getBytes("fetcher.reporting.interval.bytes",
+                                                     REPORTING_INTERVAL_BYTES);
+        this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
+                                                      DEFAULT_BUFFER_SIZE);
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -1386,6 +1398,38 @@ public class VoldemortConfig implements Serializable {
 
     public String getReadOnlySearchStrategy() {
         return readOnlySearchStrategy;
+    }
+
+    public long getMaxBytesPerSecond() {
+        return maxBytesPerSecond;
+    }
+
+    public void setMaxBytesPerSecond(long maxBytesPerSecond) {
+        this.maxBytesPerSecond = maxBytesPerSecond;
+    }
+
+    public long getMinBytesPerSecond() {
+        return minBytesPerSecond;
+    }
+
+    public void setMinBytesPerSecond(long minBytesPerSecond) {
+        this.minBytesPerSecond = minBytesPerSecond;
+    }
+
+    public long getReportingIntervalBytes() {
+        return reportingIntervalBytes;
+    }
+
+    public void setReportingIntervalBytes(long reportingIntervalBytes) {
+        this.reportingIntervalBytes = reportingIntervalBytes;
+    }
+
+    public int getFetcherBufferSize() {
+        return fetcherBufferSize;
+    }
+
+    public void setFetcherBufferSize(int fetcherBufferSize) {
+        this.fetcherBufferSize = fetcherBufferSize;
     }
 
     public void setReadOnlySearchStrategy(String readOnlySearchStrategy) {
