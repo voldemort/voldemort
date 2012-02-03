@@ -84,6 +84,14 @@ public class StreamingSlopPusherJob implements Runnable {
         this.adminClient = null;
         this.consumerResults = Lists.newArrayList();
         this.zoneMapping = Maps.newHashMap();
+        this.consumerExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("slop-pusher");
+                return thread;
+            }
+        });
     }
 
     public void run() {
@@ -239,8 +247,8 @@ public class StreamingSlopPusherJob implements Runnable {
                     logger.info("Slops to node " + nodeId + " - Succeeded - "
                                 + succeededByNode.get(nodeId) + " - Attempted - "
                                 + attemptedByNode.get(nodeId));
-                    outstanding.put(nodeId, attemptedByNode.get(nodeId)
-                                            - succeededByNode.get(nodeId));
+                    outstanding.put(nodeId,
+                                    attemptedByNode.get(nodeId) - succeededByNode.get(nodeId));
                 }
                 slopStorageEngine.resetStats(outstanding);
                 logger.info("Completed streaming slop pusher job which started at " + startTime);
@@ -266,15 +274,6 @@ public class StreamingSlopPusherJob implements Runnable {
     private void loadMetadata() {
         this.cluster = metadataStore.getCluster();
         this.slopQueues = new ConcurrentHashMap<Integer, SynchronousQueue<Versioned<Slop>>>(cluster.getNumberOfNodes());
-        this.consumerExecutor = Executors.newFixedThreadPool(cluster.getNumberOfNodes(),
-                                                             new ThreadFactory() {
-
-                                                                 public Thread newThread(Runnable r) {
-                                                                     Thread thread = new Thread(r);
-                                                                     thread.setName("slop-pusher");
-                                                                     return thread;
-                                                                 }
-                                                             });
         this.attemptedByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
         this.succeededByNode = new ConcurrentHashMap<Integer, Long>(cluster.getNumberOfNodes());
     }
