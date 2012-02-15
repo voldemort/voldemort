@@ -5,7 +5,11 @@ import voldemort.annotations.concurrency.NotThreadsafe;
 import java.util.Arrays;
 
 /**
- * A class for computing percentiles based on a histogram
+ * A class for computing percentiles based on a histogram. Values are bucketed
+ * by a configurable bound (e.g., 0-1, 1-2, 2-3). When a value is inserted,
+ * perform a binary search to find the correct bucket.
+ *
+ *
  */
 @NotThreadsafe
 public class Histogram {
@@ -17,9 +21,10 @@ public class Histogram {
     private int size;
 
     /**
-     * 
-     * @param nBuckets
-     * @param step
+     * Initialize an empty histogram
+     *
+     * @param nBuckets The number of buckets to use
+     * @param step The size of each bucket
      */
     public Histogram(int nBuckets, int step) {
         this.nBuckets = nBuckets;
@@ -38,7 +43,7 @@ public class Histogram {
     }
 
     /**
-     * 
+     * Reset the histogram back to empty (set all values to 0)
      */
     public void reset() {
         Arrays.fill(buckets, 0);
@@ -46,8 +51,10 @@ public class Histogram {
     }
 
     /**
-     * 
-     * @param data
+     * Insert a value into the right bucket of the histogram. If the value is
+     * larger than any bound, insert into the last bucket
+     *
+     * @param data The value to insert into the histogram
      */
     public void insert(int data) {
         int index = findBucket(data);
@@ -55,7 +62,14 @@ public class Histogram {
         buckets[index]++;
         size++;
     }
-    
+
+    /**
+     * Find the a value <em>n</em> such that the percentile falls within
+     * [<em>n</em>, <em>n + step</em>)
+     *
+     * @param quantile The percentile to find
+     * @return Lower bound associated with the percentile
+     */
     public int getQuantile(double quantile) {
         int total = 0;
         for(int i = 0; i < nBuckets; i++) {
@@ -92,7 +106,7 @@ public class Histogram {
     private int compareToBucket(int bucket, int needle) {
         int low = bounds[bucket];
         int high = low + step;
-        if (low <= needle && high > needle) {
+        if(low <= needle && high > needle) {
             return 0;
         } else if(low > needle) {
             return 1;
