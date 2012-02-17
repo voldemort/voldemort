@@ -16,6 +16,9 @@ public class RequestCounter {
     private final AtomicReference<Accumulator> values;
     private final int durationMS;
     private final Time time;
+    private final Histogram histogram;
+    private volatile int q95LatencyMs;
+    private volatile int q99LatencyMs;
 
     /**
      * @param durationMS specifies for how long you want to maintain this
@@ -32,6 +35,9 @@ public class RequestCounter {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMS = durationMS;
+        this.histogram = new Histogram(15000, 1);
+        this.q95LatencyMs = 0;
+        this.q99LatencyMs = 0;
     }
 
     public long getCount() {
@@ -84,6 +90,19 @@ public class RequestCounter {
         return getValidAccumulator().maxLatencyNS / Time.NS_PER_MS;
     }
 
+    private void maybeResetHistogram() {
+        Accumulator accum = values.get();
+        long now = time.getMilliseconds();
+        if(now - accum.startTimeMS <= durationMS) {
+            // Reset the histogram            
+            synchronized(histogram) {
+                q95LatencyMs = histogram.getQuantile(0.95);
+                q99LatencyMs = histogram.getQuantile(0.99);
+                histogram.reset();
+            }
+        }
+    }
+
     private Accumulator getValidAccumulator() {
 
         Accumulator accum = values.get();
@@ -131,6 +150,11 @@ public class RequestCounter {
      * @param getAllAggregatedCount Total number of keys returned for getAll calls
      */
     public void addRequest(long timeNS, long numEmptyResponses, long bytes, long getAllAggregatedCount) {
+        synchronized(histogram) {
+            int timeMs = (int) timeNS / (int) Time.NS_PER_MS;
+            histogram.insert(timeMs);
+        }
+        maybeResetHistogram();
         for(int i = 0; i < 3; i++) {
             Accumulator oldv = getValidAccumulator();
             Accumulator newv = new Accumulator(oldv.startTimeMS,
@@ -175,6 +199,14 @@ public class RequestCounter {
         return getValidAccumulator().getAllAggregatedCount;
     }
 
+    public int getQ95LatencyMs() {
+        return q95LatencyMs;
+    }
+    
+    public int getQ99LatencyMs() {
+        return q99LatencyMs;
+    }                       
+    
     private class Accumulator {
 
         final long startTimeMS;
