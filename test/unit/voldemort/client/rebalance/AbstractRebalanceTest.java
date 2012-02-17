@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +73,7 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.KeyLocationValidation;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -84,15 +86,17 @@ import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 10;
+    protected static int NUM_KEYS = 10100;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
+    protected static String testStoreNameRW2 = "test2";
     protected static String testStoreNameRO = "test-ro";
 
     protected static String storeDefFileWithoutReplication;
     protected static String storeDefFileWithReplication;
     protected static String roStoreDefFileWithReplication;
     protected static String rwStoreDefFileWithReplication;
+    protected static String rwTwoStoreDefFileWithReplication;
 
     private List<StoreDefinition> storeDefWithoutReplication;
     private List<StoreDefinition> storeDefWithReplication;
@@ -100,6 +104,7 @@ public abstract class AbstractRebalanceTest {
     private StoreDefinition rwStoreDefWithoutReplication;
     private StoreDefinition roStoreDefWithReplication;
     private StoreDefinition rwStoreDefWithReplication;
+    private StoreDefinition rwStoreDefWithReplication2;
 
     protected SocketStoreFactory socketStoreFactory;
     HashMap<String, String> testEntries;
@@ -173,10 +178,29 @@ public abstract class AbstractRebalanceTest {
                                                                 .setPreferredWrites(1)
                                                                 .setRequiredWrites(1)
                                                                 .build();
+        rwStoreDefWithReplication2 = new StoreDefinitionBuilder().setName(testStoreNameRW2)
+                                                                 .setType(BdbStorageConfiguration.TYPE_NAME)
+                                                                 .setKeySerializer(new SerializerDefinition("string"))
+                                                                 .setValueSerializer(new SerializerDefinition("string"))
+                                                                 .setRoutingPolicy(RoutingTier.SERVER)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(2)
+                                                                 .setPreferredReads(1)
+                                                                 .setRequiredReads(1)
+                                                                 .setPreferredWrites(1)
+                                                                 .setRequiredWrites(1)
+                                                                 .build();
+
         file = File.createTempFile("rw-stores-", ".xml");
         FileUtils.writeStringToFile(file,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication)));
         rwStoreDefFileWithReplication = file.getAbsolutePath();
+
+        file = File.createTempFile("rw-two-stores-", ".xml");
+        FileUtils.writeStringToFile(file,
+                                    new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(rwStoreDefWithReplication,
+                                                                                                   rwStoreDefWithReplication2)));
+        rwTwoStoreDefFileWithReplication = file.getAbsolutePath();
 
         storeDefWithReplication = Lists.newArrayList(roStoreDefWithReplication,
                                                      rwStoreDefWithReplication);
@@ -225,6 +249,8 @@ public abstract class AbstractRebalanceTest {
 
     protected abstract MetadataStore.VoldemortState getCurrentState(int nodeId);
 
+    protected abstract boolean useDonorBased();
+
     public void checkConsistentMetadata(Cluster targetCluster, List<Integer> serverList) {
         for(int nodeId: serverList) {
             assertEquals(targetCluster, getCurrentCluster(nodeId));
@@ -238,8 +264,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -287,8 +312,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -332,8 +356,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -374,8 +397,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                    currentCluster.getNodeById(1),
-                                                                    currentCluster.getNodeById(0),
+                                                                    1,
                                                                     Lists.newArrayList(2, 3));
 
         // start servers 0 , 1 only
@@ -389,6 +411,7 @@ public abstract class AbstractRebalanceTest {
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -411,13 +434,274 @@ public abstract class AbstractRebalanceTest {
     }
 
     @Test
+    public void testRebalanceCleanPrimary() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
+                { 2 } });
+
+        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                    2,
+                                                                    Lists.newArrayList(3));
+
+        // start servers 0 , 1, 2
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("enable.repair", "true");
+        List<Integer> serverList = Arrays.asList(0, 1, 2);
+        currentCluster = startServers(currentCluster,
+                                      rwStoreDefFileWithReplication,
+                                      serverList,
+                                      configProps);
+        // Update the cluster information based on the node information
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setDeleteAfterRebalancingEnabled(false);
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(currentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            // Figure out the positive and negative keys to check
+            ByteArray[] checkKeysNegative = new ByteArray[20];
+            List<Integer> movedPartitions = new ArrayList<Integer>();
+            movedPartitions.add(3);
+            AdminClient admin = rebalanceClient.getAdminClient();
+            Iterator<ByteArray> keys = null;
+            keys = admin.fetchKeys(1,
+                                   rwStoreDefWithReplication.getName(),
+                                   movedPartitions,
+                                   null,
+                                   false);
+            int keyIndex = 0;
+            while(keys.hasNext() && keyIndex < 20) {
+                checkKeysNegative[keyIndex++] = keys.next();
+            }
+            ByteArray[] checkKeysPositive = new ByteArray[20];
+            List<Integer> stablePartitions = new ArrayList<Integer>();
+            stablePartitions.add(1);
+            Iterator<ByteArray> keys2 = null;
+            keys2 = admin.fetchKeys(1,
+                                    rwStoreDefWithReplication.getName(),
+                                    stablePartitions,
+                                    null,
+                                    false);
+            int keyIndex2 = 0;
+            while(keys2.hasNext() && keyIndex2 < 20) {
+                checkKeysPositive[keyIndex2++] = keys2.next();
+            }
+
+            rebalanceAndCheck(currentCluster,
+                              targetCluster,
+                              Lists.newArrayList(rwStoreDefWithReplication),
+                              rebalanceClient,
+                              Arrays.asList(0, 1, 2));
+            checkConsistentMetadata(targetCluster, serverList);
+
+            // Do the cleanup operation
+
+            for(int i = 0; i < 3; i++) {
+                admin.repairJob(i);
+            }
+
+            boolean cleanNode = true;
+            for(int i = 0; i < keyIndex; i++) {
+                KeyLocationValidation val = new KeyLocationValidation(targetCluster,
+                                                                      1,
+                                                                      rwStoreDefWithReplication,
+                                                                      checkKeysNegative[i]);
+                if(!val.validate(false))
+                    cleanNode = false;
+            }
+            for(int i = 0; i < keyIndex2; i++) {
+                KeyLocationValidation val = new KeyLocationValidation(targetCluster,
+                                                                      1,
+                                                                      rwStoreDefWithReplication,
+                                                                      checkKeysPositive[i]);
+                if(!val.validate(true))
+                    cleanNode = false;
+            }
+            if(cleanNode)
+                System.out.println("[Primary] Successful clean after Rebalancing");
+            else
+                System.out.println("[Primary] Rebalancing not clean");
+
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+    }
+
+    @Test
+    public void testRebalanceCleanSecondary() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 }, { 1 },
+                { 2 } });
+
+        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                    2,
+                                                                    Lists.newArrayList(3));
+
+        // start servers 0 , 1, 2
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("enable.repair", "true");
+        List<Integer> serverList = Arrays.asList(0, 1, 2);
+        currentCluster = startServers(currentCluster,
+                                      rwStoreDefFileWithReplication,
+                                      serverList,
+                                      configProps);
+        // Update the cluster information based on the node information
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setDeleteAfterRebalancingEnabled(false);
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(currentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            // Figure out the positive and negative keys to check
+            ByteArray[] checkKeysNegative = new ByteArray[20];
+            List<Integer> movedPartitions = new ArrayList<Integer>();
+            movedPartitions.add(3);
+            AdminClient admin = rebalanceClient.getAdminClient();
+            Iterator<ByteArray> keys = null;
+            keys = admin.fetchKeys(1,
+                                   rwStoreDefWithReplication.getName(),
+                                   movedPartitions,
+                                   null,
+                                   false);
+            int keyIndex = 0;
+            while(keys.hasNext() && keyIndex < 20) {
+                checkKeysNegative[keyIndex++] = keys.next();
+            }
+
+            ByteArray[] checkKeysPositive = new ByteArray[20];
+            List<Integer> stablePartitions = new ArrayList<Integer>();
+            stablePartitions.add(3);
+            Iterator<ByteArray> keys2 = null;
+            keys2 = admin.fetchKeys(0,
+                                    rwStoreDefWithReplication.getName(),
+                                    stablePartitions,
+                                    null,
+                                    false);
+            int keyIndex2 = 0;
+            while(keys2.hasNext() && keyIndex2 < 20) {
+                checkKeysPositive[keyIndex2++] = keys2.next();
+            }
+
+            rebalanceAndCheck(currentCluster,
+                              targetCluster,
+                              Lists.newArrayList(rwStoreDefWithReplication),
+                              rebalanceClient,
+                              Arrays.asList(0, 1, 2));
+            checkConsistentMetadata(targetCluster, serverList);
+
+            // Do the cleanup operation
+
+            for(int i = 0; i < 3; i++) {
+                admin.repairJob(i);
+            }
+
+            boolean cleanNode = true;
+            for(int i = 0; i < keyIndex; i++) {
+                KeyLocationValidation val = new KeyLocationValidation(targetCluster,
+                                                                      1,
+                                                                      rwStoreDefWithReplication,
+                                                                      checkKeysNegative[i]);
+                if(!val.validate(false))
+                    cleanNode = false;
+            }
+            for(int i = 0; i < keyIndex2; i++) {
+                KeyLocationValidation val = new KeyLocationValidation(targetCluster,
+                                                                      0,
+                                                                      rwStoreDefWithReplication,
+                                                                      checkKeysPositive[i]);
+                if(!val.validate(true))
+                    cleanNode = false;
+            }
+            if(cleanNode)
+                System.out.println("[Secondary] Successful clean after Rebalancing");
+            else
+                System.out.println("[Secondary] Rebalancing not clean");
+
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+    }
+
+    @Test
+    public void testRWRebalanceFourNodes() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
+
+        ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
+        int totalPortNum = nodes.size() * 3;
+        int[] ports = new int[totalPortNum];
+        for(int i = 0; i < nodes.size(); i++) {
+            ports[i * 3] = nodes.get(i).getHttpPort();
+            ports[i * 3 + 1] = nodes.get(i).getSocketPort();
+            ports[i * 3 + 2] = nodes.get(i).getAdminPort();
+        }
+
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+                { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
+
+        // start servers
+        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+        currentCluster = startServers(currentCluster,
+                                      rwTwoStoreDefFileWithReplication,
+                                      serverList,
+                                      null);
+        // Update the cluster information based on the node information
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
+        config.setPrimaryPartitionBatchSize(100);
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(currentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            populateData(currentCluster,
+                         rwStoreDefWithReplication2,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            rebalanceAndCheck(currentCluster,
+                              targetCluster,
+                              Lists.newArrayList(rwStoreDefWithReplication,
+                                                 rwStoreDefWithReplication2),
+                              rebalanceClient,
+                              serverList);
+            checkConsistentMetadata(targetCluster, serverList);
+        } catch(Exception e) {
+            fail(e.getMessage());
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+    }
+
+    @Test
     public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          currentCluster.getNodeById(1),
-                                                                          currentCluster.getNodeById(0),
+                                                                          1,
                                                                           Lists.newArrayList(2, 3));
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
@@ -553,8 +837,7 @@ public abstract class AbstractRebalanceTest {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
         final Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                                          currentCluster.getNodeById(1),
-                                                                          currentCluster.getNodeById(0),
+                                                                          1,
                                                                           Lists.newArrayList(2, 3));
 
         final List<Integer> serverList = Arrays.asList(0, 1);
@@ -707,7 +990,7 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(), getSocketStore(testStoreNameRW,
+                storeMap.put(node.getId(), getSocketStore(storeDef.getName(),
                                                           node.getHost(),
                                                           node.getSocketPort()));
 
@@ -830,6 +1113,10 @@ public abstract class AbstractRebalanceTest {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);
 
                 // expecting exactly one version
+                if(values.size() == 0) {
+                    fail("unable to find value for key=" + entry.getKey() + " on node="
+                         + node.getId());
+                }
                 assertEquals("Expecting exactly one version", 1, values.size());
                 Versioned<byte[]> value = values.get(0);
                 // check version matches (expecting base version for all)

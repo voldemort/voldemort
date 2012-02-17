@@ -18,7 +18,7 @@ public class AdminClientConfig {
     private volatile long adminSocketTimeoutSec = 24 * 60 * 60;
     private volatile int adminSocketBufferSize = 16 * 1024 * 1024;
     private volatile boolean adminSocketKeepAlive = false;
-    private volatile int restoreDataTimeoutSec = 24 * 60 * 60;
+    private volatile int restoreDataTimeoutSec = 365 * 24 * 60 * 60;
     private volatile int maxBackoffDelayMs = 60 * 1000;
 
     public static final String MAX_CONNECTIONS_PER_NODE_PROPERTY = "max_connections";

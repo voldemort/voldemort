@@ -84,6 +84,10 @@ public class StoreStats {
         return counters.get(op).getThroughput();
     }
 
+    public float getThroughputInBytes(Tracked op) {
+        return counters.get(op).getThroughputInBytes();
+    }
+
     public double getAvgTimeInMs(Tracked op) {
         return counters.get(op).getAverageTimeInMs();
     }
@@ -106,6 +110,11 @@ public class StoreStats {
 
     public double getAvgSizeinBytes(Tracked op) {
         return counters.get(op).getAverageSizeInBytes();
+    }
+
+    public double getGetAllAverageCount() {
+        long total = getGetAllAggregatedCount();
+        return total == 0 ? 0.0d : total / counters.get(Tracked.GET_ALL).getCount();
     }
 
     public long getGetAllAggregatedCount() {

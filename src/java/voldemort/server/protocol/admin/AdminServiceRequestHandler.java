@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
@@ -41,18 +40,18 @@ import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VAdminProto.VoldemortAdminRequest;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RoutingStrategy;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.rebalance.Rebalancer;
+import voldemort.server.storage.RepairJob;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreOperationFailureException;
+import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
@@ -190,6 +189,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceNode(request.getInitiateRebalanceNode()));
                 break;
+            case INITIATE_REBALANCE_NODE_ON_DONOR:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleRebalanceNodeOnDonor(request.getInitiateRebalanceNodeOnDonor()));
+                break;
             case ASYNC_OPERATION_LIST:
                 ProtoUtils.writeMessage(outputStream,
                                         handleAsyncOperationList(request.getAsyncOperationList()));
@@ -242,11 +245,58 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream,
                                         handleRebalanceStateChange(request.getRebalanceStateChange()));
                 break;
+            case DELETE_STORE_REBALANCE_STATE:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleDeleteStoreRebalanceState(request.getDeleteStoreRebalanceState()));
+                break;
+            case REPAIR_JOB:
+                ProtoUtils.writeMessage(outputStream, handleRepairJob(request.getRepairJob()));
+                break;
+            case NATIVE_BACKUP:
+                ProtoUtils.writeMessage(outputStream, handleNativeBackup(request.getNativeBackup()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
 
         return null;
+    }
+
+    private VAdminProto.DeleteStoreRebalanceStateResponse handleDeleteStoreRebalanceState(VAdminProto.DeleteStoreRebalanceStateRequest request) {
+        VAdminProto.DeleteStoreRebalanceStateResponse.Builder response = VAdminProto.DeleteStoreRebalanceStateResponse.newBuilder();
+
+        try {
+
+            int nodeId = request.getNodeId();
+            String storeName = request.getStoreName();
+
+            logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
+                        + storeName);
+            RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
+            if(info == null) {
+                throw new VoldemortException("Could not find state for donor node " + nodeId);
+            }
+
+            HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
+            if(replicaToPartition == null) {
+                throw new VoldemortException("Could not find state for donor node " + nodeId
+                                             + " and store " + storeName);
+            }
+
+            info.removeStore(storeName);
+            logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
+                        + storeName);
+
+            if(info.getUnbalancedStoreList().isEmpty()) {
+                metadataStore.deleteRebalancingState(info);
+                logger.info("Removed entire rebalancing state for donor node " + nodeId);
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleDeleteStoreRebalanceState failed for request(" + request.toString()
+                         + ")", e);
+        }
+        return response.build();
     }
 
     public VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
@@ -278,6 +328,34 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleRebalanceStateChange failed for request(" + request.toString()
                          + ")", e);
         }
+        return response.build();
+    }
+
+    public VAdminProto.AsyncOperationStatusResponse handleRebalanceNodeOnDonor(VAdminProto.InitiateRebalanceNodeOnDonorRequest request) {
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder();
+        try {
+            if(!voldemortConfig.isEnableRebalanceService())
+                throw new VoldemortException("Rebalance service is not enabled for node: "
+                                             + metadataStore.getNodeId());
+
+            List<RebalancePartitionsInfo> rebalanceStealInfos = ProtoUtils.decodeRebalancePartitionInfoMap(request.getRebalancePartitionInfoList());
+
+            // Assert that all the plans we got have the same donor node
+            RebalanceUtils.assertSameDonor(rebalanceStealInfos, metadataStore.getNodeId());
+
+            int requestId = rebalancer.rebalanceNodeOnDonor(rebalanceStealInfos);
+
+            response.setRequestId(requestId)
+                    .setDescription(rebalanceStealInfos.toString())
+                    .setStatus("Started rebalancing on donor")
+                    .setComplete(false);
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleRebalanceNodeOnDonor failed for request(" + request.toString()
+                         + ")", e);
+        }
+
         return response.build();
     }
 
@@ -536,6 +614,35 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
+    public VAdminProto.RepairJobResponse handleRepairJob(VAdminProto.RepairJobRequest request) {
+        VAdminProto.RepairJobResponse.Builder response = VAdminProto.RepairJobResponse.newBuilder();
+        try {
+            int requestId = asyncService.getUniqueRequestId();
+            asyncService.submitOperation(requestId, new AsyncOperation(requestId, "Repair Job") {
+
+                @Override
+                public void operate() {
+                    RepairJob job = storeRepository.getRepairJob();
+                    if(job != null) {
+                        logger.info("Starting the repair job now on ID : "
+                                    + metadataStore.getNodeId());
+                        job.run();
+                    } else
+                        logger.error("RepairJob is not initialized.");
+                }
+
+                @Override
+                public void stop() {
+                    status.setException(new VoldemortException("Repair job interrupted"));
+                }
+            });
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("Repair job failed for request : " + request.toString() + ")", e);
+        }
+        return response.build();
+    }
+
     /**
      * Given a read-only store name and a directory, swaps it in while returning
      * the directory path being swapped out
@@ -738,10 +845,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
         final boolean isReadOnlyStore = storeDef.getType()
                                                 .compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
 
-        final RoutingStrategy oldStrategy = initialCluster != null ? new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                                        initialCluster)
-                                                                  : null;
-
         try {
             asyncService.submitOperation(requestId, new AsyncOperation(requestId,
                                                                        "Fetch and Update") {
@@ -803,31 +906,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             // Optimization to get rid of redundant copying of
                             // data which already exists on this node
                             HashMap<Integer, List<Integer>> optimizedReplicaToPartitionList = Maps.newHashMap();
-                            if(oldStrategy != null && optimize && !storageEngine.isPartitionAware()
+                            if(initialCluster != null && optimize
+                               && !storageEngine.isPartitionAware()
                                && voldemortConfig.getRebalancingOptimization()) {
 
-                                for(Entry<Integer, List<Integer>> tuple: replicaToPartitionList.entrySet()) {
-                                    List<Integer> partitionList = Lists.newArrayList();
-                                    for(int partition: tuple.getValue()) {
-                                        List<Integer> preferenceList = oldStrategy.getReplicatingPartitionList(partition);
-
-                                        // If this node was already in the
-                                        // preference list before, a copy of the
-                                        // data will already exist - Don't copy
-                                        // it!
-                                        if(!RebalanceUtils.containsPreferenceList(initialCluster,
-                                                                                  preferenceList,
-                                                                                  metadataStore.getNodeId())) {
-                                            partitionList.add(partition);
-                                        }
-                                    }
-
-                                    if(partitionList.size() > 0) {
-                                        optimizedReplicaToPartitionList.put(tuple.getKey(),
-                                                                            partitionList);
-                                    }
-                                }
-
+                                optimizedReplicaToPartitionList.putAll(RebalanceUtils.getOptimizedReplicaToPartitionList(metadataStore.getNodeId(),
+                                                                                                                         initialCluster,
+                                                                                                                         storeDef,
+                                                                                                                         replicaToPartitionList));
                                 logger.info("After running RW level optimization - Fetching entries for RW store '"
                                             + storeName
                                             + "' from node "
@@ -853,6 +939,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                         initialCluster,
                                                                                                                         0);
                                 long numTuples = 0;
+                                long startTime = System.currentTimeMillis();
                                 while(running.get() && entriesIterator.hasNext()) {
                                     Pair<ByteArray, Versioned<byte[]>> entry = entriesIterator.next();
 
@@ -865,24 +952,28 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                         logger.debug("Fetch and update threw Obsolete version exception. Ignoring");
                                     }
 
+                                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
                                     throttler.maybeThrottle(key.length() + valueSize(value));
-                                    if((numTuples % 10000) == 0 && numTuples > 0) {
+                                    if((numTuples % 100000) == 0 && numTuples > 0) {
                                         logger.info(numTuples + " entries copied from node "
-                                                    + nodeId + " for store '" + storeName + "'");
+                                                    + nodeId + " for store '" + storeName + "'c");
                                         updateStatus(numTuples + " entries copied from node "
-                                                     + nodeId + " for store '" + storeName + "'");
+                                                     + nodeId + " for store '" + storeName
+                                                     + "' in " + totalTime + " seconds");
                                     }
                                     numTuples++;
                                 }
 
+                                long totalTime = (System.currentTimeMillis() - startTime) / 1000;
                                 if(running.get()) {
                                     logger.info("Completed fetching " + numTuples
                                                 + " entries from node " + nodeId + " for store '"
-                                                + storeName + "'");
+                                                + storeName + "' in " + totalTime + " seconds");
                                 } else {
                                     logger.info("Fetch and update stopped after fetching "
                                                 + numTuples + " entries for node " + nodeId
-                                                + " for store '" + storeName + "'");
+                                                + " for store '" + storeName + "' in " + totalTime
+                                                + " seconds");
                                 }
                             } else {
                                 logger.info("No entries to fetch from node " + nodeId
@@ -1299,4 +1390,55 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return storageEngine;
     }
 
+    public VAdminProto.AsyncOperationStatusResponse handleNativeBackup(VAdminProto.NativeBackupRequest request) {
+        final File backupDir = new File(request.getBackupDir());
+        final boolean isIncremental = request.getIncremental();
+        final boolean verifyFiles = request.getVerifyFiles();
+        final String storeName = request.getStoreName();
+        int requestId = asyncService.getUniqueRequestId();
+        VAdminProto.AsyncOperationStatusResponse.Builder response = VAdminProto.AsyncOperationStatusResponse.newBuilder()
+                                                                                                            .setRequestId(requestId)
+                                                                                                            .setComplete(false)
+                                                                                                            .setDescription("Native backup")
+                                                                                                            .setStatus("started");
+        try {
+            final StorageEngine storageEngine = getStorageEngine(storeRepository, storeName);
+            final long start = System.currentTimeMillis();
+            if(storageEngine instanceof NativeBackupable) {
+
+                asyncService.submitOperation(requestId, new AsyncOperation(requestId,
+                                                                           "Native backup") {
+
+                    @Override
+                    public void markComplete() {
+                        long end = System.currentTimeMillis();
+                        status.setStatus("Native backup completed in " + (end - start) + "ms");
+                        status.setComplete(true);
+                    }
+
+                    @Override
+                    public void operate() {
+                        ((NativeBackupable) storageEngine).nativeBackup(backupDir,
+                                                                        verifyFiles,
+                                                                        isIncremental,
+                                                                        status);
+                    }
+
+                    @Override
+                    public void stop() {
+                        status.setException(new VoldemortException("Fetcher interrupted"));
+                    }
+                });
+            } else {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper,
+                                                         new VoldemortException("Selected store is not native backupable")));
+            }
+
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);
+        }
+
+        return response.build();
+    }
 }

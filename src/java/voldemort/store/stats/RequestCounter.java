@@ -53,6 +53,17 @@ public class RequestCounter {
         }
     }
 
+    public float getThroughputInBytes() {
+        Accumulator oldv = getValidAccumulator();
+        double elapsed = (time.getMilliseconds() - oldv.startTimeMS)
+                         / (double) Time.MS_PER_SECOND;
+        if(elapsed > 0f) {
+            return (float) (oldv.totalBytes / elapsed);
+        } else {
+            return 0f;
+        }
+    }
+
     public String getDisplayThroughput() {
         return String.format("%.2f", getThroughput());
     }
@@ -158,7 +169,7 @@ public class RequestCounter {
     }
 
     /**
-     * Return the aggergated number of keys returned across all getAll calls, taking into account multiple values returned per call.
+     * Return the aggregated number of keys returned across all getAll calls, taking into account multiple values returned per call.
      */
     public long getGetAllAggregatedCount() {
         return getValidAccumulator().getAllAggregatedCount;

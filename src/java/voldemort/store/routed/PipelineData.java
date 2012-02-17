@@ -71,6 +71,16 @@ public abstract class PipelineData<K, V> {
 
     protected final List<Node> failedNodes;
 
+    protected List<Node> replicationSet;
+
+    public List<Node> getReplicationSet() {
+        return replicationSet;
+    }
+
+    public void setReplicationSet(List<Node> replicationSet) {
+        this.replicationSet = replicationSet;
+    }
+
     public PipelineData() {
         this.responses = new ArrayList<Response<K, V>>();
         this.failures = new ArrayList<Exception>();

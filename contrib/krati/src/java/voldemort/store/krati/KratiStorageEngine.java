@@ -30,7 +30,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.StripedLock;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -171,7 +171,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
             while(iter.hasNext()) {
                 Versioned<byte[]> currentValue = iter.next();
                 Version currentVersion = currentValue.getVersion();
-                if(currentVersion.compare(maxVersion) == Occured.BEFORE) {
+                if(currentVersion.compare(maxVersion) == Occurred.BEFORE) {
                     iter.remove();
                 }
             }
@@ -206,11 +206,11 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
                 // Update the value
                 List<Versioned<byte[]>> removedValueList = new ArrayList<Versioned<byte[]>>();
                 for(Versioned<byte[]> versioned: existingValuesList) {
-                    Occured occured = value.getVersion().compare(versioned.getVersion());
-                    if(occured == Occured.BEFORE)
+                    Occurred occurred = value.getVersion().compare(versioned.getVersion());
+                    if(occurred == Occurred.BEFORE)
                         throw new ObsoleteVersionException("Obsolete version for key '" + key
                                                            + "': " + value.getVersion());
-                    else if(occured == Occured.AFTER)
+                    else if(occurred == Occurred.AFTER)
                         removedValueList.add(versioned);
                 }
                 existingValuesList.removeAll(removedValueList);

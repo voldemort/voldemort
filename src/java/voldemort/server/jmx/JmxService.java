@@ -36,6 +36,8 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortServer;
 import voldemort.server.VoldemortService;
 import voldemort.store.Store;
+import voldemort.store.bdb.BdbStorageEngine;
+import voldemort.store.bdb.stats.BdbEnvironmentStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
@@ -76,9 +78,23 @@ public class JmxService extends AbstractService {
         for(VoldemortService service: services)
             registerBean(service, JmxUtils.createObjectName(service.getClass()));
         for(Store<ByteArray, byte[], byte[]> store: this.storeRepository.getAllStorageEngines()) {
-            registerBean(store,
-                         JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                   store.getName()));
+            if(server.getVoldemortConfig().isEnableJmxClusterName())
+                registerBean(store,
+                             JmxUtils.createObjectName(this.cluster.getName()
+                                                               + "."
+                                                               + JmxUtils.getPackageName(store.getClass()),
+                                                       store.getName()));
+            else
+                registerBean(store,
+                             JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                       store.getName()));
+            if(store instanceof BdbStorageEngine) {
+                // Temp hack for now
+                BdbStorageEngine bdbStore = (BdbStorageEngine) store;
+                registerBean(bdbStore.getBdbEnvironmentStats(),
+                             JmxUtils.createObjectName(JmxUtils.getPackageName(BdbEnvironmentStats.class),
+                                                       store.getName()));
+            }
         }
     }
 

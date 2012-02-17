@@ -11,9 +11,13 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.KeyDistributionGenerator;
 import voldemort.utils.Utils;
 
+import com.google.common.collect.Lists;
+
 /**
  * Ordered representation of a cluster transition that guarantees that primary
- * partition movements will take place before replicas
+ * partition movements will take place before replicas.
+ * 
+ * Why? So that redirections for primary partitions can get over faster
  */
 public class OrderedClusterTransition {
 
@@ -21,7 +25,7 @@ public class OrderedClusterTransition {
     private final Cluster currentCluster;
     private final Cluster targetCluster;
     private final RebalanceClusterPlan rebalanceClusterPlan;
-    private final List<RebalanceNodePlan> orderedRebalanceNodePlanList;
+    private final List<RebalancePartitionsInfo> orderedRebalancePartitionsInfoList;
     private final List<StoreDefinition> storeDefs;
     private String printedContent;
     private final int id;
@@ -35,7 +39,7 @@ public class OrderedClusterTransition {
         this.targetCluster = targetCluster;
         this.storeDefs = storeDefs;
         this.rebalanceClusterPlan = rebalanceClusterPlan;
-        this.orderedRebalanceNodePlanList = orderedClusterPlan(rebalanceClusterPlan);
+        this.orderedRebalancePartitionsInfoList = orderedClusterPlan(rebalanceClusterPlan);
     }
 
     public List<StoreDefinition> getStoreDefs() {
@@ -54,8 +58,8 @@ public class OrderedClusterTransition {
         return currentCluster;
     }
 
-    public List<RebalanceNodePlan> getOrderedRebalanceNodePlanList() {
-        return orderedRebalanceNodePlanList;
+    public List<RebalancePartitionsInfo> getOrderedRebalancePartitionsInfoList() {
+        return orderedRebalancePartitionsInfoList;
     }
 
     @Override
@@ -80,18 +84,16 @@ public class OrderedClusterTransition {
               .append(Utils.NEWLINE);
             sb.append("- Ordered rebalance node plan : ")
               .append(Utils.NEWLINE)
-              .append(printRebalanceNodePlan(getOrderedRebalanceNodePlanList()));
+              .append(printRebalanceNodePlan(getOrderedRebalancePartitionsInfoList()));
             printedContent = sb.toString();
         }
         return printedContent;
     }
 
-    private String printRebalanceNodePlan(List<RebalanceNodePlan> rebalanceNodePlanList) {
+    private String printRebalanceNodePlan(List<RebalancePartitionsInfo> rebalancePartitionInfoList) {
         StringBuilder builder = new StringBuilder();
-        for(RebalanceNodePlan plan: rebalanceNodePlanList) {
-            for(RebalancePartitionsInfo partitionInfo: plan.getRebalanceTaskList()) {
-                builder.append(partitionInfo).append(Utils.NEWLINE);
-            }
+        for(RebalancePartitionsInfo partitionInfo: rebalancePartitionInfoList) {
+            builder.append(partitionInfo).append(Utils.NEWLINE);
         }
         return builder.toString();
     }
@@ -107,72 +109,29 @@ public class OrderedClusterTransition {
      * @param rebalanceClusterPlan Rebalance cluster plan
      * @return Returns a list of ordered rebalance node plan
      */
-    private List<RebalanceNodePlan> orderedClusterPlan(final RebalanceClusterPlan rebalanceClusterPlan) {
+    private List<RebalancePartitionsInfo> orderedClusterPlan(final RebalanceClusterPlan rebalanceClusterPlan) {
         Queue<RebalanceNodePlan> rebalancingTaskQueue = rebalanceClusterPlan.getRebalancingTaskQueue();
 
-        // Make a copy to re-order
-        RebalanceNodePlan[] array = new RebalanceNodePlan[rebalancingTaskQueue.size()];
-        rebalancingTaskQueue.toArray(array);
-
-        List<RebalanceNodePlan> plans = new ArrayList<RebalanceNodePlan>();
+        List<RebalancePartitionsInfo> clusterRebalancePartitionsInfos = Lists.newArrayList();
         for(RebalanceNodePlan rebalanceNodePlan: rebalancingTaskQueue) {
-
-            // Order the individual partition plans first
-            List<RebalancePartitionsInfo> orderedRebalancePartitionsInfos = orderedPartitionInfos(rebalanceNodePlan);
-            plans.add(new RebalanceNodePlan(rebalanceNodePlan.getStealerNode(),
-                                            orderedRebalancePartitionsInfos));
-
+            clusterRebalancePartitionsInfos.addAll(rebalanceNodePlan.getRebalanceTaskList());
         }
 
-        return orderedNodePlans(plans);
+        return orderedPartitionInfos(clusterRebalancePartitionsInfos);
     }
 
     /**
-     * Ordering the list of {@link RebalanceNodePlan} such that all plans with
+     * Ordering the list of {@link RebalancePartitionsInfo} such that all
      * primary partition moves come first
      * 
-     * @param rebalanceNodePlans List of Node plans
-     * @return Returns a list of ordered {@link RebalanceNodePlan}
+     * @param clusterRebalancePartitionsInfos List of partition info
+     * @return Returns a list of ordered {@link RebalancePartitionsInfo}
      */
-    private List<RebalanceNodePlan> orderedNodePlans(List<RebalanceNodePlan> rebalanceNodePlans) {
-        List<RebalanceNodePlan> first = new ArrayList<RebalanceNodePlan>();
-        List<RebalanceNodePlan> second = new ArrayList<RebalanceNodePlan>();
-
-        for(RebalanceNodePlan plan: rebalanceNodePlans) {
-            boolean found = false;
-            for(RebalancePartitionsInfo partitionInfo: plan.getRebalanceTaskList()) {
-                List<Integer> stealMasterPartitions = partitionInfo.getStealMasterPartitions();
-                if(stealMasterPartitions != null && !stealMasterPartitions.isEmpty()) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if(found) {
-                first.add(plan);
-            } else {
-                second.add(plan);
-            }
-        }
-        first.addAll(second);
-        return first;
-    }
-
-    /**
-     * Ordering {@link RebalancePartitionsInfo} for a single stealer such that
-     * it guarantees that primary partition movements will be before an instance
-     * which moves replica partitions only.
-     * 
-     * @param rebalanceNodePlan Node plan for a particular stealer node
-     * @return List of ordered {@link RebalancePartitionsInfo}.
-     */
-    private List<RebalancePartitionsInfo> orderedPartitionInfos(final RebalanceNodePlan rebalanceNodePlan) {
+    private List<RebalancePartitionsInfo> orderedPartitionInfos(List<RebalancePartitionsInfo> clusterRebalancePartitionsInfo) {
         List<RebalancePartitionsInfo> listPrimaries = new ArrayList<RebalancePartitionsInfo>();
         List<RebalancePartitionsInfo> listReplicas = new ArrayList<RebalancePartitionsInfo>();
 
-        List<RebalancePartitionsInfo> partitionInfos = rebalanceNodePlan.getRebalanceTaskList();
-
-        for(RebalancePartitionsInfo partitionInfo: partitionInfos) {
+        for(RebalancePartitionsInfo partitionInfo: clusterRebalancePartitionsInfo) {
             List<Integer> stealMasterPartitions = partitionInfo.getStealMasterPartitions();
             if(stealMasterPartitions != null && !stealMasterPartitions.isEmpty()) {
                 listPrimaries.add(partitionInfo);
@@ -186,5 +145,4 @@ public class OrderedClusterTransition {
 
         return listPrimaries;
     }
-
 }

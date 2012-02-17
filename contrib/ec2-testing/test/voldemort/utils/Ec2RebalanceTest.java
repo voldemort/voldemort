@@ -33,7 +33,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.Store;
-import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -49,6 +48,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     private Map<Integer, String> nodeIdsInv = new HashMap<Integer, String>();
     private List<String> activeHostNames = new ArrayList<String>();
+    private boolean useDonorBased = true;
 
     @BeforeClass
     public static void ec2Setup() throws Exception {
@@ -86,9 +86,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
             AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
-            return VoldemortState.valueOf(adminClient.getRemoteMetadata(nodeId,
-                                                                        MetadataStore.SERVER_STATE_KEY)
-                                                     .getValue());
+            return adminClient.getRemoteServerState(nodeId).getValue();
         }
     }
 
@@ -182,6 +180,11 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             hostsToStop.add(nodeIdsInv.get(nodeId));
         }
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
+    }
+
+    @Override
+    protected boolean useDonorBased() {
+        return this.useDonorBased;
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

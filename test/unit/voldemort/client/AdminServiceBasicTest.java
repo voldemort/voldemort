@@ -1229,10 +1229,7 @@ public class AdminServiceBasicTest extends TestCase {
         List<Integer> primaryMoved = Arrays.asList(0, 2);
         List<Integer> secondaryMoved = Arrays.asList(1, 4);
 
-        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                                    cluster.getNodeById(1),
-                                                                    cluster.getNodeById(0),
-                                                                    primaryMoved);
+        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 1, primaryMoved);
         HashMap<Integer, List<Integer>> replicaToPartitions = Maps.newHashMap();
         replicaToPartitions.put(0, primaryMoved);
         replicaToPartitions.put(1, secondaryMoved);

@@ -58,7 +58,6 @@ import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.scheduler.slop.BlockingSlopPusherJob;
-import voldemort.server.scheduler.slop.RepairJob;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -228,20 +227,14 @@ public class StorageService extends AbstractService {
                                                                                                                                  scanPermits),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
+            }
 
-                // Run the repair job only if slop pusher job is enabled
-                // Also run it only once
-                if(voldemortConfig.isRepairEnabled()) {
-                    cal.add(Calendar.SECOND,
-                            (int) (voldemortConfig.getRepairStartMs() / Time.MS_PER_SECOND));
-                    nextRun = cal.getTime();
-                    logger.info("Initializing repair job " + voldemortConfig.getPusherType()
-                                + " at " + nextRun);
-                    RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
-
-                    JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
-                    scheduler.schedule("repair", job, nextRun);
-                }
+            // Create a repair job object and register it with Store repository
+            if(voldemortConfig.isRepairEnabled()) {
+                logger.info("Initializing repair job.");
+                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
+                storeRepository.registerRepairJob(job);
             }
         }
 
@@ -261,9 +254,15 @@ public class StorageService extends AbstractService {
 
         // enable aggregate jmx statistics
         if(voldemortConfig.isStatTrackingEnabled())
-            JmxUtils.registerMbean(new StoreStatsJmx(this.storeStats),
-                                   JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             "aggregate-perf"));
+            if(this.voldemortConfig.isEnableJmxClusterName())
+                JmxUtils.registerMbean(new StoreStatsJmx(this.storeStats),
+                                       JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                         + ".voldemort.store.stats.aggregate",
+                                                                 "aggregate-perf"));
+            else
+                JmxUtils.registerMbean(new StoreStatsJmx(this.storeStats),
+                                       JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                                 "aggregate-perf"));
 
         logger.info("All stores initialized.");
     }
@@ -335,8 +334,15 @@ public class StorageService extends AbstractService {
                 if(!isSlop && voldemortConfig.isEnableRebalanceService() && !isReadOnly
                    && !isMetadata && !isView) {
 
-                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
-                                                                store.getName());
+                    ObjectName name = null;
+                    if(this.voldemortConfig.isEnableJmxClusterName())
+                        name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                 + "."
+                                                                 + JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
+                    else
+                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
 
                     synchronized(mbeanServer) {
                         if(mbeanServer.isRegistered(name))
@@ -346,9 +352,15 @@ public class StorageService extends AbstractService {
                 }
 
                 if(voldemortConfig.isStatTrackingEnabled()) {
-
-                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                                store.getName());
+                    ObjectName name = null;
+                    if(this.voldemortConfig.isEnableJmxClusterName())
+                        name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                 + "."
+                                                                 + JmxUtils.getPackageName(store.getClass()),
+                                                         store.getName());
+                    else
+                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                         store.getName());
 
                     synchronized(mbeanServer) {
                         if(mbeanServer.isRegistered(name))
@@ -403,8 +415,16 @@ public class StorageService extends AbstractService {
                                              storeFactory);
                 if(voldemortConfig.isJmxEnabled()) {
                     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                    ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
-                                                                store.getName());
+                    ObjectName name = null;
+                    if(this.voldemortConfig.isEnableJmxClusterName())
+                        name = JmxUtils.createObjectName(cluster.getName()
+                                                                 + "."
+                                                                 + JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
+                    else
+                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
+
                     synchronized(mbeanServer) {
                         if(mbeanServer.isRegistered(name))
                             JmxUtils.unregisterMbean(mbeanServer, name);
@@ -425,8 +445,15 @@ public class StorageService extends AbstractService {
             if(voldemortConfig.isJmxEnabled()) {
 
                 MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                            store.getName());
+                ObjectName name = null;
+                if(this.voldemortConfig.isEnableJmxClusterName())
+                    name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                             + "."
+                                                             + JmxUtils.getPackageName(store.getClass()),
+                                                     store.getName());
+                else
+                    name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                     store.getName());
 
                 synchronized(mbeanServer) {
                     if(mbeanServer.isRegistered(name))

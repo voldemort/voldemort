@@ -120,4 +120,23 @@ public interface ClientRequest<T> {
 
     public boolean isComplete();
 
+    /**
+     * Called by the {@link ClientRequestExecutor} after it has timed out. This
+     * is different from the complete call, since the timeout event needs to be
+     * notified to the caller in a special way.
+     * <p/>
+     * 
+     * This is used internally by the {@link ClientRequest} logic and should not
+     * be invoked by users of the sub-system.
+     */
+
+    public void timeOut();
+
+    /**
+     * Returns <code>true</code> if {@link ClientRequestExecutor} timed out.
+     * 
+     * @return <code>true</code> if timed out, <code>false</code> otherwise
+     */
+
+    public boolean isTimedOut();
 }

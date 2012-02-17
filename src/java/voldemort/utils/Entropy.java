@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -34,28 +35,33 @@ public class Entropy {
 
     private int nodeId;
     private long numKeys;
+    private boolean verboseLogging;
 
     public static long DEFAULT_NUM_KEYS = 10000;
 
     /**
      * Entropy constructor. Uses DEFAULT_NUM_KEYS number of keys
      * 
-     * @param nodeId Node id. If -1, goes over all of them
+     * @param nodeId Node id. If -1, goes over all of them. For negative test
+     *        nodeId must be valid.
      */
     public Entropy(int nodeId) {
         this.nodeId = nodeId;
         this.numKeys = DEFAULT_NUM_KEYS;
+        this.verboseLogging = false;
     }
 
     /**
      * Entropy constructor
      * 
-     * @param nodeId Node id. If -1, goes over all of them
+     * @param nodeId Node id. If -1, goes over all of them. For negative test
+     *        nodeId must be valid.
      * @param numKeys Number of keys
      */
-    public Entropy(int nodeId, long numKeys) {
+    public Entropy(int nodeId, long numKeys, boolean verboseLogging) {
         this.nodeId = nodeId;
         this.numKeys = numKeys;
+        this.verboseLogging = verboseLogging;
     }
 
     public static void main(String args[]) throws IOException {
@@ -87,8 +93,17 @@ public class Entropy {
               .withRequiredArg()
               .describedAs("keys")
               .ofType(Long.class);
+        parser.accepts("negative-test",
+                       "Check for keys that dont belong on the given nodeId are not present");
+        parser.accepts("verbose-logging",
+                       "Verbose logging such as keys found missing on specific nodes");
 
         OptionSet options = parser.parse(args);
+
+        boolean negativeTest = false;
+        if(options.has("negative-test")) {
+            negativeTest = true;
+        }
 
         if(options.has("help")) {
             parser.printHelpOn(System.out);
@@ -109,6 +124,7 @@ public class Entropy {
         long numKeys = CmdUtils.valueOf(options, "num-keys", Entropy.DEFAULT_NUM_KEYS);
         int nodeId = CmdUtils.valueOf(options, "node", 0);
         boolean opType = CmdUtils.valueOf(options, "op-type", false);
+        boolean verboseLogging = options.has("verbose-logging");
 
         File outputDir = new File(outputDirPath);
 
@@ -129,8 +145,9 @@ public class Entropy {
         Cluster cluster = new ClusterMapper().readCluster(new File(clusterXml));
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXml));
 
-        Entropy detector = new Entropy(nodeId, numKeys);
-        detector.generateEntropy(cluster, storeDefs, outputDir, opType);
+        Entropy detector = new Entropy(nodeId, numKeys, verboseLogging);
+
+        detector.generateEntropy(cluster, storeDefs, outputDir, opType, negativeTest);
     }
 
     /**
@@ -147,6 +164,26 @@ public class Entropy {
                                 List<StoreDefinition> storeDefs,
                                 File storeDir,
                                 boolean opType) throws IOException {
+        generateEntropy(cluster, storeDefs, storeDir, opType, false);
+    }
+
+    /**
+     * Run the actual entropy calculation tool
+     * 
+     * @param cluster The cluster metadata
+     * @param storeDefs The list of stores
+     * @param storeDir The store directory
+     * @param opType Operation type - true ( run entropy calculator ), false (
+     *        save keys )
+     * @param negativeTest Validate that the rebalanced keys are deleted from
+     *        the store
+     * @throws IOException
+     */
+    public void generateEntropy(Cluster cluster,
+                                List<StoreDefinition> storeDefs,
+                                File storeDir,
+                                boolean opType,
+                                boolean negativeTest) throws IOException {
         AdminClient adminClient = null;
         try {
             adminClient = new AdminClient(cluster,
@@ -194,7 +231,11 @@ public class Entropy {
                                                              false);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
-                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                    // entropy returns distinct keys from each
+                                    // node - record the key only if this node
+                                    // holds the primary partition of the key
+                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
+                                                                         .subList(0, 1))
                                                      .contains(node.getId())) {
                                         writer.write(key.length());
                                         writer.write(key.get());
@@ -202,20 +243,47 @@ public class Entropy {
                                 }
                             }
                         } else {
+                            List<Integer> partitions = cluster.getNodeById(nodeId)
+                                                              .getPartitionIds();
+                            Map<Integer, Integer> partitionMap = new HashMap<Integer, Integer>();
+                            int numKeysPerPartition = (int) Math.floor(numKeys / partitions.size());
+                            int numKeysStored = 0;
+
+                            for(int partitionId: partitions) {
+                                partitionMap.put(partitionId, 0);
+                            }
+
                             keys = adminClient.fetchKeys(nodeId,
                                                          storeDef.getName(),
-                                                         cluster.getNodeById(nodeId)
-                                                                .getPartitionIds(),
+                                                         partitions,
                                                          null,
                                                          false);
-                            for(long keyId = 0; keyId < numKeys && keys.hasNext(); keyId++) {
+                            while(keys.hasNext() && numKeysStored < numKeys) {
                                 ByteArray key = keys.next();
-                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get()))
+                                // entropy returns distinct keys from each
+                                // node - record the key only if this node
+                                // holds the primary partition of the key
+                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
+                                                                     .subList(0, 1))
                                                  .contains(nodeId)) {
+                                    int targetPartition = strategy.getPartitionList(key.get())
+                                                                  .get(0);
+                                    int partitionCount = partitionMap.get(targetPartition);
+                                    if(partitionCount == numKeysPerPartition)
+                                        continue;
                                     writer.write(key.length());
                                     writer.write(key.get());
+                                    partitionMap.put(targetPartition, partitionCount + 1);
+                                    numKeysStored++;
                                 }
                             }
+
+                            System.out.println("Total partitions filled : " + partitions.size());
+                            for(int partitionId: partitions) {
+                                System.out.println("Count in partition #" + partitionId + " = "
+                                                   + partitionMap.get(partitionId));
+                            }
+
                         }
 
                     } finally {
@@ -224,6 +292,9 @@ public class Entropy {
                     }
 
                 } else {
+
+                    if(negativeTest && nodeId == -1)
+                        return;
 
                     if(!(storesKeyFile.exists() && storesKeyFile.canRead())) {
                         System.err.println("Could not find " + storeDef.getName()
@@ -247,8 +318,10 @@ public class Entropy {
                                                                           RequestRoutingType.IGNORE_CHECKS));
                     }
 
+                    long deletedKeys = 0L;
                     long foundKeys = 0L;
                     long totalKeys = 0L;
+
                     try {
                         reader = new FileInputStream(storesKeyFile);
                         while(reader.available() != 0) {
@@ -263,26 +336,59 @@ public class Entropy {
                             reader.read(key);
 
                             List<Node> responsibleNodes = strategy.routeRequest(key);
-                            boolean missingKey = false;
-                            for(Node node: responsibleNodes) {
-                                List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
-                                                                                   .get(new ByteArray(key),
-                                                                                        null);
 
-                                if(value == null || value.size() == 0) {
-                                    missingKey = true;
+                            if(!negativeTest) {
+                                boolean missingKey = false;
+                                for(Node node: responsibleNodes) {
+                                    List<Versioned<byte[]>> value = socketStoresPerNode.get(node.getId())
+                                                                                       .get(new ByteArray(key),
+                                                                                            null);
+
+                                    if(value == null || value.size() == 0) {
+                                        missingKey = true;
+
+                                        if(this.verboseLogging) {
+                                            String stringKey = ByteUtils.getString(key, "UTF-8");
+                                            System.out.println("missing key=" + stringKey
+                                                               + " on node=" + node.getId());
+                                            System.out.println("is value null "
+                                                               + ((value == null) ? "true"
+                                                                                 : "false"));
+                                            System.out.println("is size zero "
+                                                               + ((value.size() == 0) ? "true"
+                                                                                     : "false"));
+                                        }
+                                    }
+                                }
+                                if(!missingKey)
+                                    foundKeys++;
+                                totalKeys++;
+                            } else {
+                                if(!responsibleNodes.contains(cluster.getNodeById(nodeId))) {
+                                    List<Versioned<byte[]>> value = socketStoresPerNode.get(nodeId)
+                                                                                       .get(new ByteArray(key),
+                                                                                            null);
+
+                                    if(value == null || value.size() == 0) {
+                                        deletedKeys++;
+                                    }
+                                    totalKeys++;
                                 }
                             }
-                            if(!missingKey)
-                                foundKeys++;
-
-                            totalKeys++;
-
                         }
-                        System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
-                        if(foundKeys > 0 && totalKeys > 0) {
-                            System.out.println("%age found - " + 100.0 * (double) foundKeys
-                                               / totalKeys);
+
+                        if(!negativeTest) {
+                            System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
+                            if(foundKeys > 0 && totalKeys > 0) {
+                                System.out.println("%age found - " + 100.0 * (double) foundKeys
+                                                   / totalKeys);
+                            }
+                        } else {
+                            System.out.println("Deleted = " + deletedKeys + " Total = " + totalKeys);
+                            if(deletedKeys > 0 && totalKeys > 0) {
+                                System.out.println("%age deleted - " + 100.0 * (double) deletedKeys
+                                                   / totalKeys);
+                            }
                         }
                     } finally {
                         if(reader != null)

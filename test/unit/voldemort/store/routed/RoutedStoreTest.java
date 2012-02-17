@@ -18,7 +18,7 @@ package voldemort.store.routed;
 
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
@@ -74,7 +74,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Version;
@@ -370,7 +370,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         List<Versioned<byte[]>> found = store.get(aKey, aTransform);
         assertEquals("Invalid number of items found.", 1, found.size());
         assertEquals("Version not incremented properly",
-                     Occured.BEFORE,
+                     Occurred.BEFORE,
                      copy.compare(found.get(0).getVersion()));
     }
 
@@ -421,14 +421,14 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.get(new ByteArray("test".getBytes()), null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + 130, elapsed < 130);
         }
 
         start = System.nanoTime();
         try {
             List<Version> versions = s1.getVersions(new ByteArray("test".getBytes()));
             for(Version version: versions) {
-                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+                assertEquals(version.compare(versioned.getVersion()), Occurred.BEFORE);
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -548,7 +548,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         try {
             List<Version> versions = s3.getVersions(new ByteArray("test".getBytes()));
             for(Version version: versions) {
-                assertEquals(version.compare(versioned.getVersion()), Occured.BEFORE);
+                assertEquals(version.compare(versioned.getVersion()), Occurred.BEFORE);
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
@@ -1024,6 +1024,57 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             routedStore.put(new ByteArray("test".getBytes()),
                             new Versioned<byte[]>(new byte[] { 1 }),
                             null);
+            fail("Should have thrown");
+        } catch(InsufficientOperationalNodesException e) {
+            long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
+            assertTrue(elapsed + " < " + totalDelay, elapsed < totalDelay);
+        }
+    }
+
+    @Test
+    public void testGetTimeout() throws Exception {
+        int timeout = 50;
+        StoreDefinition definition = new StoreDefinitionBuilder().setName("test")
+                                                                 .setType("foo")
+                                                                 .setKeySerializer(new SerializerDefinition("test"))
+                                                                 .setValueSerializer(new SerializerDefinition("test"))
+                                                                 .setRoutingPolicy(RoutingTier.CLIENT)
+                                                                 .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                                 .setReplicationFactor(3)
+                                                                 .setPreferredReads(3)
+                                                                 .setRequiredReads(3)
+                                                                 .setPreferredWrites(3)
+                                                                 .setRequiredWrites(3)
+                                                                 .build();
+        Map<Integer, Store<ByteArray, byte[], byte[]>> stores = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
+        List<Node> nodes = new ArrayList<Node>();
+        int totalDelay = 0;
+        for(int i = 0; i < 3; i++) {
+            int delay = 4 + i * timeout;
+            totalDelay += delay;
+            Store<ByteArray, byte[], byte[]> store = new SleepyStore<ByteArray, byte[], byte[]>(delay,
+                                                                                                new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
+            stores.put(i, store);
+            List<Integer> partitions = Arrays.asList(i);
+            nodes.add(new Node(i, "none", 0, 0, 0, partitions));
+        }
+
+        setFailureDetector(stores);
+
+        routedStoreThreadPool = Executors.newFixedThreadPool(3);
+        RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
+                                                                       routedStoreThreadPool,
+                                                                       timeout);
+
+        RoutedStore routedStore = routedStoreFactory.create(new Cluster("test", nodes),
+                                                            definition,
+                                                            stores,
+                                                            true,
+                                                            failureDetector);
+
+        long start = System.nanoTime();
+        try {
+            routedStore.get(new ByteArray("test".getBytes()), null);
             fail("Should have thrown");
         } catch(InsufficientOperationalNodesException e) {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;

@@ -22,15 +22,16 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HostConfiguration;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpVersion;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.cookie.CookiePolicy;
-import org.apache.commons.httpclient.params.HttpClientParams;
-import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.params.CookiePolicy;
+import org.apache.http.client.params.HttpClientParams;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -42,6 +43,7 @@ import voldemort.store.Store;
 import voldemort.store.http.HttpStore;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.ByteArray;
+import voldemort.utils.VoldemortIOUtils;
 
 /**
  * A {@link voldemort.client.StoreClientFactory StoreClientFactory} that creates
@@ -55,31 +57,33 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
 
     private static final String VOLDEMORT_USER_AGENT = "vldmrt/0.01";
 
-    private final HttpClient httpClient;
+    private final DefaultHttpClient httpClient;
     private final RequestFormatFactory requestFormatFactory;
     private final boolean reroute;
 
     public HttpStoreClientFactory(ClientConfig config) {
         super(config);
-        HostConfiguration hostConfig = new HostConfiguration();
-        hostConfig.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
-        MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
-        this.httpClient = new HttpClient(connectionManager);
-        this.httpClient.setHostConfiguration(hostConfig);
-        HttpClientParams clientParams = this.httpClient.getParams();
-        clientParams.setConnectionManagerTimeout(config.getConnectionTimeout(TimeUnit.MILLISECONDS));
-        clientParams.setSoTimeout(config.getSocketTimeout(TimeUnit.MILLISECONDS));
-        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
-                                  new DefaultHttpMethodRetryHandler(0, false));
-        clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
-        clientParams.setParameter("http.useragent", VOLDEMORT_USER_AGENT);
-        HttpConnectionManagerParams managerParams = this.httpClient.getHttpConnectionManager()
-                                                                   .getParams();
-        managerParams.setConnectionTimeout(config.getConnectionTimeout(TimeUnit.MILLISECONDS));
-        managerParams.setMaxTotalConnections(config.getMaxTotalConnections());
-        managerParams.setStaleCheckingEnabled(false);
-        managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(),
-                                               config.getMaxConnectionsPerNode());
+        ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                          config.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                          TimeUnit.MILLISECONDS);
+        mgr.setMaxTotal(config.getMaxTotalConnections());
+        mgr.setDefaultMaxPerRoute(config.getMaxConnectionsPerNode());
+
+        this.httpClient = new DefaultHttpClient(mgr);
+        HttpParams clientParams = this.httpClient.getParams();
+
+        HttpProtocolParams.setUserAgent(clientParams, VOLDEMORT_USER_AGENT);
+        HttpProtocolParams.setVersion(clientParams, HttpVersion.HTTP_1_1);
+
+        HttpConnectionParams.setConnectionTimeout(clientParams,
+                                                  config.getConnectionTimeout(TimeUnit.MILLISECONDS));
+        HttpConnectionParams.setSoTimeout(clientParams,
+                                          config.getSocketTimeout(TimeUnit.MILLISECONDS));
+        HttpConnectionParams.setStaleCheckingEnabled(clientParams, false);
+
+        this.httpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
+        HttpClientParams.setCookiePolicy(clientParams, CookiePolicy.IGNORE_COOKIES);
+
         this.reroute = config.getRoutingTier().equals(RoutingTier.SERVER);
         this.requestFormatFactory = new RequestFormatFactory();
     }
@@ -137,6 +141,7 @@ public class HttpStoreClientFactory extends AbstractStoreClientFactory {
     public void close() {
         super.close();
         // should timeout connections on its own
+        VoldemortIOUtils.closeQuietly(this.httpClient);
     }
 
 }

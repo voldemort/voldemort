@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -107,8 +108,10 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                                        .getSimpleName()
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
-                                                                                             + " succeeded. Failing nodes : "
-                                                                                             + pipelineData.getFailedNodes(),
+                                                                                             + " succeeded",
+                                                                                     new ArrayList<Node>(pipelineData.getReplicationSet()),
+                                                                                     new ArrayList<Node>(pipelineData.getNodes()),
+                                                                                     new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();

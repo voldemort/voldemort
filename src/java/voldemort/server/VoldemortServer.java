@@ -19,7 +19,10 @@ package voldemort.server;
 import static voldemort.utils.Utils.croak;
 
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -80,6 +83,7 @@ public class VoldemortServer extends AbstractService {
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
+        this.checkHostName();
         this.services = createServices();
     }
 
@@ -87,6 +91,7 @@ public class VoldemortServer extends AbstractService {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
+        this.checkHostName();
         this.storeRepository = new StoreRepository();
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
@@ -102,6 +107,39 @@ public class VoldemortServer extends AbstractService {
 
     public AsyncOperationService getAsyncRunner() {
         return asyncService;
+    }
+
+    /**
+     * Compare the configured hostname with all the ip addresses and hostnames
+     * for the server node, and log a warning if there is a mismatch
+     */
+    private void checkHostName() {
+        try {
+            HashSet<String> ipAddrList = new HashSet<String>();
+            InetAddress localhost = InetAddress.getLocalHost();
+            InetAddress[] serverAddrs = InetAddress.getAllByName(localhost.getCanonicalHostName());
+
+            ipAddrList.add("localhost");
+            if(serverAddrs != null && serverAddrs.length > 0) {
+                for(InetAddress addr: serverAddrs) {
+                    if(addr.getHostName() != null)
+                        ipAddrList.add(addr.getHostName());
+                    if(addr.getHostAddress() != null)
+                        ipAddrList.add(addr.getHostAddress());
+                    if(addr.getCanonicalHostName() != null)
+                        ipAddrList.add(addr.getCanonicalHostName());
+                }
+            }
+            if(!ipAddrList.contains(this.identityNode.getHost())) {
+                logger.info("List of all IPs & Hostnames for the current node:" + ipAddrList);
+                logger.info("Configured hostname [" + this.identityNode.getHost()
+                            + "] does not seem to match current node.");
+            }
+        } catch(UnknownHostException uhe) {
+            logger.warn("Unable to obtain IP information for current node", uhe);
+        } catch(SecurityException se) {
+            logger.warn("Security Manager does not permit obtaining IP Information", se);
+        }
     }
 
     private List<VoldemortService> createServices() {
@@ -248,8 +286,11 @@ public class VoldemortServer extends AbstractService {
                 config = VoldemortConfig.loadFromEnvironmentVariable();
             else if(args.length == 1)
                 config = VoldemortConfig.loadFromVoldemortHome(args[0]);
+            else if(args.length == 2)
+                config = VoldemortConfig.loadFromVoldemortHome(args[0], args[1]);
             else
-                croak("USAGE: java " + VoldemortServer.class.getName() + " [voldemort_home_dir]");
+                croak("USAGE: java " + VoldemortServer.class.getName()
+                      + " [voldemort_home_dir] [voldemort_config_dir]");
         } catch(Exception e) {
             logger.error(e);
             Utils.croak("Error while loading configuration: " + e.getMessage());

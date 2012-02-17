@@ -21,7 +21,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 

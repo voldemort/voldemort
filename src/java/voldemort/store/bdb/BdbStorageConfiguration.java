@@ -37,7 +37,6 @@ import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.LockMode;
 import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
 
@@ -102,6 +101,10 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Boolean.toString(config.getBdbCheckpointerHighPriority()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MAX_BATCH_FILES,
                                          Integer.toString(config.getBdbCleanerMaxBatchFiles()));
+        environmentConfig.setConfigParam(EnvironmentConfig.LOG_FAULT_READ_SIZE,
+                                         Integer.toString(config.getBdbLogFaultReadSize()));
+        environmentConfig.setConfigParam(EnvironmentConfig.LOG_ITERATOR_READ_SIZE,
+                                         Integer.toString(config.getBdbLogIteratorReadSize()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         databaseConfig = new DatabaseConfig();
@@ -118,28 +121,18 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String storeName) {
         synchronized(lock) {
             try {
-                LockMode readLockMode = getLockMode();
                 Environment environment = getEnvironment(storeName);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
-                if(voldemortConfig.getBdbCursorPreload()) {
-                    PreloadConfig preloadConfig = new PreloadConfig();
-                    preloadConfig.setLoadLNs(true);
-                    db.preload(preloadConfig);
-                }
+                BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
                 BdbStorageEngine engine = new BdbStorageEngine(storeName,
                                                                environment,
                                                                db,
-                                                               readLockMode,
-                                                               voldemortConfig.getBdbCursorPreload());
+                                                               runtimeConfig);
                 return engine;
             } catch(DatabaseException d) {
                 throw new StorageInitializationException(d);
             }
         }
-    }
-
-    private LockMode getLockMode() {
-       return voldemortConfig.getBdbReadUncommitted() ? LockMode.READ_UNCOMMITTED : LockMode.DEFAULT;
     }
 
     private Environment getEnvironment(String storeName) throws DatabaseException {
@@ -199,9 +192,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         return TYPE_NAME;
     }
 
-    public EnvironmentStats getStats(String storeName) {
+    public EnvironmentStats getStats(String storeName, boolean fast) {
         StatsConfig config = new StatsConfig();
-        config.setFast(false);
+        config.setFast(fast);
         try {
             Environment env = getEnvironment(storeName);
             return env.getStats(config);
@@ -210,9 +203,14 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
-    @JmxOperation(description = "A variety of stats about one BDB environment.")
+    @JmxOperation(description = "A variety of quickly calculated stats about one BDB environment.")
     public String getEnvStatsAsString(String storeName) throws Exception {
-        String envStats = getStats(storeName).toString();
+        return getEnvStatsAsString(storeName, true);
+    }
+
+    @JmxOperation(description = "A variety of stats about one BDB environment.")
+    public String getEnvStatsAsString(String storeName, boolean fast) throws Exception {
+        String envStats = getStats(storeName, fast).toString();
         logger.debug("Bdb Environment stats:\n" + envStats);
         return envStats;
     }

@@ -110,6 +110,7 @@ public class Benchmark {
     public static final String STORE_TYPE = "view";
     public static final String VIEW_CLASS = "voldemort.store.views.UpperCaseView";
     public static final String HAS_TRANSFORMS = "true";
+    public static final String SAMPLE_SIZE = "sample-size";
 
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
@@ -157,6 +158,7 @@ public class Benchmark {
                                        + Time.MS_PER_SECOND
                                        * ((double) totalOps / (double) (System.currentTimeMillis() - startTime))
                                        + "\tOperations: " + totalOps);
+                    Metrics.getInstance().printReport(System.out);
                 }
                 prevTotalOps = totalOps;
                 try {
@@ -305,7 +307,7 @@ public class Benchmark {
         // Initialize workload
         this.workLoad = new Workload();
         this.workLoad.init(workloadProps);
-
+        this.workLoad.loadSampleValues(storeClient);
     }
 
     @SuppressWarnings("unchecked")
@@ -506,6 +508,11 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("update-percent")
               .ofType(Integer.class);
+        parser.accepts(SAMPLE_SIZE,
+                       "number of value samples to be obtained from the store for replay based on keys from request-file; 0 means no sample value replay. Default = 0")
+              .withRequiredArg()
+              .describedAs("sample-size")
+              .ofType(Integer.class);
         parser.accepts(VERBOSE, "verbose");
         parser.accepts(THREADS, "max number concurrent worker threads; Default = " + MAX_WORKERS)
               .withRequiredArg()
@@ -612,9 +619,8 @@ public class Benchmark {
                 mainProps.put(REQUEST_FILE, (String) options.valueOf(REQUEST_FILE));
                 mainProps.put(RECORD_SELECTION, FILE_RECORD_SELECTION);
             } else {
-                mainProps.put(RECORD_SELECTION, CmdUtils.valueOf(options,
-                                                                 RECORD_SELECTION,
-                                                                 UNIFORM_RECORD_SELECTION));
+                mainProps.put(RECORD_SELECTION,
+                              CmdUtils.valueOf(options, RECORD_SELECTION, UNIFORM_RECORD_SELECTION));
             }
 
             if(options.has(RECORD_COUNT)) {
@@ -660,6 +666,7 @@ public class Benchmark {
             mainProps.put(DELETES, CmdUtils.valueOf(options, DELETES, 0));
             mainProps.put(MIXED, CmdUtils.valueOf(options, MIXED, 0));
             mainProps.put(PLUGIN_CLASS, CmdUtils.valueOf(options, PLUGIN_CLASS, ""));
+            mainProps.put(SAMPLE_SIZE, CmdUtils.valueOf(options, SAMPLE_SIZE, 0));
         }
 
         // Start the benchmark

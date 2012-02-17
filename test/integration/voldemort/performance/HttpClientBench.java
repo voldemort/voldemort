@@ -16,17 +16,23 @@
 
 package voldemort.performance;
 
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HostConfiguration;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.HttpVersion;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.cookie.CookiePolicy;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.params.HttpClientParams;
-import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.params.CookiePolicy;
+import org.apache.http.client.params.HttpClientParams;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.conn.SchemeRegistryFactory;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
+
+import voldemort.utils.VoldemortIOUtils;
 
 public class HttpClientBench {
 
@@ -52,46 +58,48 @@ public class HttpClientBench {
 
             @Override
             public void doOperation(int index) {
-                GetMethod get = new GetMethod(url);
+                HttpResponse response = null;
                 try {
-                    client.executeMethod(get);
-                    get.getResponseBody();
+                    HttpGet get = new HttpGet(url);
+                    response = client.execute(get);
+                    response.getEntity().consumeContent();
                 } catch(Exception e) {
                     e.printStackTrace();
                 } finally {
-                    get.releaseConnection();
+                    VoldemortIOUtils.closeQuietly(response);
                 }
             }
         };
         perfTest.run(numRequests, numThreads);
         perfTest.printStats();
-
+        VoldemortIOUtils.closeQuietly(client);
         System.exit(1);
     }
 
     private static HttpClient createClient() {
-        HttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
-        HttpClient httpClient = new HttpClient(connectionManager);
-        HttpClientParams clientParams = httpClient.getParams();
-        clientParams.setConnectionManagerTimeout(DEFAULT_CONNECTION_MANAGER_TIMEOUT);
-        clientParams.setSoTimeout(500);
-        clientParams.setParameter(HttpMethodParams.RETRY_HANDLER,
-                                  new DefaultHttpMethodRetryHandler(0, false));
-        clientParams.setCookiePolicy(CookiePolicy.IGNORE_COOKIES);
-        clientParams.setBooleanParameter("http.tcp.nodelay", false);
-        clientParams.setIntParameter("http.socket.receivebuffer", 60000);
-        clientParams.setParameter("http.useragent", VOLDEMORT_USER_AGENT);
-        HostConfiguration hostConfig = new HostConfiguration();
-        hostConfig.setHost("localhost");
-        hostConfig.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
-        httpClient.setHostConfiguration(hostConfig);
-        HttpConnectionManagerParams managerParams = httpClient.getHttpConnectionManager()
-                                                              .getParams();
-        managerParams.setConnectionTimeout(DEFAULT_CONNECTION_MANAGER_TIMEOUT);
-        managerParams.setMaxTotalConnections(DEFAULT_MAX_CONNECTIONS);
-        managerParams.setMaxConnectionsPerHost(httpClient.getHostConfiguration(),
-                                               DEFAULT_MAX_HOST_CONNECTIONS);
-        managerParams.setStaleCheckingEnabled(false);
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager(SchemeRegistryFactory.createDefault(),
+                                                                                        DEFAULT_CONNECTION_MANAGER_TIMEOUT,
+                                                                                        TimeUnit.MILLISECONDS);
+
+        DefaultHttpClient httpClient = new DefaultHttpClient(connectionManager);
+
+        HttpParams clientParams = httpClient.getParams();
+
+        HttpConnectionParams.setSocketBufferSize(clientParams, 60000);
+        HttpConnectionParams.setTcpNoDelay(clientParams, false);
+        HttpProtocolParams.setUserAgent(clientParams, VOLDEMORT_USER_AGENT);
+        HttpProtocolParams.setVersion(clientParams, HttpVersion.HTTP_1_1);
+        // HostConfiguration hostConfig = new HostConfiguration();
+        // hostConfig.setHost("localhost");
+
+        HttpConnectionParams.setConnectionTimeout(clientParams, DEFAULT_CONNECTION_MANAGER_TIMEOUT);
+        HttpConnectionParams.setSoTimeout(clientParams, 500);
+        httpClient.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
+        HttpClientParams.setCookiePolicy(clientParams, CookiePolicy.IGNORE_COOKIES);
+
+        connectionManager.setMaxTotal(DEFAULT_MAX_CONNECTIONS);
+        connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HOST_CONNECTIONS);
+        HttpConnectionParams.setStaleCheckingEnabled(clientParams, false);
 
         return httpClient;
     }

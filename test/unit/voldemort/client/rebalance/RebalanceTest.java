@@ -32,14 +32,17 @@ public class RebalanceTest extends AbstractRebalanceTest {
 
     Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
     private final boolean useNio;
+    private final boolean useDonorBased;
 
-    public RebalanceTest(boolean useNio) {
+    public RebalanceTest(boolean useNio, boolean useDonorBased) {
         this.useNio = useNio;
+        this.useDonorBased = useDonorBased;
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { false }, { true } });
+        return Arrays.asList(new Object[][] { { true, true }, { true, false }, { false, true },
+                { false, false } });
     }
 
     @Override
@@ -103,4 +106,8 @@ public class RebalanceTest extends AbstractRebalanceTest {
         }
     }
 
+    @Override
+    protected boolean useDonorBased() {
+        return this.useDonorBased;
+    }
 }

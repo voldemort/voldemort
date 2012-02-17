@@ -18,14 +18,23 @@ import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /**
  * Compares the current cluster configuration with the target cluster
- * configuration. <br>
- * The end result is a map of target node-ids to another map of source node-ids
- * and partitions desired to be stolen or fetched
+ * configuration and generates a plan to move the partitions. The plan can be
+ * either generated from the perspective of the stealer or the donor. <br>
+ * 
+ * The end result is one of the following -
+ * 
+ * <li>A map of stealer node-ids to partitions desired to be stolen from various
+ * donor nodes
+ * 
+ * <li>A map of donor node-ids to partitions which we need to donate to various
+ * stealer nodes
  * 
  */
 public class RebalanceClusterPlan {
@@ -49,12 +58,34 @@ public class RebalanceClusterPlan {
      * @param storeDefs The list of store definitions to rebalance
      * @param enabledDeletePartition Delete the RW partition on the donor side
      *        after rebalance
+     * @param isStealerBased Do we want to generate the final plan based on the
+     *        stealer node or the donor node?
      */
     public RebalanceClusterPlan(final Cluster currentCluster,
                                 final Cluster targetCluster,
                                 final List<StoreDefinition> storeDefs,
                                 final boolean enabledDeletePartition) {
+        this(currentCluster, targetCluster, storeDefs, enabledDeletePartition, true);
+    }
 
+    /**
+     * Compares the currentCluster configuration with the desired
+     * targetConfiguration and builds a map of Target node-id to map of source
+     * node-ids and partitions desired to be stolen/fetched.
+     * 
+     * @param currentCluster The current cluster definition
+     * @param targetCluster The target cluster definition
+     * @param storeDefList The list of store definitions to rebalance
+     * @param enabledDeletePartition Delete the RW partition on the donor side
+     *        after rebalance
+     * @param isStealerBased Do we want to generate the final plan based on the
+     *        stealer node or the donor node?
+     */
+    public RebalanceClusterPlan(final Cluster currentCluster,
+                                final Cluster targetCluster,
+                                final List<StoreDefinition> storeDefs,
+                                final boolean enabledDeletePartition,
+                                final boolean isStealerBased) {
         this.rebalanceTaskQueue = new ConcurrentLinkedQueue<RebalanceNodePlan>();
         this.currentAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
         this.targetAllStoresNodeIdToAllPartitionTuples = Maps.newHashMap();
@@ -73,17 +104,28 @@ public class RebalanceClusterPlan {
                                          + ") not equal to Target cluster ("
                                          + targetCluster.getNumberOfNodes() + ") ]");
 
+        HashMultimap<Integer, RebalancePartitionsInfo> rebalancePartitionList = HashMultimap.create();
         for(Node node: targetCluster.getNodes()) {
-            List<RebalancePartitionsInfo> rebalanceNodeList = getRebalancePartitionsInfo(currentCluster,
-                                                                                         targetCluster,
-                                                                                         storeDefs,
-                                                                                         node.getId(),
-                                                                                         enabledDeletePartition);
-
-            if(rebalanceNodeList.size() > 0) {
-                rebalanceTaskQueue.offer(new RebalanceNodePlan(node.getId(), rebalanceNodeList));
+            for(RebalancePartitionsInfo info: getRebalancePartitionsInfo(currentCluster,
+                                                                         targetCluster,
+                                                                         storeDefs,
+                                                                         node.getId(),
+                                                                         enabledDeletePartition)) {
+                if(isStealerBased) {
+                    rebalancePartitionList.put(info.getStealerId(), info);
+                } else {
+                    rebalancePartitionList.put(info.getDonorId(), info);
+                }
             }
         }
+
+        // Populate the rebalance task queue
+        for(int nodeId: rebalancePartitionList.keySet()) {
+            rebalanceTaskQueue.offer(new RebalanceNodePlan(nodeId,
+                                                           Lists.newArrayList(rebalancePartitionList.get(nodeId)),
+                                                           isStealerBased));
+        }
+
     }
 
     public Queue<RebalanceNodePlan> getRebalancingTaskQueue() {
@@ -312,7 +354,8 @@ public class RebalanceClusterPlan {
         }
 
         for(RebalanceNodePlan nodePlan: rebalanceTaskQueue) {
-            builder.append("Stealer node " + nodePlan.getStealerNode());
+            builder.append((nodePlan.isNodeStealer() ? "Stealer " : "Donor ") + "Node "
+                           + nodePlan.getNodeId());
             for(RebalancePartitionsInfo rebalancePartitionsInfo: nodePlan.getRebalanceTaskList()) {
                 builder.append(rebalancePartitionsInfo).append(Utils.NEWLINE);
             }

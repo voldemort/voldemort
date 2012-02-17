@@ -102,10 +102,7 @@ public class RedirectingStoreTest extends TestCase {
     @Before
     public void setUp() throws IOException, InterruptedException {
         currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1 }, { 2, 3 }, {} });
-        targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
-                                                            currentCluster.getNodeById(2),
-                                                            currentCluster.getNodeById(0),
-                                                            Arrays.asList(0));
+        targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster, 2, Arrays.asList(0));
         this.primaryPartitionsMoved = Lists.newArrayList(0);
         this.secondaryPartitionsMoved = Lists.newArrayList(2, 3);
         this.storeDef = new StoreDefinitionBuilder().setName("test")

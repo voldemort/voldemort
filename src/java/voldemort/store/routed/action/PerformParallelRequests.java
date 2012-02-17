@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -172,8 +173,10 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                                        .getSimpleName()
                                                                                              + "s required, but only "
                                                                                              + pipelineData.getSuccesses()
-                                                                                             + " succeeded. Failing nodes : "
-                                                                                             + pipelineData.getFailedNodes(),
+                                                                                             + " succeeded",
+                                                                                     new ArrayList<Node>(pipelineData.getReplicationSet()),
+                                                                                     new ArrayList<Node>(pipelineData.getNodes()),
+                                                                                     new ArrayList<Node>(pipelineData.getFailedNodes()),
                                                                                      pipelineData.getFailures()));
 
                 pipeline.abort();
@@ -187,6 +190,12 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
                     pipeline.addEvent(completeEvent);
                 } else {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Operation " + pipeline.getOperation().getSimpleName()
+                                     + "failed due to insufficent zone responses, required "
+                                     + pipelineData.getZonesRequired() + " obtained "
+                                     + zonesSatisfied + " " + pipelineData.getZoneResponses());
+                    }
                     if(this.insufficientZonesEvent != null) {
                         pipeline.addEvent(this.insufficientZonesEvent);
                     } else {

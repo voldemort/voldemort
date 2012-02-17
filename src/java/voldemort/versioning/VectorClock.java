@@ -265,7 +265,7 @@ public class VectorClock implements Version, Serializable {
         return newClock;
     }
 
-    public Occured compare(Version v) {
+    public Occurred compare(Version v) {
         if(!(v instanceof VectorClock))
             throw new IllegalArgumentException("Cannot compare Versions of different types.");
 
@@ -283,7 +283,7 @@ public class VectorClock implements Version, Serializable {
      * @param v1 The first VectorClock
      * @param v2 The second VectorClock
      */
-    public static Occured compare(VectorClock v1, VectorClock v2) {
+    public static Occurred compare(VectorClock v1, VectorClock v2) {
         if(v1 == null || v2 == null)
             throw new IllegalArgumentException("Can't compare null vector clocks!");
         // We do two checks: v1 <= v2 and v2 <= v1 if both are true then
@@ -323,16 +323,16 @@ public class VectorClock implements Version, Serializable {
 
         /* This is the case where they are equal, return BEFORE arbitrarily */
         if(!v1Bigger && !v2Bigger)
-            return Occured.BEFORE;
+            return Occurred.BEFORE;
         /* This is the case where v1 is a successor clock to v2 */
         else if(v1Bigger && !v2Bigger)
-            return Occured.AFTER;
+            return Occurred.AFTER;
         /* This is the case where v2 is a successor clock to v1 */
         else if(!v1Bigger && v2Bigger)
-            return Occured.BEFORE;
+            return Occurred.BEFORE;
         /* This is the case where both clocks are parallel to one another */
         else
-            return Occured.CONCURRENTLY;
+            return Occurred.CONCURRENTLY;
     }
 
     public long getTimestamp() {

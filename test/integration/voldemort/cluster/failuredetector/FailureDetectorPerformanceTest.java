@@ -16,7 +16,7 @@
 
 package voldemort.cluster.failuredetector;
 
-import static voldemort.MutableStoreVerifier.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
@@ -24,7 +24,6 @@ import java.io.IOException;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.MutableStoreVerifier;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.UnreachableStoreException;

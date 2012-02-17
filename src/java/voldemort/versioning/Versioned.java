@@ -101,10 +101,10 @@ public final class Versioned<T> implements Serializable {
     public static final class HappenedBeforeComparator<S> implements Comparator<Versioned<S>> {
 
         public int compare(Versioned<S> v1, Versioned<S> v2) {
-            Occured occured = v1.getVersion().compare(v2.getVersion());
-            if(occured == Occured.BEFORE)
+            Occurred occurred = v1.getVersion().compare(v2.getVersion());
+            if(occurred == Occurred.BEFORE)
                 return -1;
-            else if(occured == Occured.AFTER)
+            else if(occurred == Occurred.AFTER)
                 return 1;
             else
                 return 0;

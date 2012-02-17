@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.Version;
 
 import com.google.common.collect.HashMultimap;
@@ -101,14 +101,14 @@ public class ReadRepairer<K, V> {
                 }
 
                 // Check the ordering of the current value
-                Occured occured = curr.getVersion().compare(concurrentVersion);
-                if(occured == Occured.BEFORE) {
+                Occurred occurred = curr.getVersion().compare(concurrentVersion);
+                if(occurred == Occurred.BEFORE) {
                     // This value is obsolete! Stop checking against other
                     // values...
                     obsolete.add(curr.getNodeId());
                     concurrentToAll = false;
                     break;
-                } else if(occured == Occured.AFTER) {
+                } else if(occurred == Occurred.AFTER) {
                     // This concurrent value is obsolete and the current value
                     // should replace it
                     for(NodeValue<K, V> v: concurrents.get(concurrentVersion))

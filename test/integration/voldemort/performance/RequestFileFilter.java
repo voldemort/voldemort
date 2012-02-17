@@ -46,32 +46,41 @@ public class RequestFileFilter {
     private final String inputFile;
     private final String outputFile;
     private final Node node;
+    private final boolean stringKeys;
 
     public RequestFileFilter(StoreDefinition storeDefinition,
                              RoutingStrategy routingStrategy,
                              String inputFile,
                              String outputFile,
-                             Node node) {
+                             Node node,
+                             boolean stringKeys) {
         this.storeDefinition = storeDefinition;
         this.routingStrategy = routingStrategy;
         this.inputFile = inputFile;
         this.outputFile = outputFile;
         this.node = node;
+        this.stringKeys = stringKeys;
     }
 
 
-    // TODO: support keys other than Integer
+    // TODO: support keys other than integer or string, general cleanup
     public void filter() throws IOException {
         SerializerFactory factory = new DefaultSerializerFactory();
         @SuppressWarnings("unchecked")
-        Serializer<Integer> keySerializer = (Serializer<Integer>) factory.getSerializer(storeDefinition.getKeySerializer());
+        Serializer<Object> keySerializer = (Serializer<Object>) factory.getSerializer(storeDefinition.getKeySerializer());
 
         BufferedReader in = new BufferedReader(new FileReader(inputFile));
         BufferedWriter out = new BufferedWriter(new FileWriter(outputFile));
         try {
             String line = null;
             while ((line = in.readLine()) != null) {
-                int key = Integer.valueOf(line.replaceAll("\\s+", ""));
+                String keyStr = line.replaceAll("\\s+$", "");
+                Object key = null;
+                if(stringKeys) {
+                    key = keyStr;
+                } else {
+                    key = Integer.valueOf(keyStr);
+                }
                 byte[] keyBytes = keySerializer.toBytes(key);
                 List<Node> nodes = routingStrategy.routeRequest(keyBytes);
                 if (nodes.contains(node)) {
@@ -79,14 +88,17 @@ public class RequestFileFilter {
                 }
             }
         } finally {
-            in.close();
-            out.close();
+            try {
+                in.close();
+            } finally {
+                out.close();
+            }
         }
     }
 
     /**
      * Filter requests specified in a file, generating a new file containing only
-     * requests destiend for a specific node.
+     * requests destined for a specific node.
      *
      * @param args See usage for more information
      * @throws Exception In case of I/O or Voldemort-specific errors
@@ -95,21 +107,23 @@ public class RequestFileFilter {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print usage information");
         parser.accepts("node", "[REQUIRED] node id")
-                       .withRequiredArg()
-                       .ofType(Integer.class)
-                       .describedAs("node id");
+              .withRequiredArg()
+              .ofType(Integer.class)
+              .describedAs("node id");
         parser.accepts("store-name", "[REQUIRED] store name")
-                       .withRequiredArg()
-                       .describedAs("store name");
+              .withRequiredArg()
+              .describedAs("store name");
         parser.accepts("url", "[REQUIRED] bootstrap URL")
-                       .withRequiredArg()
-                       .describedAs("bootstrap-url");
+              .withRequiredArg()
+              .describedAs("bootstrap-url");
         parser.accepts("input", "[REQUIRED] input request file")
-                       .withRequiredArg()
-                       .describedAs("input-file");
+              .withRequiredArg()
+              .describedAs("input-file");
         parser.accepts("output", "[REQUIRED] output file")
-                       .withRequiredArg()
-                       .describedAs("output-file");
+              .withRequiredArg()
+              .describedAs("output-file");
+        parser.accepts("string-keys");
+
         OptionSet options = parser.parse(args);
 
         if (options.has("help")) {
@@ -134,6 +148,7 @@ public class RequestFileFilter {
         String bootstrapURL = (String) options.valueOf("url");
         String inputFile = (String) options.valueOf("input");
         String outputFile = (String) options.valueOf("output");
+        boolean stringKeys = options.has("string-keys");
 
         AdminClient adminClient = new AdminClient(bootstrapURL, new AdminClientConfig());
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId).getValue();
@@ -163,7 +178,8 @@ public class RequestFileFilter {
                                   routingStrategy,
                                   inputFile,
                                   outputFile,
-                                  node).filter();
+                                  node,
+                                  stringKeys).filter();
         } catch (FileNotFoundException e) {
             Utils.croak(e.getMessage());
         }

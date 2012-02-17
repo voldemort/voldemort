@@ -109,10 +109,7 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                            cluster.getNodeById(2),
-                                                            cluster.getNodeById(0),
-                                                            Lists.newArrayList(0));
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
@@ -158,10 +155,7 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                            cluster.getNodeById(3),
-                                                            cluster.getNodeById(0),
-                                                            Lists.newArrayList(0));
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
@@ -217,10 +211,7 @@ public class AdminRebalanceTest extends TestCase {
                                                 .setPreferredWrites(1)
                                                 .setRequiredWrites(1)
                                                 .build();
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                            cluster.getNodeById(3),
-                                                            cluster.getNodeById(0),
-                                                            Lists.newArrayList(0));
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
@@ -291,10 +282,7 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster,
-                                                            cluster.getNodeById(3),
-                                                            cluster.getNodeById(0),
-                                                            Lists.newArrayList(0));
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
@@ -399,9 +387,7 @@ public class AdminRebalanceTest extends TestCase {
             try {
                 adminClient.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since not in rebalancing state");
-            } catch(VoldemortException e) {
-                e.printStackTrace();
-            }
+            } catch(VoldemortException e) {}
 
             // Set into rebalancing state
             for(RebalancePartitionsInfo partitionPlan: plans) {
@@ -414,7 +400,7 @@ public class AdminRebalanceTest extends TestCase {
                 adminClient.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since no steal info");
             } catch(VoldemortException e) {
-                e.printStackTrace();
+
             }
 
             // Put a plan different from the plan that we actually want to
@@ -436,7 +422,7 @@ public class AdminRebalanceTest extends TestCase {
                 adminClient.rebalanceNode(plans.get(0));
                 fail("Should have thrown an exception since the two plans eventhough have the same donor are different");
             } catch(VoldemortException e) {
-                e.printStackTrace();
+
             }
 
             // Set the rebalance info on the stealer node

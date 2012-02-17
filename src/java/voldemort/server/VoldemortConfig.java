@@ -48,6 +48,7 @@ public class VoldemortConfig implements Serializable {
 
     private static final long serialVersionUID = 1;
     public static final String VOLDEMORT_HOME_VAR_NAME = "VOLDEMORT_HOME";
+    public static final String VOLDEMORT_CONFIG_DIR = "VOLDEMORT_CONFIG_DIR";
     private static final String VOLDEMORT_NODE_ID_VAR_NAME = "VOLDEMORT_NODE_ID";
     public static int VOLDEMORT_DEFAULT_ADMIN_PORT = 6660;
 
@@ -73,11 +74,13 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
     private boolean bdbReadUncommitted;
-    private boolean bdbCursorPreload;
     private int bdbCleanerThreads;
     private long bdbLockTimeoutMs;
     private int bdbLockNLockTables;
+    private int bdbLogFaultReadSize;
+    private int bdbLogIteratorReadSize;
     private boolean bdbFairLatches;
+    private long bdbStatsCacheTtlMs;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -131,6 +134,7 @@ public class VoldemortConfig implements Serializable {
     private boolean enableNetworkClassLoader;
     private boolean enableGossip;
     private boolean enableRebalanceService;
+    private boolean enableJmxClusterName;
 
     private List<String> storageConfigurations;
 
@@ -205,13 +209,13 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
         this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
+        this.bdbLogFaultReadSize = props.getInt("bdb.log.fault.read.size", 2048);
+        this.bdbLogIteratorReadSize = props.getInt("bdb.log.iterator.read.size", 8192);
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
         this.bdbCheckpointerHighPriority = props.getBoolean("bdb.checkpointer.high.priority", false);
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
-
-        // enabling preload make cursor slow for insufficient bdb cache size.
-        this.bdbCursorPreload = props.getBoolean("bdb.cursor.preload", false);
+        this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -276,7 +280,8 @@ public class VoldemortConfig implements Serializable {
         this.enableMetadataChecking = props.getBoolean("enable.metadata.checking", true);
         this.enableGossip = props.getBoolean("enable.gossip", false);
         this.enableRebalanceService = props.getBoolean("enable.rebalancing", true);
-        this.enableRepair = props.getBoolean("enable.repair", false);
+        this.enableRepair = props.getBoolean("enable.repair", true);
+        this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
         this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
 
@@ -394,17 +399,33 @@ public class VoldemortConfig implements Serializable {
                                              + VoldemortConfig.VOLDEMORT_HOME_VAR_NAME
                                              + " has been defined, set it!");
 
-        return loadFromVoldemortHome(voldemortHome);
+        String voldemortConfigDir = System.getenv(VoldemortConfig.VOLDEMORT_CONFIG_DIR);
+        if(voldemortConfigDir != null) {
+            if(!Utils.isReadableDir(voldemortConfigDir))
+                throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_CONFIG_DIR, "
+                                                 + voldemortConfigDir
+                                                 + " failed. That is not a readable directory.");
+        }
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
     }
 
     public static VoldemortConfig loadFromVoldemortHome(String voldemortHome) {
+        String voldemortConfigDir = voldemortHome + File.separator + "config";
+        return loadFromVoldemortHome(voldemortHome, voldemortConfigDir);
+
+    }
+
+    public static VoldemortConfig loadFromVoldemortHome(String voldemortHome,
+                                                        String voldemortConfigDir) {
         if(!Utils.isReadableDir(voldemortHome))
             throw new ConfigurationException("Attempt to load configuration from VOLDEMORT_HOME, "
                                              + voldemortHome
                                              + " failed. That is not a readable directory.");
 
-        String propertiesFile = voldemortHome + File.separator + "config" + File.separator
-                                + "server.properties";
+        if(voldemortConfigDir == null) {
+            voldemortConfigDir = voldemortHome + File.separator + "config";
+        }
+        String propertiesFile = voldemortConfigDir + File.separator + "server.properties";
         if(!Utils.isReadableFile(propertiesFile))
             throw new ConfigurationException(propertiesFile
                                              + " is not a readable configuration file.");
@@ -413,6 +434,7 @@ public class VoldemortConfig implements Serializable {
         try {
             properties = new Props(new File(propertiesFile));
             properties.put("voldemort.home", voldemortHome);
+            properties.put("metadata.directory", voldemortConfigDir);
         } catch(IOException e) {
             throw new ConfigurationException(e);
         }
@@ -648,6 +670,22 @@ public class VoldemortConfig implements Serializable {
         return bdbLockNLockTables;
     }
 
+    public void setBdbLogFaultReadSize(int bdbLogFaultReadSize) {
+        this.bdbLogFaultReadSize = bdbLogFaultReadSize;
+    }
+
+    public int getBdbLogFaultReadSize() {
+        return bdbLogFaultReadSize;
+    }
+
+    public void setBdbLogIteratorReadSize(int bdbLogIteratorReadSize) {
+        this.bdbLogIteratorReadSize = bdbLogIteratorReadSize;
+    }
+
+    public int getBdbLogIteratorReadSize() {
+        return bdbLogIteratorReadSize;
+    }
+
     public boolean getBdbFairLatches() {
         return bdbFairLatches;
     }
@@ -696,21 +734,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
-    }
-
-    /**
-     * Do we preload the cursor or not? The advantage of preloading for cursor
-     * is faster streaming performance, as entries are fetched in disk order.
-     * Incidentally, pre-loading is only a side-effect of what we're really
-     * trying to do: fetch in disk (as opposed to key) order, but there doesn't
-     * seem to be an easy/intuitive way to do for BDB JE.
-     */
-    public boolean getBdbCursorPreload() {
-        return this.bdbCursorPreload;
-    }
-
-    public void setBdbCursorPreload(boolean bdbCursorPreload) {
-        this.bdbCursorPreload = bdbCursorPreload;
     }
 
     /**
@@ -1082,6 +1105,14 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = bdbCheckpointMs;
     }
 
+    public long getBdbStatsCacheTtlMs() {
+        return this.bdbStatsCacheTtlMs;
+    }
+
+    public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
+        this.bdbStatsCacheTtlMs = statsCacheTtlMs;
+    }
+
     public int getSchedulerThreads() {
         return schedulerThreads;
     }
@@ -1391,6 +1422,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setMaxParallelStoresRebalancing(boolean rebalancingOptimization) {
         this.rebalancingOptimization = rebalancingOptimization;
+    }
+
+    public boolean isEnableJmxClusterName() {
+        return enableJmxClusterName;
+    }
+
+    public void setEnableJmxClusterName(boolean enableJmxClusterName) {
+        this.enableJmxClusterName = enableJmxClusterName;
     }
 
 }

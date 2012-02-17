@@ -37,7 +37,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -171,7 +171,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             while(rs.next()) {
                 byte[] theKey = rs.getBytes("key_");
                 byte[] version = rs.getBytes("version_");
-                if(new VectorClock(version).compare(maxVersion) == Occured.BEFORE) {
+                if(new VectorClock(version).compare(maxVersion) == Occurred.BEFORE) {
                     delete(conn, theKey, version);
                     deletedSomething = true;
                 }
@@ -266,13 +266,13 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             while(results.next()) {
                 byte[] thisKey = results.getBytes("key_");
                 VectorClock version = new VectorClock(results.getBytes("version_"));
-                Occured occured = value.getVersion().compare(version);
-                if(occured == Occured.BEFORE)
+                Occurred occurred = value.getVersion().compare(version);
+                if(occurred == Occurred.BEFORE)
                     throw new ObsoleteVersionException("Attempt to put version "
                                                        + value.getVersion()
                                                        + " which is superceeded by " + version
                                                        + ".");
-                else if(occured == Occured.AFTER)
+                else if(occurred == Occurred.AFTER)
                     delete(conn, thisKey, version.toBytes());
             }
 

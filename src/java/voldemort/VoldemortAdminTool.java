@@ -190,6 +190,24 @@ public class VoldemortAdminTool {
               .describedAs("job-ids")
               .withValuesSeparatedBy(',')
               .ofType(Integer.class);
+        parser.accepts("repair-job", "Clean after rebalancing is done");
+        parser.accepts("native-backup", "Perform a native backup")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
+        parser.accepts("backup-dir")
+              .withRequiredArg()
+              .describedAs("backup-directory")
+              .ofType(String.class);
+        parser.accepts("backup-timeout")
+              .withRequiredArg()
+              .describedAs("minutes to wait for backup completion, default 30 mins")
+              .ofType(Integer.class);
+        parser.accepts("backup-verify",
+                       "If provided, backup will also verify checksum (with extra overhead)");
+        parser.accepts("backup-incremental",
+                       "Perform an incremental backup for point-in-time recovery."
+                               + " By default backup has latest consistent snapshot.");
 
         OptionSet options = parser.parse(args);
 
@@ -205,7 +223,8 @@ public class VoldemortAdminTool {
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
-                 || options.has("truncate") || options.has("clear-rebalancing-metadata") || options.has("async"))) {
+                 || options.has("truncate") || options.has("clear-rebalancing-metadata")
+                 || options.has("async") || options.has("native-backup"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -264,11 +283,20 @@ public class VoldemortAdminTool {
         if(options.has("async")) {
             ops += "b";
         }
+        if(options.has("repair-job")) {
+            ops += "l";
+        }
+        if(options.has("native-backup")) {
+            if(!options.has("backup-dir")) {
+                Utils.croak("A backup directory must be specified with backup-dir option");
+            }
+            ops += "n";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
-                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async) "
-                        + "must be specified");
+                        + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
+                        + "repair-job, native-backup) must be specified");
         }
 
         List<String> storeNames = null;
@@ -414,9 +442,33 @@ public class VoldemortAdminTool {
                     asyncIds = (List<Integer>) options.valuesOf("async-id");
                 executeAsync(nodeId, adminClient, asyncKey, asyncIds);
             }
+            if(ops.contains("l")) {
+                executeRepairJob(nodeId, adminClient);
+            }
+            if(ops.contains("n")) {
+                String backupDir = (String) options.valueOf("backup-dir");
+                String storeName = (String) options.valueOf("native-backup");
+                int timeout = CmdUtils.valueOf(options, "backup-timeout", 30);
+                adminClient.nativeBackup(nodeId,
+                                         storeName,
+                                         backupDir,
+                                         timeout,
+                                         options.has("backup-verify"),
+                                         options.has("backup-incremental"));
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    private static void executeRepairJob(Integer nodeId, AdminClient adminClient) {
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                adminClient.repairJob(node.getId());
+            }
+        } else {
+            adminClient.repairJob(nodeId);
         }
     }
 
@@ -516,6 +568,11 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --restore 10 --url [url] --node [node-id]");
         stream.println("\t3) Generates the key distribution on a per node basis [ both store wise and overall ]");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --key-distribution --url [url]");
+        stream.println("\t4) Clean a node after rebalancing is done");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --repair-job --url [url] --node [node-id]");
+        stream.println("\t5) Backup bdb data natively");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] "
+                       + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
 
         parser.printHelpOn(stream);
     }
@@ -665,8 +722,9 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
-                                                                                 updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId,
+                                             key,
+                                             Versioned.value(value.toString(), updatedVersion));
         }
     }
 
@@ -731,7 +789,6 @@ public class VoldemortAdminTool {
                                            AdminClient adminClient,
                                            String metadataKey,
                                            String outputDir) throws IOException {
-
         File directory = null;
         if(outputDir != null) {
             directory = new File(outputDir);

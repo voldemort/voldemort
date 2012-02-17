@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Logger;
 
 import voldemort.TestUtils;
+import voldemort.VoldemortException;
+import voldemort.client.StoreClient;
 import voldemort.performance.benchmark.generator.CounterGenerator;
 import voldemort.performance.benchmark.generator.DiscreteGenerator;
 import voldemort.performance.benchmark.generator.FileIntegerGenerator;
@@ -38,6 +40,9 @@ import voldemort.performance.benchmark.generator.SkewedLatestGenerator;
 import voldemort.performance.benchmark.generator.UniformIntegerGenerator;
 import voldemort.utils.Props;
 import voldemort.utils.UndefinedPropertyException;
+import voldemort.versioning.Versioned;
+
+import com.google.common.collect.Lists;
 
 public class Workload {
 
@@ -251,6 +256,9 @@ public class Workload {
     private KeyProvider<?> warmUpKeyProvider;
     private KeyProvider<?> keyProvider;
     private String value;
+    private ArrayList<Versioned<Object>> sampleValues;
+    private Random randomSampler;
+    private int sampleSize;
 
     /**
      * Initialize the workload. Called once, in the main client thread, before
@@ -263,10 +271,12 @@ public class Workload {
         int mixedPercent = props.getInt(Benchmark.MIXED, 0);
         int valueSize = props.getInt(Benchmark.VALUE_SIZE, 1024);
         this.value = new String(TestUtils.randomBytes(valueSize));
+        this.sampleSize = props.getInt(Benchmark.SAMPLE_SIZE, 0);
         int cachedPercent = props.getInt(Benchmark.PERCENT_CACHED, 0);
         String keyType = props.getString(Benchmark.KEY_TYPE, Benchmark.STRING_KEY_TYPE);
         String recordSelection = props.getString(Benchmark.RECORD_SELECTION,
                                                  Benchmark.UNIFORM_RECORD_SELECTION);
+
         boolean hasTransforms = props.getString(Benchmark.HAS_TRANSFORMS, "false")
                                      .compareTo("true") == 0;
 
@@ -276,11 +286,12 @@ public class Workload {
         double mixedProportion = (double) mixedPercent / (double) 100;
 
         // Using default read only
-        if(Math.abs((writeProportion + readProportion + mixedProportion + deleteProportion) - 1.0) > 0.1) {
-            readProportion = 1.0;
-            mixedProportion = 0.0;
-            writeProportion = 0.0;
-            deleteProportion = 0.0;
+        if(Math.abs(writeProportion + readProportion + mixedProportion + deleteProportion) != 1.0) {
+            throw new VoldemortException("The sum of all workload percentage is NOT 100% \n"
+                                         + " Read=" + (double) readPercent / (double) 100
+                                         + " Write=" + (double) writePercent / (double) 100
+                                         + " Delete=" + (double) deletePercent / (double) 100
+                                         + " Mixed=" + (double) mixedPercent / (double) 100);
         }
 
         List<Integer> keysFromFile = null;
@@ -300,6 +311,22 @@ public class Workload {
         } else {
             recordCount = props.getInt(Benchmark.RECORD_COUNT, -1);
         }
+
+        // 1. request_file option is used when sample_size is specified;
+        // 2. sample_size shall be no greater than # of keys in the request_file
+        if(sampleSize > 0) {
+            if(recordSelection.compareTo(Benchmark.FILE_RECORD_SELECTION) != 0) {
+                sampleSize = 0;
+                logger.warn(Benchmark.SAMPLE_SIZE + " will be ignored because "
+                            + Benchmark.REQUEST_FILE + " is not specified.");
+            } else if(keysFromFile.size() < sampleSize) {
+                sampleSize = keysFromFile.size();
+                logger.warn(Benchmark.SAMPLE_SIZE + " is reduced to " + sampleSize
+                            + " because it was larger than number of keys in "
+                            + Benchmark.REQUEST_FILE);
+            }
+        }
+
         int opCount = props.getInt(Benchmark.OPS_COUNT);
 
         Class<?> keyTypeClass = getKeyTypeClass(keyType);
@@ -361,7 +388,7 @@ public class Workload {
 
         }
         this.keyProvider = getKeyProvider(keyTypeClass, keyGenerator, cachedPercent);
-
+        this.randomSampler = new Random(System.currentTimeMillis());
     }
 
     public boolean doWrite(VoldemortWrapper db, WorkloadPlugin plugin) {
@@ -387,7 +414,11 @@ public class Workload {
 
         Object key = keyProvider.next();
         if(op.compareTo(Benchmark.WRITES) == 0) {
-            db.write(key, this.value, transform);
+            if(sampleSize > 0) {
+                writeSampleValue(db, key);
+            } else {
+                db.write(key, this.value, transform);
+            }
         } else if(op.compareTo(Benchmark.MIXED) == 0) {
             db.mixed(key, this.value, transform);
         } else if(op.compareTo(Benchmark.DELETES) == 0) {
@@ -399,4 +430,31 @@ public class Workload {
 
     }
 
+    private void writeSampleValue(VoldemortWrapper db, Object key) {
+        db.write(key, getRandomSampleValue(), null);
+    }
+
+    public void loadSampleValues(StoreClient<Object, Object> client) {
+        if(this.sampleSize > 0) {
+            sampleValues = Lists.newArrayList();
+            for(int i = 0; i < sampleSize; i++) {
+                Object key = keyProvider.next();
+                Versioned<Object> versioned = client.get(key);
+                if(null == versioned) {
+                    logger.error("NULL is sampled for key " + key);
+                    System.err.println("NULL is sampled for key " + key);
+                }
+                sampleValues.add(versioned);
+            }
+        }
+    }
+
+    public Object getRandomSampleValue() {
+        Object value = null;
+        Versioned<Object> versioned = sampleValues.get(randomSampler.nextInt(sampleSize));
+        if(versioned != null) {
+            value = versioned.getValue();
+        }
+        return value;
+    }
 }

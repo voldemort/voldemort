@@ -34,7 +34,7 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.Occured;
+import voldemort.versioning.Occurred;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -83,7 +83,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
             Iterator<Versioned<V>> iterator = values.iterator();
             while(iterator.hasNext()) {
                 Versioned<V> item = iterator.next();
-                if(item.getVersion().compare(version) == Occured.BEFORE) {
+                if(item.getVersion().compare(version) == Occurred.BEFORE) {
                     iterator.remove();
                     deletedSomething = true;
                 }
@@ -143,11 +143,11 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
                     // remove in case of success
                     List<Versioned<V>> itemsToRemove = new ArrayList<Versioned<V>>(items.size());
                     for(Versioned<V> versioned: items) {
-                        Occured occured = value.getVersion().compare(versioned.getVersion());
-                        if(occured == Occured.BEFORE) {
+                        Occurred occurred = value.getVersion().compare(versioned.getVersion());
+                        if(occurred == Occurred.BEFORE) {
                             throw new ObsoleteVersionException("Obsolete version for key '" + key
                                                                + "': " + value.getVersion());
-                        } else if(occured == Occured.AFTER) {
+                        } else if(occurred == Occurred.AFTER) {
                             itemsToRemove.add(versioned);
                         }
                     }

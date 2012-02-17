@@ -38,17 +38,17 @@ public class VectorClockTest extends TestCase {
 
     public void testComparisons() {
         assertTrue("The empty clock should not happen before itself.",
-                   getClock().compare(getClock()) != Occured.CONCURRENTLY);
+                   getClock().compare(getClock()) != Occurred.CONCURRENTLY);
         assertTrue("A clock should not happen before an identical clock.",
-                   getClock(1, 1, 2).compare(getClock(1, 1, 2)) != Occured.CONCURRENTLY);
+                   getClock(1, 1, 2).compare(getClock(1, 1, 2)) != Occurred.CONCURRENTLY);
         assertTrue(" A clock should happen before an identical clock with a single additional event.",
-                   getClock(1, 1, 2).compare(getClock(1, 1, 2, 3)) == Occured.BEFORE);
+                   getClock(1, 1, 2).compare(getClock(1, 1, 2, 3)) == Occurred.BEFORE);
         assertTrue("Clocks with different events should be concurrent.",
-                   getClock(1).compare(getClock(2)) == Occured.CONCURRENTLY);
+                   getClock(1).compare(getClock(2)) == Occurred.CONCURRENTLY);
         assertTrue("Clocks with different events should be concurrent.",
-                   getClock(1, 1, 2).compare(getClock(1, 1, 3)) == Occured.CONCURRENTLY);
-        assertTrue(getClock(2, 2).compare(getClock(1, 2, 2, 3)) == Occured.BEFORE
-                   && getClock(1, 2, 2, 3).compare(getClock(2, 2)) == Occured.AFTER);
+                   getClock(1, 1, 2).compare(getClock(1, 1, 3)) == Occurred.CONCURRENTLY);
+        assertTrue(getClock(2, 2).compare(getClock(1, 2, 2, 3)) == Occurred.BEFORE
+                   && getClock(1, 2, 2, 3).compare(getClock(2, 2)) == Occurred.AFTER);
     }
 
     public void testMerge() {
