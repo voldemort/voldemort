@@ -24,6 +24,16 @@ fi
 
 base_dir=$(dirname $0)/..
 
+if [ -z "$VOLDEMORT_CONFIG_DIR" ]; then
+	if [ -z "$2" ]; then
+		VOLDEMORT_CONFIG_DIR=$base_dir/config	
+	else
+		VOLDEMORT_CONFIG_DIR=$2	
+	fi
+fi
+
+source $VOLDEMORT_CONFIG_DIR/voldemort-env.sh
+
 for file in $base_dir/dist/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
