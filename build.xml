@@ -320,7 +320,8 @@
     <zip destfile="${dist.dir}/${name}-@{version}.zip">
       <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
       <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
+        <exclude name="${dist.dir}/*classes/**/*"/>
+      	<exclude name="*classes/**"/>
         <exclude name="bin/*"/>
         <exclude name=".git*/**"/>
       </zipfileset>
@@ -328,8 +329,9 @@
     <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
       <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
       <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
+        <exclude name="${dist.dir}/*classes/**/*"/>
         <exclude name="${dist.dir}/*.zip"/>
+      	<exclude name="*classes/**"/>
         <exclude name="bin/*"/>
         <exclude name=".git*/**"/>
       </tarfileset>
