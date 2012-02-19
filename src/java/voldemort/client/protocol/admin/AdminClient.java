@@ -1890,9 +1890,8 @@ public class AdminClient {
     public Map<String, Long> getROCurrentVersion(int nodeId, List<String> storeNames) {
         Map<String, Long> returnMap = Maps.newHashMapWithExpectedSize(storeNames.size());
         Map<String, String> versionDirs = getROCurrentVersionDir(nodeId, storeNames);
-        for(String storeName: versionDirs.keySet()) {
-            returnMap.put(storeName,
-                          ReadOnlyUtils.getVersionId(new File(versionDirs.get(storeName))));
+        for(Map.Entry<String, String> entry: versionDirs.entrySet()) {
+            returnMap.put(entry.getKey(), ReadOnlyUtils.getVersionId(new File(entry.getValue())));
         }
         return returnMap;
     }
@@ -1934,10 +1933,10 @@ public class AdminClient {
 
         for(Node node: currentCluster.getNodes()) {
             Map<String, Long> currentNodeVersions = getROMaxVersion(node.getId(), storeNames);
-            for(String storeName: currentNodeVersions.keySet()) {
-                Long maxVersion = storeToMaxVersion.get(storeName);
-                if(maxVersion != null && maxVersion < currentNodeVersions.get(storeName)) {
-                    storeToMaxVersion.put(storeName, currentNodeVersions.get(storeName));
+            for(Map.Entry<String, Long> entry: currentNodeVersions.entrySet()) {
+                Long maxVersion = storeToMaxVersion.get(entry.getKey());
+                if(maxVersion != null && maxVersion < entry.getValue()) {
+                    storeToMaxVersion.put(entry.getKey(), entry.getValue());
                 }
             }
         }
