@@ -33,6 +33,7 @@ import voldemort.server.RequestRoutingType;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.StoreTimeoutException;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -375,7 +376,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
 
         public void timeOut() {
             clientRequest.timeOut();
-            invokeCallback(new UnreachableStoreException("ClientRequestExecutor timed out. Cannot complete request."),
+            invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out. Cannot complete request."),
                            (System.nanoTime() - startNs) / Time.NS_PER_MS);
             pool.checkin(destination, clientRequestExecutor);
         }
