@@ -23,14 +23,7 @@ fi
 
 base_dir=$(dirname $0)/..
 
-if [ -z "$VOLDEMORT_CONFIG_DIR" ]; then
-	if [ -z "$2" ]; then
-		VOLDEMORT_CONFIG_DIR=$base_dir/config	
-	else
-		VOLDEMORT_CONFIG_DIR=$2	
-	fi
-fi
-
+VOLDEMORT_CONFIG_DIR=${1}/config
 source $VOLDEMORT_CONFIG_DIR/voldemort-env.sh
 
 for file in $base_dir/lib/*.jar;
@@ -54,5 +47,4 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 export CLASSPATH
-echo "Using JAVA_HOME = $JAVA_HOME"
-exec $JAVA_HOME/bin/java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
