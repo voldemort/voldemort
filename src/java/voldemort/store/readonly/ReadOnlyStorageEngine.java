@@ -29,8 +29,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.log4j.Logger;
 
-import voldemort.UnsupportedVoldemortOperationException;
 import voldemort.VoldemortException;
+import voldemort.VoldemortUnsupportedOperationalException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.routing.RoutingStrategy;
@@ -544,7 +544,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
      */
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
-        throw new UnsupportedVoldemortOperationException("Put is not supported on this store, it is read-only.");
+        throw new VoldemortUnsupportedOperationalException("Put is not supported on this store, it is read-only.");
     }
 
     @JmxGetter(name = "name", description = "The name of the store.")
