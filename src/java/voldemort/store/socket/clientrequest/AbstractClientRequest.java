@@ -80,9 +80,6 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
         if(!isComplete)
             throw new IllegalStateException("Client response not complete, cannot determine result");
 
-        if(result == null)
-            throw new StoreTimeoutException("Error in connecting to server.");
-
         if(!isParsed)
             throw new UnreachableStoreException("Client response not read/parsed, cannot determine result");
 
