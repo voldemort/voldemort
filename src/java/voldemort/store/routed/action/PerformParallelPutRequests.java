@@ -296,7 +296,8 @@ public class PerformParallelPutRequests extends
                                                                                                     .getSimpleName()
                                                                                           + "s required zone, but only "
                                                                                           + zonesSatisfied
-                                                                                          + " succeeded"));
+                                                                                          + " succeeded. Failing nodes : "
+                                                                                          + pipelineData.getFailedNodes()));
                         pipeline.abort();
                     }
                 }

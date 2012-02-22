@@ -21,6 +21,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import voldemort.VoldemortException;
+import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
 
 /**
@@ -73,6 +74,9 @@ public abstract class AbstractClientRequest<T> implements ClientRequest<T> {
     }
 
     public T getResult() throws VoldemortException, IOException {
+        if(isTimedOut)
+            throw new StoreTimeoutException("Request timed out");
+
         if(!isComplete)
             throw new IllegalStateException("Client response not complete, cannot determine result");
 

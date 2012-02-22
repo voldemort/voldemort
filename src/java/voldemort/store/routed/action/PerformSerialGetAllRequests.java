@@ -30,8 +30,8 @@ import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.routed.GetAllPipelineData;
 import voldemort.store.routed.Pipeline;
-import voldemort.store.routed.Response;
 import voldemort.store.routed.Pipeline.Event;
+import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
@@ -162,7 +162,8 @@ public class PerformSerialGetAllRequests
                                                                                                        .getSimpleName()
                                                                                              + "s required, but "
                                                                                              + successCount.intValue()
-                                                                                             + " succeeded",
+                                                                                             + " succeeded. Failing nodes : "
+                                                                                             + pipelineData.getFailedNodes(),
                                                                                      pipelineData.getFailures()));
                 pipeline.addEvent(Event.ERROR);
                 return;

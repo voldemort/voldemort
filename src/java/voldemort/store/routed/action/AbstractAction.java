@@ -22,11 +22,12 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortApplicationException;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.Response;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.Utils;
 
 public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implements Action {
@@ -57,10 +58,15 @@ public abstract class AbstractAction<K, V, PD extends PipelineData<K, V>> implem
                                           long requestTime,
                                           Pipeline pipeline,
                                           FailureDetector failureDetector) {
-        if(logger.isEnabledFor(Level.WARN))
-            logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
-                        + node.getId() + "(" + node.getHost() + ")", e);
-        
+        if(logger.isEnabledFor(Level.WARN)) {
+            if(e instanceof StoreTimeoutException)
+                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                            + node.getId() + "(" + node.getHost() + ") : " + e.getMessage());
+            else
+                logger.warn("Error in " + pipeline.getOperation().getSimpleName() + " on node "
+                            + node.getId() + "(" + node.getHost() + ")", e);
+        }
+
         if(e instanceof UnreachableStoreException) {
             pipelineData.addFailedNode(node);
             pipelineData.recordFailure(e);
