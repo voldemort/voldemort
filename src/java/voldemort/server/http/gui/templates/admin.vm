@@ -83,7 +83,7 @@
           </tr>
         #foreach($service in $services)
           <tr>
-            <td>$service.type.displayName</td>
+            <td>$service.displayName</td>
             <td>$service.isStarted()</td>
           </tr>
         #end
