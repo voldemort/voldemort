@@ -24,8 +24,10 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
+import voldemort.server.storage.StorageService;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.Maps;
@@ -41,6 +43,7 @@ public class AdminServlet extends HttpServlet {
 
     private VoldemortServer server;
     private VelocityEngine velocityEngine;
+    private StorageService storageService;
 
     /* For use by servlet container */
     public AdminServlet() {}
@@ -54,6 +57,7 @@ public class AdminServlet extends HttpServlet {
     public void init() throws ServletException {
         super.init();
         this.server = (VoldemortServer) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.SERVER_KEY));
+        this.storageService = (StorageService) server.getService(ServiceType.STORAGE);
         this.velocityEngine = (VelocityEngine) Utils.notNull(getServletContext().getAttribute(VoldemortServletContextListener.VELOCITY_ENGINE_KEY));
     }
 
@@ -61,10 +65,11 @@ public class AdminServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         Map<String, Object> params = Maps.newHashMap();
+
         params.put("cluster", server.getMetadataStore().getCluster());
         params.put("repository", server.getStoreRepository());
         params.put("services", server.getServices());
+        params.put("failureDetector", storageService.getFailureDetector());
         velocityEngine.render("admin.vm", params, response.getOutputStream());
     }
-
 }
