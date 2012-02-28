@@ -33,8 +33,7 @@ import voldemort.utils.ByteArray;
 public class ChainedInconsistencyResolverTest extends TestCase {
 
     private static final String KEY = "XYZ";
-    private InconsistencyResolver<Versioned<String>> vectorResolver, timeResolver, chainedResolver;
-    private Versioned<String> v1, v2, v3;
+    private Versioned<String> v1, v2;
 
     private Node node;
     private Cluster cluster;
@@ -48,7 +47,6 @@ public class ChainedInconsistencyResolverTest extends TestCase {
     private final boolean useNio = false;
     private static final String STORES_XML = "test/common/voldemort/config/single-store.xml";
 
-    @SuppressWarnings("unchecked")
     @Override
     public void setUp() throws IOException {
         VoldemortTestConstants.getSingleStoreDefinitionsXml();
@@ -76,12 +74,8 @@ public class ChainedInconsistencyResolverTest extends TestCase {
                                                                                             new Properties()),
                                                          cluster));
 
-        vectorResolver = new VectorClockInconsistencyResolver<String>();
-        timeResolver = new TimeBasedInconsistencyResolver<String>();
-        chainedResolver = new ChainedResolver<Versioned<String>>(vectorResolver, timeResolver);
-        v1 = getVersioned(0, 0, 1, 1, 1, 1, 1);
-        v2 = getVersioned(0, 0, 0, 1, 1, 1, 1);
-
+        v1 = getVersioned(0, 1, 1, 1, 1, 1);
+        v2 = getVersioned(0, 0, 1, 1, 1, 1);
         defaultStoreClient = storeClientFactory.getStoreClient("test");
         socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                      "test",
@@ -100,7 +94,6 @@ public class ChainedInconsistencyResolverTest extends TestCase {
         return new Versioned<String>("my-value", TestUtils.getClock(nodes));
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testVersionedPut() {
         defaultStoreClient.put(KEY, v1);
@@ -111,7 +104,6 @@ public class ChainedInconsistencyResolverTest extends TestCase {
         assertEquals(1, resList.size());
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testNormalPut() {
         defaultStoreClient.put(KEY, v1);

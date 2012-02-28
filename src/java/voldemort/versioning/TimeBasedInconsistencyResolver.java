@@ -28,23 +28,21 @@ import java.util.List;
 public class TimeBasedInconsistencyResolver<T> implements InconsistencyResolver<Versioned<T>> {
 
     public List<Versioned<T>> resolveConflicts(List<Versioned<T>> items) {
-        List<ClockEntry> maxClock = null;
         if(items.size() <= 1) {
             return items;
         } else {
             Versioned<T> max = items.get(0);
             long maxTime = ((VectorClock) items.get(0).getVersion()).getTimestamp();
-            maxClock = ((VectorClock) items.get(0).getVersion()).getEntries();
+            VectorClock maxClock = ((VectorClock) items.get(0).getVersion());
             for(Versioned<T> versioned: items) {
                 VectorClock clock = (VectorClock) versioned.getVersion();
                 if(clock.getTimestamp() > maxTime) {
                     max = versioned;
                     maxTime = ((VectorClock) versioned.getVersion()).getTimestamp();
                 }
-                maxClock = VectorClock.maxClockList(maxClock, clock.getEntries());
+                maxClock = maxClock.merge(clock);
             }
-            Versioned<T> maxTimeClockVersioned = new Versioned<T>(max.getValue(),
-                                                                  new VectorClock(maxClock, maxTime));
+            Versioned<T> maxTimeClockVersioned = new Versioned<T>(max.getValue(), maxClock);
             return Collections.singletonList(maxTimeClockVersioned);
         }
     }
