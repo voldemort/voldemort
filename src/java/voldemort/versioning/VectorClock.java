@@ -343,4 +343,36 @@ public class VectorClock implements Version, Serializable {
         return this.versions;
     }
 
+    public static List<ClockEntry> maxClockList(List<ClockEntry> v1, List<ClockEntry> v2) {
+        if(v1 == null || v2 == null)
+            throw new IllegalArgumentException("Can't compare null vector clocks!");
+        int p1 = 0;
+        int p2 = 0;
+        List<ClockEntry> maxClockList = new ArrayList<ClockEntry>();
+
+        /* Create a ClockEntry list with the maximum clocks of v1 and v2 */
+        while(p1 < v1.size() && p2 < v2.size()) {
+            ClockEntry ver1 = v1.get(p1);
+            ClockEntry ver2 = v2.get(p2);
+            if(ver1.getNodeId() < ver2.getNodeId()) {
+                maxClockList.add(ver2);
+            } else {
+                maxClockList.add(ver1);
+            }
+            p1++;
+            p2++;
+        }
+
+        /* Insert remaining clocks */
+        while(p1 < v1.size()) {
+            maxClockList.add(v1.get(p1));
+            p1++;
+        }
+        while(p2 < v2.size()) {
+            maxClockList.add(v1.get(p2));
+            p2++;
+        }
+
+        return maxClockList;
+    }
 }
