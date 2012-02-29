@@ -1,6 +1,7 @@
 package voldemort.store.stats;
 
-import voldemort.annotations.concurrency.NotThreadsafe;
+import voldemort.VoldemortException;
+import voldemort.annotations.concurrency.Threadsafe;
 
 import java.util.Arrays;
 
@@ -11,7 +12,7 @@ import java.util.Arrays;
  *
  *
  */
-@NotThreadsafe
+@Threadsafe
 public class Histogram {
     
     private final int nBuckets;
@@ -45,7 +46,7 @@ public class Histogram {
     /**
      * Reset the histogram back to empty (set all values to 0)
      */
-    public void reset() {
+    public synchronized void reset() {
         Arrays.fill(buckets, 0);
         size = 0;
     }
@@ -56,9 +57,11 @@ public class Histogram {
      *
      * @param data The value to insert into the histogram
      */
-    public void insert(int data) {
+    public synchronized void insert(int data) {
         int index = findBucket(data);
-        assert(index != -1);
+        if(index == -1) {
+            throw new VoldemortException(data + " can't be bucketed, is invalid!");
+        }
         buckets[index]++;
         size++;
     }
@@ -70,7 +73,7 @@ public class Histogram {
      * @param quantile The percentile to find
      * @return Lower bound associated with the percentile
      */
-    public int getQuantile(double quantile) {
+    public synchronized int getQuantile(double quantile) {
         int total = 0;
         for(int i = 0; i < nBuckets; i++) {
             total += buckets[i];

@@ -35,7 +35,7 @@ public class RequestCounter {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMS = durationMS;
-        this.histogram = new Histogram(15000, 1);
+        this.histogram = new Histogram(65535, 1);
         this.q95LatencyMs = 0;
         this.q99LatencyMs = 0;
     }
@@ -93,13 +93,11 @@ public class RequestCounter {
     private void maybeResetHistogram() {
         Accumulator accum = values.get();
         long now = time.getMilliseconds();
-        if(now - accum.startTimeMS <= durationMS) {
+        if(now - accum.startTimeMS > durationMS) {
             // Reset the histogram            
-            synchronized(histogram) {
-                q95LatencyMs = histogram.getQuantile(0.95);
-                q99LatencyMs = histogram.getQuantile(0.99);
-                histogram.reset();
-            }
+            q95LatencyMs = histogram.getQuantile(0.95);
+            q99LatencyMs = histogram.getQuantile(0.99);
+            histogram.reset();
         }
     }
 
@@ -150,10 +148,8 @@ public class RequestCounter {
      * @param getAllAggregatedCount Total number of keys returned for getAll calls
      */
     public void addRequest(long timeNS, long numEmptyResponses, long bytes, long getAllAggregatedCount) {
-        synchronized(histogram) {
-            int timeMs = (int) timeNS / (int) Time.NS_PER_MS;
-            histogram.insert(timeMs);
-        }
+        int timeMs = (int) timeNS / (int) Time.NS_PER_MS;
+        histogram.insert(timeMs);
         maybeResetHistogram();
         for(int i = 0; i < 3; i++) {
             Accumulator oldv = getValidAccumulator();

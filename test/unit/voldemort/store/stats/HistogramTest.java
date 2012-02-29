@@ -22,11 +22,17 @@ public class HistogramTest {
         histogram.insert(36);
         histogram.insert(41);
         histogram.insert(46);
+        histogram.insert(56);
+
+        // Test that exceeding the size of the structure merely increments
+        // the last bucket
+        histogram.insert(66);
+        histogram.insert(76);
     }
     
     @Test
     public void testAverage() {
-        assertEquals(histogram.getQuantile(0.50), 20);
+        assertEquals(histogram.getQuantile(0.50), 30);
     }
     
     @Test
@@ -36,7 +42,7 @@ public class HistogramTest {
     
     @Test
     public void test99thQuartile() {
-        assertEquals(histogram.getQuantile(0.95), 45);
+        assertEquals(histogram.getQuantile(0.99), 45);
     }
     
 }
