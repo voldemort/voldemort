@@ -14,37 +14,20 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort.store;
 
 /**
- * A service that runs in the voldemort server
- * 
- * 
+ * Indicates that the given request for the store timed out.
  */
-public interface VoldemortService {
+public class StoreTimeoutException extends UnreachableStoreException {
 
-    /**
-     * @return The type of this service
-     */
-    public ServiceType getType();
+    private static final long serialVersionUID = 1L;
 
-    /**
-     * @return The service name
-     */
-    public String getDisplayName();
+    public StoreTimeoutException(String s) {
+        super(s);
+    }
 
-    /**
-     * Start the service.
-     */
-    public void start();
-
-    /**
-     * Stop the service
-     */
-    public void stop();
-
-    /**
-     * @return true iff the service is started
-     */
-    public boolean isStarted();
+    public StoreTimeoutException(String s, Throwable t) {
+        super(s, t);
+    }
 }

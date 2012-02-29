@@ -105,9 +105,28 @@ public class Cluster implements Serializable {
 
     public Zone getZoneById(int id) {
         Zone zone = zonesById.get(id);
-        if(zone == null)
-            throw new VoldemortException("No such zone in cluster: " + id);
+        if(zone == null) {
+            if(id == Zone.DEFAULT_ZONE_ID)
+                throw new VoldemortException("Incorrect configuration. Default zone ID:" + id
+                                             + " required but not specified.");
+            else {
+                throw new VoldemortException("No such zone in cluster: " + id
+                                             + " Available zones : " + displayZones());
+            }
+
+        }
         return zone;
+    }
+
+    private String displayZones() {
+        String zoneIDS = "{";
+        for(Zone z: this.getZones()) {
+            if(zoneIDS.length() != 1)
+                zoneIDS += ",";
+            zoneIDS += z.getId();
+        }
+        zoneIDS += "}";
+        return zoneIDS;
     }
 
     public int getNumberOfZones() {

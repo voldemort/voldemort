@@ -30,6 +30,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
+import voldemort.VoldemortException;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.AbstractSocketService;
 
@@ -52,10 +53,8 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true, true },
-                                              { true, false },
-                                              { false, true },
-                                              { false, false } });
+        return Arrays.asList(new Object[][] { { true, true }, { true, false }, { false, true },
+                { false, false } });
     }
 
     @Override
@@ -113,9 +112,8 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Override
     public void testBootstrapServerDown() throws Exception {
         try {
-            getFactory(getValidScheme() + "://localhost:58558")
-                    .getStoreClient(getValidStoreName())
-                    .get("test");
+            getFactory(getValidScheme() + "://localhost:58558").getStoreClient(getValidStoreName())
+                                                               .get("test");
             fail("Should throw exception.");
         } catch(BootstrapFailureException e) {
             // this is good
@@ -139,8 +137,25 @@ public class SocketStoreClientFactoryTest extends AbstractStoreClientFactoryTest
     @Test
     @Override
     public void testBootstrapFailoverSucceeds() throws Exception {
-        getFactory(getValidScheme() + "://localhost:58558", getValidBootstrapUrl())
-                .getStoreClient(getValidStoreName())
-                .get("test");
+        getFactory(getValidScheme() + "://localhost:58558", getValidBootstrapUrl()).getStoreClient(getValidStoreName())
+                                                                                   .get("test");
+    }
+
+    protected StoreClientFactory getFactoryForZoneID(int zoneID, String... bootstrapUrls) {
+        return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
+                                                              .setEnableLazy(useLazy)
+                                                              .setClientZoneId(zoneID));
+    }
+
+    @Test
+    public void testInvalidZoneID() throws Exception {
+        try {
+            getFactoryForZoneID(345334, getValidBootstrapUrl()).getStoreClient(getValidStoreName())
+                                                               .get("test");
+            fail("Should throw exception.");
+        } catch(VoldemortException e) {
+            e.printStackTrace();
+            // this is good
+        }
     }
 }

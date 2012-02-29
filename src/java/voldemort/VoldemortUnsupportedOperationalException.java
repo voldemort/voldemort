@@ -14,37 +14,31 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort;
 
 /**
- * A service that runs in the voldemort server
+ * Base exception that all other Voldemort exceptions extend.
  * 
  * 
  */
-public interface VoldemortService {
+public class VoldemortUnsupportedOperationalException extends VoldemortException {
 
-    /**
-     * @return The type of this service
-     */
-    public ServiceType getType();
+    private static final long serialVersionUID = 1L;
 
-    /**
-     * @return The service name
-     */
-    public String getDisplayName();
+    public VoldemortUnsupportedOperationalException() {
+        super();
+    }
 
-    /**
-     * Start the service.
-     */
-    public void start();
+    public VoldemortUnsupportedOperationalException(String s, Throwable t) {
+        super(s, t);
+    }
 
-    /**
-     * Stop the service
-     */
-    public void stop();
+    public VoldemortUnsupportedOperationalException(String s) {
+        super(s);
+    }
 
-    /**
-     * @return true iff the service is started
-     */
-    public boolean isStarted();
+    public VoldemortUnsupportedOperationalException(Throwable t) {
+        super(t);
+    }
+
 }

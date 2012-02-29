@@ -42,6 +42,11 @@ public abstract class AbstractSocketService extends AbstractService implements V
         this.enableJmx = enableJmx;
     }
 
+    @Override
+    public final String getDisplayName() {
+        return serviceName;
+    }
+
     /**
      * Simply retrieves the port on which this service is listening for incoming
      * requests.
