@@ -34,6 +34,7 @@ public class ChainedInconsistencyResolverTest extends TestCase {
 
     private static final String KEY = "XYZ";
     private Versioned<String> v1, v2;
+    private Versioned<String> conflict1, conflict2, conflict3, conflict4, conflict5, conflict6;
 
     private Node node;
     private Cluster cluster;
@@ -74,8 +75,18 @@ public class ChainedInconsistencyResolverTest extends TestCase {
                                                                                             new Properties()),
                                                          cluster));
 
+        // Initialize versioned puts for basic test
         v1 = getVersioned(0, 1, 1, 1, 1, 1);
         v2 = getVersioned(0, 0, 1, 1, 1, 1);
+
+        // Initialize versioned puts for > 1 conflicts
+        conflict1 = getVersioned(0, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+        conflict2 = getVersioned(0, 0, 1, 1, 1, 1, 1, 1, 1, 1);
+        conflict3 = getVersioned(0, 0, 0, 1, 1, 1, 1, 1, 1, 1);
+        conflict4 = getVersioned(0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+        conflict5 = getVersioned(0, 0, 0, 0, 0, 1, 1, 1, 1, 1);
+        conflict6 = getVersioned(0, 0, 0, 0, 0, 0, 1, 1, 1, 1);
+
         defaultStoreClient = storeClientFactory.getStoreClient("test");
         socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                      "test",
@@ -110,6 +121,22 @@ public class ChainedInconsistencyResolverTest extends TestCase {
         defaultStoreClient.put(KEY, v2);
         defaultStoreClient.put(KEY, "my-value2");
         List<Versioned<byte[]>> resList = socketStore.get(new ByteArray(KEY.getBytes()), null);
+        assertEquals(1, resList.size());
+    }
+
+    @Test
+    public void testMoreConflicts() {
+        defaultStoreClient.put(KEY, conflict1);
+        defaultStoreClient.put(KEY, conflict2);
+        defaultStoreClient.put(KEY, conflict3);
+        defaultStoreClient.put(KEY, conflict4);
+        defaultStoreClient.put(KEY, conflict5);
+        defaultStoreClient.put(KEY, conflict6);
+        List<Versioned<byte[]>> resList = socketStore.get(new ByteArray(KEY.getBytes()), null);
+        assertEquals(6, resList.size());
+        Versioned<String> res = defaultStoreClient.get(KEY);
+        defaultStoreClient.put(KEY, res);
+        resList = socketStore.get(new ByteArray(KEY.getBytes()), null);
         assertEquals(1, resList.size());
     }
 }
