@@ -29,6 +29,11 @@ public interface VoldemortService {
     public ServiceType getType();
 
     /**
+     * @return The service name
+     */
+    public String getDisplayName();
+
+    /**
      * Start the service.
      */
     public void start();

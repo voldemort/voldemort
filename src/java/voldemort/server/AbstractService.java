@@ -47,6 +47,10 @@ public abstract class AbstractService implements VoldemortService {
         return type;
     }
 
+    public String getDisplayName() {
+        return type.getDisplayName();
+    }
+
     @JmxGetter(name = "started", description = "Determine if the service has been started.")
     public boolean isStarted() {
         return isStarted.get();
