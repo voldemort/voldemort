@@ -100,6 +100,14 @@ public class StoreStats {
         return counters.get(op).getMaxLatencyInMs();
     }
 
+    public long getQ95LatencyInMs(Tracked op) {
+        return counters.get(op).getQ95LatencyMs();
+    }
+    
+    public long getQ99LatencyInMs(Tracked op) {
+        return counters.get(op).getQ99LatencyMs();
+    }
+
     public Map<Tracked, RequestCounter> getCounters() {
         return Collections.unmodifiableMap(counters);
     }
