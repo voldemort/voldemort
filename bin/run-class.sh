@@ -23,6 +23,9 @@ fi
 
 base_dir=$(dirname $0)/..
 
+VOLDEMORT_CONFIG_DIR=${1}/config
+source $VOLDEMORT_CONFIG_DIR/voldemort-env.sh
+
 for file in $base_dir/lib/*.jar;
 do
 	CLASSPATH=$CLASSPATH:$file
@@ -44,4 +47,4 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 export CLASSPATH
-java -Dlog4j.configuration=$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+java -Dlog4j.configuration=$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
