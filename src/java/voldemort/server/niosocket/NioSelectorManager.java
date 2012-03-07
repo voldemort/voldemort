@@ -23,6 +23,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
 import voldemort.server.protocol.RequestHandlerFactory;
@@ -99,6 +100,8 @@ public class NioSelectorManager extends SelectorManager {
 
     private final int socketBufferSize;
 
+    private MutableInt numActiveConnections;
+
     public NioSelectorManager(InetSocketAddress endpoint,
                               RequestHandlerFactory requestHandlerFactory,
                               int socketBufferSize) {
@@ -106,6 +109,7 @@ public class NioSelectorManager extends SelectorManager {
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        this.numActiveConnections = new MutableInt(0);
     }
 
     public void accept(SocketChannel socketChannel) {
@@ -155,10 +159,13 @@ public class NioSelectorManager extends SelectorManager {
                     AsyncRequestHandler attachment = new AsyncRequestHandler(selector,
                                                                              socketChannel,
                                                                              requestHandlerFactory,
-                                                                             socketBufferSize);
+                                                                             socketBufferSize,
+                                                                             numActiveConnections);
 
-                    if(!isClosed.get())
+                    if(!isClosed.get()) {
                         socketChannel.register(selector, SelectionKey.OP_READ, attachment);
+                        numActiveConnections.increment();
+                    }
                 } catch(ClosedSelectorException e) {
                     if(logger.isDebugEnabled())
                         logger.debug("Selector is closed, exiting");
@@ -177,4 +184,12 @@ public class NioSelectorManager extends SelectorManager {
         }
     }
 
+    /**
+     * Returns the number of active connections for this selector manager
+     * 
+     * @return
+     */
+    public Integer getNumActiveConnections() {
+        return numActiveConnections.toInteger();
+    }
 }
