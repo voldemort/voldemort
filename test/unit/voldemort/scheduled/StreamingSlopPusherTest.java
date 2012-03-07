@@ -10,7 +10,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Semaphore;
 
 import org.junit.After;
 import org.junit.Before;
@@ -26,6 +25,7 @@ import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
@@ -141,7 +141,7 @@ public class StreamingSlopPusherTest {
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -156,8 +156,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -274,7 +275,7 @@ public class StreamingSlopPusherTest {
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -325,7 +326,7 @@ public class StreamingSlopPusherTest {
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -340,8 +341,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -440,14 +442,14 @@ public class StreamingSlopPusherTest {
                                                                                                                                                                           metadataStore,
                                                                                                                                                                           configs[0]))),
                                                                     configs[0],
-                                                                    new Semaphore(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
-                                                                                                                            getVoldemortServer(1).getMetadataStore(),
-                                                                                                                            new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
-                                                                                                                                                                                        .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
-                                                                                                                                                                                                                                  metadataStore,
-                                                                                                                                                                                                                                  configs[1]))),
-                                                                                                                            configs[1],
-                                                                                                                            new Semaphore(1));
+                                                                    new ScanPermitWrapper(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
+                                                                                                                                    getVoldemortServer(1).getMetadataStore(),
+                                                                                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
+                                                                                                                                                                                                                                          metadataStore,
+                                                                                                                                                                                                                                          configs[1]))),
+                                                                                                                                    configs[1],
+                                                                                                                                    new ScanPermitWrapper(1));
 
         pusher0.run();
         pusher1.run();
@@ -463,8 +465,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -484,8 +487,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(0).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -547,7 +551,7 @@ public class StreamingSlopPusherTest {
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
                                                                    configs[0],
-                                                                   new Semaphore(1));
+                                                                   new ScanPermitWrapper(1));
 
         pusher.run();
 
@@ -562,8 +566,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(2).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));
@@ -619,8 +624,9 @@ public class StreamingSlopPusherTest {
             StorageEngine<ByteArray, byte[], byte[]> store = getVoldemortServer(1).getStoreRepository()
                                                                                   .getStorageEngine(nextSlop.getStoreName());
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));

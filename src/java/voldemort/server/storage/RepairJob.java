@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
 
 import javax.management.MBeanOperationInfo;
 
@@ -33,14 +32,14 @@ public class RepairJob implements Runnable {
 
     public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
 
-    private final Semaphore repairPermits;
+    private final ScanPermitWrapper repairPermits;
     private final StoreRepository storeRepo;
     private final MetadataStore metadataStore;
     private final int deleteBatchSize;
 
     public RepairJob(StoreRepository storeRepo,
                      MetadataStore metadataStore,
-                     Semaphore repairPermits,
+                     ScanPermitWrapper repairPermits,
                      int deleteBatchSize) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
@@ -48,7 +47,9 @@ public class RepairJob implements Runnable {
         this.deleteBatchSize = deleteBatchSize;
     }
 
-    public RepairJob(StoreRepository storeRepo, MetadataStore metadataStore, Semaphore repairPermits) {
+    public RepairJob(StoreRepository storeRepo,
+                     MetadataStore metadataStore,
+                     ScanPermitWrapper repairPermits) {
         this(storeRepo, metadataStore, repairPermits, DELETE_BATCH_SIZE);
     }
 

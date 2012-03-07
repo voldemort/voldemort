@@ -10,7 +10,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +26,7 @@ import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
@@ -68,13 +68,13 @@ public class StreamingSlopPusherJob implements Runnable {
     private final Map<Integer, Set<Integer>> zoneMapping;
     private ConcurrentHashMap<Integer, Long> attemptedByNode;
     private ConcurrentHashMap<Integer, Long> succeededByNode;
-    private final Semaphore repairPermits;
+    private final ScanPermitWrapper repairPermits;
 
     public StreamingSlopPusherJob(StoreRepository storeRepo,
                                   MetadataStore metadataStore,
                                   FailureDetector failureDetector,
                                   VoldemortConfig voldemortConfig,
-                                  Semaphore repairPermits) {
+                                  ScanPermitWrapper repairPermits) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.failureDetector = failureDetector;

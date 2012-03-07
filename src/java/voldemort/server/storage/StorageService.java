@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanOperationInfo;
@@ -40,6 +39,7 @@ import javax.management.ObjectName;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
@@ -117,7 +117,8 @@ public class StorageService extends AbstractService {
     private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
-    private final Semaphore scanPermits;
+    // private final Semaphore scanPermits;
+    private final ScanPermitWrapper scanPermitWrapper;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
@@ -134,7 +135,9 @@ public class StorageService extends AbstractService {
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        this.scanPermits = new Semaphore(voldemortConfig.getNumScanPermits());
+        // this.scanPermits = new
+        // Semaphore(voldemortConfig.getNumScanPermits());
+        this.scanPermitWrapper = new ScanPermitWrapper(voldemortConfig.getNumScanPermits());
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
@@ -234,12 +237,12 @@ public class StorageService extends AbstractService {
                                                                                                                                  metadata,
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
-                                                                                                                                 scanPermits)
+                                                                                                                                 scanPermitWrapper)
                                                                                                     : new StreamingSlopPusherJob(storeRepository,
                                                                                                                                  metadata,
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
-                                                                                                                                 scanPermits),
+                                                                                                                                 scanPermitWrapper),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
             }
@@ -247,7 +250,7 @@ public class StorageService extends AbstractService {
             // Create a repair job object and register it with Store repository
             if(voldemortConfig.isRepairEnabled()) {
                 logger.info("Initializing repair job.");
-                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                RepairJob job = new RepairJob(storeRepository, metadata, scanPermitWrapper);
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 storeRepository.registerRepairJob(job);
             }
@@ -586,7 +589,7 @@ public class StorageService extends AbstractService {
         EventThrottler throttler = new EventThrottler(maxReadRate);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                            scanPermits,
+                                                                            scanPermitWrapper,
                                                                             storeDef.getRetentionDays()
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
@@ -713,10 +716,10 @@ public class StorageService extends AbstractService {
                 if(storeDef.hasRetentionPeriod()) {
                     ExecutorService executor = Executors.newFixedThreadPool(1);
                     try {
-                        if(scanPermits.availablePermits() >= 1) {
+                        if(scanPermitWrapper.availablePermits() >= 1) {
 
                             executor.execute(new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                                           scanPermits,
+                                                                                           scanPermitWrapper,
                                                                                            storeDef.getRetentionDays()
                                                                                                    * Time.MS_PER_DAY,
                                                                                            SystemTime.INSTANCE,
@@ -815,4 +818,8 @@ public class StorageService extends AbstractService {
         return dynThrottleLimit;
     }
 
+    @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
+    public List<String> getPermitOwners() {
+        return this.scanPermitWrapper.getPermitOwners();
+    }
 }

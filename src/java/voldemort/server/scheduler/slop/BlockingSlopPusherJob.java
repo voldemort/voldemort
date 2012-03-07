@@ -18,7 +18,6 @@ package voldemort.server.scheduler.slop;
 
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -28,13 +27,14 @@ import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.slop.Slop;
-import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.Slop.Operation;
+import voldemort.store.slop.SlopStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -62,13 +62,13 @@ public class BlockingSlopPusherJob implements Runnable {
     private final MetadataStore metadataStore;
     private final FailureDetector failureDetector;
     private final long maxWriteBytesPerSec;
-    private final Semaphore repairPermits;
+    private final ScanPermitWrapper repairPermits;
 
     public BlockingSlopPusherJob(StoreRepository storeRepo,
                                  MetadataStore metadataStore,
                                  FailureDetector failureDetector,
                                  VoldemortConfig voldemortConfig,
-                                 Semaphore repairPermits) {
+                                 ScanPermitWrapper repairPermits) {
         this.storeRepo = storeRepo;
         this.metadataStore = metadataStore;
         this.repairPermits = Utils.notNull(repairPermits);
