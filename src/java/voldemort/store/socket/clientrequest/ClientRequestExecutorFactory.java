@@ -18,7 +18,7 @@ package voldemort.store.socket.clientrequest;
 
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedSelectorException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -342,7 +342,7 @@ public class ClientRequestExecutorFactory implements
                                                SelectionKey.OP_WRITE,
                                                clientRequestExecutor);
 
-                    } catch(ClosedSelectorException e) {
+                    } catch(ClosedChannelException e) {
                         if(logger.isDebugEnabled())
                             logger.debug("Selector is closed, exiting");
 
