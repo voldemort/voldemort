@@ -192,4 +192,13 @@ public class NioSelectorManager extends SelectorManager {
     public Integer getNumActiveConnections() {
         return numActiveConnections.toInteger();
     }
+
+    /**
+     * Returns the number of connections queued for registration
+     * 
+     * @return
+     */
+    public Integer getNumQueuedConnections() {
+        return socketChannelQueue.size();
+    }
 }

@@ -268,4 +268,13 @@ public class NioSocketService extends AbstractSocketService {
         return sum;
     }
 
+    @JmxGetter(name = "numQueuedConnections", description = "total number of connections pending for registration with selector managers")
+    public final int getNumQueuedConnections() {
+        int sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getNumQueuedConnections();
+        }
+        return sum;
+    }
+
 }

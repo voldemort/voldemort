@@ -352,7 +352,10 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     @Override
     public void close() {
+        if(!isClosed.compareAndSet(false, true))
+            return;
+
         serverConnectionCount.decrement();
-        super.close();
+        closeInternal();
     }
 }
