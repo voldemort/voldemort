@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.server.ServiceType;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.server.storage.StorageService;
@@ -40,7 +41,6 @@ import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
 
@@ -117,9 +117,8 @@ public class ReadOnlyStoreManagementServlet extends HttpServlet {
                 logger.info("Loading fetcher " + className);
                 Class<?> cls = Class.forName(className.trim());
                 this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
-                                                                              new Class<?>[] { Props.class },
-                                                                              new Object[] { server.getVoldemortConfig()
-                                                                                                   .getAllProps() });
+                                                                              new Class<?>[] { VoldemortConfig.class },
+                                                                              new Object[] { server.getVoldemortConfig() });
             } catch(Exception e) {
                 throw new VoldemortException("Error loading file fetcher class " + className, e);
             }

@@ -66,7 +66,6 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
-import voldemort.utils.Props;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.Utils;
@@ -131,8 +130,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                     logger.info("Loading fetcher " + className);
                     Class<?> cls = Class.forName(className.trim());
                     this.fileFetcher = (FileFetcher) ReflectUtils.callConstructor(cls,
-                                                                                  new Class<?>[] { Props.class },
-                                                                                  new Object[] { voldemortConfig.getAllProps() });
+                                                                                  new Class<?>[] {
+                                                                                          VoldemortConfig.class,
+                                                                                          storageService.getDynThrottleLimit()
+                                                                                                        .getClass() },
+                                                                                  new Object[] {
+                                                                                          voldemortConfig,
+                                                                                          storageService.getDynThrottleLimit() });
                 } catch(Exception e) {
                     throw new VoldemortException("Error loading file fetcher class " + className, e);
                 }
@@ -799,6 +803,15 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 updateStatus(message);
                                 logger.info(message);
                             }
+                        } catch(VoldemortException ve) {
+                            String errorMessage = "File fetcher failed for "
+                                                  + fetchUrl
+                                                  + " and store '"
+                                                  + storeName
+                                                  + "' due to too many push jobs happening at the same time.";
+                            updateStatus(errorMessage);
+                            logger.error(errorMessage);
+                            throw new VoldemortException(errorMessage);
                         } catch(Exception e) {
                             throw new VoldemortException("Exception in Fetcher = " + e.getMessage());
                         }

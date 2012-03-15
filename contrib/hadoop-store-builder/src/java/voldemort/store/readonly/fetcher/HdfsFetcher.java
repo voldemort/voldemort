@@ -39,71 +39,114 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxGetter;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.store.readonly.FileFetcher;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.DynamicEventThrottler;
+import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 
-/**
+/*
  * A fetcher that fetches the store files from HDFS
- * 
- * 
  */
 public class HdfsFetcher implements FileFetcher {
 
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
-    private static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
-    private static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
     private static final AtomicInteger copyCount = new AtomicInteger(0);
     private AsyncOperationStatus status;
     private EventThrottler throttler = null;
+    private long minBytesPerSecond = 0;
+    private DynamicThrottleLimit globalThrottleLimit = null;
 
-    public HdfsFetcher(Props props) {
-        this(props.containsKey("fetcher.max.bytes.per.sec") ? props.getBytes("fetcher.max.bytes.per.sec")
-                                                           : null,
-             props.getBytes("fetcher.reporting.interval.bytes", REPORTING_INTERVAL_BYTES),
-             (int) props.getBytes("hdfs.fetcher.buffer.size", DEFAULT_BUFFER_SIZE));
+    public HdfsFetcher(VoldemortConfig config) {
+        this(config.getMaxBytesPerSecond(),
+             config.getReportingIntervalBytes(),
+             config.getFetcherBufferSize());
 
         logger.info("Created hdfs fetcher with throttle rate " + maxBytesPerSecond
                     + ", buffer size " + bufferSize + ", reporting interval bytes "
                     + reportingIntervalBytes);
     }
 
+    public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
+        this(dynThrottleLimit,
+             config.getReportingIntervalBytes(),
+             config.getFetcherBufferSize(),
+             config.getMinBytesPerSecond());
+
+        logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
+                    + ", buffer size " + bufferSize + ", reporting interval bytes "
+                    + reportingIntervalBytes);
+    }
+
     public HdfsFetcher() {
-        this((Long) null, REPORTING_INTERVAL_BYTES, DEFAULT_BUFFER_SIZE);
+        this((Long) null,
+             VoldemortConfig.REPORTING_INTERVAL_BYTES,
+             VoldemortConfig.DEFAULT_BUFFER_SIZE);
     }
 
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this.maxBytesPerSecond = maxBytesPerSecond;
-        if(this.maxBytesPerSecond != null)
+        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0);
+    }
+
+    public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
+                       Long reportingIntervalBytes,
+                       int bufferSize,
+                       long minBytesPerSecond) {
+        this(dynThrottleLimit, null, reportingIntervalBytes, bufferSize, minBytesPerSecond);
+    }
+
+    public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
+                       Long maxBytesPerSecond,
+                       Long reportingIntervalBytes,
+                       int bufferSize,
+                       long minBytesPerSecond) {
+        if(maxBytesPerSecond != null) {
+            this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
+        } else if(dynThrottleLimit != null && dynThrottleLimit.getRate() != 0) {
+            this.maxBytesPerSecond = dynThrottleLimit.getRate();
+            this.throttler = new DynamicEventThrottler(dynThrottleLimit);
+            this.globalThrottleLimit = dynThrottleLimit;
+            logger.info("Initializing Dynamic Event throttler with rate : "
+                        + this.maxBytesPerSecond + " bytes / sec");
+        } else
+            this.maxBytesPerSecond = null;
         this.reportingIntervalBytes = Utils.notNull(reportingIntervalBytes);
         this.bufferSize = bufferSize;
         this.status = null;
+        this.minBytesPerSecond = minBytesPerSecond;
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
-        Path path = new Path(sourceFileUrl);
-        Configuration config = new Configuration();
-        config.setInt("io.socket.receive.buffer", bufferSize);
-        config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
-                   ConfigurableSocketFactory.class.getName());
-        FileSystem fs = path.getFileSystem(config);
+        if(this.globalThrottleLimit != null) {
+            if(this.globalThrottleLimit.getSpeculativeRate() < this.minBytesPerSecond)
+                throw new VoldemortException("Too many push jobs.");
+            this.globalThrottleLimit.incrementNumJobs();
+        }
 
-        CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
-        ObjectName jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(),
-                                                    stats);
+        ObjectName jmxName = null;
         try {
+
+            Path path = new Path(sourceFileUrl);
+            Configuration config = new Configuration();
+            config.setInt("io.socket.receive.buffer", bufferSize);
+            config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
+                       ConfigurableSocketFactory.class.getName());
+            FileSystem fs = path.getFileSystem(config);
+
+            CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
+            jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
             File destination = new File(destinationFile);
 
             if(destination.exists()) {
@@ -119,6 +162,9 @@ public class HdfsFetcher implements FileFetcher {
                 return null;
             }
         } finally {
+            if(this.globalThrottleLimit != null) {
+                this.globalThrottleLimit.decrementNumJobs();
+            }
             JmxUtils.unregisterMbean(jmxName);
         }
     }
@@ -397,15 +443,15 @@ public class HdfsFetcher implements FileFetcher {
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
         Configuration config = new Configuration();
-        config.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+        config.setInt("io.file.buffer.size", VoldemortConfig.DEFAULT_BUFFER_SIZE);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
         FileStatus status = p.getFileSystem(config).getFileStatus(p);
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec,
-                                              REPORTING_INTERVAL_BYTES,
-                                              DEFAULT_BUFFER_SIZE);
+                                              VoldemortConfig.REPORTING_INTERVAL_BYTES,
+                                              VoldemortConfig.DEFAULT_BUFFER_SIZE);
         long start = System.currentTimeMillis();
         File location = fetcher.fetch(url, System.getProperty("java.io.tmpdir") + File.separator
                                            + start);

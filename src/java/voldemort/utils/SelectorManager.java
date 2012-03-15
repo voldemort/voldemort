@@ -188,7 +188,8 @@ public class SelectorManager implements Runnable {
                             SelectionKey selectionKey = i.next();
                             i.remove();
 
-                            if(selectionKey.isReadable() || selectionKey.isWritable()) {
+                            if(selectionKey.isValid()
+                               && (selectionKey.isReadable() || selectionKey.isWritable())) {
                                 Runnable worker = (Runnable) selectionKey.attachment();
                                 worker.run();
                             }

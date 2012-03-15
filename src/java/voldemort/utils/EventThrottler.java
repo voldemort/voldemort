@@ -34,6 +34,10 @@ public class EventThrottler {
         this(SystemTime.INSTANCE, ratesPerSecond, DEFAULT_CHECK_INTERVAL_MS);
     }
 
+    public long getRate() {
+        return this.ratesPerSecond;
+    }
+
     public EventThrottler(Time time, long ratePerSecond, long intervalMs) {
         this.time = time;
         this.intervalMs = intervalMs;
@@ -43,6 +47,11 @@ public class EventThrottler {
     }
 
     public synchronized void maybeThrottle(int eventsSeen) {
+        long rateLimit = getRate();
+
+        if(logger.isDebugEnabled())
+            logger.debug("Rate = " + rateLimit);
+
         eventsSeenInLastInterval += eventsSeen;
         long now = time.getNanoseconds();
         long ellapsedNs = now - startTime;
@@ -50,15 +59,16 @@ public class EventThrottler {
         // we should take a little nap
         if(ellapsedNs > intervalMs * Time.NS_PER_MS && eventsSeenInLastInterval > 0) {
             long eventsPerSec = (eventsSeenInLastInterval * Time.NS_PER_SECOND) / ellapsedNs;
-            if(eventsPerSec > ratesPerSecond) {
+            if(eventsPerSec > rateLimit) {
                 // solve for the amount of time to sleep to make us hit the
                 // correct i/o rate
-                double maxEventsPerMs = ratesPerSecond / (double) Time.MS_PER_SECOND;
+                double maxEventsPerMs = rateLimit / (double) Time.MS_PER_SECOND;
                 long ellapsedMs = ellapsedNs / Time.NS_PER_MS;
                 long sleepTime = Math.round(eventsSeenInLastInterval / maxEventsPerMs - ellapsedMs);
+
                 if(logger.isDebugEnabled())
                     logger.debug("Natural rate is " + eventsPerSec
-                                 + " events/sec max allowed rate is " + ratesPerSecond
+                                 + " events/sec max allowed rate is " + rateLimit
                                  + " events/sec, sleeping for " + sleepTime + " ms to compensate.");
                 if(sleepTime > 0) {
                     try {

@@ -87,6 +87,7 @@ import voldemort.store.views.ViewStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.DynamicThrottleLimit;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
@@ -111,6 +112,9 @@ public class StorageService extends AbstractService {
     private final StoreRepository storeRepository;
     private final SchedulerService scheduler;
     private final MetadataStore metadata;
+
+    /* Dynamic throttle limit required for read-only stores */
+    private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
     private final Semaphore scanPermits;
@@ -152,6 +156,17 @@ public class StorageService extends AbstractService {
         this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                          this.clientThreadPool,
                                                          voldemortConfig.getClientRoutingTimeoutMs());
+
+        /*
+         * Initialize the dynamic throttle limit based on the per node limit
+         * config only if read-only engine is being used.
+         */
+        if(this.voldemortConfig.getStorageConfigurations()
+                               .contains(ReadOnlyStorageConfiguration.class.getName())) {
+            long rate = this.voldemortConfig.getMaxBytesPerSecond();
+            this.dynThrottleLimit = new DynamicThrottleLimit(rate);
+        } else
+            this.dynThrottleLimit = null;
     }
 
     private void initStorageConfig(String configClassName) {
@@ -794,6 +809,10 @@ public class StorageService extends AbstractService {
 
     public SocketStoreFactory getSocketStoreFactory() {
         return storeFactory;
+    }
+
+    public DynamicThrottleLimit getDynThrottleLimit() {
+        return dynThrottleLimit;
     }
 
 }
