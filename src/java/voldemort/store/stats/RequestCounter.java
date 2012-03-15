@@ -19,7 +19,7 @@ public class RequestCounter {
     private final Histogram histogram;
     private volatile int q95LatencyMs;
     private volatile int q99LatencyMs;
-    private boolean withHistogram;
+    private boolean useHistogram;
 
     /**
      * @param durationMS specifies for how long you want to maintain this
@@ -31,11 +31,11 @@ public class RequestCounter {
 
     /**
      * @param durationMS specifies for how long you want to maintain this
-     *        counter (in milliseconds). withHistogram indicates that this
+     *        counter (in milliseconds). useHistogram indicates that this
      *        counter should also use a histogram.
      */
-    public RequestCounter(int durationMS, boolean withHistogram) {
-        this(durationMS, SystemTime.INSTANCE, withHistogram);
+    public RequestCounter(int durationMS, boolean useHistogram) {
+        this(durationMS, SystemTime.INSTANCE, useHistogram);
     }
 
     /**
@@ -45,14 +45,14 @@ public class RequestCounter {
         this(durationMS, time, false);
     }
 
-    RequestCounter(int durationMS, Time time, boolean withHistogram) {
+    RequestCounter(int durationMS, Time time, boolean useHistogram) {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
         this.durationMS = durationMS;
         this.q95LatencyMs = 0;
         this.q99LatencyMs = 0;
-        this.withHistogram = withHistogram;
-        if(this.withHistogram)
+        this.useHistogram = useHistogram;
+        if(this.useHistogram)
             this.histogram = new Histogram(10000, 1);
         else
             this.histogram = null;
@@ -107,7 +107,7 @@ public class RequestCounter {
     }
 
     private void maybeResetHistogram() {
-        if(!this.withHistogram)
+        if(!this.useHistogram)
             return;
         Accumulator accum = values.get();
         long now = time.getMilliseconds();
@@ -172,7 +172,7 @@ public class RequestCounter {
                            long bytes,
                            long getAllAggregatedCount) {
         int timeMs = (int) timeNS / (int) Time.NS_PER_MS;
-        if(this.withHistogram) {
+        if(this.useHistogram) {
             histogram.insert(timeMs);
             maybeResetHistogram();
         }
