@@ -78,6 +78,7 @@ public class ClientConfig {
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
     private volatile int maxBootstrapRetries = 2;
+    private volatile String clientContextName = "default";
 
     public ClientConfig() {}
 
@@ -118,6 +119,7 @@ public class ClientConfig {
     public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY = "failuredetector_catastrophic_error_types";
     public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
+    public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
 
     /**
      * Instantiate the client config using a properties file
@@ -276,6 +278,10 @@ public class ClientConfig {
 
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
+
+        if(props.containsKey(CLIENT_CONTEXT_NAME)) {
+            this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME, null));
+        }
     }
 
     public int getMaxConnectionsPerNode() {
@@ -689,6 +695,15 @@ public class ClientConfig {
             throw new IllegalArgumentException("maxBootstrapRetries should be >= 1");
 
         this.maxBootstrapRetries = maxBootstrapRetries;
+        return this;
+    }
+
+    public String getClientContextName() {
+        return clientContextName;
+    }
+
+    public ClientConfig setClientContextName(String clientContextName) {
+        this.clientContextName = clientContextName;
         return this;
     }
 

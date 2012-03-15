@@ -18,6 +18,7 @@ package voldemort.client;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
@@ -63,29 +64,45 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final String storeName;
     private final InconsistencyResolver<Versioned<V>> resolver;
     private volatile Store<K, V, Object> store;
+    private final UUID clientId;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts) {
+        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0);
+    }
+
+    public DefaultStoreClient(String storeName,
+                              InconsistencyResolver<Versioned<V>> resolver,
+                              StoreClientFactory storeFactory,
+                              int maxMetadataRefreshAttempts,
+                              String clientContext,
+                              int clientSequence) {
+
         this.storeName = Utils.notNull(storeName);
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-
+        this.clientId = AbstractStoreClientFactory.generateClientId(storeName,
+                                                                    clientContext,
+                                                                    clientSequence);
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                          JmxUtils.getClassName(this.getClass())
-                                                                 + "." + storeName));
-
+                                                                 + "." + clientContext + "."
+                                                                 + storeName + "."
+                                                                 + clientId.toString()));
         bootStrap();
+        logger.info("Voldemort client created: clientContext=" + clientContext + " clientSequence="
+                    + clientSequence + " clientId=" + clientId.toString());
     }
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
-        this.store = storeFactory.getRawStore(storeName, resolver);
+        this.store = storeFactory.getRawStore(storeName, resolver, clientId);
     }
 
     public boolean delete(K key) {
@@ -354,5 +371,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
         return put(key, versioned, transforms);
 
+    }
+
+    public UUID getClientId() {
+        return clientId;
     }
 }
