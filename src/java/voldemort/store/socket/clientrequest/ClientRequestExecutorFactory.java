@@ -321,6 +321,7 @@ public class ClientRequestExecutorFactory implements
 
         @Override
         protected void processEvents() {
+            boolean closedChannel = false;
             try {
                 ClientRequestExecutor clientRequestExecutor = null;
 
@@ -344,9 +345,9 @@ public class ClientRequestExecutorFactory implements
 
                     } catch(ClosedChannelException e) {
                         if(logger.isDebugEnabled())
-                            logger.debug("Selector is closed, exiting");
+                            logger.debug("SocketChannel is closed, exiting");
 
-                        close();
+                        closedChannel = true;
 
                         break;
                     } catch(Exception e) {
@@ -388,6 +389,10 @@ public class ClientRequestExecutorFactory implements
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.ERROR))
                     logger.error(e.getMessage(), e);
+            } finally {
+                if(closedChannel) {
+                    close();
+                }
             }
         }
     }
