@@ -19,8 +19,8 @@ package voldemort.client;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
@@ -70,13 +70,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final UUID clientId;
     private final Map<String, SystemStore> sysStoreMap;
     private AsyncMetadataVersionManager asyncCheckMetadata;
-
-    // Enumerate all the system stores
-    private final String METADATA_VERSION_STORE = "voldsys$_metadata_version";
-    private final String CLIENT_REGISTRY_STORE = "voldsys$_client_registry";
-    private final String STORE_DEFINITION_STORE = "voldsys$_client_store_definition";
-    private final String[] systemStoreNames = { METADATA_VERSION_STORE, CLIENT_REGISTRY_STORE,
-            STORE_DEFINITION_STORE };
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,

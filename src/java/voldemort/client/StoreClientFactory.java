@@ -87,6 +87,7 @@ public interface StoreClientFactory {
                                          UUID clientId);
 
     /**
+<<<<<<< HEAD
      * Get the underlying store, not the public StoreClient interface
      * 
      * @param storeName The name of the store
@@ -101,6 +102,8 @@ public interface StoreClientFactory {
                                          String customStoresXml);
 
     /**
+=======
+>>>>>>> add clientId for voldemort client
      * Close the store client
      */
     public void close();

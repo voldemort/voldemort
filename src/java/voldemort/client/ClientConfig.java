@@ -717,8 +717,8 @@ public class ClientConfig {
         return asyncCheckMetadataInterval;
     }
 
-    public void setAsyncCheckMetadataInterval(long asyncCheckMetadataInterval) {
+    public ClientConfig setAsyncCheckMetadataInterval(long asyncCheckMetadataInterval) {
         this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
+        return this;
     }
-
 }

@@ -124,6 +124,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getTimeoutConfig());
+
         this.sequencer = new AtomicInteger(0);
 
         if(this.isJmxEnabled) {
