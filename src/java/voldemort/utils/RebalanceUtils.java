@@ -28,10 +28,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -55,6 +55,7 @@ import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
+import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.versioning.Occurred;
@@ -74,7 +75,8 @@ public class RebalanceUtils {
 
     private static Logger logger = Logger.getLogger(RebalanceUtils.class);
 
-    public final static List<String> canRebalanceList = Arrays.asList(BdbStorageConfiguration.TYPE_NAME,
+    public final static List<String> canRebalanceList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
+                                                                      BdbStorageConfiguration.TYPE_NAME,
                                                                       ReadOnlyStorageConfiguration.TYPE_NAME);
 
     public final static String initialClusterFileName = "initial-cluster.xml";
@@ -697,8 +699,8 @@ public class RebalanceUtils {
             stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
 
             // Sort the nodes
-            updatedCluster = updateCluster(updatedCluster, Lists.newArrayList(donorNode,
-                                                                              stealerNode));
+            updatedCluster = updateCluster(updatedCluster,
+                                           Lists.newArrayList(donorNode, stealerNode));
 
         }
 
