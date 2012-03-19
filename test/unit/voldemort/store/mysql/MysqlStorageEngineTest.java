@@ -43,7 +43,7 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
 
     @Override
     public StorageEngine<ByteArray, byte[], byte[]> getStorageEngine() {
-        return new MysqlStorageEngine("test_store", getDataSource());
+        return new MysqlStorageEngine("test_store", getDataSource(), "BLOB");
     }
 
     @Override
@@ -69,7 +69,7 @@ public class MysqlStorageEngineTest extends AbstractStorageEngineTest {
     public void testOpenNonExistantStoreCreatesTable() throws SQLException {
         String newStore = TestUtils.randomLetters(15);
         /* Create the engine for side-effect */
-        new MysqlStorageEngine(newStore, getDataSource());
+        new MysqlStorageEngine(newStore, getDataSource(), "BLOB");
         DataSource ds = getDataSource();
         executeQuery(ds, "select 1 from " + newStore + " limit 1");
         executeQuery(ds, "drop table " + newStore);

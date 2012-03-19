@@ -31,6 +31,7 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
     public static final String TYPE_NAME = "mysql";
 
     private BasicDataSource dataSource;
+    private final String valueType;
 
     public MysqlStorageConfiguration(VoldemortConfig config) {
         BasicDataSource ds = new BasicDataSource();
@@ -39,11 +40,17 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         ds.setUsername(config.getMysqlUsername());
         ds.setPassword(config.getMysqlPassword());
         ds.setDriverClassName("com.mysql.jdbc.Driver");
+
+        ds.setInitialSize(config.getMysqlDsInitialPoolSize());
+        ds.setPoolPreparedStatements(config.isMysqlDsPoolPreparedStatements());
+        ds.setMaxActive(config.getMysqlDsMaxActiveConnections());
+        ds.setMinIdle(config.getMysqlDsMinIdleConnections());
         this.dataSource = ds;
+        this.valueType = config.getMysqlValueType();
     }
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new MysqlStorageEngine(name, dataSource);
+        return new MysqlStorageEngine(name, dataSource, valueType);
     }
 
     public String getType() {
