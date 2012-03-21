@@ -248,6 +248,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
         } catch(InterruptedException e) {
+            clientRequestExecutor.close();
             throw new UnreachableStoreException("Failure in " + operationName + " on "
                                                 + destination + ": " + e.getMessage(), e);
         } catch(IOException e) {
