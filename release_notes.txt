@@ -1,3 +1,26 @@
+Release 0.95.li2 (LinkedIn release) on 03/21/2012
+
+Changes made since 0.95.li1
+ * Hot fix for SNA-10109. Replaced exception by log message in Histogram
+ * Replaced int by long to avoid overflow in Histogram and RequestCounter
+
+Release 0.95.li1 (LinkedIn release) on 03/07/2012
+
+Changes made since 0.90.1
+
+ * Added Donor based rebalancing capability
+ * Extended Voldemort client with additional debug info
+ * Added Stack and PagedLinkedList library from Pull request
+ * Added Snappy and LZF compression strategies
+ * Dynamic bandwidth throttler capability added to read-only server
+ * Upgraded commons-httpclient 3.0.x to httpclient 4.x
+ * BDB Native backup and incremental backup capability added
+ * Threshold failure detector fix for identifying topology change
+ * Replaced Timout exception with a simple log message
+ * Added additional spring wiring for Autometrics support
+ * Introduced Histogram support for 95th and 99th percentile latencies
+ * Added another client component - voldemort-client-main-cmpt for accepting a Properties object
+
 Release 0.90.1 on 10/10/2011
 
 Changes made since 0.90
