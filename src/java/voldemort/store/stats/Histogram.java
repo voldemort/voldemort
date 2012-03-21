@@ -2,7 +2,8 @@ package voldemort.store.stats;
 
 import java.util.Arrays;
 
-import voldemort.VoldemortException;
+import org.apache.log4j.Logger;
+
 import voldemort.annotations.concurrency.Threadsafe;
 
 /**
@@ -20,6 +21,7 @@ public class Histogram {
     private final int[] buckets;
     private final int[] bounds;
     private int size;
+    private static final Logger logger = Logger.getLogger(Histogram.class);
 
     /**
      * Initialize an empty histogram
@@ -60,7 +62,7 @@ public class Histogram {
     public synchronized void insert(long data) {
         int index = findBucket(data);
         if(index == -1) {
-            throw new VoldemortException(data + " can't be bucketed, is invalid!");
+            logger.error(data + " can't be bucketed, is invalid!");
         }
         buckets[index]++;
         size++;
