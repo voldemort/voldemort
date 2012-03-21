@@ -63,6 +63,7 @@ public class Histogram {
         int index = findBucket(data);
         if(index == -1) {
             logger.error(data + " can't be bucketed, is invalid!");
+            return;
         }
         buckets[index]++;
         size++;
