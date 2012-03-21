@@ -1,20 +1,20 @@
 package voldemort.store.stats;
 
+import java.util.Arrays;
+
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
-
-import java.util.Arrays;
 
 /**
  * A class for computing percentiles based on a histogram. Values are bucketed
  * by a configurable bound (e.g., 0-1, 1-2, 2-3). When a value is inserted,
  * perform a binary search to find the correct bucket.
- *
- *
+ * 
+ * 
  */
 @Threadsafe
 public class Histogram {
-    
+
     private final int nBuckets;
     private final int step;
     private final int[] buckets;
@@ -23,7 +23,7 @@ public class Histogram {
 
     /**
      * Initialize an empty histogram
-     *
+     * 
      * @param nBuckets The number of buckets to use
      * @param step The size of each bucket
      */
@@ -34,7 +34,7 @@ public class Histogram {
         this.bounds = new int[nBuckets];
         init();
     }
-    
+
     protected void init() {
         int bound = 0;
         for(int i = 0; i < nBuckets; i++, bound += step) {
@@ -54,10 +54,10 @@ public class Histogram {
     /**
      * Insert a value into the right bucket of the histogram. If the value is
      * larger than any bound, insert into the last bucket
-     *
+     * 
      * @param data The value to insert into the histogram
      */
-    public synchronized void insert(int data) {
+    public synchronized void insert(long data) {
         int index = findBucket(data);
         if(index == -1) {
             throw new VoldemortException(data + " can't be bucketed, is invalid!");
@@ -67,9 +67,9 @@ public class Histogram {
     }
 
     /**
-     * Find the a value <em>n</em> such that the percentile falls within
-     * [<em>n</em>, <em>n + step</em>)
-     *
+     * Find the a value <em>n</em> such that the percentile falls within [
+     * <em>n</em>, <em>n + step</em>)
+     * 
      * @param quantile The percentile to find
      * @return Lower bound associated with the percentile
      */
@@ -84,9 +84,9 @@ public class Histogram {
         }
         return 0;
     }
-    
-    private int findBucket(int needle) {
-        int max = step * nBuckets;
+
+    private int findBucket(long needle) {
+        long max = step * nBuckets;
         if(needle > max) {
             return nBuckets - 1;
         }
@@ -105,8 +105,8 @@ public class Histogram {
         }
         return -1;
     }
-    
-    private int compareToBucket(int bucket, int needle) {
+
+    private int compareToBucket(int bucket, long needle) {
         int low = bounds[bucket];
         int high = low + step;
         if(low <= needle && high > needle) {

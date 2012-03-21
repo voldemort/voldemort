@@ -171,7 +171,7 @@ public class RequestCounter {
                            long numEmptyResponses,
                            long bytes,
                            long getAllAggregatedCount) {
-        int timeMs = (int) timeNS / (int) Time.NS_PER_MS;
+        long timeMs = timeNS / Time.NS_PER_MS;
         if(this.useHistogram) {
             histogram.insert(timeMs);
             maybeResetHistogram();
