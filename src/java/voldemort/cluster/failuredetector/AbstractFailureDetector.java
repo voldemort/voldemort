@@ -45,6 +45,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected final Map<Node, NodeStatus> nodeStatusMap;
 
+    // Also maintain the list of nodes by IDs (in order to handle host swaps)
+    protected final Map<Integer, Node> nodeMap;
+
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
     protected AbstractFailureDetector(FailureDetectorConfig failureDetectorConfig) {
@@ -54,10 +57,12 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
         nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
+        nodeMap = new ConcurrentHashMap<Integer, Node>();
 
         for(Node node: failureDetectorConfig.getNodes()) {
             nodeStatusMap.put(node, createNodeStatus(failureDetectorConfig.getTime()
                                                                           .getMilliseconds()));
+            nodeMap.put(node.getId(), node);
         }
     }
 
@@ -212,14 +217,24 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected NodeStatus getNodeStatus(Node node) {
         NodeStatus nodeStatus = nodeStatusMap.get(node);
+        Node currentTrackedNode = nodeMap.get(node.getId());
 
-        if(nodeStatus == null) {
+        if(nodeStatus == null || !currentTrackedNode.isEqualState(node)) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("creating new node status for node " + node.getId()
                             + " for failure detector");
 
+            // If the host is being replaced, remove old tracking information
+            if(nodeStatus != null) {
+                nodeStatusMap.remove(currentTrackedNode);
+                nodeMap.remove(currentTrackedNode);
+                failureDetectorConfig.removeNode(currentTrackedNode);
+            }
+
             nodeStatus = createNodeStatus(failureDetectorConfig.getTime().getMilliseconds());
             nodeStatusMap.put(node, nodeStatus);
+            nodeMap.put(node.getId(), node);
+
             if(!failureDetectorConfig.getNodes().contains(node)) {
                 failureDetectorConfig.addNode(node);
             }

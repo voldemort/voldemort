@@ -153,4 +153,10 @@ public class Node implements Serializable, Comparable<Node> {
     public int compareTo(Node other) {
         return Integer.valueOf(this.id).compareTo(other.getId());
     }
+
+    public boolean isEqualState(Node other) {
+        return id == other.getId() && host.equalsIgnoreCase(other.getHost())
+               && httpPort == other.getHttpPort() && socketPort == other.getSocketPort()
+               && adminPort == other.getAdminPort() && zoneId == other.getZoneId();
+    }
 }
