@@ -391,7 +391,7 @@ public class ClientRequestExecutorFactory implements
                     logger.error(e.getMessage(), e);
             } finally {
                 if(closedChannel) {
-                    close();
+                    super.close();
                 }
             }
         }

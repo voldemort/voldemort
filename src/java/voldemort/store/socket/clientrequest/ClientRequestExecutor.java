@@ -156,8 +156,11 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(!isClosed.compareAndSet(false, true))
             return;
 
-        completeClientRequest();
-        closeInternal();
+        try {
+        	completeClientRequest();
+        } finally {
+        	closeInternal();
+    	}
     }
 
     @Override
