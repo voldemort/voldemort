@@ -4,13 +4,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.server.protocol.admin.AsyncOperation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
@@ -18,7 +16,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-public class DonorBasedRebalancePusherSlave extends AsyncOperation {
+public class DonorBasedRebalancePusherSlave implements Runnable {
 
     protected final static Logger logger = Logger.getLogger(DonorBasedRebalancePusherSlave.class);
 
@@ -26,28 +24,24 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
     private BlockingQueue<Pair<ByteArray, Versioned<byte[]>>> queue;
     private String storeName;
     private AdminClient adminClient;
-    private ResumableIterator<Pair<ByteArray, Versioned<byte[]>>> nodeIterator = new ResumableIterator<Pair<ByteArray, Versioned<byte[]>>>();
-    private AtomicBoolean stopRequested;
+    private ResumableIterator<Pair<ByteArray, Versioned<byte[]>>> nodeIterator;
 
-    public DonorBasedRebalancePusherSlave(int id,
-                                          String description,
-                                          int nodeId,
+    public DonorBasedRebalancePusherSlave(int nodeId,
                                           BlockingQueue<Pair<ByteArray, Versioned<byte[]>>> queue,
                                           String storeName,
                                           AdminClient adminClient) {
-        super(id, description);
         this.nodeId = nodeId;
         this.queue = queue;
         this.storeName = storeName;
         this.adminClient = adminClient;
-        this.stopRequested = new AtomicBoolean(false);
+        nodeIterator = new ResumableIterator<Pair<ByteArray, Versioned<byte[]>>>();
     }
 
-    @Override
-    public void operate() throws Exception {
+    public void run() throws VoldemortException {
+        boolean needWait = false;
         logger.info("DonorBasedRebalancePusherSlave begains to send partitions for store "
                     + storeName + " to node " + nodeId);
-        while(!isStopRequest()) {
+        while(!nodeIterator.done) {
             try {
                 nodeIterator.reset();
                 adminClient.updateEntries(nodeId, storeName, nodeIterator, null);
@@ -61,41 +55,38 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                                  + " to remote node " + nodeId
                                  + ". Will retry again after 5 minutes");
                     logger.error(e.getCause());
-                    Thread.sleep(30000);
+                    needWait = true;
                 } else {
                     throw e;
                 }
             }
+
+            if(needWait) {
+                try {
+                    // sleep for 5 minutes if exception occur while communicate
+                    // with remote node
+                    logger.info("waiting for 5 minutes for the remote node to recover");
+                    Thread.sleep(30000);
+                    needWait = false;
+                } catch(InterruptedException e) {
+                    // continue
+                }
+            }
         }
-        setCompletion();
+
         logger.info("DonorBasedRebalancePusherSlave finished sending partitions for store "
                     + storeName + " to node " + nodeId);
     }
 
-    public void setStopRequest() {
-        stopRequested.set(true);
-    }
-
-    public boolean isStopRequest() {
-        return stopRequested.get();
-    }
-
-    @Override
-    public void stop() {
-        requestCompletion();
-    }
-
     /**
-     * This function will set the request for stop first; Then insert 'END' into
-     * the queue so slave will return from updateEntries. Noted that this order
-     * shall not be changed or the slave will enter updateEntries again.
+     * This function inserts 'END' into the queue so slave will return from
+     * updateEntries.
      * 
      * @param immediateTerminate
      * @param notifySlave
      */
-    public synchronized void requestCompletion() {
+    public void requestCompletion() {
         try {
-            setStopRequest();
             queue.put(DonorBasedRebalanceAsyncOperation.END);
         } catch(InterruptedException e) {
             logger.info("Unable to send termination message to pusher slave for node " + nodeId
@@ -103,28 +94,10 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         }
     }
 
-    public synchronized void setCompletion() {
-        getStatus().setComplete(true);
-        notifyAll();
-    }
-
-    public synchronized void waitCompletion() {
-        while(!getStatus().isComplete()) {
-            try {
-                logger.info("Waiting for the completion, with 10s timeout, of pusher slave for "
-                            + getStatus().getDescription() + " with id=" + getStatus().getId());
-                // check for status every 10 seconds
-                wait(10000);
-            } catch(InterruptedException e) {
-                logger.info("Existing wait loop due to interrupt.");
-                break;
-            }
-        }
-    }
-
     // It will always Iterator through 'tentativeList' before iterating 'queue'
     class ResumableIterator<T> implements ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
+        private boolean done = false;
         private boolean recoveryModeOn = false;
         private int recoveryPosition = 0;
         private Pair<ByteArray, Versioned<byte[]>> currentElem = null;
@@ -153,19 +126,30 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
             this.currentElem = null;
         }
 
-        // return when something is available, blocked otherwise
         public boolean hasNext() {
             boolean hasNext = false;
-            while(null == currentElem) {
-                try {
-                    currentElem = getNextElem();
-                } catch(InterruptedException e) {
-                    logger.info("hasNext is interrupted while waiting for the next elem, existing...");
-                    break;
+            if(!done) {
+                while(null == currentElem) {
+                    try {
+                        currentElem = getNextElem();
+                    } catch(InterruptedException e) {
+                        logger.info("hasNext is interrupted while waiting for the next elem, existing...");
+                        break;
+                    }
                 }
-            }
-            if(null != currentElem && !currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
-                hasNext = true;
+
+                // regular event
+                if(null != currentElem
+                   && !currentElem.equals(DonorBasedRebalanceAsyncOperation.END)
+                   && !currentElem.equals(DonorBasedRebalanceAsyncOperation.BREAK)) {
+                    hasNext = true;
+                }
+
+                // this is the last element returned by this iterator
+                if(currentElem != null && currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
+                    done = true;
+                    hasNext = false;
+                }
             }
             return hasNext;
         }
@@ -173,6 +157,10 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
         // return the element when one or more is available, blocked
         // otherwise
         public Pair<ByteArray, Versioned<byte[]>> next() {
+            if(done) {
+                throw new NoSuchElementException();
+            }
+
             while(null == currentElem) {
                 try {
                     currentElem = getNextElem();
@@ -180,10 +168,17 @@ public class DonorBasedRebalancePusherSlave extends AsyncOperation {
                     logger.info("next is interrupted while waiting for the next elem, existing...");
                     break;
                 }
-                if(null == currentElem || currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
+                if(null == currentElem || currentElem.equals(DonorBasedRebalanceAsyncOperation.END)
+                   || currentElem.equals(DonorBasedRebalanceAsyncOperation.BREAK)) {
                     throw new NoSuchElementException();
                 }
             }
+
+            // this is the last element returned by this iterator
+            if(currentElem != null && currentElem.equals(DonorBasedRebalanceAsyncOperation.END)) {
+                done = true;
+            }
+
             Pair<ByteArray, Versioned<byte[]>> returnValue = currentElem;
             currentElem = null;
             return returnValue;

@@ -21,11 +21,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import voldemort.VoldemortException;
@@ -34,7 +38,6 @@ import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StorageEngine;
@@ -59,9 +62,12 @@ import com.google.common.collect.Sets;
  */
 public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
-    public final static Pair<ByteArray, Versioned<byte[]>> END = Pair.create(null, null);
+    public static final Pair<ByteArray, Versioned<byte[]>> END = Pair.create(new ByteArray("END".getBytes()),
+                                                                             new Versioned<byte[]>("END".getBytes()));
+    public static final Pair<ByteArray, Versioned<byte[]>> BREAK = Pair.create(new ByteArray("BREAK".getBytes()),
+                                                                               new Versioned<byte[]>("BREAK".getBytes()));
 
-    // Batch 500 entries for each fetchUpdate call.
+    // Batch 1000 entries for each fetchUpdate call.
     private static final int FETCHUPDATE_BATCH_SIZE = 1000;
     // Print scanned entries every 100k
     private static final int SCAN_PROGRESS_COUNT = 100000;
@@ -75,7 +81,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
-    private final AsyncOperationService pushSlavesExecutor;
+    private final ExecutorService pushSlavesExecutor;
     private Map<String, List<DonorBasedRebalancePusherSlave>> updatePushSlavePool;
 
     private HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> groupByStores(List<RebalancePartitionsInfo> stealInfos) {
@@ -107,7 +113,14 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
 
-        pushSlavesExecutor = rebalancer.getAsyncOperationService();
+        pushSlavesExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(r.getClass().getName());
+                return thread;
+            }
+        });
 
         updatePushSlavePool = Collections.synchronizedMap(new HashMap<String, List<DonorBasedRebalancePusherSlave>>());
     }
@@ -268,18 +281,15 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 final SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>> queue = new SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>();
                 nodeToQueue.put(tuple.getFirst(), queue);
 
-                int jobId = pushSlavesExecutor.getUniqueRequestId();
                 String jobName = "DonorBasedRebalancePusherSlave for store " + storeName
                                  + " on node " + tuple.getFirst();
-                DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(jobId,
-                                                                                                    jobName,
-                                                                                                    tuple.getFirst(),
+                DonorBasedRebalancePusherSlave updatePushSlave = new DonorBasedRebalancePusherSlave(tuple.getFirst(),
                                                                                                     queue,
                                                                                                     storeName,
                                                                                                     adminClient);
                 storePushSlaves.add(updatePushSlave);
-                pushSlavesExecutor.submitOperation(jobId, updatePushSlave);
-                logger.info("Submitted donor-based pusher job: id=" + jobId + " name=" + jobName);
+                pushSlavesExecutor.execute(updatePushSlave);
+                logger.info("Started a thread for " + jobName);
             }
 
             fetchEntriesForStealers(storageEngine,
@@ -339,7 +349,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 fetched[nodeId]++;
                 nodeToQueue.get(nodeId).put(Pair.create(key, value));
                 if(0 == fetched[nodeId] % FETCHUPDATE_BATCH_SIZE) {
-                    nodeToQueue.get(nodeId).put(END);
+                    nodeToQueue.get(nodeId).put(BREAK);
                 }
             }
         }
@@ -371,18 +381,27 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             it.next().requestCompletion();
         }
 
-        // wait for all async slave to finish
-        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().waitCompletion();
+        // signal and wait for all slaves to finish
+        pushSlavesExecutor.shutdown();
+        try {
+            if(pushSlavesExecutor.awaitTermination(30, TimeUnit.MINUTES)) {
+                logger.info("All DonorBasedRebalancePushSlaves terminated successfully.");
+            } else {
+                logger.warn("Timed out while waiting for pusher slaves to shutdown!!!");
+            }
+        } catch(InterruptedException e) {
+            logger.warn("Interrupted while waiting for pusher slaves to shutdown!!!");
         }
-        logger.info("All DonorBasedRebalancePushSlaves terminated successfully.");
+        logger.info("DonorBasedRebalancingOperation existed.");
     }
 
     private void terminateAllSlavesAsync(List<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
         logger.info("Terminating DonorBasedRebalancePushSlaves asynchronously");
         for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().setCompletion();
+            it.next().requestCompletion();
         }
+        pushSlavesExecutor.shutdownNow();
+        logger.info("DonorBasedRebalancingAsyncOperation existed.");
     }
 
     @Override
