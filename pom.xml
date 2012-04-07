@@ -6,7 +6,7 @@
 
   <groupId>voldemort</groupId>
   <artifactId>voldemort</artifactId>
-  <version>0.90.0</version>
+  <version>0.90.1</version>
   <packaging>jar</packaging>
 
   <name>${project.artifactId}</name>
