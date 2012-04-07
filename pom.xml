@@ -52,7 +52,7 @@
     <dependency>
       <groupId>net.java.dev.jna</groupId>
       <artifactId>jna</artifactId>
-      <version>3.4.0</version>
+      <version>3.2.7</version>
     </dependency>
     <dependency>
       <groupId>org.iq80.snappy</groupId>
