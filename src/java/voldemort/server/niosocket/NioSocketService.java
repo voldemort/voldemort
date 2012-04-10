@@ -31,6 +31,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
@@ -256,6 +257,24 @@ public class NioSocketService extends AbstractSocketService {
                 logger.info("Server has stopped listening for connections on port " + port);
         }
 
+    }
+
+    @JmxGetter(name = "numActiveConnections", description = "total number of active connections across selector managers")
+    public final int getNumActiveConnections() {
+        int sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getNumActiveConnections();
+        }
+        return sum;
+    }
+
+    @JmxGetter(name = "numQueuedConnections", description = "total number of connections pending for registration with selector managers")
+    public final int getNumQueuedConnections() {
+        int sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getNumQueuedConnections();
+        }
+        return sum;
     }
 
 }

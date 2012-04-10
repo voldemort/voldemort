@@ -67,6 +67,10 @@ public class Props implements Map<String, String> {
 
     public Props(Properties... properties) {
         this.props = new HashMap<String, String>();
+        loadProperties(properties);
+    }
+
+    public void loadProperties(Properties... properties) {
         for(int i = properties.length - 1; i >= 0; i--)
             for(Entry<Object, Object> e: properties[i].entrySet())
                 this.props.put((String) e.getKey(), (String) e.getValue());
