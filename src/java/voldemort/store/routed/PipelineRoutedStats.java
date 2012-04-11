@@ -11,6 +11,7 @@ import voldemort.store.InsufficientZoneResponsesException;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.UnreachableStoreException;
+import voldemort.versioning.ObsoleteVersionException;
 
 /**
  * Tracks all the exceptions we see, down at the routing layer also including
@@ -31,6 +32,7 @@ public class PipelineRoutedStats {
         errCountMap.put(InsufficientZoneResponsesException.class, new AtomicLong(0));
         errCountMap.put(UnreachableStoreException.class, new AtomicLong(0));
         errCountMap.put(StoreTimeoutException.class, new AtomicLong(0));
+        errCountMap.put(ObsoleteVersionException.class, new AtomicLong(0));
 
         severeExceptionCount = new AtomicLong(0);
         benignExceptionCount = new AtomicLong(0);
@@ -69,6 +71,11 @@ public class PipelineRoutedStats {
     @JmxGetter(name = "numStoreTimeoutExceptions", description = "Number of requests timed out since some server was overloaded/unavailable")
     public long getNumStoreTimeoutExceptions() {
         return errCountMap.get(StoreTimeoutException.class).get();
+    }
+
+    @JmxGetter(name = "numObsoleteVersionExceptions", description = "Number of requests that got a ObsoleteVersionException as response")
+    public long getNumObsoleteVersionExceptions() {
+        return errCountMap.get(ObsoleteVersionException.class).get();
     }
 
     @JmxGetter(name = "getExceptionCountsAsString", description = "Returns counts of all the Exceptions seen so far as a string")
