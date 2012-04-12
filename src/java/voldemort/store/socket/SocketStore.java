@@ -240,10 +240,9 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
 
     private <T> T request(ClientRequest<T> delegate, String operationName) {
         ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-
+        BlockingClientRequest<T> blockingClientRequest = null;
         try {
-            BlockingClientRequest<T> blockingClientRequest = new BlockingClientRequest<T>(delegate,
-                                                                                          timeoutMs);
+            blockingClientRequest = new BlockingClientRequest<T>(delegate, timeoutMs);
             clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
             blockingClientRequest.await();
             return blockingClientRequest.getResult();
@@ -256,6 +255,10 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
             throw new UnreachableStoreException("Failure in " + operationName + " on "
                                                 + destination + ": " + e.getMessage(), e);
         } finally {
+            if(blockingClientRequest != null && !blockingClientRequest.isComplete()) {
+                // close the executor if we timed out
+                clientRequestExecutor.close();
+            }
             pool.checkin(destination, clientRequestExecutor);
         }
     }
@@ -263,7 +266,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
     /**
      * This method handles submitting and then waiting for the request from the
      * server. It uses the ClientRequest API to actually write the request and
-     * then read back the response. This implementation will block for a
+     * then read back the response. This implementation will not block for a
      * response from the server.
      * 
      * @param <T> Return type

@@ -666,6 +666,7 @@ public abstract class AbstractRebalanceTest {
         config.setDeleteAfterRebalancingEnabled(true);
         config.setStealerBasedRebalancing(!useDonorBased());
         config.setPrimaryPartitionBatchSize(100);
+        config.setMaxParallelRebalancing(5);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);

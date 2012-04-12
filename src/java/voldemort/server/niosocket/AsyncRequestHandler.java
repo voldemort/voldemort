@@ -25,6 +25,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
@@ -59,12 +60,16 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     private StreamRequestHandler streamRequestHandler;
 
+    private MutableInt serverConnectionCount;
+
     public AsyncRequestHandler(Selector selector,
                                SocketChannel socketChannel,
                                RequestHandlerFactory requestHandlerFactory,
-                               int socketBufferSize) {
+                               int socketBufferSize,
+                               MutableInt serverConnectionCount) {
         super(selector, socketChannel, socketBufferSize);
         this.requestHandlerFactory = requestHandlerFactory;
+        this.serverConnectionCount = serverConnectionCount;
     }
 
     @Override
@@ -345,4 +350,12 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         }
     }
 
+    @Override
+    public void close() {
+        if(!isClosed.compareAndSet(false, true))
+            return;
+
+        serverConnectionCount.decrement();
+        closeInternal();
+    }
 }

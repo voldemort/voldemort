@@ -350,7 +350,7 @@ public class Rebalancer implements Runnable {
                 // Get a lock for the stealer node
                 if(!acquireRebalancingPermit(stealerNodeId)) {
                     throw new VoldemortException("Node " + metadataStore.getNodeId()
-                                                 + " is already trying to steal from "
+                                                 + " is already trying to push to stealer node "
                                                  + stealerNodeId);
                 }
 

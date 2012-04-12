@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
-import com.google.common.collect.ImmutableSet;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
@@ -32,6 +31,7 @@ import voldemort.utils.Time;
 import voldemort.utils.Utils;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * FailureDetectorConfig simply holds all the data that was available to it upon
@@ -565,6 +565,11 @@ public class FailureDetectorConfig {
     public synchronized void addNode(Node node) {
         Utils.notNull(node);
         nodes.add(node);
+    }
+
+    public synchronized void removeNode(Node node) {
+        Utils.notNull(node);
+        nodes.remove(node);
     }
 
     public StoreVerifier getStoreVerifier() {
