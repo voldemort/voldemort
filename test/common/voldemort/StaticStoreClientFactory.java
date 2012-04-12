@@ -2,7 +2,6 @@ package voldemort;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.client.DefaultStoreClient;
@@ -43,15 +42,8 @@ public class StaticStoreClientFactory implements StoreClientFactory {
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return (Store<K, V, T>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
-    }
-
-    @SuppressWarnings("unchecked")
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
+        return (Store<K, V, T>) stores.get(Math.max(current.getAndIncrement(), stores.size() - 1));
     }
 
     @SuppressWarnings("unchecked")
