@@ -24,6 +24,17 @@ fi
 
 base_dir=$(dirname $0)/..
 
+if [ -z "$VOLDEMORT_CONFIG_DIR" ]; then
+  if [ -z "$2" ]; then
+    VOLDEMORT_CONFIG_DIR=$base_dir/config
+  else
+    VOLDEMORT_CONFIG_DIR=$2
+  fi
+fi
+
+source $VOLDEMORT_CONFIG_DIR/voldemort-env.sh
+
+
 for file in $base_dir/dist/*.jar;
 do
   CLASSPATH=$CLASSPATH:$file
@@ -45,4 +56,5 @@ if [ -z "$VOLD_OPTS" ]; then
   VOLD_OPTS="-Xmx2G -server -Dcom.sun.management.jmxremote"
 fi
 
-java -Dlog4j.configuration=src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
+echo "Using JAVA_HOME = $JAVA_HOME"
+exec $JAVA_HOME/bin/java -Dlog4j.configuration=file:$VOLDEMORT_CONFIG_DIR/log4j.properties $VOLD_OPTS -cp $CLASSPATH voldemort.server.VoldemortServer $@
