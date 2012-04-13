@@ -186,7 +186,9 @@ public class RequestCounter {
                                                Math.max(timeNS, oldv.maxLatencyNS),
                                                oldv.totalBytes + bytes,
                                                Math.max(oldv.maxBytes, bytes),
-                                               oldv.getAllAggregatedCount + getAllAggregatedCount);
+                                               oldv.getAllAggregatedCount + getAllAggregatedCount,
+                                               getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
+                                                                                          : oldv.getAllMaxCount);
             if(values.compareAndSet(oldv, newv))
                 return;
         }
@@ -224,6 +226,13 @@ public class RequestCounter {
         return getValidAccumulator().getAllAggregatedCount;
     }
 
+    /**
+     * Return the maximum number of keys returned across all getAll calls.
+     */
+    public long getGetAllMaxCount() {
+        return getValidAccumulator().getAllMaxCount;
+    }
+
     public int getQ95LatencyMs() {
         return q95LatencyMs;
     }
@@ -242,13 +251,15 @@ public class RequestCounter {
                                       // responses that have been returned
         final long getAllAggregatedCount; // GET_ALL: a single call to GET_ALL
                                           // can return multiple k-v pairs.
-                                          // Track total returned.
+                                          // Track total requested.
+        final long getAllMaxCount; // GET_ALL : track max number of keys
+                                   // requesed
         final long maxLatencyNS;
         final long maxBytes; // Maximum single value
         final long totalBytes; // Sum of all the values
 
         public Accumulator() {
-            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0);
+            this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         public Accumulator newWithTotal() {
@@ -256,6 +267,7 @@ public class RequestCounter {
                                    0,
                                    0,
                                    total,
+                                   0,
                                    0,
                                    0,
                                    0,
@@ -271,7 +283,8 @@ public class RequestCounter {
                            long maxLatencyNS,
                            long totalBytes,
                            long maxBytes,
-                           long getAllAggregatedCount) {
+                           long getAllAggregatedCount,
+                           long getAllMaxCount) {
             this.startTimeMS = startTimeMS;
             this.count = count;
             this.totalTimeNS = totalTimeNS;
@@ -281,6 +294,7 @@ public class RequestCounter {
             this.totalBytes = totalBytes;
             this.maxBytes = maxBytes;
             this.getAllAggregatedCount = getAllAggregatedCount;
+            this.getAllMaxCount = getAllMaxCount;
         }
 
         public double getAverageTimeNS() {

@@ -139,4 +139,8 @@ public class StoreStats {
     public long getGetAllAggregatedCount() {
         return counters.get(Tracked.GET_ALL).getGetAllAggregatedCount();
     }
+
+    public long getGetAllMaxCount() {
+        return counters.get(Tracked.GET_ALL).getGetAllMaxCount();
+    }
 }

@@ -233,7 +233,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            nonblockingSlopStores,
                                                                            repairReads,
                                                                            clientZoneId,
-                                                                           getFailureDetector());
+                                                                           getFailureDetector(),
+                                                                           isJmxEnabled);
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {

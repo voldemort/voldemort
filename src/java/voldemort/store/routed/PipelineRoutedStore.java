@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -55,6 +56,7 @@ import voldemort.store.slop.strategy.HintedHandoffStrategy;
 import voldemort.store.slop.strategy.HintedHandoffStrategyFactory;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -66,12 +68,16 @@ import voldemort.versioning.Versioned;
  */
 public class PipelineRoutedStore extends RoutedStore {
 
+    private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
+
     private final Map<Integer, NonblockingStore> nonblockingStores;
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
     private final Map<Integer, NonblockingStore> nonblockingSlopStores;
     private final HintedHandoffStrategy handoffStrategy;
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
+    private PipelineRoutedStats stats;
+    private final int jmxId;
 
     /**
      * Create a PipelineRoutedStore
@@ -97,7 +103,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                boolean repairReads,
                                int clientZoneId,
                                long timeoutMs,
-                               FailureDetector failureDetector) {
+                               FailureDetector failureDetector,
+                               boolean jmxEnabled) {
         super(name,
               innerStores,
               cluster,
@@ -113,7 +120,7 @@ public class PipelineRoutedStore extends RoutedStore {
         } else {
             zoneRoutingEnabled = false;
         }
-
+        this.jmxId = jmxIdCounter.getAndIncrement();
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.hasHintedHandoffStrategyType()) {
@@ -122,6 +129,13 @@ public class PipelineRoutedStore extends RoutedStore {
             this.handoffStrategy = factory.updateHintedHandoffStrategy(storeDef, cluster);
         } else {
             this.handoffStrategy = null;
+        }
+
+        if(jmxEnabled) {
+            stats = new PipelineRoutedStats();
+            JmxUtils.registerMbean(stats,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
+                                                             getName() + jmxId()));
         }
     }
 
@@ -133,6 +147,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
             pipelineData.setZonesRequired(null);
+        pipelineData.setStats(stats);
 
         final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
         boolean allowReadRepair = repairReads && transforms == null;
@@ -204,7 +219,12 @@ public class PipelineRoutedStore extends RoutedStore {
                          + ByteUtils.toHexString(key.get()));
         }
 
-        pipeline.execute();
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
 
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
@@ -233,8 +253,9 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
             pipelineData.setZonesRequired(null);
-        Pipeline pipeline = new Pipeline(Operation.GET_ALL, timeoutMs, TimeUnit.MILLISECONDS);
+        pipelineData.setStats(stats);
 
+        Pipeline pipeline = new Pipeline(Operation.GET_ALL, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED,
                                 new GetAllConfigureNodes(pipelineData,
                                                          Event.CONFIGURED,
@@ -280,7 +301,12 @@ public class PipelineRoutedStore extends RoutedStore {
             logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Keys "
                          + keyStr.toString());
         }
-        pipeline.execute();
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
 
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
@@ -296,6 +322,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
             pipelineData.setZonesRequired(null);
+        pipelineData.setStats(stats);
         Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS, timeoutMs, TimeUnit.MILLISECONDS);
 
         StoreRequest<List<Version>> blockingStoreRequest = new StoreRequest<List<Version>>() {
@@ -352,7 +379,12 @@ public class PipelineRoutedStore extends RoutedStore {
             logger.debug("Operation  " + pipeline.getOperation().getSimpleName() + "Key "
                          + ByteUtils.toHexString(key.get()));
         }
-        pipeline.execute();
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
 
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
@@ -374,6 +406,8 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStoreName(name);
+        pipelineData.setStats(stats);
+
         Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
@@ -428,7 +462,12 @@ public class PipelineRoutedStore extends RoutedStore {
             logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Key "
                          + ByteUtils.toHexString(key.get()));
         }
-        pipeline.execute();
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
 
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
@@ -455,6 +494,7 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(null);
         pipelineData.setStartTimeNs(System.nanoTime());
         pipelineData.setStoreName(name);
+        pipelineData.setStats(stats);
 
         Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
@@ -531,7 +571,12 @@ public class PipelineRoutedStore extends RoutedStore {
             logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Key "
                          + ByteUtils.toHexString(key.get()));
         }
-        pipeline.execute();
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
 
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
@@ -555,4 +600,8 @@ public class PipelineRoutedStore extends RoutedStore {
         super.close();
     }
 
+    /* Give a unique id to avoid jmx clashes */
+    private String jmxId() {
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
+    }
 }
