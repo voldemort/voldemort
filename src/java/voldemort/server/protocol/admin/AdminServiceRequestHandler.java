@@ -268,70 +268,74 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     private VAdminProto.DeleteStoreRebalanceStateResponse handleDeleteStoreRebalanceState(VAdminProto.DeleteStoreRebalanceStateRequest request) {
         VAdminProto.DeleteStoreRebalanceStateResponse.Builder response = VAdminProto.DeleteStoreRebalanceStateResponse.newBuilder();
+        synchronized(rebalancer) {
+            try {
 
-        try {
+                int nodeId = request.getNodeId();
+                String storeName = request.getStoreName();
 
-            int nodeId = request.getNodeId();
-            String storeName = request.getStoreName();
+                logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
+                            + storeName + " from stealer node " + metadataStore.getNodeId());
+                RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
+                if(info == null) {
+                    throw new VoldemortException("Could not find state for donor node " + nodeId);
+                }
 
-            logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
-                        + storeName);
-            RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
-            if(info == null) {
-                throw new VoldemortException("Could not find state for donor node " + nodeId);
+                HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
+                if(replicaToPartition == null) {
+                    throw new VoldemortException("Could not find state for donor node " + nodeId
+                                                 + " and store " + storeName);
+                }
+
+                info.removeStore(storeName);
+                logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
+                            + storeName + " from stealer node " + metadataStore.getNodeId());
+
+                if(info.getUnbalancedStoreList().isEmpty()) {
+                    metadataStore.deleteRebalancingState(info);
+                    logger.info("Removed entire rebalancing state for donor node " + nodeId
+                                + " from stealer node " + metadataStore.getNodeId());
+                }
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleDeleteStoreRebalanceState failed for request("
+                             + request.toString() + ")", e);
             }
-
-            HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
-            if(replicaToPartition == null) {
-                throw new VoldemortException("Could not find state for donor node " + nodeId
-                                             + " and store " + storeName);
-            }
-
-            info.removeStore(storeName);
-            logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
-                        + storeName);
-
-            if(info.getUnbalancedStoreList().isEmpty()) {
-                metadataStore.deleteRebalancingState(info);
-                logger.info("Removed entire rebalancing state for donor node " + nodeId);
-            }
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleDeleteStoreRebalanceState failed for request(" + request.toString()
-                         + ")", e);
         }
         return response.build();
     }
 
     public VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
-
         VAdminProto.RebalanceStateChangeResponse.Builder response = VAdminProto.RebalanceStateChangeResponse.newBuilder();
 
-        try {
-            // Retrieve all values first
-            List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
-            for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
-                rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
+        synchronized(rebalancer) {
+            try {
+                // Retrieve all values first
+                List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
+                for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
+                    rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
+                }
+
+                Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
+
+                boolean swapRO = request.getSwapRo();
+                boolean changeClusterMetadata = request.getChangeClusterMetadata();
+                boolean changeRebalanceState = request.getChangeRebalanceState();
+                boolean rollback = request.getRollback();
+
+                rebalancer.rebalanceStateChange(cluster,
+                                                rebalancePartitionsInfo,
+                                                swapRO,
+                                                changeClusterMetadata,
+                                                changeRebalanceState,
+                                                rollback);
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleRebalanceStateChange failed for request(" + request.toString()
+                             + ")", e);
             }
-
-            Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
-
-            boolean swapRO = request.getSwapRo();
-            boolean changeClusterMetadata = request.getChangeClusterMetadata();
-            boolean changeRebalanceState = request.getChangeRebalanceState();
-            boolean rollback = request.getRollback();
-
-            rebalancer.rebalanceStateChange(cluster,
-                                            rebalancePartitionsInfo,
-                                            swapRO,
-                                            changeClusterMetadata,
-                                            changeRebalanceState,
-                                            rollback);
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleRebalanceStateChange failed for request(" + request.toString()
-                         + ")", e);
         }
+
         return response.build();
     }
 

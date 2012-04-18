@@ -58,6 +58,28 @@ public class RoutedStoreFactory {
                               boolean repairReads,
                               int clientZoneId,
                               FailureDetector failureDetector) {
+        return create(cluster,
+                      storeDefinition,
+                      nodeStores,
+                      nonblockingStores,
+                      slopStores,
+                      nonblockingSlopStores,
+                      repairReads,
+                      clientZoneId,
+                      failureDetector,
+                      false);
+    }
+
+    public RoutedStore create(Cluster cluster,
+                              StoreDefinition storeDefinition,
+                              Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
+                              Map<Integer, NonblockingStore> nonblockingStores,
+                              Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
+                              Map<Integer, NonblockingStore> nonblockingSlopStores,
+                              boolean repairReads,
+                              int clientZoneId,
+                              FailureDetector failureDetector,
+                              boolean jmxEnabled) {
         if(isPipelineRoutedStoreEnabled) {
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
@@ -69,7 +91,8 @@ public class RoutedStoreFactory {
                                            repairReads,
                                            clientZoneId,
                                            routingTimeoutMs,
-                                           failureDetector);
+                                           failureDetector,
+                                           jmxEnabled);
         } else {
             if(storeDefinition.getRoutingStrategyType()
                               .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
@@ -103,7 +126,6 @@ public class RoutedStoreFactory {
 
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: nodeStores.entrySet())
             nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
-
 
         return create(cluster,
                       storeDefinition,
