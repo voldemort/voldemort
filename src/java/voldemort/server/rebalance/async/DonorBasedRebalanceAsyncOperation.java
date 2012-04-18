@@ -81,8 +81,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
-    private final ExecutorService pushSlavesExecutor;
-    private Map<String, List<DonorBasedRebalancePusherSlave>> updatePushSlavePool;
+    // each table being rebalanced is associated with one executor service and a
+    // pool of threads
+    private Map<String, Pair<ExecutorService, List<DonorBasedRebalancePusherSlave>>> updatePushSlavePool;
 
     private HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> groupByStores(List<RebalancePartitionsInfo> stealInfos) {
 
@@ -112,17 +113,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
-
-        pushSlavesExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
-
-            public Thread newThread(Runnable r) {
-                Thread thread = new Thread(r);
-                thread.setName(r.getClass().getName());
-                return thread;
-            }
-        });
-
-        updatePushSlavePool = Collections.synchronizedMap(new HashMap<String, List<DonorBasedRebalancePusherSlave>>());
+        updatePushSlavePool = Collections.synchronizedMap(new HashMap<String, Pair<ExecutorService, List<DonorBasedRebalancePusherSlave>>>());
     }
 
     @Override
@@ -241,7 +232,17 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = storeRepository.getStorageEngine(storeName);
         StoreDefinition storeDef = metadataStore.getStoreDef(storeName);
         List<DonorBasedRebalancePusherSlave> storePushSlaves = Lists.newArrayList();
-        updatePushSlavePool.put(storeName, storePushSlaves);
+        ExecutorService pushSlavesExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName(r.getClass().getName());
+                return thread;
+            }
+        });
+        updatePushSlavePool.put(storeName,
+                                new Pair<ExecutorService, List<DonorBasedRebalancePusherSlave>>(pushSlavesExecutor,
+                                                                                                storePushSlaves));
 
         if(isReadOnlyStore) {
 
@@ -330,10 +331,10 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                     printProgress(scanned, fetched, startTime, storeName);
                 }
             }
-            terminateAllSlaves(updatePushSlavePool.get(storeName));
+            terminateAllSlaves(storeName);
         } catch(InterruptedException e) {
             logger.info("InterruptedException received while sending entries to remote nodes, the process is terminating...");
-            terminateAllSlavesAsync(updatePushSlavePool.get(storeName));
+            terminateAllSlavesAsync(storeName);
         } finally {
             close(keys, storeName, scanned, fetched, startTime);
         }
@@ -374,10 +375,13 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             keys.close();
     }
 
-    private void terminateAllSlaves(List<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
+    private void terminateAllSlaves(String storeName) {
         // Everything is done, put the terminator in
         logger.info("Terminating DonorBasedRebalancePushSlaves...");
-        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
+        ExecutorService pushSlavesExecutor = updatePushSlavePool.get(storeName).getFirst();
+        List<DonorBasedRebalancePusherSlave> pushSlaves = updatePushSlavePool.get(storeName)
+                                                                             .getSecond();
+        for(Iterator<DonorBasedRebalancePusherSlave> it = pushSlaves.iterator(); it.hasNext();) {
             it.next().requestCompletion();
         }
 
@@ -395,12 +399,26 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         logger.info("DonorBasedRebalancingOperation existed.");
     }
 
-    private void terminateAllSlavesAsync(List<DonorBasedRebalancePusherSlave> updatePushSlavePool) {
-        logger.info("Terminating DonorBasedRebalancePushSlaves asynchronously");
-        for(Iterator<DonorBasedRebalancePusherSlave> it = updatePushSlavePool.iterator(); it.hasNext();) {
-            it.next().requestCompletion();
+    private void terminateAllSlavesAsync(String storeName) {
+        logger.info("Terminating DonorBasedRebalancePushSlaves asynchronously.");
+        if(null == storeName) {
+            for(Pair<ExecutorService, List<DonorBasedRebalancePusherSlave>> pair: updatePushSlavePool.values()) {
+                ExecutorService pushSlavesExecutor = pair.getFirst();
+                List<DonorBasedRebalancePusherSlave> pushSlaves = pair.getSecond();
+                for(Iterator<DonorBasedRebalancePusherSlave> it = pushSlaves.iterator(); it.hasNext();) {
+                    it.next().requestCompletion();
+                }
+                pushSlavesExecutor.shutdownNow();
+            }
+        } else {
+            ExecutorService pushSlavesExecutor = updatePushSlavePool.get(storeName).getFirst();
+            List<DonorBasedRebalancePusherSlave> pushSlaves = updatePushSlavePool.get(storeName)
+                                                                                 .getSecond();
+            for(Iterator<DonorBasedRebalancePusherSlave> it = pushSlaves.iterator(); it.hasNext();) {
+                it.next().requestCompletion();
+            }
+            pushSlavesExecutor.shutdownNow();
         }
-        pushSlavesExecutor.shutdownNow();
         logger.info("DonorBasedRebalancingAsyncOperation existed.");
     }
 
@@ -409,9 +427,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         running.set(false);
         updateStatus(getHeader(stealInfos) + "Stop called on donor-based rebalance operation");
         logger.info(getHeader(stealInfos) + "Stop called on donor-based rebalance operation");
-        for(List<DonorBasedRebalancePusherSlave> storePushSlaves: updatePushSlavePool.values()) {
-            terminateAllSlavesAsync(storePushSlaves);
-        }
+        terminateAllSlavesAsync(null);
         executors.shutdownNow();
     }
 }
