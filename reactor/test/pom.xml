@@ -22,7 +22,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
-    <testSourceDirectory>../../test/unit</testSourceDirectory>
+    <testSourceDirectory>${basedir}/../../test/unit</testSourceDirectory>
     <plugins>
       <plugin>
         <artifactId>maven-eclipse-plugin</artifactId>
@@ -54,7 +54,7 @@
             </goals>
             <configuration>
               <sources>
-                <source>../../test/common</source>
+                <source>${basedir}/../../test/common</source>
               </sources>
             </configuration>
           </execution>
@@ -72,13 +72,11 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.6</version>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
       <version>1.8.5</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
   <developers>
