@@ -38,6 +38,7 @@ import voldemort.server.VoldemortService;
 import voldemort.store.Store;
 import voldemort.store.bdb.BdbStorageEngine;
 import voldemort.store.bdb.stats.BdbEnvironmentStats;
+import voldemort.store.bdb.stats.BdbSpaceStats;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 
@@ -93,6 +94,9 @@ public class JmxService extends AbstractService {
                 BdbStorageEngine bdbStore = (BdbStorageEngine) store;
                 registerBean(bdbStore.getBdbEnvironmentStats(),
                              JmxUtils.createObjectName(JmxUtils.getPackageName(BdbEnvironmentStats.class),
+                                                       store.getName()));
+                registerBean(bdbStore.getBdbSpaceStats(),
+                             JmxUtils.createObjectName(JmxUtils.getPackageName(BdbSpaceStats.class),
                                                        store.getName()));
             }
         }
