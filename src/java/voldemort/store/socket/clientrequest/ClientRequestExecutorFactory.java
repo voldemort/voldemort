@@ -353,10 +353,6 @@ public class ClientRequestExecutorFactory implements
                     } catch(Exception e) {
                         if(logger.isEnabledFor(Level.ERROR))
                             logger.error(e.getMessage(), e);
-                    } finally {
-                        if(closedChannel) {
-                            super.close();
-                        }
                     }
                 }
             } catch(Exception e) {
@@ -393,6 +389,10 @@ public class ClientRequestExecutorFactory implements
             } catch(Exception e) {
                 if(logger.isEnabledFor(Level.ERROR))
                     logger.error(e.getMessage(), e);
+            } finally {
+                if(closedChannel) {
+                    super.close();
+                }
             }
         }
     }
