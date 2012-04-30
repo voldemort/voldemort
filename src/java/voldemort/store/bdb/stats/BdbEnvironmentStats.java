@@ -1,21 +1,24 @@
 package voldemort.store.bdb.stats;
 
+import java.util.concurrent.Callable;
+
+import voldemort.VoldemortException;
+import voldemort.annotations.Experimental;
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxOperation;
+import voldemort.utils.CachedCallable;
 
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
 import com.sleepycat.je.StatsConfig;
-import voldemort.VoldemortException;
-import voldemort.annotations.Experimental;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.utils.CachedCallable;
-
-import java.util.concurrent.Callable;
 
 public class BdbEnvironmentStats {
 
     private final Environment environment;
     private final CachedCallable<EnvironmentStats> fastStats;
+    private final CachedCallable<DbSpace> fastDbStats;
+    private boolean sorted = false;
 
     public BdbEnvironmentStats(Environment environment, long ttlMs) {
         this.environment = environment;
@@ -26,12 +29,47 @@ public class BdbEnvironmentStats {
             }
         };
         fastStats = new CachedCallable<EnvironmentStats>(fastStatsCallable, ttlMs);
+
+        Callable<DbSpace> fastDbStatsCallable = new Callable<DbSpace>() {
+
+            public DbSpace call() throws Exception {
+                return getBdbStats();
+            }
+        };
+        fastDbStats = new CachedCallable<DbSpace>(fastDbStatsCallable, ttlMs);
     }
 
     private EnvironmentStats getEnvironmentStats(boolean fast) {
         StatsConfig config = new StatsConfig();
         config.setFast(fast);
         return environment.getStats(config);
+    }
+
+    private DbSpace getBdbStats() {
+        return new DbSpace(environment, sorted);
+    }
+
+    private DbSpace getFastDbStats() {
+        try {
+            return fastDbStats.call();
+        } catch(Exception e) {
+            throw new VoldemortException(e);
+        }
+    }
+
+    @JmxGetter(name = "BdbTotalSize")
+    public long getBdbTotalSize() {
+        return getFastDbStats().getTotal().totalSize();
+    }
+
+    @JmxGetter(name = "BdbTotalUsage")
+    public long getBdbTotalUsage() {
+        return getFastDbStats().getTotal().utilization();
+    }
+
+    @JmxOperation(description = "Displays the disk space utilization for an environment.")
+    public String getBdbSummariesAsString() {
+        return getFastDbStats().getSummariesAsString();
     }
 
     private EnvironmentStats getFastStats() {
@@ -159,13 +197,13 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentRandomWrites")
     public double getPercentRandomWrites() {
-       return safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
+        return safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageRandomWriteBytes")
     public double getPercentageRandomWriteBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes() +
-                                                           getNumSequentialWriteBytes());
+        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
+                                                           + getNumSequentialWriteBytes());
     }
 
     @JmxGetter(name = "NumReadsTotal")
@@ -180,8 +218,8 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageRandomReadBytes")
     public double getPercentageRandomReadBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes() +
-                                                           getNumSequentialReadBytes());
+        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
+                                                           + getNumSequentialReadBytes());
     }
 
     @Experimental
@@ -193,17 +231,16 @@ public class BdbEnvironmentStats {
     @Experimental
     @JmxGetter(name = "PercentageCacheMisses")
     public double getPercentageCacheMisses() {
-        return safeGetPercentage(getNumCacheMiss(),
-                                 getNumReadsTotal() + getNumWritesTotal());
+        return safeGetPercentage(getNumCacheMiss(), getNumReadsTotal() + getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageContended")
     public double getPercentageContended() {
-        return safeGetPercentage(getNumAcquiresWithContention(),
-                                 getNumAcquiresWithContention() + getNumAcquiresNoWaiters());
+        return safeGetPercentage(getNumAcquiresWithContention(), getNumAcquiresWithContention()
+                                                                 + getNumAcquiresNoWaiters());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {
-        return total == 0 ? 0.0d : rawNum / (float)total;
+        return total == 0 ? 0.0d : rawNum / (float) total;
     }
 }
