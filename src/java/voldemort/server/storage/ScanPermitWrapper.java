@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
-import voldemort.annotations.jmx.JmxManaged;
-
-@JmxManaged(description = "Wrapper for Scan permit.")
 public class ScanPermitWrapper {
 
     private final Semaphore scanPermits;
