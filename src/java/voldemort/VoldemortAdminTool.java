@@ -212,7 +212,7 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("version", "version of store to rollback to")
+        parser.accepts("version", "Push version of store to rollback to")
               .withRequiredArg()
               .describedAs("version")
               .ofType(Long.class);
@@ -302,7 +302,7 @@ public class VoldemortAdminTool {
         }
         if(options.has("rollback")) {
             if(!options.has("version")) {
-                Utils.croak("A version of the read-only store must be specified with rollback option");
+                Utils.croak("A read-only push version must be specified with rollback option");
             }
             ops += "o";
         }
@@ -605,7 +605,7 @@ public class VoldemortAdminTool {
         stream.println("\t5) Backup bdb data natively");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] "
                        + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
-        stream.println("\t6) Rollback a read-only store for the specified version");
+        stream.println("\t6) Rollback a read-only store to the specified push version");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --rollback [store-name] --url [url] --node [node-id] --version [version-num] ");
 
         parser.printHelpOn(stream);
