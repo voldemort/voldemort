@@ -117,7 +117,6 @@ public class StorageService extends AbstractService {
     private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
-    // private final Semaphore scanPermits;
     private final ScanPermitWrapper scanPermitWrapper;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
@@ -135,8 +134,6 @@ public class StorageService extends AbstractService {
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        // this.scanPermits = new
-        // Semaphore(voldemortConfig.getNumScanPermits());
         this.scanPermitWrapper = new ScanPermitWrapper(voldemortConfig.getNumScanPermits());
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
