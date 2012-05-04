@@ -18,7 +18,6 @@ public class BdbEnvironmentStats {
     private final Environment environment;
     private final CachedCallable<EnvironmentStats> fastStats;
     private final CachedCallable<DbSpace> fastDbStats;
-    private boolean sorted = false;
 
     public BdbEnvironmentStats(Environment environment, long ttlMs) {
         this.environment = environment;
@@ -46,7 +45,7 @@ public class BdbEnvironmentStats {
     }
 
     private DbSpace getBdbStats() {
-        return new DbSpace(environment, sorted);
+        return new DbSpace(environment);
     }
 
     private DbSpace getFastDbStats() {
