@@ -5,7 +5,6 @@ import java.util.concurrent.Callable;
 import voldemort.VoldemortException;
 import voldemort.annotations.Experimental;
 import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxOperation;
 import voldemort.utils.CachedCallable;
 
 import com.sleepycat.je.Environment;
@@ -66,7 +65,7 @@ public class BdbEnvironmentStats {
         return getFastDbStats().getTotal().utilization();
     }
 
-    @JmxOperation(description = "Displays the disk space utilization for an environment.")
+    @JmxGetter(name = "Displays the disk space utilization for an environment.")
     public String getBdbSummariesAsString() {
         return getFastDbStats().getSummariesAsString();
     }
