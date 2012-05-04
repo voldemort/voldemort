@@ -1,6 +1,8 @@
 package voldemort.server.storage;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
@@ -9,34 +11,46 @@ public class ScanPermitWrapper {
     private final Semaphore scanPermits;
     private List<String> permitOwners;
 
-    public ScanPermitWrapper(int numPermits) {
+    public ScanPermitWrapper(final int numPermits) {
         scanPermits = new Semaphore(numPermits);
-        permitOwners = new ArrayList<String>();
+        permitOwners = Collections.synchronizedList(new ArrayList<String>());
     }
 
-    public synchronized void acquire() throws InterruptedException {
+    public void acquire() throws InterruptedException {
         this.scanPermits.acquire();
-        permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+        synchronized(permitOwners) {
+            permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+        }
     }
 
-    public synchronized void release() {
+    public void release() {
         this.scanPermits.release();
-        String className = Thread.currentThread().getStackTrace()[2].getClassName();
-        permitOwners.remove(className);
+        synchronized(permitOwners) {
+            permitOwners.remove(Thread.currentThread().getStackTrace()[2].getClassName());
+        }
     }
 
     public List<String> getPermitOwners() {
-        return this.permitOwners;
+        List<String> ownerList = new ArrayList<String>();
+        synchronized(permitOwners) {
+            Iterator<String> i = this.permitOwners.iterator();
+            while(i.hasNext())
+                ownerList.add(i.next());
+        }
+        return ownerList;
     }
 
-    public synchronized boolean tryAcquire() {
+    public boolean tryAcquire() {
         boolean gotPermit = this.scanPermits.tryAcquire();
-        if(gotPermit)
-            permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+        if(gotPermit) {
+            synchronized(permitOwners) {
+                permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+            }
+        }
         return gotPermit;
     }
 
-    public synchronized int availablePermits() {
+    public int availablePermits() {
         return this.scanPermits.availablePermits();
     }
 }
