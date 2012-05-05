@@ -11,20 +11,28 @@ import com.sleepycat.je.cleaner.UtilizationProfile;
 import com.sleepycat.je.dbi.EnvironmentImpl;
 import com.sleepycat.je.log.UtilizationFileReader;
 
+/**
+ * Code based in the com.sleepycat.je.util.DbSpace class.
+ */
 public class DbSpace {
 
-    private boolean recalc = false;
-    private EnvironmentImpl envImpl;
+    private final boolean recalc;
+    private final EnvironmentImpl envImpl;
     private Summary totals = new Summary();
     private Summary[] summaries = null;
     private StringBuffer summaryDetails = new StringBuffer();
 
     public DbSpace(Environment env) {
-        this(DbInternal.getEnvironmentImpl(env));
+        this(DbInternal.getEnvironmentImpl(env), false);
     }
 
-    private DbSpace(EnvironmentImpl envImpl) {
+    public DbSpace(Environment env, boolean recalc) {
+        this(DbInternal.getEnvironmentImpl(env), recalc);
+    }
+
+    private DbSpace(EnvironmentImpl envImpl, boolean recalc) {
         this.envImpl = envImpl;
+        this.recalc = recalc;
 
         UtilizationProfile profile = this.envImpl.getUtilizationProfile();
         SortedMap<Long, FileSummary> map = profile.getFileSummaryMap(true);
@@ -47,21 +55,19 @@ public class DbSpace {
             }
 
             Summary summary = new Summary(fileNum, fs, recalcFs);
-            if(summaries != null) {
-                summaries[fileIndex] = summary;
-            }
+            summaries[fileIndex] = summary;
+
             totals.add(summary);
             fileIndex++;
         }
 
-        if(summaries != null) {
-            summaryDetails.append((this.recalc) ? "  File    Size (KB)  % Used  % Used (recalculated)\n--------  ---------  ------  ------\n"
-                                               : "  File    Size (KB)  % Used\n--------  ---------  ------\n");
-            for(int i = 0; i < summaries.length; ++i) {
-                summaryDetails.append(summaries[i].toString());
-                summaryDetails.append("\n");
-            }
+        summaryDetails.append((this.recalc) ? "  File    Size (KB)  % Used  % Used (recalculated)\n--------  ---------  ------  ------\n"
+                                           : "  File    Size (KB)  % Used\n--------  ---------  ------\n");
+        for(int i = 0; i < summaries.length; ++i) {
+            summaryDetails.append(summaries[i].toString());
+            summaryDetails.append("\n");
         }
+
         summaryDetails.append(totals.toString());
     }
 

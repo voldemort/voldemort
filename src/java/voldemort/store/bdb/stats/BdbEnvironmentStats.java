@@ -65,7 +65,7 @@ public class BdbEnvironmentStats {
         return getFastDbStats().getTotal().utilization();
     }
 
-    @JmxGetter(name = "Displays the disk space utilization for an environment.")
+    @JmxGetter(name = "BdbSummaries")
     public String getBdbSummariesAsString() {
         return getFastDbStats().getSummariesAsString();
     }
