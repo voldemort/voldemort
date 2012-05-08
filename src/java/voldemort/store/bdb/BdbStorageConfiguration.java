@@ -31,16 +31,16 @@ import voldemort.store.StorageInitializationException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
 
+import com.google.common.collect.Maps;
+import com.sleepycat.je.CacheMode;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.PreloadConfig;
 import com.sleepycat.je.StatsConfig;
-
-import com.google.common.collect.Maps;
 
 /**
  * The configuration that is shared between berkeley db instances. This includes
@@ -70,13 +70,11 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         environmentConfig.setTransactional(true);
         environmentConfig.setCacheSize(config.getBdbCacheSize());
         if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
-            environmentConfig.setTxnNoSync(false);
-            environmentConfig.setTxnWriteNoSync(false);
+            environmentConfig.setDurability(Durability.COMMIT_SYNC);
         } else if(config.isBdbWriteTransactionsEnabled() && !config.isBdbFlushTransactionsEnabled()) {
-            environmentConfig.setTxnNoSync(false);
-            environmentConfig.setTxnWriteNoSync(true);
+            environmentConfig.setDurability(Durability.COMMIT_WRITE_NO_SYNC);
         } else {
-            environmentConfig.setTxnNoSync(true);
+            environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         }
         environmentConfig.setAllowCreate(true);
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX,
@@ -105,8 +103,13 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbLogFaultReadSize()));
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_ITERATOR_READ_SIZE,
                                          Integer.toString(config.getBdbLogIteratorReadSize()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LAZY_MIGRATION,
+                                         Boolean.toString(config.getBdbCleanerLazyMigration()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
+        if(config.getBdbCacheModeEvictLN()) {
+            environmentConfig.setCacheMode(CacheMode.EVICT_LN);
+        }
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
