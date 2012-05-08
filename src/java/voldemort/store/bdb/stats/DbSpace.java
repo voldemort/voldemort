@@ -9,35 +9,26 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.cleaner.FileSummary;
 import com.sleepycat.je.cleaner.UtilizationProfile;
 import com.sleepycat.je.dbi.EnvironmentImpl;
-import com.sleepycat.je.log.UtilizationFileReader;
 
 /**
  * Code based in the com.sleepycat.je.util.DbSpace class.
  */
-public class DbSpace {
+final public class DbSpace {
 
-    private final boolean recalc;
     private final EnvironmentImpl envImpl;
     private Summary totals = new Summary();
     private Summary[] summaries = null;
     private StringBuffer summaryDetails = new StringBuffer();
 
     public DbSpace(Environment env) {
-        this(DbInternal.getEnvironmentImpl(env), false);
+        this(DbInternal.getEnvironmentImpl(env));
     }
 
-    public DbSpace(Environment env, boolean recalc) {
-        this(DbInternal.getEnvironmentImpl(env), recalc);
-    }
-
-    private DbSpace(EnvironmentImpl envImpl, boolean recalc) {
+    private DbSpace(EnvironmentImpl envImpl) {
         this.envImpl = envImpl;
-        this.recalc = recalc;
 
         UtilizationProfile profile = this.envImpl.getUtilizationProfile();
         SortedMap<Long, FileSummary> map = profile.getFileSummaryMap(true);
-        Map<Long, FileSummary> recalcMap = (this.recalc) ? UtilizationFileReader.calcFileSummaryMap(this.envImpl)
-                                                        : null;
 
         int fileIndex = 0;
 
@@ -49,20 +40,15 @@ public class DbSpace {
             Map.Entry<Long, FileSummary> entry = iter.next();
             Long fileNum = entry.getKey();
             FileSummary fs = entry.getValue();
-            FileSummary recalcFs = null;
-            if(recalcMap != null) {
-                recalcFs = recalcMap.get(fileNum);
-            }
 
-            Summary summary = new Summary(fileNum, fs, recalcFs);
+            Summary summary = new Summary(fileNum, fs);
             summaries[fileIndex] = summary;
 
             totals.add(summary);
             fileIndex++;
         }
 
-        summaryDetails.append((this.recalc) ? "  File    Size (KB)  % Used  % Used (recalculated)\n--------  ---------  ------  ------\n"
-                                           : "  File    Size (KB)  % Used\n--------  ---------  ------\n");
+        summaryDetails.append("  File    Size (KB)  % Used\n--------  ---------  ------\n");
         for(int i = 0; i < summaries.length; ++i) {
             summaryDetails.append(summaries[i].toString());
             summaryDetails.append("\n");
@@ -84,27 +70,18 @@ public class DbSpace {
         private Long fileNum;
         private long totalSize;
         private long obsoleteSize;
-        private long recalcObsoleteSize;
-        private FileSummary fileSummary = null;
-        private FileSummary recalcSummary = null;
 
         public Summary() {}
 
-        public Summary(Long fileNum, FileSummary summary, FileSummary recalcSummary) {
+        public Summary(Long fileNum, FileSummary summary) {
             this.fileNum = fileNum;
-            this.fileSummary = summary;
             this.totalSize = summary.totalSize;
             this.obsoleteSize = summary.getObsoleteSize();
-            if(recalcSummary != null) {
-                this.recalcSummary = recalcSummary;
-                this.recalcObsoleteSize = recalcSummary.getObsoleteSize();
-            }
         }
 
         public void add(Summary o) {
             this.totalSize += o.totalSize;
             this.obsoleteSize += o.obsoleteSize;
-            this.recalcObsoleteSize += o.recalcObsoleteSize;
         }
 
         public long totalSize() {
@@ -115,16 +92,12 @@ public class DbSpace {
             return UtilizationProfile.utilization(this.obsoleteSize, this.totalSize);
         }
 
-        public int recalcUtilization() {
-            return UtilizationProfile.utilization(this.recalcObsoleteSize, this.totalSize);
-        }
-
         @Override
         public String toString() {
-            return getAsString(false);
+            return getAsString();
         }
 
-        public String getAsString(boolean details) {
+        public String getAsString() {
             StringBuffer summary = new StringBuffer();
 
             if(this.fileNum != null)
@@ -137,19 +110,7 @@ public class DbSpace {
             summary.append(pad(Integer.toString(kb), 9, ' '));
             summary.append("     ");
             summary.append(pad(Integer.toString(utilization()), 3, ' '));
-            if(recalcSummary != null) {
-                summary.append("     ");
-                summary.append(pad(Integer.toString(recalcUtilization()), 3, ' '));
-            }
-            if(details) {
-                summary.append("     ");
-                summary.append(fileSummary);
 
-                if(recalcSummary != null) {
-                    summary.append("     ");
-                    summary.append(recalcSummary);
-                }
-            }
             return summary.toString();
         }
 
