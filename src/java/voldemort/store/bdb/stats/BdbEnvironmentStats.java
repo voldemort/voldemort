@@ -16,6 +16,7 @@ public class BdbEnvironmentStats {
 
     private final Environment environment;
     private final CachedCallable<EnvironmentStats> fastStats;
+    private final CachedCallable<SpaceUtilizationStats> fastSpaceStats;
 
     public BdbEnvironmentStats(Environment environment, long ttlMs) {
         this.environment = environment;
@@ -26,12 +27,32 @@ public class BdbEnvironmentStats {
             }
         };
         fastStats = new CachedCallable<EnvironmentStats>(fastStatsCallable, ttlMs);
+
+        Callable<SpaceUtilizationStats> fastDbStatsCallable = new Callable<SpaceUtilizationStats>() {
+
+            public SpaceUtilizationStats call() throws Exception {
+                return getSpaceUtilizationStats();
+            }
+        };
+        fastSpaceStats = new CachedCallable<SpaceUtilizationStats>(fastDbStatsCallable, ttlMs);
     }
 
     private EnvironmentStats getEnvironmentStats(boolean fast) {
         StatsConfig config = new StatsConfig();
         config.setFast(fast);
         return environment.getStats(config);
+    }
+
+    private SpaceUtilizationStats getSpaceUtilizationStats() {
+        return new SpaceUtilizationStats(environment);
+    }
+
+    private SpaceUtilizationStats getFastSpaceUtilizationStats() {
+        try {
+            return fastSpaceStats.call();
+        } catch(Exception e) {
+            throw new VoldemortException(e);
+        }
     }
 
     private EnvironmentStats getFastStats() {
@@ -214,6 +235,21 @@ public class BdbEnvironmentStats {
         return getFastStats().getNCheckpoints();
     }
 
+    @JmxGetter(name = "TotalSpace")
+    public long getTotalSpace() {
+        return getFastSpaceUtilizationStats().getTotalSpaceUsed();
+    }
+
+    @JmxGetter(name = "TotalSpaceUtilized")
+    public long getTotalSpaceUtilized() {
+        return getFastSpaceUtilizationStats().getTotalSpaceUtilized();
+    }
+
+    @JmxGetter(name = "UtilizationSummary", description = "Displays the disk space utilization for an environment.")
+    public String getUtilizationSummaryAsString() {
+        return getFastSpaceUtilizationStats().getSummariesAsString();
+    }
+
     // 4. Latching/Locking
 
     @JmxGetter(name = "BtreeLatches")
@@ -317,6 +353,11 @@ public class BdbEnvironmentStats {
     @JmxGetter(name = "PercentageLNMiss")
     public double getPercentageLNMiss() {
         return safeGetPercentage(getLNFetchMisses(), getLNFetches());
+    }
+
+    @JmxGetter(name = "PercentageUtilization")
+    public double getPercentageUtilization() {
+        return safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {
