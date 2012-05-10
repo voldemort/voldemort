@@ -208,6 +208,10 @@ public class VoldemortAdminTool {
         parser.accepts("backup-incremental",
                        "Perform an incremental backup for point-in-time recovery."
                                + " By default backup has latest consistent snapshot.");
+        parser.accepts("zone", "zone id")
+              .withRequiredArg()
+              .describedAs("zone-id")
+              .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
 
@@ -234,6 +238,7 @@ public class VoldemortAdminTool {
         String url = (String) options.valueOf("url");
         Integer nodeId = CmdUtils.valueOf(options, "node", -1);
         int parallelism = CmdUtils.valueOf(options, "restore", 5);
+        Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
 
@@ -324,7 +329,7 @@ public class VoldemortAdminTool {
                     System.exit(1);
                 }
                 System.out.println("Starting restore");
-                adminClient.restoreDataFromReplications(nodeId, parallelism);
+                adminClient.restoreDataFromReplications(nodeId, parallelism, zoneId);
                 System.out.println("Finished restore");
             }
             if(ops.contains("k")) {
