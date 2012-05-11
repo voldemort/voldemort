@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,13 +16,8 @@
 
 package voldemort.client;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
+import com.google.common.collect.ImmutableList;
 import org.apache.log4j.Logger;
-
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -31,12 +26,14 @@ import voldemort.utils.Pair;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.ImmutableList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
- * A wrapper for a store {@link StoreClientFactory} which caches requests to
- * <code>getStoreClient</code>
- * 
+ * A wrapper for a store {@link StoreClientFactory} which caches requests
+ * to <code>getStoreClient</code>
+ *
  */
 @JmxManaged(description = "A StoreClientFactory which caches clients")
 public class CachingStoreClientFactory implements StoreClientFactory {
@@ -50,6 +47,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
         this.inner = inner;
         this.cache = new ConcurrentHashMap<Pair<String, Object>, StoreClient<?, ?>>();
     }
+
 
     @SuppressWarnings("unchecked")
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -76,13 +74,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return inner.getRawStore(storeName, resolver, clientId);
+        return inner.getRawStore(storeName, resolver);
     }
 
     public void close() {

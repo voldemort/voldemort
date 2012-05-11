@@ -16,17 +16,12 @@
 
 package voldemort.client;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.StringReader;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -103,8 +98,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
-    private final String clientContextName;
-    private final AtomicInteger sequencer;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -119,24 +112,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
         this.clientZoneId = config.getClientZoneId();
-        this.clientContextName = (null == config.getClientContextName() ? ""
-                                                                       : config.getClientContextName());
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getRoutingTimeout(TimeUnit.MILLISECONDS));
-        this.sequencer = new AtomicInteger(0);
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
-                                                                     + "."
-                                                                     + clientContextName
                                                                      + jmxId()));
             JmxUtils.registerMbean(new StoreStatsJmx(stats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             clientContextName + ".aggregate-perf"
-                                                                     + jmxId()));
+                                                             "aggregate-perf" + jmxId()));
         }
     }
 
@@ -146,18 +133,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
-        return new DefaultStoreClient<K, V>(storeName,
-                                            resolver,
-                                            this,
-                                            3,
-                                            clientContextName,
-                                            sequencer.getAndIncrement());
+        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
+                                                InconsistencyResolver<Versioned<V>> resolver) {
 
         logger.info("Client zone-id [" + clientZoneId
                     + "] Attempting to obtain metadata for store [" + storeName + "] ");
@@ -242,13 +223,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             clientContextName
-                                                                     + "."
-                                                                     + store.getName()
-                                                                     + jmxId()
-                                                                     + (null == clientId ? ""
-                                                                                        : "."
-                                                                                          + clientId.toString())));
+                                                             store.getName() + jmxId()));
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -280,11 +255,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                    new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                      secondaryResolver));
         return serializedStore;
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
     }
 
     protected ClientConfig getConfig() {
@@ -431,44 +401,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     /* Give a unique id to avoid jmx clashes */
     private String jmxId() {
-        return jmxId == 0 ? "" : "." + Integer.toString(jmxId);
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
-    /**
-     * Generate a unique client ID based on: 0. clientContext, if specified; 1.
-     * storeName 2. run path 3. client sequence
-     * 
-     * @param storeName the name of the store the client is created for
-     * @param contextName the name of the client context
-     * @param clientSequence the client sequence number
-     * @return unique client ID
-     */
-    public static UUID generateClientId(String storeName, String contextName, int clientSequence) {
-        String newLine = System.getProperty("line.separator");
-        StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
-        context.append(0 == clientSequence ? "" : ("." + clientSequence));
-        context.append(".").append(storeName);
-
-        try {
-            InetAddress host = InetAddress.getLocalHost();
-            context.append("@").append(host.getHostName()).append(":");
-        } catch(UnknownHostException e) {
-            logger.info("Unable to obtain client hostname.");
-            logger.info(e.getMessage());
-        }
-
-        try {
-            String currentPath = new File(".").getCanonicalPath();
-            context.append(currentPath).append(newLine);
-        } catch(IOException e) {
-            logger.info("Unable to obtain client run path.");
-            logger.info(e.getMessage());
-        }
-
-        if(logger.isDebugEnabled()) {
-            logger.debug(context.toString());
-        }
-
-        return UUID.nameUUIDFromBytes(context.toString().getBytes());
-    }
 }
