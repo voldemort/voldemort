@@ -809,7 +809,6 @@ public class AdminClient {
 
         while(!found && index < remainderPartitions.size()) {
             replicaType = originalPartitions.indexOf(remainderPartitions.get(index));
-            partition = originalPartitions.get(0);
             nodeId = partitionToNodeId.get(remainderPartitions.get(index));
             if(-1 == zoneId || cluster.getNodeById(nodeId).getZoneId() == zoneId) {
                 found = true;
@@ -824,6 +823,7 @@ public class AdminClient {
                                          + storeDef.getName());
         }
 
+        partition = originalPartitions.get(0);
         HashMap<Integer, List<Integer>> replicaToPartitionList = null;
         if(donorMap.containsKey(nodeId)) {
             replicaToPartitionList = donorMap.get(nodeId);
@@ -874,10 +874,19 @@ public class AdminClient {
                                     + restoringNodeId + " from node " + replicationEntry.getKey()
                                     + " partitions:" + replicationEntry.getValue());
 
-                         int migrateAsyncId = migratePartitions(donorNodeId, restoringNodeId, storeDef.getName(), replicationEntry.getValue(), null, null, false);
-                         
-                         waitForCompletion(restoringNodeId, migrateAsyncId, adminClientConfig.getRestoreDataTimeoutSec(), TimeUnit.SECONDS);
-                         
+                        int migrateAsyncId = migratePartitions(donorNodeId,
+                                                               restoringNodeId,
+                                                               storeDef.getName(),
+                                                               replicationEntry.getValue(),
+                                                               null,
+                                                               null,
+                                                               false);
+
+                        waitForCompletion(restoringNodeId,
+                                          migrateAsyncId,
+                                          adminClientConfig.getRestoreDataTimeoutSec(),
+                                          TimeUnit.SECONDS);
+
                         logger.info("Restoring data for store:" + storeDef.getName()
                                     + " from node " + donorNodeId + " completed.");
                     } catch(Exception e) {
