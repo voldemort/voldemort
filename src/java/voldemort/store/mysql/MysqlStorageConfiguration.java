@@ -40,7 +40,7 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         ds.setUsername(config.getMysqlUsername());
         ds.setPassword(config.getMysqlPassword());
         ds.setDriverClassName("com.mysql.jdbc.Driver");
-
+        ds.setValidationQuery("select 1");
         ds.setInitialSize(config.getMysqlDsInitialPoolSize());
         ds.setPoolPreparedStatements(config.isMysqlDsPoolPreparedStatements());
         ds.setMaxActive(config.getMysqlDsMaxActiveConnections());
