@@ -68,6 +68,15 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
         }
     }
 
+    public long getFailures(Node node) {
+        checkNodeArg(node);
+        NodeStatus nodeStatus = getNodeStatus(node);
+
+        synchronized(nodeStatus) {
+            return nodeStatus.getFailure();
+        }
+    }
+
     public void recordException(Node node, long requestTime, UnreachableStoreException e) {
         checkArgs(node, requestTime);
         setUnavailable(node, e);
