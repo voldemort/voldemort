@@ -1235,11 +1235,15 @@ public class AdminClient {
         long waitUntil = System.currentTimeMillis() + timeUnit.toMillis(maxWait);
 
         String description = null;
+        String oldStatus = "";
         while(System.currentTimeMillis() < waitUntil) {
             try {
                 AsyncOperationStatus status = getAsyncRequestStatus(nodeId, requestId);
-                logger.info("Status from node " + nodeId + " (" + status.getDescription() + ") - "
-                            + status.getStatus());
+                if(!status.getStatus().equalsIgnoreCase(oldStatus))
+                    logger.info("Status from node " + nodeId + " (" + status.getDescription()
+                                + ") - " + status.getStatus());
+                oldStatus = status.getStatus();
+
                 if(higherStatus != null) {
                     higherStatus.setStatus("Status from node " + nodeId + " ("
                                            + status.getDescription() + ") - " + status.getStatus());

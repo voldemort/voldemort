@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.security.PrivilegedExceptionAction;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -35,6 +37,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -67,6 +70,8 @@ public class HdfsFetcher implements FileFetcher {
     private EventThrottler throttler = null;
     private long minBytesPerSecond = 0;
     private DynamicThrottleLimit globalThrottleLimit = null;
+    private String keytabLocation = "";
+    private String proxyUser = "voldemrt";
 
     public HdfsFetcher(VoldemortConfig config) {
         this(config.getMaxBytesPerSecond(),
@@ -80,9 +85,12 @@ public class HdfsFetcher implements FileFetcher {
 
     public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
         this(dynThrottleLimit,
+             null,
              config.getReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getMinBytesPerSecond());
+             config.getMinBytesPerSecond(),
+             config.getReadOnlyKeytabPath(),
+             config.getReadOnlyKerberosProxyUser());
 
         logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
                     + ", buffer size " + bufferSize + ", reporting interval bytes "
@@ -96,21 +104,16 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     public HdfsFetcher(Long maxBytesPerSecond, Long reportingIntervalBytes, int bufferSize) {
-        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0);
-    }
-
-    public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
-                       Long reportingIntervalBytes,
-                       int bufferSize,
-                       long minBytesPerSecond) {
-        this(dynThrottleLimit, null, reportingIntervalBytes, bufferSize, minBytesPerSecond);
+        this(null, maxBytesPerSecond, reportingIntervalBytes, bufferSize, 0, "", "");
     }
 
     public HdfsFetcher(DynamicThrottleLimit dynThrottleLimit,
                        Long maxBytesPerSecond,
                        Long reportingIntervalBytes,
                        int bufferSize,
-                       long minBytesPerSecond) {
+                       long minBytesPerSecond,
+                       String keytabLocation,
+                       String proxyUser) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -126,6 +129,8 @@ public class HdfsFetcher implements FileFetcher {
         this.bufferSize = bufferSize;
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
+        this.keytabLocation = keytabLocation;
+        this.proxyUser = proxyUser;
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
@@ -138,12 +143,40 @@ public class HdfsFetcher implements FileFetcher {
         ObjectName jmxName = null;
         try {
 
-            Path path = new Path(sourceFileUrl);
-            Configuration config = new Configuration();
+            final Path path = new Path(sourceFileUrl);
+            final Configuration config = new Configuration();
             config.setInt("io.socket.receive.buffer", bufferSize);
             config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                        ConfigurableSocketFactory.class.getName());
-            FileSystem fs = path.getFileSystem(config);
+            FileSystem fs = null;
+
+            /*
+             * Get the filesystem object in a secured (authenticated) block in
+             * case this server is talking to a Kerberized Hadoop cluster.
+             * 
+             * Otherwise get the default filesystem object.
+             */
+            if(this.keytabLocation.length() > 0) {
+                logger.debug("keytab path = " + keytabLocation + " and proxy user = " + proxyUser);
+                UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
+                logger.debug("I've logged in and am now Doasing as "
+                             + UserGroupInformation.getCurrentUser().getUserName());
+                try {
+                    fs = UserGroupInformation.getCurrentUser()
+                                             .doAs(new PrivilegedExceptionAction<FileSystem>() {
+
+                                                 public FileSystem run() throws Exception {
+                                                     FileSystem fs = path.getFileSystem(config);
+                                                     return fs;
+                                                 }
+                                             });
+                } catch(InterruptedException e) {
+                    logger.error(e.getMessage());
+                    return null;
+                }
+            } else {
+                fs = path.getFileSystem(config);
+            }
 
             CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
             jmxName = JmxUtils.registerMbean("hdfs-copy-" + copyCount.getAndIncrement(), stats);
@@ -155,6 +188,9 @@ public class HdfsFetcher implements FileFetcher {
             }
 
             boolean result = fetch(fs, path, destination, stats);
+
+            // Close the filesystem
+            fs.close();
 
             if(result) {
                 return destination;
@@ -438,16 +474,50 @@ public class HdfsFetcher implements FileFetcher {
      */
     public static void main(String[] args) throws Exception {
         if(args.length != 1)
-            Utils.croak("USAGE: java " + HdfsFetcher.class.getName() + " url");
+            Utils.croak("USAGE: java " + HdfsFetcher.class.getName()
+                        + " url [keytab location] [kerberos username]");
         String url = args[0];
+        String keytabLocation = args[1];
+        String proxyUser = args[2];
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
-        Configuration config = new Configuration();
+
+        final Configuration config = new Configuration();
+        final URI uri = new URI(url);
         config.setInt("io.file.buffer.size", VoldemortConfig.DEFAULT_BUFFER_SIZE);
         config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                    ConfigurableSocketFactory.class.getName());
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
-        FileStatus status = p.getFileSystem(config).getFileStatus(p);
+        FileSystem fs = null;
+
+        /*
+         * Get the filesystem object in a secured (authenticated) block in case
+         * this server is talking to a Kerberized Hadoop cluster.
+         * 
+         * Otherwise get the default filesystem object.
+         */
+        if(keytabLocation.length() > 0) {
+            logger.debug("keytab path = " + keytabLocation + " and proxy user = " + proxyUser);
+            UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
+            logger.debug("I've logged in and am now Doasing as "
+                         + UserGroupInformation.getCurrentUser().getUserName());
+            try {
+                fs = UserGroupInformation.getCurrentUser()
+                                         .doAs(new PrivilegedExceptionAction<FileSystem>() {
+
+                                             public FileSystem run() throws Exception {
+                                                 FileSystem fs = FileSystem.get(uri, config);
+                                                 return fs;
+                                             }
+                                         });
+            } catch(InterruptedException e) {
+                logger.error(e.getMessage());
+            }
+        } else {
+            fs = FileSystem.get(uri, config);
+        }
+
+        FileStatus status = fs.getFileStatus(p);
         long size = status.getLen();
         HdfsFetcher fetcher = new HdfsFetcher(maxBytesPerSec,
                                               VoldemortConfig.REPORTING_INTERVAL_BYTES,
@@ -460,5 +530,6 @@ public class HdfsFetcher implements FileFetcher {
         nf.setMaximumFractionDigits(2);
         System.out.println("Fetch to " + location + " completed: "
                            + nf.format(rate / (1024.0 * 1024.0)) + " MB/sec.");
+        fs.close();
     }
 }
