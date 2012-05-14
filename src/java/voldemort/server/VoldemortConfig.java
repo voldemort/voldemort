@@ -119,6 +119,7 @@ public class VoldemortConfig implements Serializable {
     private int clientMaxQueuedRequests;
 
     private int schedulerThreads;
+    private boolean mayInterruptService;
 
     private int numScanPermits;
 
@@ -307,6 +308,7 @@ public class VoldemortConfig implements Serializable {
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
+        this.mayInterruptService = props.getBoolean("service.interruptible", true);
 
         this.numScanPermits = props.getInt("num.scan.permits", 1);
 
@@ -1131,6 +1133,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setSchedulerThreads(int schedulerThreads) {
         this.schedulerThreads = schedulerThreads;
+    }
+
+    public boolean canInterruptService() {
+        return mayInterruptService;
+    }
+
+    public void setInterruptible(boolean canInterrupt) {
+        this.mayInterruptService = canInterrupt;
     }
 
     public String getReadOnlyDataStorageDirectory() {

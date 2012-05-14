@@ -16,10 +16,9 @@
 
 package voldemort.server.scheduler;
 
-import java.util.concurrent.Semaphore;
-
 import org.apache.log4j.Logger;
 
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -39,13 +38,13 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     private static final Logger logger = Logger.getLogger(DataCleanupJob.class);
 
     private final StorageEngine<K, V, T> store;
-    private final Semaphore cleanupPermits;
+    private final ScanPermitWrapper cleanupPermits;
     private final long maxAgeMs;
     private final Time time;
     private final EventThrottler throttler;
 
     public DataCleanupJob(StorageEngine<K, V, T> store,
-                          Semaphore cleanupPermits,
+                          ScanPermitWrapper cleanupPermits,
                           long maxAgeMs,
                           Time time,
                           EventThrottler throttler) {

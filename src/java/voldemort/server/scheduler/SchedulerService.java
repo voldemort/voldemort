@@ -48,6 +48,7 @@ import com.google.common.collect.Lists;
 public class SchedulerService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(VoldemortService.class);
+    private boolean mayInterrupt;
 
     private class ScheduledRunnable {
 
@@ -85,11 +86,16 @@ public class SchedulerService extends AbstractService {
     private final ConcurrentHashMap<String, ScheduledRunnable> allJobs;
 
     public SchedulerService(int schedulerThreads, Time time) {
+        this(schedulerThreads, time, true);
+    }
+
+    public SchedulerService(int schedulerThreads, Time time, boolean mayInterrupt) {
         super(ServiceType.SCHEDULER);
         this.time = time;
         this.scheduler = new SchedulerThreadPool(schedulerThreads);
         this.scheduledJobResults = new ConcurrentHashMap<String, ScheduledFuture>();
         this.allJobs = new ConcurrentHashMap<String, ScheduledRunnable>();
+        this.mayInterrupt = mayInterrupt;
     }
 
     @Override
@@ -105,6 +111,18 @@ public class SchedulerService extends AbstractService {
         if(allJobs.containsKey(id) && scheduledJobResults.containsKey(id)) {
             ScheduledFuture<?> future = scheduledJobResults.get(id);
             boolean cancelled = future.cancel(false);
+            if(cancelled == true) {
+                logger.info("Removed '" + id + "' from list of scheduled jobs");
+                scheduledJobResults.remove(id);
+            }
+        }
+    }
+
+    @JmxOperation(description = "Terminate a particular scheduled job", impact = MBeanOperationInfo.ACTION)
+    public void terminate(String id) {
+        if(allJobs.containsKey(id) && scheduledJobResults.containsKey(id)) {
+            ScheduledFuture<?> future = scheduledJobResults.get(id);
+            boolean cancelled = future.cancel(this.mayInterrupt);
             if(cancelled == true) {
                 logger.info("Removed '" + id + "' from list of scheduled jobs");
                 scheduledJobResults.remove(id);
