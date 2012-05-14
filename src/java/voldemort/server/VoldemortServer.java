@@ -148,7 +148,8 @@ public class VoldemortServer extends AbstractService {
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
-                                                          SystemTime.INSTANCE);
+                                                          SystemTime.INSTANCE,
+                                                          voldemortConfig.canInterruptService());
         StorageService storageService = new StorageService(storeRepository,
                                                            metadata,
                                                            scheduler,

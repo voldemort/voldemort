@@ -17,11 +17,11 @@
 package voldemort.scheduled;
 
 import java.util.List;
-import java.util.concurrent.Semaphore;
 
 import junit.framework.TestCase;
 import voldemort.MockTime;
 import voldemort.server.scheduler.DataCleanupJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.EventThrottler;
@@ -52,7 +52,7 @@ public class DataCleanupJobTest extends TestCase {
 
         // now run cleanup
         new DataCleanupJob<String, String, String>(engine,
-                                                   new Semaphore(1),
+                                                   new ScanPermitWrapper(1),
                                                    Time.MS_PER_DAY,
                                                    time,
                                                    new EventThrottler(1)).run();

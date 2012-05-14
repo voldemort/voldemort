@@ -27,9 +27,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -602,6 +602,141 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testReplicationMappingWithZonePreference() {
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(2, "localhost", 1, 2, 3, 1, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(3, 7, 11)));
+
+        // Test 0 - With rep-factor 1; zone 1
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+
+        try {
+            adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // With rep-factor 1; zone 0
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        newCluster = new Cluster("single_zone_cluster", nodes);
+
+        try {
+            adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // Test 1 - With consistent routing strategy
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               4,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        // On node 0; zone id 1
+        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.getReplicationMapping(0,
+                                                                                                             newCluster,
+                                                                                                             storeDef,
+                                                                                                             1);
+        {
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
+            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+            partitionTuple.put(2, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, partitionTuple);
+            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
+            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(3, partitionTuple2);
+            // {2={0=[2, 6, 10], 1=[1, 5, 9], 2=[0, 4, 8]}, 3={0=[3, 7, 11]}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        // On node 0; zone id 0
+        replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+        {
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.clear();
+            partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
+            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+            partitionTuple.put(2, Lists.newArrayList(3, 7, 11));
+            partitionTuple.put(3, Lists.newArrayList(2, 6, 10));
+            expectedMapping.put(1, partitionTuple);
+            // {1={0=[1, 5, 9], 1=[0, 4, 8]}, 2=[3, 7, 11], 3=[2, 6, 10]}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        // Test 2 - With zone routing strategy, and zone replication factor 1
+        List<Zone> zones = ServerTestUtils.getZones(2);
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
+            zoneReplicationFactors.put(zoneIds, 1);
+        }
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        {
+            // On node 0, zone 0 - failure case since zoneReplicationFactor is 1
+
+            try {
+                replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+                fail("Should have thrown an exception since  zoneReplicationFactor is 1");
+            } catch(VoldemortException e) {}
+        }
+
+        {
+            // On node 0, zone 1
+            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
+            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, partitionTuple);
+            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
+            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(3, partitionTuple2);
+            // {2={0=[2, 6, 10], 1=[0, 4, 8]}, 3={0=[3, 7, 11]}}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        {
+            // On node 1, zone 1
+            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef, 1);
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(2, partitionTuple);
+            // {2={1=[1, 5, 9]}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+    }
+
+    @Test
     public void testDeleteStore() throws Exception {
         AdminClient adminClient = getAdminClient();
 
@@ -721,8 +856,9 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
-                                                                                   null).size());
+                assertEquals("deleted partitions should be missing.",
+                             0,
+                             store.get(entry.getKey(), null).size());
             }
         }
     }
@@ -1174,8 +1310,9 @@ public class AdminServiceBasicTest extends TestCase {
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));

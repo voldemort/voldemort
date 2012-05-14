@@ -18,7 +18,6 @@ package voldemort.client;
 
 import java.io.StringReader;
 import java.util.List;
-import java.util.UUID;
 
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.NoopFailureDetector;
@@ -107,8 +106,7 @@ public class MockStoreClientFactory implements StoreClientFactory {
     }
 
     public <K1, V1, T1> Store<K1, V1, T1> getRawStore(String storeName,
-                                                      InconsistencyResolver<Versioned<V1>> resolver,
-                                                      UUID clientId) {
+                                                      InconsistencyResolver<Versioned<V1>> resolver) {
         if(this.storesXml != null)
             return getRawStore(storeName);
 
@@ -131,11 +129,6 @@ public class MockStoreClientFactory implements StoreClientFactory {
                                                                                         new ChainedResolver<Versioned<V1>>(new VectorClockInconsistencyResolver(),
                                                                                                                            secondaryResolver));
         return consistentStore;
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
     }
 
     private <K1, V1, T1> Store<K1, V1, T1> getRawStore(String storeName) {

@@ -718,6 +718,9 @@ public class RebalanceController {
             HashMap<Integer, List<RebalancePartitionsInfo>> donorNodeBasedPartitionsInfo = RebalanceUtils.groupPartitionsInfoByNode(rebalancePartitionPlanList,
                                                                                                                                     false);
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
+                try {
+		    Thread.sleep(10000);
+                } catch (InterruptedException e) {}
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
                                                                                     rebalanceConfig,

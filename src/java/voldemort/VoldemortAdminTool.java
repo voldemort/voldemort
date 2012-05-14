@@ -208,6 +208,18 @@ public class VoldemortAdminTool {
         parser.accepts("backup-incremental",
                        "Perform an incremental backup for point-in-time recovery."
                                + " By default backup has latest consistent snapshot.");
+        parser.accepts("zone", "zone id")
+              .withRequiredArg()
+              .describedAs("zone-id")
+              .ofType(Integer.class);
+        parser.accepts("rollback", "rollback a store")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
+        parser.accepts("version", "Push version of store to rollback to")
+              .withRequiredArg()
+              .describedAs("version")
+              .ofType(Long.class);
 
         OptionSet options = parser.parse(args);
 
@@ -224,7 +236,7 @@ public class VoldemortAdminTool {
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
-                 || options.has("async") || options.has("native-backup"))) {
+                 || options.has("async") || options.has("native-backup") || options.has("rollback"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -234,6 +246,7 @@ public class VoldemortAdminTool {
         String url = (String) options.valueOf("url");
         Integer nodeId = CmdUtils.valueOf(options, "node", -1);
         int parallelism = CmdUtils.valueOf(options, "restore", 5);
+        Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
 
@@ -292,6 +305,12 @@ public class VoldemortAdminTool {
             }
             ops += "n";
         }
+        if(options.has("rollback")) {
+            if(!options.has("version")) {
+                Utils.croak("A read-only push version must be specified with rollback option");
+            }
+            ops += "o";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
@@ -324,7 +343,7 @@ public class VoldemortAdminTool {
                     System.exit(1);
                 }
                 System.out.println("Starting restore");
-                adminClient.restoreDataFromReplications(nodeId, parallelism);
+                adminClient.restoreDataFromReplications(nodeId, parallelism, zoneId);
                 System.out.println("Finished restore");
             }
             if(ops.contains("k")) {
@@ -456,9 +475,27 @@ public class VoldemortAdminTool {
                                          options.has("backup-verify"),
                                          options.has("backup-incremental"));
             }
+            if(ops.contains("o")) {
+                String storeName = (String) options.valueOf("rollback");
+                long pushVersion = (Long) options.valueOf("version");
+                executeRollback(nodeId, storeName, pushVersion, adminClient);
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
+        }
+    }
+
+    private static void executeRollback(Integer nodeId,
+                                        String storeName,
+                                        long pushVersion,
+                                        AdminClient adminClient) {
+        if(nodeId < 0) {
+            for(Node node: adminClient.getAdminClientCluster().getNodes()) {
+                adminClient.rollbackStore(node.getId(), storeName, pushVersion);
+            }
+        } else {
+            adminClient.rollbackStore(nodeId, storeName, pushVersion);
         }
     }
 
@@ -573,6 +610,8 @@ public class VoldemortAdminTool {
         stream.println("\t5) Backup bdb data natively");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --native-backup [store] --backup-dir [outdir] "
                        + "--backup-timeout [mins] [--backup-verify] [--backup-incremental] --url [url] --node [node-id]");
+        stream.println("\t6) Rollback a read-only store to the specified push version");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --rollback [store-name] --url [url] --node [node-id] --version [version-num] ");
 
         parser.printHelpOn(stream);
     }
