@@ -473,12 +473,18 @@ public class HdfsFetcher implements FileFetcher {
      * Main method for testing fetching
      */
     public static void main(String[] args) throws Exception {
-        if(args.length != 1)
+        if(args.length < 1)
             Utils.croak("USAGE: java " + HdfsFetcher.class.getName()
                         + " url [keytab location] [kerberos username]");
         String url = args[0];
-        String keytabLocation = args[1];
-        String proxyUser = args[2];
+
+        String keytabLocation = "";
+        String proxyUser = "";
+        if(args.length >= 3) {
+            keytabLocation = args[1];
+            proxyUser = args[2];
+        }
+
         long maxBytesPerSec = 1024 * 1024 * 1024;
         Path p = new Path(url);
 
