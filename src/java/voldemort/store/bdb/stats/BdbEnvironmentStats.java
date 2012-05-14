@@ -17,9 +17,11 @@ public class BdbEnvironmentStats {
     private final Environment environment;
     private final CachedCallable<EnvironmentStats> fastStats;
     private final CachedCallable<SpaceUtilizationStats> fastSpaceStats;
+    private final boolean exposeSpaceStats;
 
-    public BdbEnvironmentStats(Environment environment, long ttlMs) {
+    public BdbEnvironmentStats(Environment environment, long ttlMs, boolean exposeSpaceUtil) {
         this.environment = environment;
+        this.exposeSpaceStats = exposeSpaceUtil;
         Callable<EnvironmentStats> fastStatsCallable = new Callable<EnvironmentStats>() {
 
             public EnvironmentStats call() throws Exception {
@@ -237,12 +239,18 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "TotalSpace")
     public long getTotalSpace() {
-        return getFastSpaceUtilizationStats().getTotalSpaceUsed();
+        if(this.exposeSpaceStats)
+            return getFastSpaceUtilizationStats().getTotalSpaceUsed();
+        else
+            return 0;
     }
 
     @JmxGetter(name = "TotalSpaceUtilized")
     public long getTotalSpaceUtilized() {
-        return getFastSpaceUtilizationStats().getTotalSpaceUtilized();
+        if(this.exposeSpaceStats)
+            return getFastSpaceUtilizationStats().getTotalSpaceUtilized();
+        else
+            return 0;
     }
 
     @JmxGetter(name = "UtilizationSummary", description = "Displays the disk space utilization for an environment.")

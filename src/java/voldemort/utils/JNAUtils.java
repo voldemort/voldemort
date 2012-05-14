@@ -35,8 +35,17 @@ public class JNAUtils {
 
     private static native int munlockall() throws LastErrorException;
 
+    private static boolean isOperatingSystem(String os) {
+        if(System.getProperty("os.name").toLowerCase().contains(os))
+            return true;
+        else
+            return false;
+    }
+
     public static void tryMlockall() {
         try {
+            if(isOperatingSystem("windows"))
+                return;
             // Since we demand-zero every page of the heap while bringing up the
             // jvm, MCL_FUTURE is not needed
             mlockall(MCL_CURRENT);
@@ -46,12 +55,11 @@ public class JNAUtils {
                 logger.error("Unexpected error during mlock of server heap", e);
 
             LastErrorException le = (LastErrorException) e;
-            if(le.getErrorCode() == ENOMEM
-               && System.getProperty("os.name").toLowerCase().contains("linux")) {
+            if(le.getErrorCode() == ENOMEM && isOperatingSystem("linux")) {
                 logger.warn("Unable to lock JVM memory (ENOMEM)."
                             + " This can result in part of the JVM being swapped out with higher Young gen stalls"
                             + " Increase RLIMIT_MEMLOCK or run Voldemort as root.");
-            } else if(!System.getProperty("os.name").toLowerCase().contains("mac")) {
+            } else if(!isOperatingSystem("mac")) {
                 // fixes a OS X oddity, where it still throws an error, even
                 // though mlockall succeeds
                 logger.warn("Unknown mlockall error " + le.getErrorCode());
@@ -61,6 +69,8 @@ public class JNAUtils {
 
     public static void tryMunlockall() {
         try {
+            if(isOperatingSystem("windows"))
+                return;
             munlockall();
             logger.info("munlockall() on JVM Heap successful");
         } catch(Exception e) {

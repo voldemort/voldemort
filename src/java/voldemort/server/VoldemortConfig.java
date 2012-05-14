@@ -86,6 +86,7 @@ public class VoldemortConfig implements Serializable {
     private long bdbStatsCacheTtlMs;
     private boolean bdbCacheModeEvictLN;
     private boolean bdbMinimizeScanImpact;
+    private boolean bdbExposeSpaceUtilization;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -228,6 +229,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
         this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", false);
         this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", false);
+        this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -759,6 +761,19 @@ public class VoldemortConfig implements Serializable {
         if(minUtilization < 0 || minUtilization > 90)
             throw new IllegalArgumentException("minUtilization should be between 0 and 90 (both inclusive)");
         this.bdbCleanerMinUtilization = minUtilization;
+    }
+
+    /**
+     * This parameter controls whether we expose space utilization via MBean. If
+     * set to false, stat will always return 0;
+     * 
+     */
+    public boolean getBdbExposeSpaceUtilization() {
+        return bdbExposeSpaceUtilization;
+    }
+
+    public void setBdbExposeSpaceUtilization(boolean bdbExposeSpaceUtilization) {
+        this.bdbExposeSpaceUtilization = bdbExposeSpaceUtilization;
     }
 
     /**
