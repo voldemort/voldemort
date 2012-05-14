@@ -108,6 +108,8 @@ public class VoldemortConfig implements Serializable {
     private long minBytesPerSecond;
     private long reportingIntervalBytes;
     private int fetcherBufferSize;
+    private String readOnlyKeytabPath;
+    private String readOnlyKerberosProxyUser;
 
     private OpTimeMap testingSlowQueueingDelays;
     private OpTimeMap testingSlowConcurrentDelays;
@@ -269,6 +271,8 @@ public class VoldemortConfig implements Serializable {
                                                      REPORTING_INTERVAL_BYTES);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
+        this.readOnlyKeytabPath = props.getString("readonly.keytab.path", "");
+        this.readOnlyKerberosProxyUser = props.getString("readonly.kerberos.proxyuser", "voldemrt");
 
         // TODO probably turn to false by default?
         this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
@@ -1580,6 +1584,22 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyDeleteBackupMs(int readOnlyDeleteBackupTimeMs) {
         this.readOnlyDeleteBackupTimeMs = readOnlyDeleteBackupTimeMs;
+    }
+
+    public String getReadOnlyKeytabPath() {
+        return readOnlyKeytabPath;
+    }
+
+    public void setReadOnlyKeytabPath(String readOnlyKeytabPath) {
+        this.readOnlyKeytabPath = readOnlyKeytabPath;
+    }
+
+    public String getReadOnlyKerberosProxyUser() {
+        return readOnlyKerberosProxyUser;
+    }
+
+    public void setReadOnlyKerberosProxyUser(String readOnlyKerberosProxyUser) {
+        this.readOnlyKerberosProxyUser = readOnlyKerberosProxyUser;
     }
 
     public int getSocketBufferSize() {
