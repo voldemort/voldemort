@@ -219,7 +219,7 @@ public class BlockingSlopPusherJob implements Runnable {
     private void acquireRepairPermit() {
         logger.info("Acquiring lock to perform blocking slop pusher job ");
         try {
-            this.repairPermits.acquire();
+            this.repairPermits.acquire(null);
             logger.info("Acquired lock to perform blocking slop pusher job ");
         } catch(InterruptedException e) {
             throw new IllegalStateException("Blocking slop pusher job interrupted while waiting for permit.",

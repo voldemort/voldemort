@@ -56,7 +56,8 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     }
 
     public void run() {
-        acquireCleanupPermit();
+        ScanProgress scanProgress = new ScanProgress();
+        acquireCleanupPermit(scanProgress);
         ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
@@ -71,6 +72,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                     return;
                 }
 
+                scanProgress.itemScanned();
                 Pair<K, Versioned<V>> keyAndVal = iterator.next();
                 VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                 if(now - clock.getTimestamp() > maxAgeMs) {
@@ -83,8 +85,11 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                 // throttle on number of entries.
                 throttler.maybeThrottle(1);
             }
+            // log the total items scanned, so we will get an idea of data
+            // growth in a cheap, periodic way
             logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
-                        + " items deleted.");
+                        + " items deleted. " + scanProgress.getTotalItemsScanned()
+                        + " items scanned");
         } catch(Exception e) {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
@@ -103,10 +108,10 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         }
     }
 
-    private void acquireCleanupPermit() {
+    private void acquireCleanupPermit(ScanProgress progress) {
         logger.info("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
         try {
-            this.cleanupPermits.acquire();
+            this.cleanupPermits.acquire(progress);
         } catch(InterruptedException e) {
             throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.",
                                             e);

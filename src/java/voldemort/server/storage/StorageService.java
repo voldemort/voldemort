@@ -819,4 +819,14 @@ public class StorageService extends AbstractService {
     public List<String> getPermitOwners() {
         return this.scanPermitWrapper.getPermitOwners();
     }
+
+    @JmxGetter(name = "numGrantedScanPermits", description = "Returns number of scan permits granted at the moment")
+    public long getGrantedPermits() {
+        return this.scanPermitWrapper.getGrantedPermits();
+    }
+
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned since last call")
+    public long getEntriesScanned() {
+        return this.scanPermitWrapper.getEntriesScanned();
+    }
 }

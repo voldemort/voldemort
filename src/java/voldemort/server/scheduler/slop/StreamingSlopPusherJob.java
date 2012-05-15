@@ -372,7 +372,7 @@ public class StreamingSlopPusherJob implements Runnable {
     private void acquireRepairPermit() {
         logger.info("Acquiring lock to perform streaming slop pusher job ");
         try {
-            this.repairPermits.acquire();
+            this.repairPermits.acquire(null);
             logger.info("Acquired lock to perform streaming slop pusher job ");
         } catch(InterruptedException e) {
             stopAdminClient();

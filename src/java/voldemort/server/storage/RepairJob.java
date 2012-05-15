@@ -14,6 +14,7 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
+import voldemort.server.scheduler.ScanProgress;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -75,8 +76,8 @@ public class RepairJob implements Runnable {
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
             localStats.put(storeDef.getName(), 0L);
         }
-
-        if(!acquireRepairPermit())
+        ScanProgress scanProgress = new ScanProgress();
+        if(!acquireRepairPermit(scanProgress))
             return;
         try {
             // Get routing factory
@@ -93,7 +94,6 @@ public class RepairJob implements Runnable {
                                                                                                    metadataStore.getCluster());
                     long repairSlops = 0L;
                     long numDeletedKeys = 0;
-                    long numScannedKeys = 0;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
@@ -103,10 +103,10 @@ public class RepairJob implements Runnable {
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                             numDeletedKeys++;
                         }
-                        numScannedKeys++;
-                        if(numScannedKeys % deleteBatchSize == 0)
-                            logger.info("#Scanned:" + numScannedKeys + " #Deleted:"
-                                        + numDeletedKeys);
+                        scanProgress.itemScanned();
+                        if(scanProgress.getTotalItemsScanned() % deleteBatchSize == 0)
+                            logger.info("#Scanned:" + scanProgress.getTotalItemsScanned()
+                                        + " #Deleted:" + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
@@ -149,9 +149,9 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private boolean acquireRepairPermit() {
+    private boolean acquireRepairPermit(ScanProgress progress) {
         logger.info("Acquiring lock to perform repair job ");
-        if(this.repairPermits.tryAcquire()) {
+        if(this.repairPermits.tryAcquire(progress)) {
             logger.info("Acquired lock to perform repair job ");
             return true;
         } else {

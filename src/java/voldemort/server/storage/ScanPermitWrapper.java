@@ -2,49 +2,59 @@ package voldemort.server.storage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
+
+import voldemort.server.scheduler.ScanProgress;
 
 public class ScanPermitWrapper {
 
     private final Semaphore scanPermits;
-    private List<String> permitOwners;
+    private Map<String, ScanProgress> permitOwners;
+    private final int numPermits;
 
     public ScanPermitWrapper(final int numPermits) {
+        this.numPermits = numPermits;
         scanPermits = new Semaphore(numPermits);
-        permitOwners = Collections.synchronizedList(new ArrayList<String>());
+        permitOwners = Collections.synchronizedMap(new HashMap<String, ScanProgress>());
     }
 
-    public void acquire() throws InterruptedException {
+    public static String getOwnerName() {
+        return Thread.currentThread().getStackTrace()[2].getClassName();
+    }
+
+    public void acquire(ScanProgress progress) throws InterruptedException {
         this.scanPermits.acquire();
         synchronized(permitOwners) {
-            permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+            permitOwners.put(getOwnerName(), progress);
         }
     }
 
     public void release() {
         this.scanPermits.release();
         synchronized(permitOwners) {
-            permitOwners.remove(Thread.currentThread().getStackTrace()[2].getClassName());
+            permitOwners.remove(getOwnerName());
         }
     }
 
     public List<String> getPermitOwners() {
         List<String> ownerList = new ArrayList<String>();
         synchronized(permitOwners) {
-            Iterator<String> i = this.permitOwners.iterator();
+            Iterator<String> i = this.permitOwners.keySet().iterator();
             while(i.hasNext())
                 ownerList.add(i.next());
         }
         return ownerList;
     }
 
-    public boolean tryAcquire() {
+    public boolean tryAcquire(ScanProgress progress) {
         boolean gotPermit = this.scanPermits.tryAcquire();
         if(gotPermit) {
             synchronized(permitOwners) {
-                permitOwners.add(Thread.currentThread().getStackTrace()[2].getClassName());
+                permitOwners.put(getOwnerName(), progress);
             }
         }
         return gotPermit;
@@ -52,5 +62,23 @@ public class ScanPermitWrapper {
 
     public int availablePermits() {
         return this.scanPermits.availablePermits();
+    }
+
+    public int getGrantedPermits() {
+        return numPermits - availablePermits();
+    }
+
+    public long getEntriesScanned() {
+        long itemsScanned = 0;
+        synchronized(permitOwners) {
+            for(Map.Entry<String, ScanProgress> progressEntry: permitOwners.entrySet()) {
+                ScanProgress progress = progressEntry.getValue();
+                // slops are not included since they are tracked separately
+                if(progress != null) {
+                    itemsScanned += progress.getNumEntriesScanned();
+                }
+            }
+        }
+        return itemsScanned;
     }
 }
