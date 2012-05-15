@@ -2,7 +2,7 @@ import sys
 import random
 
 if len(sys.argv) != 3:
-    print >> sys.stderr, "USAGE: python generate_partitions.py <nodes_file> <partitions_per_node>"
+    print >> sys.stderr, "USAGE: python generate_cluster_xml.py <nodes_file> <partitions_per_node>"
     sys.exit()
 
 FORMAT_WIDTH = 10
