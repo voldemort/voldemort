@@ -24,6 +24,7 @@ import java.util.Iterator;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.FileOutputFormat;
@@ -231,7 +232,11 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
                     this.fs = this.taskIndexFileName[chunkId].getFileSystem(job);
 
                 this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
+                fs.setPermission(this.taskIndexFileName[chunkId], new FsPermission("755"));
+                logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
                 this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
+                fs.setPermission(this.taskValueFileName[chunkId], new FsPermission("755"));
+                logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
 
                 logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
                             + this.taskValueFileName[chunkId] + " for writing.");
@@ -276,6 +281,8 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
         // Create output directory, if it doesn't exist
         FileSystem outputFs = nodeDir.getFileSystem(this.conf);
         outputFs.mkdirs(nodeDir);
+        logger.info("Setting permission to 755 for node dir " + nodeDir);
+        outputFs.setPermission(nodeDir, new FsPermission("755"));
 
         // Write the checksum and output files
         for(int chunkId = 0; chunkId < getNumChunks(); chunkId++) {
@@ -289,10 +296,12 @@ public class HadoopStoreBuilderReducerPerBucket extends AbstractStoreBuilderConf
                     Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
 
                     FSDataOutputStream output = outputFs.create(checkSumIndexFile);
+                    outputFs.setPermission(checkSumIndexFile, new FsPermission("755"));
                     output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
                     output.close();
 
                     output = outputFs.create(checkSumValueFile);
+                    outputFs.setPermission(checkSumValueFile, new FsPermission("755"));
                     output.write(this.checkSumDigestValue[chunkId].getCheckSum());
                     output.close();
                 } else {

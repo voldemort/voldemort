@@ -156,26 +156,29 @@ public class HdfsFetcher implements FileFetcher {
              * 
              * Otherwise get the default filesystem object.
              */
-            if(this.keytabLocation.length() > 0) {
-                logger.debug("keytab path = " + keytabLocation + " and proxy user = " + proxyUser);
-                UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
-                logger.debug("I've logged in and am now Doasing as "
-                             + UserGroupInformation.getCurrentUser().getUserName());
-                try {
-                    fs = UserGroupInformation.getCurrentUser()
-                                             .doAs(new PrivilegedExceptionAction<FileSystem>() {
+            synchronized(this) {
+                if(this.keytabLocation.length() > 0) {
+                    logger.info("keytab path = " + keytabLocation + " and proxy user = "
+                                + proxyUser);
+                    UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
+                    logger.info("I've logged in and am now Doasing as "
+                                + UserGroupInformation.getCurrentUser().getUserName());
+                    try {
+                        fs = UserGroupInformation.getCurrentUser()
+                                                 .doAs(new PrivilegedExceptionAction<FileSystem>() {
 
-                                                 public FileSystem run() throws Exception {
-                                                     FileSystem fs = path.getFileSystem(config);
-                                                     return fs;
-                                                 }
-                                             });
-                } catch(InterruptedException e) {
-                    logger.error(e.getMessage());
-                    return null;
+                                                     public FileSystem run() throws Exception {
+                                                         FileSystem fs = path.getFileSystem(config);
+                                                         return fs;
+                                                     }
+                                                 });
+                    } catch(InterruptedException e) {
+                        logger.error(e.getMessage());
+                        return null;
+                    }
+                } else {
+                    fs = path.getFileSystem(config);
                 }
-            } else {
-                fs = path.getFileSystem(config);
             }
 
             CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
@@ -314,7 +317,7 @@ public class HdfsFetcher implements FileFetcher {
                                       File dest,
                                       CopyStats stats,
                                       CheckSum fileCheckSumGenerator) throws IOException {
-        logger.info("Starting copy of " + source + " to " + dest);
+        logger.debug("Starting copy of " + source + " to " + dest);
         FSDataInputStream input = null;
         OutputStream output = null;
         try {
@@ -353,7 +356,7 @@ public class HdfsFetcher implements FileFetcher {
                     stats.reset();
                 }
             }
-            logger.info("Completed copy of " + source + " to " + dest);
+            logger.debug("Completed copy of " + source + " to " + dest);
         } finally {
             IOUtils.closeQuietly(output);
             IOUtils.closeQuietly(input);
