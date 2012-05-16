@@ -591,7 +591,9 @@ public class StorageService extends AbstractService {
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
                                                                             throttler);
-
+        if(voldemortConfig.isJmxEnabled()) {
+            JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
+        }
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,

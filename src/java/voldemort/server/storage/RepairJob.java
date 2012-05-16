@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.MBeanOperationInfo;
 
@@ -14,7 +15,6 @@ import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.StoreRepository;
-import voldemort.server.scheduler.ScanProgress;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -76,8 +76,8 @@ public class RepairJob implements Runnable {
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
             localStats.put(storeDef.getName(), 0L);
         }
-        ScanProgress scanProgress = new ScanProgress();
-        if(!acquireRepairPermit(scanProgress))
+        AtomicLong progress = new AtomicLong(0);
+        if(!acquireRepairPermit(progress))
             return;
         try {
             // Get routing factory
@@ -103,10 +103,9 @@ public class RepairJob implements Runnable {
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                             numDeletedKeys++;
                         }
-                        scanProgress.itemScanned();
-                        if(scanProgress.getTotalItemsScanned() % deleteBatchSize == 0)
-                            logger.info("#Scanned:" + scanProgress.getTotalItemsScanned()
-                                        + " #Deleted:" + numDeletedKeys);
+                        long itemsScanned = progress.incrementAndGet();
+                        if(itemsScanned % deleteBatchSize == 0)
+                            logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
@@ -149,7 +148,7 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private boolean acquireRepairPermit(ScanProgress progress) {
+    private boolean acquireRepairPermit(AtomicLong progress) {
         logger.info("Acquiring lock to perform repair job ");
         if(this.repairPermits.tryAcquire(progress)) {
             logger.info("Acquired lock to perform repair job ");

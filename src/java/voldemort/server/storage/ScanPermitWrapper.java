@@ -7,26 +7,27 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
-
-import voldemort.server.scheduler.ScanProgress;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ScanPermitWrapper {
 
     private final Semaphore scanPermits;
-    private Map<String, ScanProgress> permitOwners;
+    private Map<String, AtomicLong> permitOwners;
     private final int numPermits;
+
+    private long totalEntriesScanned;
 
     public ScanPermitWrapper(final int numPermits) {
         this.numPermits = numPermits;
         scanPermits = new Semaphore(numPermits);
-        permitOwners = Collections.synchronizedMap(new HashMap<String, ScanProgress>());
+        permitOwners = Collections.synchronizedMap(new HashMap<String, AtomicLong>());
     }
 
     public static String getOwnerName() {
         return Thread.currentThread().getStackTrace()[2].getClassName();
     }
 
-    public void acquire(ScanProgress progress) throws InterruptedException {
+    public void acquire(AtomicLong progress) throws InterruptedException {
         this.scanPermits.acquire();
         synchronized(permitOwners) {
             permitOwners.put(getOwnerName(), progress);
@@ -36,6 +37,9 @@ public class ScanPermitWrapper {
     public void release() {
         this.scanPermits.release();
         synchronized(permitOwners) {
+            AtomicLong scannedCount = permitOwners.get(getOwnerName());
+            if(scannedCount != null)
+                totalEntriesScanned += scannedCount.get();
             permitOwners.remove(getOwnerName());
         }
     }
@@ -50,7 +54,7 @@ public class ScanPermitWrapper {
         return ownerList;
     }
 
-    public boolean tryAcquire(ScanProgress progress) {
+    public boolean tryAcquire(AtomicLong progress) {
         boolean gotPermit = this.scanPermits.tryAcquire();
         if(gotPermit) {
             synchronized(permitOwners) {
@@ -71,14 +75,14 @@ public class ScanPermitWrapper {
     public long getEntriesScanned() {
         long itemsScanned = 0;
         synchronized(permitOwners) {
-            for(Map.Entry<String, ScanProgress> progressEntry: permitOwners.entrySet()) {
-                ScanProgress progress = progressEntry.getValue();
+            for(Map.Entry<String, AtomicLong> progressEntry: permitOwners.entrySet()) {
+                AtomicLong progress = progressEntry.getValue();
                 // slops are not included since they are tracked separately
                 if(progress != null) {
-                    itemsScanned += progress.getNumEntriesScanned();
+                    itemsScanned += progress.get();
                 }
             }
         }
-        return itemsScanned;
+        return totalEntriesScanned + itemsScanned;
     }
 }
