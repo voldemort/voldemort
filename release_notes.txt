@@ -9,6 +9,8 @@ Changes made since 0.90.1
    * Remove some deprecated BDB Calls
  * JNAUtils implementing mlock() of server heap
  * MBeans to monitor scan jobs and individual datacleanup jobs
+ * Support to restore from replicas in a specific zone
+ * Donor based rebalancing bug fixes
 
 Release 0.90.1 on 10/10/2011
 
