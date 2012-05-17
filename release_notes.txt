@@ -4,13 +4,16 @@ Changes made since 0.90.1
  * BDB version upgrade to 4.1.17
    * Support for BDB cache mode to cache only index nodes
    * Minimize scan impact on BDB cache
-   * parameter to control lazy cleaner migration
-   * Much improved BDB Mbean monitoring
-   * Remove some deprecated BDB Calls
+   * parameters to control lazy cleaner migration, read buffer configuration
+   * Native backup support
  * JNAUtils implementing mlock() of server heap
- * MBeans to monitor scan jobs and individual datacleanup jobs
  * Support to restore from replicas in a specific zone
  * Donor based rebalancing bug fixes
+ * Great improvements to Monitoring
+   * Detailed 95th/99th percentile metrics
+   * Scan jobs and individual datacleanup jobs
+   * BDB Mbean monitoring
+ * Dynamic bandwidth throttling for Read only pull jobs
 
 Release 0.90.1 on 10/10/2011
 
