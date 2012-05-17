@@ -46,6 +46,7 @@ import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
+import voldemort.server.SystemStoreConstants;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
@@ -227,7 +228,8 @@ public class StoreDefinitionsMapper {
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
         }
 
-        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0
+           && !SystemStoreConstants.isSystemStore(name)) {
             if(zoneCountReads == null || zoneCountWrites == null || zoneReplicationFactor == null) {
                 throw new MappingException("Have not set one of the following correctly for store '"
                                            + name
