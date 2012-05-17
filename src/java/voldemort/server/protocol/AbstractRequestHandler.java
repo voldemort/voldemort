@@ -32,6 +32,7 @@ public abstract class AbstractRequestHandler implements RequestHandler {
     }
 
     protected Store<ByteArray, byte[], byte[]> getStore(String name, RequestRoutingType type) {
+
         switch(type) {
             case ROUTED:
                 return storeRepository.getRoutedStore(name);

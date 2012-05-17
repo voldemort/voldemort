@@ -18,6 +18,7 @@ package voldemort.server.storage;
 
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
+import java.io.StringReader;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -54,6 +55,7 @@ import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
+import voldemort.server.SystemStoreConstants;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
@@ -65,6 +67,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
+import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStoreListener;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -97,6 +100,7 @@ import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * The service responsible for managing all storage types
@@ -170,6 +174,7 @@ public class StorageService extends AbstractService {
     }
 
     private void initStorageConfig(String configClassName) {
+        // add the configurations of the storage engines needed by user stores
         try {
             Class<?> configClass = ReflectUtils.loadClass(configClassName);
             StorageConfiguration configuration = (StorageConfiguration) ReflectUtils.callConstructor(configClass,
@@ -187,6 +192,37 @@ public class StorageService extends AbstractService {
 
         if(storageConfigs.size() == 0)
             throw new ConfigurationException("No storage engine has been enabled!");
+
+        // now, add the configurations of the storage engines needed by system
+        // stores, if not yet exist
+        initSystemStorageConfig();
+    }
+
+    private void initSystemStorageConfig() {
+        // add InMemoryStorage used by voldsys$_client_registry
+        if(!storageConfigs.containsKey(InMemoryStorageConfiguration.TYPE_NAME)) {
+            storageConfigs.put(InMemoryStorageConfiguration.TYPE_NAME,
+                               new InMemoryStorageConfiguration());
+        }
+
+        // add FileStorage config here
+    }
+
+    private void initSystemStores() {
+        List<StoreDefinition> storesDefs = (new StoreDefinitionsMapper()).readStoreList(new StringReader(SystemStoreConstants.SYSTEM_STORE_SCHEMA));
+
+        // TODO: replication factor can't now be determined unless the
+        // cluster.xml is made available to the server at runtime. So we need to
+        // set them here after load they are loaded
+        updateRepFactor(storesDefs);
+
+        for(StoreDefinition storeDef: storesDefs) {
+            openSystemStore(storeDef);
+        }
+    }
+
+    private void updateRepFactor(List<StoreDefinition> storesDefs) {
+    // need impl
     }
 
     @Override
@@ -202,6 +238,9 @@ public class StorageService extends AbstractService {
                            new ViewStorageConfiguration(voldemortConfig,
                                                         metadata.getStoreDefList(),
                                                         storeRepository));
+
+        /* Initialize system stores */
+        initSystemStores();
 
         /* Register slop store */
         if(voldemortConfig.isSlopEnabled()) {
@@ -280,6 +319,167 @@ public class StorageService extends AbstractService {
                                                                  "aggregate-perf"));
 
         logger.info("All stores initialized.");
+    }
+
+    public void openSystemStore(StoreDefinition storeDef) {
+
+        logger.info("Opening system store '" + storeDef.getName() + "' (" + storeDef.getType()
+                    + ").");
+
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open system store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine has not been enabled.");
+
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+
+        // Noted that there is no read-only processing as for user stores.
+
+        // openStore() should have atomic semantics
+        try {
+            registerSystemEngine(engine);
+
+            if(voldemortConfig.isServerRoutingEnabled())
+                registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
+
+            if(storeDef.hasRetentionPeriod())
+                scheduleCleanupJob(storeDef, engine);
+        } catch(Exception e) {
+            unregisterSystemEngine(engine);
+            throw new VoldemortException(e);
+        }
+    }
+
+    public void registerSystemEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+
+        Cluster cluster = this.metadata.getCluster();
+        storeRepository.addStorageEngine(engine);
+
+        /* Now add any store wrappers that are enabled */
+        Store<ByteArray, byte[], byte[]> store = engine;
+
+        if(voldemortConfig.isVerboseLoggingEnabled())
+            store = new LoggingStore<ByteArray, byte[], byte[]>(store,
+                                                                cluster.getName(),
+                                                                SystemTime.INSTANCE);
+        /* TODO: Do we really need rebalancing for system stores? */
+        if(voldemortConfig.isEnableRebalanceService()) {
+            store = new RedirectingStore(store,
+                                         metadata,
+                                         storeRepository,
+                                         failureDetector,
+                                         storeFactory);
+            if(voldemortConfig.isJmxEnabled()) {
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                ObjectName name = null;
+                if(this.voldemortConfig.isEnableJmxClusterName())
+                    name = JmxUtils.createObjectName(cluster.getName()
+                                                             + "."
+                                                             + JmxUtils.getPackageName(RedirectingStore.class),
+                                                     store.getName());
+                else
+                    name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                     store.getName());
+
+                synchronized(mbeanServer) {
+                    if(mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+                    JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+                }
+
+            }
+        }
+
+        if(voldemortConfig.isMetadataCheckingEnabled())
+            store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);
+
+        if(voldemortConfig.isStatTrackingEnabled()) {
+            StatTrackingStore statStore = new StatTrackingStore(store, this.storeStats);
+            store = statStore;
+            if(voldemortConfig.isJmxEnabled()) {
+
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                ObjectName name = null;
+                if(this.voldemortConfig.isEnableJmxClusterName())
+                    name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                             + "."
+                                                             + JmxUtils.getPackageName(store.getClass()),
+                                                     store.getName());
+                else
+                    name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                     store.getName());
+
+                synchronized(mbeanServer) {
+                    if(mbeanServer.isRegistered(name))
+                        JmxUtils.unregisterMbean(mbeanServer, name);
+
+                    JmxUtils.registerMbean(mbeanServer,
+                                           JmxUtils.createModelMBean(new StoreStatsJmx(statStore.getStats())),
+                                           name);
+                }
+            }
+        }
+
+        storeRepository.addLocalStore(store);
+    }
+
+    public void unregisterSystemEngine(StorageEngine<ByteArray, byte[], byte[]> engine) {
+        String storeName = engine.getName();
+        Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(storeName);
+
+        if(store != null) {
+            if(voldemortConfig.isJmxEnabled()) {
+                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+
+                if(voldemortConfig.isEnableRebalanceService()) {
+
+                    ObjectName name = null;
+                    if(this.voldemortConfig.isEnableJmxClusterName())
+                        name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                 + "."
+                                                                 + JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
+                    else
+                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                         store.getName());
+
+                    synchronized(mbeanServer) {
+                        if(mbeanServer.isRegistered(name))
+                            JmxUtils.unregisterMbean(mbeanServer, name);
+                    }
+
+                }
+
+                if(voldemortConfig.isStatTrackingEnabled()) {
+                    ObjectName name = null;
+                    if(this.voldemortConfig.isEnableJmxClusterName())
+                        name = JmxUtils.createObjectName(metadata.getCluster().getName()
+                                                                 + "."
+                                                                 + JmxUtils.getPackageName(store.getClass()),
+                                                         store.getName());
+                    else
+                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                                                         store.getName());
+
+                    synchronized(mbeanServer) {
+                        if(mbeanServer.isRegistered(name))
+                            JmxUtils.unregisterMbean(mbeanServer, name);
+                    }
+
+                }
+            }
+            if(voldemortConfig.isServerRoutingEnabled()) {
+                this.storeRepository.removeRoutedStore(storeName);
+                for(Node node: metadata.getCluster().getNodes())
+                    this.storeRepository.removeNodeStore(storeName, node.getId());
+            }
+        }
+
+        storeRepository.removeStorageEngine(storeName);
+        // engine.truncate(); why truncate here when unregister? Isn't close
+        // good enough?
+        engine.close();
     }
 
     public void openStore(StoreDefinition storeDef) {
