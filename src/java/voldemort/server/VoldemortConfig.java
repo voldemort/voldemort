@@ -263,7 +263,7 @@ public class VoldemortConfig implements Serializable {
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 64 * 1024);
         this.socketKeepAlive = props.getBoolean("socket.keepalive", false);
 
-        this.useNioConnector = props.getBoolean("enable.nio.connector", false);
+        this.useNioConnector = props.getBoolean("enable.nio.connector", true);
         this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
                                                   Math.max(8, Runtime.getRuntime()
                                                                      .availableProcessors()));
