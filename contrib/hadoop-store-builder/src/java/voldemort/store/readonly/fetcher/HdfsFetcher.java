@@ -175,7 +175,15 @@ public class HdfsFetcher implements FileFetcher {
                     } catch(InterruptedException e) {
                         logger.error(e.getMessage());
                         return null;
+                    } catch(Exception e) {
+                        logger.error("Got an exception while getting the filesystem object: ");
+                        logger.error("Exception class : " + e.getClass());
+                        e.printStackTrace();
+                        for(StackTraceElement et: e.getStackTrace()) {
+                            logger.error(et.toString());
+                        }
                     }
+
                 } else {
                     fs = path.getFileSystem(config);
                 }
@@ -190,7 +198,9 @@ public class HdfsFetcher implements FileFetcher {
                                              + " already exists");
             }
 
+            logger.info("Starting fetch for : " + sourceFileUrl);
             boolean result = fetch(fs, path, destination, stats);
+            logger.info("Completed fetch : " + sourceFileUrl);
 
             // Close the filesystem
             fs.close();
@@ -204,7 +214,8 @@ public class HdfsFetcher implements FileFetcher {
             if(this.globalThrottleLimit != null) {
                 this.globalThrottleLimit.decrementNumJobs();
             }
-            JmxUtils.unregisterMbean(jmxName);
+            if(jmxName != null)
+                JmxUtils.unregisterMbean(jmxName);
         }
     }
 
