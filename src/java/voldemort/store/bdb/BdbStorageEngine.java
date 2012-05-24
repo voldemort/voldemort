@@ -212,7 +212,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         Cursor cursor = null;
         try {
             cursor = getBdbDatabase().openCursor(null, null);
-            return get(cursor, key, lockMode, serializer);
+            List<T> result = get(cursor, key, lockMode, serializer);
+
+            // If null, try again in different locking mode to
+            // avoid null result due to gap between delete and new write
+            if(result.size() == 0 && lockMode != LockMode.DEFAULT) {
+                return get(cursor, key, LockMode.DEFAULT, serializer);
+            } else {
+                return result;
+            }
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
