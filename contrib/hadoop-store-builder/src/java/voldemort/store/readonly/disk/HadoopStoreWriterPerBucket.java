@@ -39,6 +39,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.mr.HadoopStoreBuilder;
 import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -118,11 +119,13 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
                     this.fs = this.taskIndexFileName[chunkId].getFileSystem(job);
 
                 this.indexFileStream[chunkId] = fs.create(this.taskIndexFileName[chunkId]);
-                fs.setPermission(this.taskIndexFileName[chunkId], new FsPermission("755"));
+                fs.setPermission(this.taskIndexFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                 logger.info("Setting permission to 755 for " + this.taskIndexFileName[chunkId]);
 
                 this.valueFileStream[chunkId] = fs.create(this.taskValueFileName[chunkId]);
-                fs.setPermission(this.taskValueFileName[chunkId], new FsPermission("755"));
+                fs.setPermission(this.taskValueFileName[chunkId],
+                                 new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                 logger.info("Setting permission to 755 for " + this.taskValueFileName[chunkId]);
 
                 logger.info("Opening " + this.taskIndexFileName[chunkId] + " and "
@@ -284,7 +287,7 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
         // Create output directory, if it doesn't exist
         FileSystem outputFs = nodeDir.getFileSystem(this.conf);
         outputFs.mkdirs(nodeDir);
-        outputFs.setPermission(nodeDir, new FsPermission("755"));
+        outputFs.setPermission(nodeDir, new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
         logger.info("Setting permission to 755 for " + nodeDir);
 
         // Write the checksum and output files
@@ -299,12 +302,14 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
                     Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
 
                     FSDataOutputStream output = outputFs.create(checkSumIndexFile);
-                    outputFs.setPermission(checkSumIndexFile, new FsPermission("755"));
+                    outputFs.setPermission(checkSumIndexFile,
+                                           new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                     output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
                     output.close();
 
                     output = outputFs.create(checkSumValueFile);
-                    outputFs.setPermission(checkSumValueFile, new FsPermission("755"));
+                    outputFs.setPermission(checkSumValueFile,
+                                           new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                     output.write(this.checkSumDigestValue[chunkId].getCheckSum());
                     output.close();
                 } else {
