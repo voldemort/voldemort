@@ -136,15 +136,26 @@ class Store:
         return serialization.SERIALIZER_CLASSES[serializer_type].create_from_xml(serializer_node)
 
     @staticmethod
-    def parse_stores_xml(xml, store_name):
+    def parse_stores_xml(xml, store_name=None):
+        """If a store is specified, returns the associated Store object.
+        Otherwise, returns a list of all Stores available
+        """
         doc = minidom.parseString(xml)
         store_nodes = doc.getElementsByTagName("store")
-        for store_node in store_nodes:
-            name = _child_text(store_node, "name")
-            if name == store_name:
-                return Store(store_node)
 
-        return None
+        if store_name is not None:
+            for store_node in store_nodes:
+                name = _child_text(store_node, "name")
+                if name == store_name:
+                    return Store(store_node)
+
+            return None
+        else:
+            res = {}
+            for store_node in store_nodes:
+                res[_child_text(store_node, "name")] = Store(store_node)
+
+            return res
 
 
 class VoldemortException(Exception):
@@ -156,23 +167,14 @@ class VoldemortException(Exception):
         return repr(self.msg)
 
 
-class StoreClient:
-    """A simple Voldemort client. It is single-threaded and supports only server-side routing."""
+class BaseClient(object):
+    """Base class for Voldemort clients. It is single-threaded and supports only server-side routing."""
 
-    def __init__(self, store_name, bootstrap_urls, reconnect_interval = 500, conflict_resolver = None):
-        self.store_name = store_name
+    def __init__(self, reconnect_interval, conflict_resolver):
         self.request_count = 0
         self.conflict_resolver = conflict_resolver
-        self.nodes, self.store = self._bootstrap_metadata(bootstrap_urls, store_name)
-        if not self.store:
-            raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
-
-        self.node_id = random.randint(0, len(self.nodes) - 1)
-        self.node_id, self.connection = self._reconnect()
         self.reconnect_interval = reconnect_interval
         self.open = True
-        self.key_serializer = self.store.key_serializer
-        self.value_serializer = self.store.value_serializer
 
     def _make_connection(self, host, port):
         protocol = 'pb0'
@@ -187,6 +189,9 @@ class StoreClient:
         logging.debug('Protocol negotiation suceeded')
         return connection
 
+    def _first_connect(self):
+        self.node_id = random.randint(0, len(self.nodes) - 1)
+        self.node_id, self.connection = self._reconnect()
 
     ## Connect to a the next available node in the cluster
     ## returns a tuple of (node_id, connection)
@@ -255,7 +260,7 @@ class StoreClient:
     ## Bootstrap cluster metadata from a list of urls of nodes in the cluster.
     ## The urls are tuples in the form (host, port).
     ## A dictionary of node_id => node is returned.
-    def _bootstrap_metadata(self, bootstrap_urls, store_name):
+    def _bootstrap_metadata(self, bootstrap_urls, store_name=None):
         random.shuffle(bootstrap_urls)
         for host, port in bootstrap_urls:
             logging.debug('Attempting to bootstrap metadata from ' + host + ':' + str(port))
@@ -268,9 +273,9 @@ class StoreClient:
                 nodes = Node.parse_cluster(cluster_xmls[0][0])
                 logging.debug('Bootstrap from ' + host + ':' + str(port) + ' succeeded, found ' + str(len(nodes)) + " nodes.")
                 stores_xml = self._get_with_connection(connection, 'metadata', 'stores.xml', should_route=False)[0][0]
-                store = Store.parse_stores_xml(stores_xml, store_name)
+                store_or_stores = Store.parse_stores_xml(stores_xml, store_name)
 
-                return nodes, store
+                return nodes, store_or_stores
             except socket.error, (err_num, message):
                 logging.warn('Metadata bootstrap from ' + host + ':' + str(port) + " failed: " + message)
             finally:
@@ -320,7 +325,7 @@ class StoreClient:
 
     ## A basic request wrapper, that handles reconnection logic and failures
     def _execute_request(self, fun, args):
-        assert self.open, 'Store has been closed.'
+        assert self.open, 'Connection has been closed.'
         self._maybe_reconnect()
 
         failures = 0
@@ -359,23 +364,20 @@ class StoreClient:
 
 
     ## Inner helper function for get
-    def _get(self, key):
-        return self._get_with_connection(self.connection, self.store_name, key, True)
+    def _get_cmd(self, store_name, key):
+        return self._get_with_connection(self.connection, store_name, key, True)
 
-
-    def get(self, key):
+    def _get(self, store, key):
         """Execute a get request. Returns a list of (value, version) pairs."""
-
-        raw_key = self.key_serializer.writes(key)
-        return [(self.value_serializer.reads(value), version)
-                for value, version in self._execute_request(self._get, [raw_key])]
-
+        raw_key = store.key_serializer.writes(key)
+        return [(store.value_serializer.reads(value), version)
+                for value, version in self._execute_request(self._get_cmd, (store.name, raw_key))]
 
     ## Inner get_all method that takes the connection and store_name as parameters
-    def _get_all(self, keys):
+    def _get_all_cmd(self, store_name, keys):
         req = protocol.VoldemortRequest()
         req.should_route = True
-        req.store = self.store_name
+        req.store = store_name
         req.type = protocol.GET_ALL
         for key in keys:
             req.getAll.keys.append(key)
@@ -393,32 +395,18 @@ class StoreClient:
             values[key_val.key] = self._extract_versions(key_val.versions)
         return values
 
-
-    def get_all(self, keys):
+    def _get_all(self, store, keys):
         """Execute get request for multiple keys given as a list or tuple.
            Returns a dictionary of key => [(value, version), ...] pairs."""
-
-        raw_keys = [self.key_serializer.writes(key) for key in keys]
-        return dict((self.key_serializer.reads(key), [(self.value_serializer.reads(value), version)
+        raw_keys = [store.key_serializer.writes(key) for key in keys]
+        return dict((store.key_serializer.reads(key), [(store.value_serializer.reads(value), version)
                                                       for value, version in versioned_values])
-                    for key, versioned_values in self._execute_request(self._get_all, [raw_keys]).iteritems())
+                    for key, versioned_values in self._execute_request(self._get_all_cmd, (store.name, raw_keys)).iteritems())
 
-
-    ## Get the current version of the given key by doing a get request to the store
-    def _fetch_version(self, key):
-        versioned = self.get(key)
-        if versioned:
-            version = versioned[0][1]
-        else:
-            version = protocol.VectorClock()
-            version.timestamp = int(time.time() * 1000)
-        return version
-
-
-    def _put(self, key, value, version):
+    def _put_cmd(self, store_name, key, value, version):
         req = protocol.VoldemortRequest()
         req.should_route = True
-        req.store = self.store_name
+        req.store = store_name
         req.type = protocol.PUT
         req.put.key = key
         req.put.versioned.value = value
@@ -434,32 +422,29 @@ class StoreClient:
         self._check_error(resp)
         return self._increment(version)
 
-
-    def put(self, key, value, version = None):
+    def _put(self, store, key, value, version):
         """Execute a put request using the given key and value. If no version is specified a get(key) request
            will be done to get the current version. The updated version is returned."""
-
-        raw_key = self.key_serializer.writes(key)
-        raw_value = self.value_serializer.writes(value)
+        raw_key = store.key_serializer.writes(key)
+        raw_value = store.value_serializer.writes(value)
 
         # if we don't have a version, fetch one
         if not version:
-            version = self._fetch_version(key)
-        return self._execute_request(self._put, [raw_key, raw_value, version])
+            version = self._fetch_version(store, key)
+        return self._execute_request(self._put_cmd, (store.name, raw_key, raw_value, version))
 
-
-    def maybe_put(self, key, value, version = None):
+    def _maybe_put(self, store, key, value, version):
         """Execute a put request using the given key and value. If the version being put is obsolete,
            no modification will be made and this function will return None. Otherwise it will return the new version."""
         try:
-            return self.put(key, value, version)
+            return self._put(store, key, value, version)
         except:
             return None
 
-    def _delete(self, key, version):
+    def _delete_cmd(self, store_name, key, version):
         req = protocol.VoldemortRequest()
         req.should_route = True
-        req.store = self.store_name
+        req.store = store_name
         req.type = protocol.DELETE
         req.delete.key = key
         req.delete.version.MergeFrom(version)
@@ -475,18 +460,25 @@ class StoreClient:
 
         return resp.success
 
-
-    def delete(self, key, version = None):
+    def _delete(self, store, key, version):
         """Execute a delete request, deleting all keys up to and including the given version.
            If no version is given a get(key) request will be done to find the latest version."""
 
-        raw_key = self.key_serializer.writes(key)
+        raw_key = store.key_serializer.writes(key)
 
         # if we don't have a version, fetch one
         if version == None:
-            version = self._fetch_version(key)
-        return self._execute_request(self._delete, [raw_key, version])
+            version = self._fetch_version(store, key)
+        return self._execute_request(self._delete_cmd, (store.name, raw_key, version))
 
+    def _fetch_version(self, store, key):
+        versioned = self._get(store, key)
+        if versioned:
+            version = versioned[0][1]
+        else:
+            version = protocol.VectorClock()
+            version.timestamp = int(time.time() * 1000)
+        return version
 
     def close(self):
         """Close the connection this store maintains."""
@@ -494,5 +486,85 @@ class StoreClient:
         self.connection.close()
 
 
+class GenericClient(BaseClient):
+    """A store agnostic client.
+    The store to use is requested as part of the get/get_all/put/put_all requests.
+    The list of available stores is retrieved at initialization of the client.
+    """
+    def __init__(self, bootstrap_urls, reconnect_interval=500, conflict_resolver=None):
+        BaseClient.__init__(self, reconnect_interval, conflict_resolver)
+        self.nodes, self.stores = self._bootstrap_metadata(bootstrap_urls)
+        if self.stores is []:
+            raise VoldemortException("Cannot find any store at %s" % bootstrap_urls)
+        self._first_connect()
 
+    def _get_store(self, store_name):
+        """Return a Store object for a given store"""
+        try:
+            return self.stores[store_name]
+        except KeyError:
+            raise VoldemortException('No such store: %s' % store_name)
+
+    def get(self, store_name, key):
+        """Execute a get request. Returns a list of (value, version) pairs."""
+        return self._get(self._get_store(store_name), key)
+
+    def get_all(self, store_name, keys):
+        """Execute get request for multiple keys given as a list or tuple.
+           Returns a dictionary of key => [(value, version), ...] pairs."""
+        return self._get_all(self._get_store(store_name), keys)
+
+    def put(self, store_name, key, value, version = None):
+        """Execute a put request using the given key and value. If no version is specified a get(key) request
+           will be done to get the current version. The updated version is returned."""
+        return self._put(self._get_store(store_name), key, value, version)
+
+    def maybe_put(self, store_name, key, value, version = None):
+        """Execute a put request using the given key and value. If the version being put is obsolete,
+           no modification will be made and this function will return None. Otherwise it will return the new version."""
+        return self._maybe_put(self._get_store(store_name), key, value, version)
+
+    def delete(self, store_name, key, version = None):
+        """Execute a delete request, deleting all keys up to and including the given version.
+           If no version is given a get(key) request will be done to find the latest version."""
+        return self._delete(self._get_store(store_name), key, version)
+
+
+class StoreClient(BaseClient):
+    """Store Client.
+    The voldemort client is bound to a specific store.
+    """
+    def __init__(self, store_name, bootstrap_urls, reconnect_interval=500, conflict_resolver=None):
+        BaseClient.__init__(self, reconnect_interval, conflict_resolver)
+        self.store_name = store_name
+        self.nodes, self.store = self._bootstrap_metadata(bootstrap_urls, store_name)
+        if not self.store:
+            raise VoldemortException("Cannot find store [%s] at %s" % (store_name, bootstrap_urls))
+        self._first_connect()
+        self.key_serializer = self.store.key_serializer
+        self.value_serializer = self.store.value_serializer
+
+    def get(self, key):
+        """Execute a get request. Returns a list of (value, version) pairs."""
+        return self._get(self.store, key)
+
+    def get_all(self, keys):
+        """Execute get request for multiple keys given as a list or tuple.
+           Returns a dictionary of key => [(value, version), ...] pairs."""
+        return self._get_all(self.store, keys)
+
+    def put(self, key, value, version = None):
+        """Execute a put request using the given key and value. If no version is specified a get(key) request
+           will be done to get the current version. The updated version is returned."""
+        return self._put(self.store, key, value, version)
+
+    def maybe_put(self, key, value, version = None):
+        """Execute a put request using the given key and value. If the version being put is obsolete,
+           no modification will be made and this function will return None. Otherwise it will return the new version."""
+        return self._maybe_put(self.store, key, value, version)
+
+    def delete(self, key, version = None):
+        """Execute a delete request, deleting all keys up to and including the given version.
+           If no version is given a get(key) request will be done to find the latest version."""
+        return self._delete(self.store, key, version)
 
