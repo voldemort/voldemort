@@ -1,12 +1,24 @@
 <?xml version="1.0"?>
 
-<project name="voldemort" basedir="." default="all">
+<project name="voldemort" basedir="." default="all" xmlns:artifact="antlib:org.apache.maven.artifact.ant">
   <property file="build.properties" />
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
   <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao" />
   <property environment="env" />
+
+  <!-- configure maven-ant-tasks for upload to maven-central -->
+  <path id="maven-ant-tasks.classpath" path="lib/maven-ant-tasks-2.1.3.jar" />
+  <typedef resource="org/apache/maven/artifact/ant/antlib.xml" uri="antlib:org.apache.maven.artifact.ant" classpathref="maven-ant-tasks.classpath" />
+
+  <!-- define maven snapshots and staging repository id and url -->
+  <property name="maven-snapshots-repository-id" value="sonatype-nexus-snapshots" />
+  <property name="maven-snapshots-repository-url" value="https://oss.sonatype.org/content/repositories/snapshots/" />
+  <property name="maven-staging-repository-id" value="sonatype-nexus-staging" />
+  <property name="maven-staging-repository-url" value="https://oss.sonatype.org/service/local/staging/deploy/maven2/" />
+
+
 
   <path id="main-classpath">
     <fileset dir="${lib.dir}">
@@ -18,12 +30,12 @@
   <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
   <condition property="curr.release.snapshot" value="${curr.release}-snapshot-${env.BUILD_NUMBER}" else="${curr.release}">
-       <and>
-          <isset property="env.BUILD_NUMBER" />
-          <not>
-              <equals arg1="" arg2="${env.BUILD_NUMBER}" trim="yes"/>
-          </not>
-       </and>
+    <and>
+      <isset property="env.BUILD_NUMBER" />
+      <not>
+        <equals arg1="" arg2="${env.BUILD_NUMBER}" trim="yes"/>
+      </not>
+    </and>
   </condition>
 
   <path id="contrib-classpath">
@@ -116,7 +128,7 @@
   <target name="protobuff" description="Generate source files from .proto files">
     <pathconvert property="proto.sources" pathsep=" ">
       <path id="proto-files">
-	<fileset dir="${protobuff.dir}" />
+        <fileset dir="${protobuff.dir}" />
       </path>
     </pathconvert>
 
@@ -148,6 +160,19 @@
     <jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
       <fileset dir="${java.dir}">
         <include name="**/*.java" />
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="allsrcjar" description="Build source jar file">
+    <mkdir dir="${dist.dir}" />
+    <jar destfile="${dist.dir}/${name}-${curr.release}-all-src.jar">
+      <fileset dir="${java.dir}">
+        <include name="**/*.java" />
+        <include name="**/*.xsd"/>
+        <include name="**/*.properties"/>
+        <include name="**/*.html"/>
+        <include name="**/*.vm"/>
       </fileset>
     </jar>
   </target>
@@ -316,24 +341,24 @@
   <macrodef name="create-release-artifacts">
     <attribute name="version" />
     <sequential>
-    <antcall target="all"/>
-    <zip destfile="${dist.dir}/${name}-@{version}.zip">
-      <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
-      <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
-        <exclude name="bin/*"/>
-        <exclude name=".git*/**"/>
-      </zipfileset>
-    </zip>
-    <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
-      <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
-      <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
-        <exclude name="${dist.dir}/*.zip"/>
-        <exclude name="bin/*"/>
-        <exclude name=".git*/**"/>
-      </tarfileset>
-    </tar>
+      <antcall target="all"/>
+      <zip destfile="${dist.dir}/${name}-@{version}.zip">
+        <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
+        <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
+          <exclude name="${dist.dir}/*classes"/>
+          <exclude name="bin/*"/>
+          <exclude name=".git*/**"/>
+        </zipfileset>
+      </zip>
+      <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
+        <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
+        <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
+          <exclude name="${dist.dir}/*classes"/>
+          <exclude name="${dist.dir}/*.zip"/>
+          <exclude name="bin/*"/>
+          <exclude name=".git*/**"/>
+        </tarfileset>
+      </tar>
     </sequential>
   </macrodef>
 
@@ -386,7 +411,7 @@
       <report todir="${testhtml.dir}" format="frames" />
     </junitreport>
   </target>
- 
+
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="contrib-test-classpath" />
@@ -434,10 +459,98 @@
   </target>
 
   <target name="undeploy" description="Undeploy application">
-    <undeploy url="${tomcat.manager.url}"
-                 username="${tomcat.manager.username}"
-                 password="${tomcat.manager.password}"
-                 path="${tomcat.context}"/>
+    <undeploy url="${tomcat.manager.url}" username="${tomcat.manager.username}" password="${tomcat.manager.password}" path="${tomcat.context}" />
+  </target>
+
+
+
+
+
+
+
+  <!-- UPLOAD TO SONATYPE SNAPSHOT REPOSITORY -->
+  <target name="uploadSnapshots" depends="alljar, allsrcjar, docs" description="deploy snapshot version to Maven snapshot repository">
+    <!-- prepare pom.xml -->
+    <copy file="pom.xml" tofile="${dist.dir}/pom.xml"/>
+    <replace file="${dist.dir}/pom.xml" token="@@@voldemort.version@@@" value="${curr.release}-SNAPSHOT"/>
+
+    <!-- package javadoc in a jar for upload -->
+    <jar destfile="${dist.dir}/${name}-${curr.release}-all-docs.jar">
+      <fileset dir="${javadoc.dir}/all"/>
+    </jar>
+
+    <!-- deploy the main artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-deploy-plugin:2.6:deploy-file" />
+      <arg value="-Durl=${maven-snapshots-repository-url}" />
+      <arg value="-DrepositoryId=${maven-snapshots-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all.jar" />
+    </artifact:mvn>
+
+    <!-- deploy the sources artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-deploy-plugin:2.6:deploy-file" />
+      <arg value="-Durl=${maven-snapshots-repository-url}" />
+      <arg value="-DrepositoryId=${maven-snapshots-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all-src.jar" />
+      <arg value="-Dclassifier=sources" />
+    </artifact:mvn>
+
+    <!-- deploy the javadoc artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-deploy-plugin:2.6:deploy-file" />
+      <arg value="-Durl=${maven-snapshots-repository-url}" />
+      <arg value="-DrepositoryId=${maven-snapshots-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all-docs.jar" />
+      <arg value="-Dclassifier=javadoc" />
+    </artifact:mvn>
+  </target>
+
+  <!-- UPLOAD TO SONATYPE OSS STAGEING REPOSITORY -->
+  <target name="stageReleases" depends="alljar, allsrcjar, docs" description="deploy release version to Maven staging repository">
+    <!-- prepare pom.xml -->
+    <copy file="pom.xml" tofile="${dist.dir}/pom.xml"/>
+    <replace file="${dist.dir}/pom.xml" token="@@@voldemort.version@@@" value="${curr.release}"/>
+
+    <!-- package javadoc in a jar for upload -->
+    <jar destfile="${dist.dir}/${name}-${curr.release}-all-docs.jar">
+      <fileset dir="${javadoc.dir}/all"/>
+    </jar>
+
+    <!-- sign and deploy the main artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${maven-staging-repository-url}" />
+      <arg value="-DrepositoryId=${maven-staging-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all.jar" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
+
+    <!-- sign and deploy the sources artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${maven-staging-repository-url}" />
+      <arg value="-DrepositoryId=${maven-staging-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all-src.jar" />
+      <arg value="-Dclassifier=sources" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
+
+    <!-- sign and deploy the javadoc artifact -->
+    <artifact:mvn>
+      <arg value="org.apache.maven.plugins:maven-gpg-plugin:1.3:sign-and-deploy-file" />
+      <arg value="-Durl=${maven-staging-repository-url}" />
+      <arg value="-DrepositoryId=${maven-staging-repository-id}" />
+      <arg value="-DpomFile=${dist.dir}/pom.xml" />
+      <arg value="-Dfile=${dist.dir}/${name}-${curr.release}-all-docs.jar" />
+      <arg value="-Dclassifier=javadoc" />
+      <arg value="-Pgpg" />
+    </artifact:mvn>
   </target>
 
 </project>
