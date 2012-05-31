@@ -32,6 +32,7 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
+import voldemort.server.SystemStoreConstants;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
@@ -136,7 +137,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     public void initializeSystemStores() {
-        for(String storeName: systemStoreNames) {
+        for(String storeName: SystemStoreConstants.SystemStoreName.) {
             SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName,
                                                                                config.getBootstrapUrls(),
                                                                                config.getClientZoneId());
@@ -148,6 +149,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver, clientId);
+
+        logger.info("Creating System store");
+        String systemKey = storeName + "-client";
+        this.sysStore = new SystemStore<String, String>("voldsys$_client_registry",
+                                                        this.storeFactory);
+        sysStore.putSysStore(systemKey, "Registered");
+        logger.info("Getting value - " + sysStore.getSysStore(systemKey));
     }
 
     public boolean delete(K key) {
