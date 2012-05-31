@@ -5,7 +5,7 @@ package voldemort.server;
  */
 public class SystemStoreConstants {
 
-    private static final String NAME_PREFIX = "voldsys$_";
+    public static final String NAME_PREFIX = "voldsys$_";
 
     public static enum SystemStoreName {
         voldsys$_client_registry,

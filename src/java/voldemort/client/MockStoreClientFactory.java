@@ -213,4 +213,11 @@ public class MockStoreClientFactory implements StoreClientFactory {
         return failureDetector;
     }
 
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver,
+                                                UUID clientId,
+                                                String storesXml) {
+        return null;
+    }
+
 }

@@ -32,6 +32,7 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.server.RequestRoutingType;
+import voldemort.server.SystemStoreConstants;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
@@ -57,6 +58,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     private final SocketStoreFactory storeFactory;
     private FailureDetectorListener failureDetectorListener;
     private final RequestRoutingType requestRoutingType;
+    private final ClientConfig _config;
 
     public SocketStoreClientFactory(ClientConfig config) {
         super(config);
@@ -71,6 +73,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketKeepAlive());
         if(config.isJmxEnabled())
             JmxUtils.registerMbean(storeFactory, JmxUtils.createObjectName(storeFactory.getClass()));
+        _config = config;
     }
 
     @Override
@@ -87,7 +90,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         return getParentStoreClient(storeName, resolver);
     }
 
-    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName, InconsistencyResolver<Versioned<V>> resolver) {
+    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName,
+                                                          InconsistencyResolver<Versioned<V>> resolver) {
         return super.getStoreClient(storeName, resolver);
     }
 
@@ -96,7 +100,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         try {
             return super.getRemoteMetadata(key, url);
         } catch(VoldemortException e) {
-            // Fix SNA-4227: When an error occurs during bootstrap, close the socket
+            // Fix SNA-4227: When an error occurs during bootstrap, close the
+            // socket
             SocketDestination destination = new SocketDestination(url.getHost(),
                                                                   url.getPort(),
                                                                   getRequestFormatType());
@@ -158,6 +163,14 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         return node.getSocketPort();
     }
 
+    public String[] getBootstrapURL() {
+        return _config.getBootstrapUrls();
+    }
+
+    public int getClientZoneID() {
+        return _config.getClientZoneId();
+    }
+
     @Override
     protected void validateUrl(URI url) {
         if(!URL_SCHEME.equals(url.getScheme()))
@@ -177,4 +190,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super.close();
     }
 
+    public <K, V, T> Store<K, V, T> getSystemStore(String storeName) {
+        return getRawStore(storeName, null, null, SystemStoreConstants.SYSTEM_STORE_SCHEMA);
+    }
 }
