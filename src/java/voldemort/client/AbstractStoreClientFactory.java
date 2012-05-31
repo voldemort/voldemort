@@ -158,6 +158,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver,
                                                 UUID clientId) {
+        return getRawStore(storeName, resolver, clientId, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver,
+                                                UUID clientId,
+                                                String customStoresXml) {
 
         logger.info("Client zone-id [" + clientZoneId
                     + "] Attempting to obtain metadata for store [" + storeName + "] ");
@@ -169,7 +177,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         // Get cluster and store metadata
         String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
         Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
-        String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+        String storesXml = customStoresXml;
+        if(storesXml == null)
+            storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
 
         if(logger.isDebugEnabled()) {
             logger.debug("Obtained cluster metadata xml" + clusterXml);

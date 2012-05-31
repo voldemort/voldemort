@@ -123,4 +123,11 @@ public class CachingStoreClientFactory implements StoreClientFactory {
             logger.warn("Exception during bootstrapAllClients", e);
         }
     }
+
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver,
+                                                UUID clientId,
+                                                String storesXml) {
+        return inner.getRawStore(storeName, resolver, clientId, storesXml);
+    }
 }

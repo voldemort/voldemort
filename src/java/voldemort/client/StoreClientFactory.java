@@ -87,6 +87,20 @@ public interface StoreClientFactory {
                                          UUID clientId);
 
     /**
+     * Get the underlying store, not the public StoreClient interface
+     * 
+     * @param storeName The name of the store
+     * @param resolver The inconsistency resolver
+     * @param clientId The unique id of the client
+     * @param storesXml Custom set of stores containing storeName
+     * @return The appropriate store
+     */
+    <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                         InconsistencyResolver<Versioned<V>> resolver,
+                                         UUID clientId,
+                                         String customStoresXml);
+
+    /**
      * Close the store client
      */
     public void close();

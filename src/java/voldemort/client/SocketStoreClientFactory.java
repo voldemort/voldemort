@@ -32,6 +32,7 @@ import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorListener;
 import voldemort.server.RequestRoutingType;
+import voldemort.server.SystemStoreConstants;
 import voldemort.store.Store;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
@@ -182,4 +183,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super.close();
     }
 
+    public <K, V, T> Store<K, V, T> getSystemStore(String storeName) {
+        return getRawStore(storeName, null, null, SystemStoreConstants.SYSTEM_STORE_SCHEMA);
+    }
 }

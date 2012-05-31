@@ -41,6 +41,7 @@ import voldemort.cluster.Cluster;
 import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.SystemStoreConstants;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -73,6 +74,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
+    public static final String SYSTEM_STORES_KEY = "systemStores";
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
@@ -92,6 +94,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     // helper keys for metadataCacheOnly
     private static final String ROUTING_STRATEGY_KEY = "routing.strategy";
+    private static final String SYSTEM_ROUTING_STRATEGY_KEY = "system.routing.strategy";
 
     public static enum VoldemortState {
         NORMAL_SERVER,
@@ -174,7 +177,8 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
                 updateRoutingStrategies((Cluster) value.getValue(), getStoreDefList());
             } else if(STORES_KEY.equals(key)) {
                 updateRoutingStrategies(getCluster(), (List<StoreDefinition>) value.getValue());
-            }
+            } else if(SYSTEM_STORES_KEY.equals(key))
+                throw new VoldemortException("Cannot overwrite system store definitions");
 
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
@@ -191,8 +195,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public void put(String key, Object value) {
         if(METADATA_KEYS.contains(key)) {
             VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
-            put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
-                                                                      System.currentTimeMillis())));
+            put(key,
+                new Versioned<Object>(value, version.incremented(getNodeId(),
+                                                                 System.currentTimeMillis())));
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
         }
@@ -297,6 +302,11 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return (List<StoreDefinition>) metadataCache.get(STORES_KEY).getValue();
     }
 
+    @SuppressWarnings("unchecked")
+    public List<StoreDefinition> getSystemStoreDefList() {
+        return (List<StoreDefinition>) metadataCache.get(SYSTEM_STORES_KEY).getValue();
+    }
+
     public int getNodeId() {
         return (Integer) (metadataCache.get(NODE_ID_KEY).getValue());
     }
@@ -319,11 +329,21 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
     }
 
+    /*
+     * First check in the map of regular stores. If not present, check in the
+     * system stores map.
+     */
     @SuppressWarnings("unchecked")
     public RoutingStrategy getRoutingStrategy(String storeName) {
         Map<String, RoutingStrategy> routingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(ROUTING_STRATEGY_KEY)
                                                                                                       .getValue();
-        return routingStrategyMap.get(storeName);
+        RoutingStrategy strategy = routingStrategyMap.get(storeName);
+        if(strategy == null) {
+            Map<String, RoutingStrategy> systemRoutingStrategyMap = (Map<String, RoutingStrategy>) metadataCache.get(SYSTEM_ROUTING_STRATEGY_KEY)
+                                                                                                                .getValue();
+            strategy = systemRoutingStrategyMap.get(storeName);
+        }
+        return strategy;
     }
 
     /**
@@ -360,6 +380,17 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             }
 
         }
+    }
+
+    /*
+     * Initialize the routing strategy map for system stores. This is used
+     * during get / put on system stores.
+     */
+    private void initSystemRoutingStrategies(Cluster cluster) {
+        HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
+                                                                                       getSystemStoreDefList());
+        this.metadataCache.put(SYSTEM_ROUTING_STRATEGY_KEY,
+                               new Versioned<Object>(routingStrategyMap));
     }
 
     /**
@@ -452,6 +483,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         initCache(CLUSTER_KEY);
         initCache(STORES_KEY);
 
+        // Initialize system store in the metadata cache
+        initSystemCache();
+        initSystemRoutingStrategies(getCluster());
+
         initCache(NODE_ID_KEY, nodeId);
         if(getNodeId() != nodeId)
             throw new RuntimeException("Attempt to start previous node:"
@@ -471,6 +506,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private synchronized void initCache(String key) {
         metadataCache.put(key, convertStringToObject(key, getInnerValue(key)));
+    }
+
+    // Initialize the metadata cache with system store list
+    private synchronized void initSystemCache() {
+        List<StoreDefinition> value = storeMapper.readStoreList(new StringReader(SystemStoreConstants.SYSTEM_STORE_SCHEMA));
+        metadataCache.put(SYSTEM_STORES_KEY, new Versioned<Object>(value));
     }
 
     private void initCache(String key, Object defaultValue) {
