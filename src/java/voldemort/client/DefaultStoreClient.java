@@ -69,6 +69,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final InconsistencyResolver<Versioned<V>> resolver;
     private volatile Store<K, V, Object> store;
     private final UUID clientId;
+
     private final Map<String, SystemStore> sysStoreMap;
     private AsyncMetadataVersionManager asyncCheckMetadata;
 
@@ -149,6 +150,13 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver, clientId);
+
+        logger.info("Creating System store");
+        String systemKey = storeName + "-client";
+        this.sysStore = new SystemStore<String, String>("voldsys$_client_registry",
+                                                        this.storeFactory);
+        sysStore.putSysStore(systemKey, "Registered");
+        logger.info("Getting value - " + sysStore.getSysStore(systemKey));
     }
 
     public boolean delete(K key) {
