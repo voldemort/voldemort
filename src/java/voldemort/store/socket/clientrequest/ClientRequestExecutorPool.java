@@ -54,7 +54,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     private final AtomicInteger checkouts;
     private final AtomicLong waitNs;
     private final AtomicLong avgWaitNs;
-    private final Histogram histogramWaitMs;
+    private final Histogram histogramWaitNs;
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
 
@@ -78,7 +78,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
         this.avgWaitNs = new AtomicLong(0);
-        this.histogramWaitMs = new HistogramArray(10000, 1);
+        this.histogramWaitNs = new Histogram(10000, 1000);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -140,7 +140,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             waitNs.set(0);
             checkouts.set(0);
             avgWaitNs.set(wait / count);
-            histogramWaitMs.insert(checkoutTimeNs / Time.NS_PER_MS);
+            histogramWaitNs.insert(checkoutTimeNs);
         }
     }
 
@@ -199,7 +199,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     @JmxGetter(name = "99thWaitTimeMs", description = "The 99th percentile ms of wait time to acquire a connection.")
     public double get99thWaitTimeMs() {
-        return this.histogramWaitMs.getQuantile(0.99);
+        return (double) (this.histogramWaitNs.getQuantile(0.99)) / Time.NS_PER_MS;
     }
 
     @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
