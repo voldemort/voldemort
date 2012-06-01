@@ -30,6 +30,7 @@ import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.stats.Histogram;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
@@ -53,6 +54,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     private final AtomicInteger checkouts;
     private final AtomicLong waitNs;
     private final AtomicLong avgWaitNs;
+    private final Histogram histogramWaitMs;
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
 
@@ -76,6 +78,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         this.checkouts = new AtomicInteger(0);
         this.waitNs = new AtomicLong(0);
         this.avgWaitNs = new AtomicLong(0);
+        this.histogramWaitMs = new HistogramArray(10000, 1);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -130,13 +133,14 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         long wait = waitNs.getAndAdd(checkoutTimeNs);
         int count = checkouts.getAndIncrement();
 
-        // reset reporting inverval if we have used up the current interval
+        // reset reporting interval if we have used up the current interval
         int interval = this.monitoringInterval.get();
         if(count % interval == interval - 1) {
             // harmless race condition:
             waitNs.set(0);
             checkouts.set(0);
             avgWaitNs.set(wait / count);
+            histogramWaitMs.insert(checkoutTimeNs / Time.NS_PER_MS);
         }
     }
 
@@ -191,6 +195,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
     public double getAvgWaitTimeMs() {
         return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;
+    }
+
+    @JmxGetter(name = "99thWaitTimeMs", description = "The 99th percentile ms of wait time to acquire a connection.")
+    public double get99thWaitTimeMs() {
+        return this.histogramWaitMs.getQuantile(0.99);
     }
 
     @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
