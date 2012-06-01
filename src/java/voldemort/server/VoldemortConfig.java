@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
@@ -34,6 +35,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
+import voldemort.utils.TimeoutConfig;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
 
@@ -112,6 +114,7 @@ public class VoldemortConfig implements Serializable {
 
     private int clientSelectors;
     private int clientRoutingTimeoutMs;
+    private TimeoutConfig clientTimeoutConfig;
     private int clientMaxConnectionsPerNode;
     private int clientConnectionTimeoutMs;
     private int clientMaxThreads;
@@ -275,6 +278,24 @@ public class VoldemortConfig implements Serializable {
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
+        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
+        this.clientTimeoutConfig.getTimeoutMs(props.getInt("client.routing.get.timeout.ms",
+                                                           this.clientRoutingTimeoutMs),
+                                              TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.getAllTimeoutMs(props.getInt("client.routing.getall.timeout.ms",
+                                                              this.clientRoutingTimeoutMs),
+                                                 TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.putTimeoutMs(props.getInt("client.routing.put.timeout.ms",
+                                                           this.clientRoutingTimeoutMs),
+                                              TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.getVersionsTimeoutMs(props.getLong("client.routing.getversions.timeout.ms",
+                                                                    this.clientTimeoutConfig.putTimeoutMs()),
+                                                      TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.deleteTimeoutMs(props.getInt("client.routing.delete.timeout.ms",
+                                                              this.clientRoutingTimeoutMs),
+                                                 TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",
+                                                                          false));
         this.clientMaxThreads = props.getInt("client.max.threads", 500);
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
@@ -995,6 +1016,10 @@ public class VoldemortConfig implements Serializable {
 
     public void setClientRoutingTimeoutMs(int routingTimeoutMs) {
         this.clientRoutingTimeoutMs = routingTimeoutMs;
+    }
+
+    public TimeoutConfig getTimeoutConfig() {
+        return this.clientTimeoutConfig;
     }
 
     public int getClientMaxConnectionsPerNode() {

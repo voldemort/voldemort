@@ -18,6 +18,7 @@ import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
+import voldemort.utils.TimeoutConfig;
 
 import com.google.common.collect.Maps;
 
@@ -27,16 +28,16 @@ public class RoutedStoreFactory {
 
     private final ExecutorService threadPool;
 
-    private final long routingTimeoutMs;
+    private final TimeoutConfig timeoutConfig;
 
     private final Logger logger = Logger.getLogger(getClass());
 
     public RoutedStoreFactory(boolean isPipelineRoutedStoreEnabled,
                               ExecutorService threadPool,
-                              long routingTimeoutMs) {
+                              TimeoutConfig timeoutConfig) {
         this.isPipelineRoutedStoreEnabled = isPipelineRoutedStoreEnabled;
         this.threadPool = threadPool;
-        this.routingTimeoutMs = routingTimeoutMs;
+        this.timeoutConfig = timeoutConfig;
     }
 
     public NonblockingStore toNonblockingStore(Store<ByteArray, byte[], byte[]> store) {
@@ -90,7 +91,7 @@ public class RoutedStoreFactory {
                                            storeDefinition,
                                            repairReads,
                                            clientZoneId,
-                                           routingTimeoutMs,
+                                           timeoutConfig,
                                            failureDetector,
                                            jmxEnabled);
         } else {
@@ -111,7 +112,7 @@ public class RoutedStoreFactory {
                                              storeDefinition,
                                              repairReads,
                                              threadPool,
-                                             routingTimeoutMs,
+                                             timeoutConfig,
                                              failureDetector,
                                              SystemTime.INSTANCE);
         }

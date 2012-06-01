@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
@@ -39,6 +38,7 @@ import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
@@ -101,7 +101,9 @@ public class RoutedStoreParallelismTest {
               .ofType(Integer.class);
         parser.accepts("num-clients",
                        "The number of threads to make requests concurrently  Default = "
-                               + DEFAULT_NUM_CLIENTS).withRequiredArg().ofType(Integer.class);
+                               + DEFAULT_NUM_CLIENTS)
+              .withRequiredArg()
+              .ofType(Integer.class);
         parser.accepts("routed-store-type",
                        "Type of routed store, either \"" + THREAD_POOL_ROUTED_STORE + "\" or \""
                                + PIPELINE_ROUTED_STORE + "\"  Default = "
@@ -201,7 +203,7 @@ public class RoutedStoreParallelismTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(routedStoreType.trim()
                                                                                       .equalsIgnoreCase(PIPELINE_ROUTED_STORE),
                                                                        routedStoreThreadPool,
-                                                                       clientConfig.getRoutingTimeout(TimeUnit.MILLISECONDS));
+                                                                       clientConfig.getTimeoutConfig());
 
         final RoutedStore routedStore = routedStoreFactory.create(cluster,
                                                                   storeDefinition,
@@ -223,7 +225,7 @@ public class RoutedStoreParallelismTest {
                             try {
                                 routedStore.get(key, null);
                             } catch(VoldemortException e) {
-                                // 
+                                //
                             }
                         }
                     }

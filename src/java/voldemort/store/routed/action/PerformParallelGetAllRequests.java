@@ -119,7 +119,7 @@ public class PerformParallelGetAllRequests
         }
 
         try {
-            latch.await(timeoutMs * 3, TimeUnit.MILLISECONDS);
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);

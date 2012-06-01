@@ -52,19 +52,23 @@ public class PerformSerialGetAllRequests
 
     private final int required;
 
+    private final boolean allowPartial;
+
     public PerformSerialGetAllRequests(GetAllPipelineData pipelineData,
                                        Event completeEvent,
                                        Iterable<ByteArray> keys,
                                        FailureDetector failureDetector,
                                        Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                        int preferred,
-                                       int required) {
+                                       int required,
+                                       boolean allowPartial) {
         super(pipelineData, completeEvent);
         this.keys = keys;
         this.failureDetector = failureDetector;
         this.stores = stores;
         this.preferred = preferred;
         this.required = required;
+        this.allowPartial = allowPartial;
     }
 
     public void execute(Pipeline pipeline) {
@@ -156,17 +160,23 @@ public class PerformSerialGetAllRequests
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
             if(successCount.intValue() < required) {
-                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                             + " "
-                                                                                             + pipeline.getOperation()
-                                                                                                       .getSimpleName()
-                                                                                             + "s required, but "
-                                                                                             + successCount.intValue()
-                                                                                             + " succeeded. Failing nodes : "
-                                                                                             + pipelineData.getFailedNodes(),
-                                                                                     pipelineData.getFailures()));
-                pipeline.addEvent(Event.ERROR);
-                return;
+                // if we allow partial results, then just remove keys that did
+                // not meet 'required' guarantee; else raise error
+                if(allowPartial) {
+                    result.remove(key);
+                } else {
+                    pipelineData.setFatalError(new InsufficientOperationalNodesException(required
+                                                                                                 + " "
+                                                                                                 + pipeline.getOperation()
+                                                                                                           .getSimpleName()
+                                                                                                 + "s required, but "
+                                                                                                 + successCount.intValue()
+                                                                                                 + " succeeded. Failing nodes : "
+                                                                                                 + pipelineData.getFailedNodes(),
+                                                                                         pipelineData.getFailures()));
+                    pipeline.addEvent(Event.ERROR);
+                    return;
+                }
             }
         }
 

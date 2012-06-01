@@ -114,7 +114,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.clientZoneId = config.getClientZoneId();
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
-                                                         config.getRoutingTimeout(TimeUnit.MILLISECONDS));
+                                                         config.getTimeoutConfig());
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,

@@ -21,9 +21,9 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.TestUtils.getClock;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +56,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
+import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;
@@ -157,7 +158,8 @@ public class ReadRepairerTest {
 
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       1000L);
+                                                                       new TimeoutConfig(1000L,
+                                                                                         false));
 
         RoutedStore store = routedStoreFactory.create(cluster,
                                                       storeDef,
@@ -198,8 +200,8 @@ public class ReadRepairerTest {
 
     public void testSingleSuccessor() throws Exception {
         assertVariationsEqual(singletonList(getValue(1, 1, new int[] { 1, 1 })),
-                              asList(getValue(1, 1, new int[] { 1 }), getValue(2, 1, new int[] { 1,
-                                      1 })));
+                              asList(getValue(1, 1, new int[] { 1 }),
+                                     getValue(2, 1, new int[] { 1, 1 })));
     }
 
     public void testAllConcurrent() throws Exception {
@@ -257,8 +259,9 @@ public class ReadRepairerTest {
                                      getValue(1, 1, new int[] { 1, 2 }),
                                      getValue(2, 1, new int[] { 1, 3, 3 }),
                                      getValue(3, 1, new int[] { 1, 2 })),
-                              asList(getValue(1, 1, new int[] { 3, 3 }), getValue(2, 1, new int[] {
-                                      1, 2 }), getValue(3, 1, new int[] { 1, 3, 3 })));
+                              asList(getValue(1, 1, new int[] { 3, 3 }),
+                                     getValue(2, 1, new int[] { 1, 2 }),
+                                     getValue(3, 1, new int[] { 1, 3, 3 })));
     }
 
     public void testLotsOfVersions() throws Exception {

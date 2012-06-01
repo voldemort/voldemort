@@ -155,7 +155,7 @@ public class StorageService extends AbstractService {
         this.storeStats = new StoreStats();
         this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                          this.clientThreadPool,
-                                                         voldemortConfig.getClientRoutingTimeoutMs());
+                                                         voldemortConfig.getTimeoutConfig());
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit

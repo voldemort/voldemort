@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2010 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,6 +16,12 @@
 
 package voldemort.performance;
 
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.client.ClientConfig;
@@ -23,12 +29,7 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.utils.CmdUtils;
-
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import voldemort.utils.TimeoutConfig;
 
 /**
  * Stress tests the client. Intended to diagnose issues such as connection leaks
@@ -92,8 +93,6 @@ public class ClientConnectionStressTest {
         executor.shutdown();
     }
 
-
-
     public static void main(String[] args) throws Exception {
 
         OptionParser parser = new OptionParser();
@@ -112,18 +111,14 @@ public class ClientConnectionStressTest {
         parser.accepts(MAX_CONNECTIONS_TOTAL, "Max total connections")
               .withRequiredArg()
               .ofType(Integer.class);
-        parser.accepts(MAX_THREADS, "Max threads")
-              .withRequiredArg()
-              .ofType(Integer.class);
+        parser.accepts(MAX_THREADS, "Max threads").withRequiredArg().ofType(Integer.class);
         parser.accepts(SELECTORS, "Number of NIO selectors")
               .withRequiredArg()
               .ofType(Integer.class);
         parser.accepts(SOCKET_BUFFER_SIZE, "Socket buffer size")
-               .withRequiredArg()
-               .ofType(Integer.class);
-        parser.accepts(REQS, "Requests per session")
               .withRequiredArg()
               .ofType(Integer.class);
+        parser.accepts(REQS, "Requests per session").withRequiredArg().ofType(Integer.class);
         parser.accepts(CONNECTIONS, "Total connections to make")
               .withRequiredArg()
               .ofType(Integer.class);
@@ -144,11 +139,15 @@ public class ClientConnectionStressTest {
 
         ClientConfig config = new ClientConfig();
         if(options.has(CONNECTION_TIMEOUT))
-            config.setConnectionTimeout((Integer) options.valueOf(CONNECTION_TIMEOUT), TimeUnit.MILLISECONDS);
+            config.setConnectionTimeout((Integer) options.valueOf(CONNECTION_TIMEOUT),
+                                        TimeUnit.MILLISECONDS);
         if(options.has(ROUTING_TIMEOUT))
-            config.setRoutingTimeout((Integer) options.valueOf(ROUTING_TIMEOUT), TimeUnit.MILLISECONDS);
+            config.setTimeoutConfig(new TimeoutConfig(TimeUnit.MILLISECONDS.toMillis((Integer) options.valueOf(ROUTING_TIMEOUT)),
+                                                      false));
+
         if(options.has(SOCKET_TIMEOUT))
-            config.setSocketTimeout((Integer) options.valueOf(SOCKET_TIMEOUT), TimeUnit.MILLISECONDS);
+            config.setSocketTimeout((Integer) options.valueOf(SOCKET_TIMEOUT),
+                                    TimeUnit.MILLISECONDS);
         if(options.has(MAX_CONNECTIONS))
             config.setMaxConnectionsPerNode((Integer) options.valueOf(MAX_CONNECTIONS));
         if(options.has(MAX_THREADS))

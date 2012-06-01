@@ -61,6 +61,7 @@ import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -168,7 +169,9 @@ public class HintedHandoffTest {
         setFailureDetector(subStores);
 
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
-        routedStoreFactory = new RoutedStoreFactory(true, routedStoreThreadPool, 1500L);
+        routedStoreFactory = new RoutedStoreFactory(true,
+                                                    routedStoreThreadPool,
+                                                    new TimeoutConfig(1500L, false));
         strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();

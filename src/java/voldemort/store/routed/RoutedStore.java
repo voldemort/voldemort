@@ -32,6 +32,7 @@ import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
+import voldemort.utils.TimeoutConfig;
 import voldemort.utils.Utils;
 
 /**
@@ -45,7 +46,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
     protected final Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores;
     protected final boolean repairReads;
     protected final ReadRepairer<ByteArray, byte[]> readRepairer;
-    protected final long timeoutMs;
+    protected final TimeoutConfig timeoutConfig;
     protected final Time time;
     protected final StoreDefinition storeDef;
     protected final FailureDetector failureDetector;
@@ -57,7 +58,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
                           Cluster cluster,
                           StoreDefinition storeDef,
                           boolean repairReads,
-                          long timeoutMs,
+                          TimeoutConfig timeoutConfig,
                           FailureDetector failureDetector,
                           Time time) {
         if(storeDef.getRequiredReads() < 1)
@@ -77,7 +78,7 @@ public abstract class RoutedStore implements Store<ByteArray, byte[], byte[]> {
         this.innerStores = new ConcurrentHashMap<Integer, Store<ByteArray, byte[], byte[]>>(innerStores);
         this.repairReads = repairReads;
         this.readRepairer = new ReadRepairer<ByteArray, byte[]>();
-        this.timeoutMs = timeoutMs;
+        this.timeoutConfig = timeoutConfig;
         this.time = Utils.notNull(time);
         this.storeDef = storeDef;
         this.failureDetector = failureDetector;

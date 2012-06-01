@@ -58,6 +58,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.SystemTime;
+import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
@@ -102,7 +103,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                StoreDefinition storeDef,
                                boolean repairReads,
                                int clientZoneId,
-                               long timeoutMs,
+                               TimeoutConfig timeoutConfig,
                                FailureDetector failureDetector,
                                boolean jmxEnabled) {
         super(name,
@@ -110,7 +111,7 @@ public class PipelineRoutedStore extends RoutedStore {
               cluster,
               storeDef,
               repairReads,
-              timeoutMs,
+              timeoutConfig,
               failureDetector,
               SystemTime.INSTANCE);
         this.nonblockingSlopStores = nonblockingSlopStores;
@@ -149,7 +150,9 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
 
-        final Pipeline pipeline = new Pipeline(Operation.GET, timeoutMs, TimeUnit.MILLISECONDS);
+        final Pipeline pipeline = new Pipeline(Operation.GET,
+                                               timeoutConfig.getTimeoutMs(),
+                                               TimeUnit.MILLISECONDS);
         boolean allowReadRepair = repairReads && transforms == null;
 
         StoreRequest<List<Versioned<byte[]>>> blockingStoreRequest = new StoreRequest<List<Versioned<byte[]>>>() {
@@ -177,7 +180,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                                                  failureDetector,
                                                                                                                                  storeDef.getPreferredReads(),
                                                                                                                                  storeDef.getRequiredReads(),
-                                                                                                                                 timeoutMs,
+                                                                                                                                 timeoutConfig.getTimeoutMs(),
                                                                                                                                  nonblockingStores,
                                                                                                                                  Event.INSUFFICIENT_SUCCESSES,
                                                                                                                                  Event.INSUFFICIENT_ZONES));
@@ -198,7 +201,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                     new ReadRepair<BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                Event.COMPLETED,
                                                                                                storeDef.getPreferredReads(),
-                                                                                               timeoutMs,
+                                                                                               timeoutConfig.getTimeoutMs(),
                                                                                                nonblockingStores,
                                                                                                readRepairer));
 
@@ -255,7 +258,9 @@ public class PipelineRoutedStore extends RoutedStore {
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
 
-        Pipeline pipeline = new Pipeline(Operation.GET_ALL, timeoutMs, TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.GET_ALL,
+                                         timeoutConfig.getAllTimeoutMs(),
+                                         TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED,
                                 new GetAllConfigureNodes(pipelineData,
                                                          Event.CONFIGURED,
@@ -270,7 +275,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,
                                                                   failureDetector,
-                                                                  timeoutMs,
+                                                                  timeoutConfig.getAllTimeoutMs(),
                                                                   nonblockingStores));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialGetAllRequests(pipelineData,
@@ -280,14 +285,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                 failureDetector,
                                                                 innerStores,
                                                                 storeDef.getPreferredReads(),
-                                                                storeDef.getRequiredReads()));
+                                                                storeDef.getRequiredReads(),
+                                                                timeoutConfig.isPartialGetAllAllowed()));
 
         if(allowReadRepair)
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
                                     new GetAllReadRepair(pipelineData,
                                                          Event.COMPLETED,
                                                          storeDef.getPreferredReads(),
-                                                         timeoutMs,
+                                                         timeoutConfig.getAllTimeoutMs(),
                                                          nonblockingStores,
                                                          readRepairer));
 
@@ -323,7 +329,9 @@ public class PipelineRoutedStore extends RoutedStore {
         else
             pipelineData.setZonesRequired(null);
         pipelineData.setStats(stats);
-        Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS, timeoutMs, TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.GET_VERSIONS,
+                                         timeoutConfig.getVersionsTimeoutMs(),
+                                         TimeUnit.MILLISECONDS);
 
         StoreRequest<List<Version>> blockingStoreRequest = new StoreRequest<List<Version>>() {
 
@@ -349,7 +357,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                              failureDetector,
                                                                                                              storeDef.getPreferredReads(),
                                                                                                              storeDef.getRequiredReads(),
-                                                                                                             timeoutMs,
+                                                                                                             timeoutConfig.getVersionsTimeoutMs(),
                                                                                                              nonblockingStores,
                                                                                                              Event.INSUFFICIENT_SUCCESSES,
                                                                                                              Event.INSUFFICIENT_ZONES));
@@ -408,7 +416,9 @@ public class PipelineRoutedStore extends RoutedStore {
         pipelineData.setStoreName(name);
         pipelineData.setStats(stats);
 
-        Pipeline pipeline = new Pipeline(Operation.DELETE, timeoutMs, TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.DELETE,
+                                         timeoutConfig.deleteTimeoutMs(),
+                                         TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
@@ -419,7 +429,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
-                                              timeoutMs);
+                                              timeoutConfig.deleteTimeoutMs());
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Boolean, BasicPipelineData<Boolean>>(pipelineData,
@@ -437,7 +447,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                                                        failureDetector,
                                                                                                        storeDef.getPreferredWrites(),
                                                                                                        storeDef.getRequiredWrites(),
-                                                                                                       timeoutMs,
+                                                                                                       timeoutConfig.deleteTimeoutMs(),
                                                                                                        nonblockingStores,
                                                                                                        hintedHandoff,
                                                                                                        version));
@@ -496,7 +506,9 @@ public class PipelineRoutedStore extends RoutedStore {
         pipelineData.setStoreName(name);
         pipelineData.setStats(stats);
 
-        Pipeline pipeline = new Pipeline(Operation.PUT, timeoutMs, TimeUnit.MILLISECONDS);
+        Pipeline pipeline = new Pipeline(Operation.PUT,
+                                         timeoutConfig.putTimeoutMs(),
+                                         TimeUnit.MILLISECONDS);
         pipeline.setEnableHintedHandoff(isHintedHandoffEnabled());
 
         HintedHandoff hintedHandoff = null;
@@ -507,7 +519,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                               nonblockingSlopStores,
                                               handoffStrategy,
                                               pipelineData.getFailedNodes(),
-                                              timeoutMs);
+                                              timeoutConfig.putTimeoutMs());
 
         pipeline.addEventAction(Event.STARTED,
                                 new ConfigureNodes<Void, PutPipelineData>(pipelineData,
@@ -537,7 +549,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                failureDetector,
                                                                storeDef.getPreferredWrites(),
                                                                storeDef.getRequiredWrites(),
-                                                               timeoutMs,
+                                                               timeoutConfig.putTimeoutMs(),
                                                                nonblockingStores,
                                                                hintedHandoff));
         if(isHintedHandoffEnabled()) {
