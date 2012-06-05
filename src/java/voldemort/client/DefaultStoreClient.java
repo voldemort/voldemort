@@ -138,7 +138,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     public void initializeSystemStores() {
         for(String storeName: SystemStoreConstants.SystemStoreName.) {
-            SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName,
+           SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName,
                                                                                config.getBootstrapUrls(),
                                                                                config.getClientZoneId());
             this.sysStoreMap.put(storeName, sysStore);
@@ -149,13 +149,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver, clientId);
-
-        logger.info("Creating System store");
-        String systemKey = storeName + "-client";
-        this.sysStore = new SystemStore<String, String>("voldsys$_client_registry",
-                                                        this.storeFactory);
-        sysStore.putSysStore(systemKey, "Registered");
-        logger.info("Getting value - " + sysStore.getSysStore(systemKey));
     }
 
     public boolean delete(K key) {
