@@ -34,6 +34,7 @@ public class SystemStoreConstants {
                                                      + "    </value-serializer>"
                                                      + "    <retention-days>7</retention-days>"
                                                      + "  </store>"
+
                                                      + "  <store>"
                                                      + "    <name>voldsys$_client_store_definition</name>"
                                                      + "    <routing-strategy>zone-routing</routing-strategy>"
@@ -50,7 +51,25 @@ public class SystemStoreConstants {
                                                      + "      <type>string</type>"
                                                      + "    </value-serializer>"
                                                      + "    <retention-days>7</retention-days>"
-                                                     + "  </store>" + "</stores>";
+                                                     + "  </store>"
+
+                                                     + "  <store>"
+                                                     + "    <name>voldsys$_metadata_version</name>"
+                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
+                                                     + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
+                                                     + "    <persistence>memory</persistence>"
+                                                     + "    <routing>client</routing>"
+                                                     + "    <replication-factor>1</replication-factor>"
+                                                     + "    <required-reads>1</required-reads>"
+                                                     + "    <required-writes>1</required-writes>"
+                                                     + "    <key-serializer>"
+                                                     + "      <type>string</type>"
+                                                     + "    </key-serializer>"
+                                                     + "    <value-serializer>"
+                                                     + "      <type>java-serialization</type>"
+                                                     + "    </value-serializer>" + "  </store>"
+
+                                                     + "</stores>";
 
     public static boolean isSystemStore(String storeName) {
         return (null == storeName ? false : storeName.startsWith(NAME_PREFIX));

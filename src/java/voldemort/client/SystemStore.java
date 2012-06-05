@@ -19,14 +19,11 @@ public class SystemStore<K, V> {
     private final String storeName;
     private volatile Store<K, V, Object> sysStore;
 
-    SystemStore(String storeName, StoreClientFactory factory) {
+    public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
         if(!SystemStoreConstants.NAME_PREFIX.equals(prefix))
             throw new VoldemortException("Illegal system store : " + storeName);
-        if(!(factory instanceof SocketStoreClientFactory))
-            throw new VoldemortException("System store cannot be created without a Socket store client factory");
 
-        SocketStoreClientFactory clientFactory = (SocketStoreClientFactory) factory;
         ClientConfig config = new ClientConfig();
         config.setSelectors(1)
               .setBootstrapUrls(config.getBootstrapUrls())
@@ -43,7 +40,7 @@ public class SystemStore<K, V> {
     }
 
     public void putSysStore(K key, V value) throws VoldemortException {
-        logger.info("Invoking Put for key : " + key + " on store name : " + this.storeName);
+        logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
         Versioned<V> versioned = getSysStore(key);
         if(versioned == null)
             versioned = Versioned.value(value, new VectorClock());
@@ -53,12 +50,12 @@ public class SystemStore<K, V> {
     }
 
     public void putSysStore(K key, Versioned<V> value) throws VoldemortException {
-        logger.info("Invoking Put for key : " + key + " on store name : " + this.storeName);
+        logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
         this.sysStore.put(key, value, null);
     }
 
     public Versioned<V> getSysStore(K key) throws VoldemortException {
-        logger.info("Invoking Get for key : " + key + " on store name : " + this.storeName);
+        logger.debug("Invoking Get for key : " + key + " on store name : " + this.storeName);
         Versioned<V> versioned = null;
         List<Versioned<V>> items = this.sysStore.get(key, null);
         if(items.size() == 1)
@@ -67,19 +64,19 @@ public class SystemStore<K, V> {
             throw new InconsistentDataException("Unresolved versions returned from get(" + key
                                                 + ") = " + items, items);
         if(versioned != null)
-            logger.info("Value for key : " + key + " = " + versioned.getValue()
-                        + " on store name : " + this.storeName);
+            logger.debug("Value for key : " + key + " = " + versioned.getValue()
+                         + " on store name : " + this.storeName);
         else
-            logger.info("Got null value");
+            logger.debug("Got null value");
         return versioned;
     }
 
     public V getValueSysStore(K key) throws VoldemortException {
-        logger.info("Invoking Get for key : " + key + " on store name : " + this.storeName);
+        logger.debug("Invoking Get for key : " + key + " on store name : " + this.storeName);
         Versioned<V> versioned = getSysStore(key);
         if(versioned != null) {
-            logger.info("Value for key : " + key + " = " + versioned.getValue()
-                        + " on store name : " + this.storeName);
+            logger.debug("Value for key : " + key + " = " + versioned.getValue()
+                         + " on store name : " + this.storeName);
             return versioned.getValue();
         }
         return null;

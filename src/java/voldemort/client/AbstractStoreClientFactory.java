@@ -151,7 +151,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                             this,
                                             3,
                                             clientContextName,
-                                            sequencer.getAndIncrement());
+                                            sequencer.getAndIncrement(),
+                                            config);
     }
 
     @SuppressWarnings("unchecked")

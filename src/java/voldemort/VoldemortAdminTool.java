@@ -45,6 +45,7 @@ import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import voldemort.client.SystemStore;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -85,6 +86,7 @@ import com.google.common.collect.Sets;
 public class VoldemortAdminTool {
 
     private static final String ALL_METADATA = "all";
+    private static SystemStore<String, Long> sysStoreVersion = null;
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
@@ -249,6 +251,13 @@ public class VoldemortAdminTool {
         Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+
+        // Initialize the system store for stores.xml version
+        String[] bootstrapUrls = new String[1];
+        bootstrapUrls[0] = url;
+        sysStoreVersion = new SystemStore<String, Long>("voldsys$_metadata_version",
+                                                        bootstrapUrls,
+                                                        0);
 
         String ops = "";
         if(options.has("delete-partitions")) {
@@ -433,6 +442,10 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+
+                        // Update the store metadata version
+                        updateStoreMetadataversion();
+
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Rebalancing steal info file path incorrect");
@@ -720,6 +733,24 @@ public class VoldemortAdminTool {
         } else {
             System.out.println("false");
         }
+    }
+
+    /*
+     * TODO: For now write one version for the entire stores.xml When we split
+     * the stores.xml, make this more granular
+     */
+    private static void updateStoreMetadataversion() {
+        String versionKey = "stores.xml";
+        Versioned<Long> storesVersion = sysStoreVersion.getSysStore(versionKey);
+        if(storesVersion == null) {
+            System.err.println("Current version is null. Assuming version 0.");
+            storesVersion = new Versioned<Long>((long) 1);
+        } else {
+            System.out.println("Version obtained = " + storesVersion.getValue());
+            long newValue = storesVersion.getValue() + 1;
+            storesVersion.setObject(newValue);
+        }
+        sysStoreVersion.putSysStore(versionKey, storesVersion);
     }
 
     private static void executeSetMetadata(Integer nodeId,

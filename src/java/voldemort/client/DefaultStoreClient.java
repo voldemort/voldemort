@@ -16,10 +16,12 @@
 
 package voldemort.client;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
 
@@ -60,26 +62,37 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
     private final StoreClientFactory storeFactory;
 
+    private final ClientConfig config;
     private final int metadataRefreshAttempts;
     private final String storeName;
     private final InconsistencyResolver<Versioned<V>> resolver;
     private volatile Store<K, V, Object> store;
     private final UUID clientId;
-    private SystemStore<String, String> sysStore;
+    private final Map<String, SystemStore> sysStoreMap;
+    private AsyncMetadataVersionManager asyncCheckMetadata;
+
+    // Enumerate all the system stores
+    private final String METADATA_VERSION_STORE = "voldsys$_metadata_version";
+    private final String CLIENT_REGISTRY_STORE = "voldsys$_client_registry";
+    private final String STORE_DEFINITION_STORE = "voldsys$_client_store_definition";
+    private final String[] systemStoreNames = { METADATA_VERSION_STORE, CLIENT_REGISTRY_STORE,
+            STORE_DEFINITION_STORE };
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0);
+        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
     }
 
+    @SuppressWarnings("unchecked")
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts,
                               String clientContext,
-                              int clientSequence) {
+                              int clientSequence,
+                              ClientConfig config) {
 
         this.storeName = Utils.notNull(storeName);
         this.resolver = resolver;
@@ -88,6 +101,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.clientId = AbstractStoreClientFactory.generateClientId(storeName,
                                                                     clientContext,
                                                                     clientSequence);
+        this.config = config;
+
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
@@ -96,21 +111,50 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                                                  + storeName + "."
                                                                  + clientId.toString()));
         bootStrap();
+
+        // Initialize all the system stores
+        sysStoreMap = new HashMap<String, SystemStore>();
+        initializeSystemStores();
+
+        // Initialize the background thread for checking metadata version
+        if(config != null) {
+            SystemStore versionStore = this.sysStoreMap.get(METADATA_VERSION_STORE);
+            if(versionStore == null)
+                logger.info("Metadata version system store not found. Cannot run Metadata version check thread.");
+            else {
+                Callable<Void> bootstrapCallback = new Callable<Void>() {
+
+                    public Void call() throws Exception {
+                        bootStrap();
+                        return null;
+                    }
+                };
+
+                asyncCheckMetadata = new AsyncMetadataVersionManager(versionStore,
+                                                                     config.getAsyncCheckMetadataInterval(),
+                                                                     bootstrapCallback);
+                logger.info("Metadata version check thread started. Frequency = Every "
+                            + config.getAsyncCheckMetadataInterval() + " ms");
+            }
+        }
+
         logger.info("Voldemort client created: clientContext=" + clientContext + " clientSequence="
                     + clientSequence + " clientId=" + clientId.toString());
+    }
+
+    public void initializeSystemStores() {
+        for(String storeName: systemStoreNames) {
+            SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName,
+                                                                               config.getBootstrapUrls(),
+                                                                               config.getClientZoneId());
+            this.sysStoreMap.put(storeName, sysStore);
+        }
     }
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver, clientId);
-
-        logger.info("Creating System store");
-        String systemKey = storeName + "-client";
-        this.sysStore = new SystemStore<String, String>("voldsys$_client_registry",
-                                                        this.storeFactory);
-        sysStore.putSysStore(systemKey, "Registered");
-        logger.info("Getting value - " + sysStore.getSysStore(systemKey));
     }
 
     public boolean delete(K key) {
