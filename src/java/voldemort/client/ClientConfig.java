@@ -77,6 +77,7 @@ public class ClientConfig {
 
     private volatile int maxBootstrapRetries = 2;
     private volatile String clientContextName = "default";
+    private volatile long asyncCheckMetadataInterval = 5000;
 
     public ClientConfig() {}
 
@@ -112,6 +113,7 @@ public class ClientConfig {
     public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
     public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
+    public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval";
 
     /**
      * Instantiate the client config using a properties file
@@ -243,6 +245,10 @@ public class ClientConfig {
 
         if(props.containsKey(CLIENT_CONTEXT_NAME)) {
             this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME, null));
+        }
+
+        if(props.containsKey(ASYNC_CHECK_METADATA_INTERVAL)) {
+            this.setAsyncCheckMetadataInterval(props.getLong(ASYNC_CHECK_METADATA_INTERVAL, 5000));
         }
     }
 
@@ -647,6 +653,14 @@ public class ClientConfig {
     public ClientConfig setClientContextName(String clientContextName) {
         this.clientContextName = clientContextName;
         return this;
+    }
+
+    public long getAsyncCheckMetadataInterval() {
+        return asyncCheckMetadataInterval;
+    }
+
+    public void setAsyncCheckMetadataInterval(long asyncCheckMetadataInterval) {
+        this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
     }
 
 }

@@ -24,6 +24,8 @@ public class RoutingStrategyFactory {
             return new ZoneRoutingStrategy(cluster.getNodes(),
                                            storeDef.getZoneReplicationFactor(),
                                            storeDef.getReplicationFactor());
+        } else if(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY.equals(storeDef.getRoutingStrategyType())) {
+            return new RouteToAllLocalPrefStrategy(cluster.getNodes());
         } else {
             throw new VoldemortException("RoutingStrategyType:" + storeDef.getRoutingStrategyType()
                                          + " not handled by " + this.getClass());
