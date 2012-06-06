@@ -112,20 +112,19 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
 
-        assertEquals(list.size(), pool.getNumberSocketsCreated());
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
+        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
 
         pool.close(dest1);
 
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
-        assertEquals(0, pool.getNumberSocketsDestroyed());
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
+        assertEquals(0, pool.getStats().getConnectionsDestroyed());
 
         for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
-        assertEquals(0, pool.getNumberOfActiveConnections());
-        assertEquals(list.size(), pool.getNumberSocketsDestroyed());
-        assertEquals(0, pool.getNumberOfCheckedInConnections());
+        assertEquals(0, pool.getStats().getConnectionsActive(null));
+        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
     }
 
     @Test
