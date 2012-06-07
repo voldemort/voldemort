@@ -37,6 +37,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
@@ -61,6 +62,7 @@ public class ClientRequestExecutorFactory implements
     private final AtomicInteger counter = new AtomicInteger();
     private final Map<SocketDestination, Long> lastClosedTimestamps;
     private final Logger logger = Logger.getLogger(getClass());
+    private ClientSocketStats stats;
 
     public ClientRequestExecutorFactory(int selectors,
                                         int connectTimeoutMs,
@@ -94,6 +96,9 @@ public class ClientRequestExecutorFactory implements
             throws Exception {
         clientRequestExecutor.close();
         int numDestroyed = destroyed.incrementAndGet();
+        if(stats != null) {
+            stats.connectionDestroy(dest);
+        }
 
         if(logger.isDebugEnabled())
             logger.debug("Destroyed socket " + numDestroyed + " connection to " + dest.getHost()
@@ -108,6 +113,9 @@ public class ClientRequestExecutorFactory implements
 
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
         int numCreated = created.incrementAndGet();
+        if(stats != null) {
+            stats.connectionCreate(dest);
+        }
 
         if(logger.isDebugEnabled())
             logger.debug("Creating socket " + numCreated + " for " + dest.getHost() + ":"
@@ -424,6 +432,10 @@ public class ClientRequestExecutorFactory implements
 
     public void setLastClosedTimestamp(SocketDestination socketDestination) {
         lastClosedTimestamps.put(socketDestination, System.nanoTime());
+    }
+
+    public void setStats(ClientSocketStats stats) {
+        this.stats = stats;
     }
 
 }

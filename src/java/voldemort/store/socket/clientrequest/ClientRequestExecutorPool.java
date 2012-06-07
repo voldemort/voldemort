@@ -17,19 +17,17 @@
 package voldemort.store.socket.clientrequest;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxSetter;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.stats.ClientSocketStats;
+import voldemort.store.stats.ClientSocketStatsJmx;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
@@ -46,15 +44,11 @@ import voldemort.utils.pool.ResourcePoolConfig;
  * terminated upon calling {@link #close()}.
  */
 
-@JmxManaged(description = "Voldemort socket pool.")
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
-    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
-    private final AtomicInteger checkouts;
-    private final AtomicLong waitNs;
-    private final AtomicLong avgWaitNs;
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
+    private ClientSocketStats stats;
 
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
@@ -73,9 +67,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                         socketBufferSize,
                                                         socketKeepAlive);
         this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
-        this.checkouts = new AtomicInteger(0);
-        this.waitNs = new AtomicLong(0);
-        this.avgWaitNs = new AtomicLong(0);
+        this.stats = new ClientSocketStats(pool);
+        ((ClientRequestExecutorFactory) factory).setStats(stats);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -105,6 +98,13 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                requestRoutingType);
     }
 
+    public void registerJmx() {
+        stats.enableJmx();
+        JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                               JmxUtils.createObjectName("voldemort.store.socket.clientrequest",
+                                                         "aggregated"));
+    }
+
     /**
      * Checkout a socket from the pool
      * 
@@ -117,26 +117,15 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             // time checkout
             long start = System.nanoTime();
             ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-            updateStats(System.nanoTime() - start);
+            long end = System.nanoTime();
+            if(stats != null) {
+                stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
+            }
 
             return clientRequestExecutor;
         } catch(Exception e) {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
-        }
-    }
-
-    private void updateStats(long checkoutTimeNs) {
-        long wait = waitNs.getAndAdd(checkoutTimeNs);
-        int count = checkouts.getAndIncrement();
-
-        // reset reporting inverval if we have used up the current interval
-        int interval = this.monitoringInterval.get();
-        if(count % interval == interval - 1) {
-            // harmless race condition:
-            waitNs.set(0);
-            checkouts.set(0);
-            avgWaitNs.set(wait / count);
         }
     }
 
@@ -168,36 +157,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         pool.close();
     }
 
-    @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")
-    public int getNumberSocketsCreated() {
-        return this.factory.getNumberCreated();
-    }
-
-    @JmxGetter(name = "socketsDestroyed", description = "The total number of sockets destroyed by this pool.")
-    public int getNumberSocketsDestroyed() {
-        return this.factory.getNumberDestroyed();
-    }
-
-    @JmxGetter(name = "numberOfConnections", description = "The number of active connections.")
-    public int getNumberOfActiveConnections() {
-        return this.pool.getTotalResourceCount();
-    }
-
-    @JmxGetter(name = "numberOfIdleConnections", description = "The number of idle connections.")
-    public int getNumberOfCheckedInConnections() {
-        return this.pool.getCheckedInResourceCount();
-    }
-
-    @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
-    public double getAvgWaitTimeMs() {
-        return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;
-    }
-
-    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
-    public void setMonitoringInterval(int count) {
-        if(count <= 0)
-            throw new IllegalArgumentException("Monitoring interval must be a positive number.");
-        this.monitoringInterval.set(count);
+    public ClientSocketStats getStats() {
+        return stats;
     }
 
 }
