@@ -103,6 +103,7 @@
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
+      <src path="${largetestsrc.dir}" />
       <classpath refid="main-classpath" />
     </javac>
   </target>
@@ -387,6 +388,26 @@
     </junitreport>
   </target>
  
+  <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
+    <replace-dir dir="${testreport.dir}" />
+    <replace-dir dir="${testhtml.dir}" />
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+      <classpath refid="test-classpath" />
+      <formatter type="xml" />
+      <batchtest fork="yes" todir="${testreport.dir}">
+        <fileset dir="${largetestsrc.dir}">
+          <include name="**/*Test.java" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${testhtml.dir}">
+      <fileset dir="${testreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${testhtml.dir}" format="frames" />
+    </junitreport>
+  </target>
+
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="contrib-test-classpath" />
@@ -394,7 +415,7 @@
     </junit>
   </target>
 
-  <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
+  <target name="junit-all" depends="junit-long, contrib-junit" description="Run All junit tests including contrib.">
   </target>
 
   <macrodef name="make-javadocs">
