@@ -28,14 +28,14 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
  * 
  */
 @RunWith(Parameterized.class)
-public class RebalanceLargeTest extends AbstractRebalanceTest {
+public class RebalanceLongTest extends AbstractRebalanceTest {
 
     Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
     private final boolean useNio;
     private final boolean useDonorBased;
     protected static int NUM_MANY_KEYS = 10100;
 
-    public RebalanceLargeTest(boolean useNio, boolean useDonorBased) {
+    public RebalanceLongTest(boolean useNio, boolean useDonorBased) {
         this.useNio = useNio;
         this.useDonorBased = useDonorBased;
     }
