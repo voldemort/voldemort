@@ -103,7 +103,7 @@
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
-      <src path="${largetestsrc.dir}" />
+      <src path="${longtestsrc.dir}" />
       <classpath refid="main-classpath" />
     </javac>
   </target>
@@ -395,7 +395,7 @@
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
-        <fileset dir="${largetestsrc.dir}">
+        <fileset dir="${longtestsrc.dir}">
           <include name="**/*Test.java" />
         </fileset>
       </batchtest>
