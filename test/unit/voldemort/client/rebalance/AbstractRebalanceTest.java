@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -86,7 +86,7 @@ import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 10100;
+    protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -111,7 +111,7 @@ public abstract class AbstractRebalanceTest {
 
     @Before
     public void setUp() throws IOException {
-        testEntries = ServerTestUtils.createRandomKeyValueString(NUM_KEYS);
+        testEntries = ServerTestUtils.createRandomKeyValueString(getNumKeys());
         socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
 
         // First without replication
@@ -256,6 +256,10 @@ public abstract class AbstractRebalanceTest {
             assertEquals(targetCluster, getCurrentCluster(nodeId));
             assertEquals(MetadataStore.VoldemortState.NORMAL_SERVER, getCurrentState(nodeId));
         }
+    }
+
+    protected int getNumKeys() {
+        return NUM_KEYS;
     }
 
     @Test
@@ -1053,9 +1057,10 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(), getSocketStore(storeDef.getName(),
-                                                          node.getHost(),
-                                                          node.getSocketPort()));
+                storeMap.put(node.getId(),
+                             getSocketStore(storeDef.getName(),
+                                            node.getHost(),
+                                            node.getSocketPort()));
 
             }
 
