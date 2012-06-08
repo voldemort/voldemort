@@ -389,22 +389,22 @@
   </target>
  
   <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
-    <replace-dir dir="${testreport.dir}" />
-    <replace-dir dir="${testhtml.dir}" />
+    <replace-dir dir="${longtestreport.dir}" />
+    <replace-dir dir="${longtesthtml.dir}" />
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
-      <batchtest fork="yes" todir="${testreport.dir}">
+      <batchtest fork="yes" todir="${longtestreport.dir}">
         <fileset dir="${longtestsrc.dir}">
           <include name="**/*Test.java" />
         </fileset>
       </batchtest>
     </junit>
-    <junitreport todir="${testhtml.dir}">
-      <fileset dir="${testreport.dir}">
+    <junitreport todir="${longtesthtml.dir}">
+      <fileset dir="${longtestreport.dir}">
         <include name="TEST-*.xml" />
       </fileset>
-      <report todir="${testhtml.dir}" format="frames" />
+      <report todir="${longtesthtml.dir}" format="frames" />
     </junitreport>
   </target>
 
