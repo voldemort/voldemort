@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -37,7 +37,10 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.store.stats.ClientSocketStats;
+import voldemort.store.stats.ClientSocketStatsJmx;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -56,21 +59,27 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     private final SocketStoreFactory storeFactory;
     private FailureDetectorListener failureDetectorListener;
     private final RequestRoutingType requestRoutingType;
+    private final ClientSocketStats stats;
 
     public SocketStoreClientFactory(ClientConfig config) {
         super(config);
         this.requestRoutingType = RequestRoutingType.getRequestRoutingType(RoutingTier.SERVER.equals(config.getRoutingTier()),
                                                                            false);
-
+        if(config.isJmxEnabled()) {
+            stats = new ClientSocketStats();
+        } else {
+            stats = null;
+        }
         this.storeFactory = new ClientRequestExecutorPool(config.getSelectors(),
                                                           config.getMaxConnectionsPerNode(),
                                                           config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketBufferSize(),
-                                                          config.getSocketKeepAlive());
-        if(config.isJmxEnabled()) {
-            ((ClientRequestExecutorPool) storeFactory).registerJmx();
-        }
+                                                          config.getSocketKeepAlive(),
+                                                          stats);
+        JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
+                                                         "aggregated"));
     }
 
     @Override

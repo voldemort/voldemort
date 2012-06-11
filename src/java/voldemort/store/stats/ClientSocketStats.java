@@ -37,7 +37,7 @@ public class ClientSocketStats {
     private final ClientSocketStats parent;
     private final ConcurrentMap<SocketDestination, ClientSocketStats> statsMap;
     private final SocketDestination destination;
-    private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    private KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
     private final Histogram checkoutTimeUsHistogram = new Histogram(20000, 100);
@@ -46,9 +46,6 @@ public class ClientSocketStats {
     private final AtomicInteger connectionsCreated = new AtomicInteger(0);
     private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
     private final AtomicInteger connectionsCheckedout = new AtomicInteger(0);
-    private boolean jmxEnable = false;
-
-    // private final AtomicInteger connectionsCheckedin = new AtomicInteger(0);
 
     /**
      * To construct a per node stats object
@@ -72,11 +69,11 @@ public class ClientSocketStats {
      * 
      * @param pool The socket pool that will give out connection information
      */
-    public ClientSocketStats(KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
+    public ClientSocketStats() {
         this.parent = null;
         this.statsMap = new ConcurrentHashMap<SocketDestination, ClientSocketStats>();
         this.destination = null;
-        this.pool = pool;
+        this.pool = null;
     }
 
     /* get per node stats, create one if not exist */
@@ -89,14 +86,11 @@ public class ClientSocketStats {
             stats = new ClientSocketStats(this, destination, pool);
             statsMap.putIfAbsent(destination, stats);
             stats = statsMap.get(destination);
-            if(this.jmxEnable) {
-                JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
-                                       JmxUtils.createObjectName("voldemort.store.socket.clientrequest",
-                                                                 "stats_"
-                                                                         + destination.toString()
-                                                                                      .replace(':',
-                                                                                               '_')));
-            }
+            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
+                                                             "stats_"
+                                                                     + destination.toString()
+                                                                                  .replace(':', '_')));
         }
         return stats;
     }
@@ -173,10 +167,6 @@ public class ClientSocketStats {
         return connectionsDestroyed.intValue();
     }
 
-    // public int getConnectionsCheckedin() {
-    // return connectionsCheckedin.intValue();
-    // }
-
     public int getConnectionsCheckedout() {
         return connectionsCheckedout.intValue();
     }
@@ -216,8 +206,8 @@ public class ClientSocketStats {
         return this.monitoringInterval.get();
     }
 
-    public void enableJmx() {
-        jmxEnable = true;
+    public void setPool(KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
+        this.pool = pool;
     }
 
     ConcurrentMap<SocketDestination, ClientSocketStats> getStatsMap() {

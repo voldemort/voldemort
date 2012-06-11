@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -26,8 +26,6 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.stats.ClientSocketStats;
-import voldemort.store.stats.ClientSocketStatsJmx;
-import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
@@ -48,27 +46,48 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
-    private ClientSocketStats stats;
+    private final ClientSocketStats stats;
 
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
                                      int connectionTimeoutMs,
                                      int soTimeoutMs,
                                      int socketBufferSize,
-                                     boolean socketKeepAlive) {
+                                     boolean socketKeepAlive,
+                                     ClientSocketStats stats) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
                                                             .setMaxPoolSize(maxConnectionsPerNode)
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
+
+        this.stats = stats;
         this.factory = new ClientRequestExecutorFactory(selectors,
                                                         connectionTimeoutMs,
                                                         soTimeoutMs,
                                                         socketBufferSize,
-                                                        socketKeepAlive);
+                                                        socketKeepAlive,
+                                                        stats);
         this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
-        this.stats = new ClientSocketStats(pool);
-        ((ClientRequestExecutorFactory) factory).setStats(stats);
+        if(stats != null) {
+            this.stats.setPool(pool);
+        }
+    }
+
+    // JMX bean is disabled by default
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive) {
+        this(selectors,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             socketKeepAlive,
+             null);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -96,13 +115,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                dest,
                                this,
                                requestRoutingType);
-    }
-
-    public void registerJmx() {
-        stats.enableJmx();
-        JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
-                               JmxUtils.createObjectName("voldemort.store.socket.clientrequest",
-                                                         "aggregated"));
     }
 
     /**
@@ -155,6 +167,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     public void close() {
         factory.close();
         pool.close();
+
     }
 
     public ClientSocketStats getStats() {

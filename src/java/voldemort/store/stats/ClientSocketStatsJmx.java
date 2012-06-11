@@ -60,7 +60,7 @@ public class ClientSocketStatsJmx {
     }
 
     @JmxGetter(name = "waitMsQ50th", description = "50th percentile wait time to get a connection.")
-    public double get() {
+    public double getWaitMsQ50th() {
         return (double) stats.getWaitHistogram().getQuantile(0.5) / Time.US_PER_MS;
     }
 

@@ -41,7 +41,7 @@ public class ClientSocketStatsTest {
         this.port = ServerTestUtils.findFreePort();
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         this.dest2 = new SocketDestination("localhost", port + 1, RequestFormatType.VOLDEMORT_V1);
-        this.masterStats = new ClientSocketStats(null);
+        this.masterStats = new ClientSocketStats();
         pool = null;
     }
 

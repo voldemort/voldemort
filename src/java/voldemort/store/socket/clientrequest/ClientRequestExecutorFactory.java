@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -62,19 +62,21 @@ public class ClientRequestExecutorFactory implements
     private final AtomicInteger counter = new AtomicInteger();
     private final Map<SocketDestination, Long> lastClosedTimestamps;
     private final Logger logger = Logger.getLogger(getClass());
-    private ClientSocketStats stats;
+    private final ClientSocketStats stats;
 
     public ClientRequestExecutorFactory(int selectors,
                                         int connectTimeoutMs,
                                         int soTimeoutMs,
                                         int socketBufferSize,
-                                        boolean socketKeepAlive) {
+                                        boolean socketKeepAlive,
+                                        ClientSocketStats stats) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
         this.socketKeepAlive = socketKeepAlive;
+        this.stats = stats;
 
         this.selectorManagers = new ClientRequestSelectorManager[selectors];
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
@@ -113,10 +115,6 @@ public class ClientRequestExecutorFactory implements
 
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
         int numCreated = created.incrementAndGet();
-        if(stats != null) {
-            stats.connectionCreate(dest);
-        }
-
         if(logger.isDebugEnabled())
             logger.debug("Creating socket " + numCreated + " for " + dest.getHost() + ":"
                          + dest.getPort() + " using protocol "
@@ -222,6 +220,10 @@ public class ClientRequestExecutorFactory implements
             }
 
             throw e;
+        }
+
+        if(stats != null) {
+            stats.connectionCreate(dest);
         }
 
         return clientRequestExecutor;
@@ -433,9 +435,4 @@ public class ClientRequestExecutorFactory implements
     public void setLastClosedTimestamp(SocketDestination socketDestination) {
         lastClosedTimestamps.put(socketDestination, System.nanoTime());
     }
-
-    public void setStats(ClientSocketStats stats) {
-        this.stats = stats;
-    }
-
 }
