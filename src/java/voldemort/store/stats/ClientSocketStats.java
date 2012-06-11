@@ -210,7 +210,7 @@ public class ClientSocketStats {
         this.pool = pool;
     }
 
-    ConcurrentMap<SocketDestination, ClientSocketStats> getStatsMap() {
+    public ConcurrentMap<SocketDestination, ClientSocketStats> getStatsMap() {
         return statsMap;
     }
 
