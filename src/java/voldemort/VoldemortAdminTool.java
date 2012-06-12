@@ -32,6 +32,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,7 @@ import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
@@ -792,9 +794,8 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId,
-                                             key,
-                                             Versioned.value(value.toString(), updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
+                                                                                 updatedVersion));
         }
     }
 
@@ -972,7 +973,7 @@ public class VoldemortAdminTool {
 
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
-        Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
+        HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
         }
@@ -986,8 +987,14 @@ public class VoldemortAdminTool {
         }
         List<String> stores = storeNames;
         if(stores == null) {
+            // when no stores specified, all user defined store will be fetched,
+            // but not system stores.
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
+        } else {
+            // add system store to the map so they can be fetched when specified
+            // explicitly
+            storeDefinitionMap.putAll(getSystemStoreDef());
         }
 
         // Pick up all the partitions
@@ -1003,6 +1010,7 @@ public class VoldemortAdminTool {
             storeDefinition = storeDefinitionMap.get(store);
 
             if(null == storeDefinition) {
+
                 System.out.println("No store found under the name \'" + store + "\'");
                 continue;
             } else {
@@ -1029,6 +1037,15 @@ public class VoldemortAdminTool {
             if(outputFile != null)
                 System.out.println("Fetched keys from " + store + " to " + outputFile);
         }
+    }
+
+    private static Map<String, StoreDefinition> getSystemStoreDef() {
+        Map<String, StoreDefinition> sysStoreDef = Maps.newHashMap();
+        List<StoreDefinition> storesDefs = SystemStoreConstants.getAllSystemStoreDefs();
+        for(StoreDefinition def: storesDefs) {
+            sysStoreDef.put(def.getName(), def);
+        }
+        return sysStoreDef;
     }
 
     private static void executeUpdateEntries(Integer nodeId,

@@ -22,8 +22,8 @@ import java.util.List;
 
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.server.SystemStoreConstants;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;

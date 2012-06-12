@@ -23,6 +23,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Handle;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.EventThrottler;
@@ -81,7 +82,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.handle = stats.makeHandle(operation, replicaToPartitionList);
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
-        this.storeDef = metadataStore.getStoreDef(request.getStore());
+        this.storeDef = getStoreDef(request.getStore(), metadataStore);
         if(request.hasInitialCluster()) {
             this.initialCluster = new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()));
         } else {
@@ -103,6 +104,16 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
             this.skipRecords = request.getSkipRecords() + 1;
         }
+    }
+
+    private StoreDefinition getStoreDef(String store, MetadataStore metadataStore) {
+        StoreDefinition def = null;
+        if(SystemStoreConstants.isSystemStore(store)) {
+            def = SystemStoreConstants.getSystemStoreDef(store);
+        } else {
+            def = metadataStore.getStoreDef(request.getStore());
+        }
+        return def;
     }
 
     public final StreamRequestDirection getDirection() {

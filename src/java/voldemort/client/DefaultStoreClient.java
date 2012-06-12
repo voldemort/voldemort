@@ -73,6 +73,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final Map<String, SystemStore> sysStoreMap;
     private AsyncMetadataVersionManager asyncCheckMetadata;
 
+    private ClientInfo clientInfo;
+
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
@@ -93,9 +95,11 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-        this.clientId = AbstractStoreClientFactory.generateClientId(storeName,
-                                                                    clientContext,
-                                                                    clientSequence);
+        this.clientInfo = new ClientInfo(storeName,
+                                         clientContext,
+                                         clientSequence,
+                                         System.currentTimeMillis());
+        this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
         this.config = config;
 
         // Registering self to be able to bootstrap client dynamically via JMX
@@ -108,55 +112,70 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         bootStrap();
 
         // Initialize all the system stores
-        sysStoreMap = new HashMap<String, SystemStore>();
-        initializeSystemStores();
+        sysStoreMap = createSystemStores();
 
         // Initialize the background thread for checking metadata version
         if(config != null) {
-            SystemStore versionStore = this.sysStoreMap.get(METADATA_VERSION_STORE);
-            if(versionStore == null)
-                logger.info("Metadata version system store not found. Cannot run Metadata version check thread.");
-            else {
-                Callable<Void> bootstrapCallback = new Callable<Void>() {
-
-                    public Void call() throws Exception {
-                        bootStrap();
-                        return null;
-                    }
-                };
-
-                asyncCheckMetadata = new AsyncMetadataVersionManager(versionStore,
-                                                                     config.getAsyncCheckMetadataInterval(),
-                                                                     bootstrapCallback);
-                logger.info("Metadata version check thread started. Frequency = Every "
-                            + config.getAsyncCheckMetadataInterval() + " ms");
-            }
+            asyncCheckMetadata = createMetadataChecker();
         }
 
+        registerClient();
         logger.info("Voldemort client created: clientContext=" + clientContext + " clientSequence="
                     + clientSequence + " clientId=" + clientId.toString());
     }
 
-    public void initializeSystemStores() {
-        for(String storeName: SystemStoreConstants.SystemStoreName.) {
-           SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName,
+    private void registerClient() {
+        String name = SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name();
+        SystemStore<String, ClientInfo> clientRegistry = sysStoreMap.get(name);
+        if(null != clientRegistry) {
+            try {
+                clientRegistry.putSysStore(clientId.toString(), clientInfo);
+            } catch(Exception e) {
+                logger.warn("Unable to register with the cluster due to the following error:", e);
+            }
+        } else {
+            logger.warn(name + "not found. Unable to registry with voldemort cluster.");
+        }
+    }
+
+    private Map<String, SystemStore> createSystemStores() {
+        Map<String, SystemStore> systemStores = new HashMap<String, SystemStore>();
+        for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
+            SystemStore<String, Long> sysStore = new SystemStore<String, Long>(storeName.name(),
                                                                                config.getBootstrapUrls(),
                                                                                config.getClientZoneId());
-            this.sysStoreMap.put(storeName, sysStore);
+            systemStores.put(storeName.name(), sysStore);
         }
+        return systemStores;
+    }
+
+    private AsyncMetadataVersionManager createMetadataChecker() {
+        AsyncMetadataVersionManager asyncCheckMetadata = null;
+        SystemStore versionStore = this.sysStoreMap.get(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name());
+        if(versionStore == null)
+            logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
+        else {
+            Callable<Void> bootstrapCallback = new Callable<Void>() {
+
+                public Void call() throws Exception {
+                    bootStrap();
+                    return null;
+                }
+            };
+
+            asyncCheckMetadata = new AsyncMetadataVersionManager(versionStore,
+                                                                 config.getAsyncCheckMetadataInterval(),
+                                                                 bootstrapCallback);
+            logger.info("Metadata version check thread started. Frequency = Every "
+                        + config.getAsyncCheckMetadataInterval() + " ms");
+        }
+        return asyncCheckMetadata;
     }
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
         this.store = storeFactory.getRawStore(storeName, resolver, clientId);
-
-        logger.info("Creating System store");
-        String systemKey = storeName + "-client";
-        this.sysStore = new SystemStore<String, String>("voldsys$_client_registry",
-                                                        this.storeFactory);
-        sysStore.putSysStore(systemKey, "Registered");
-        logger.info("Getting value - " + sysStore.getSysStore(systemKey));
     }
 
     public boolean delete(K key) {

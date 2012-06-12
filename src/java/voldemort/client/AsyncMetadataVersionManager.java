@@ -90,7 +90,7 @@ public class AsyncMetadataVersionManager implements Runnable {
 
             // If version obtained is null, the store is untouched. Continue
             if(newVersion == null) {
-                logger.info("Metadata unchanged after creation ...");
+                logger.debug("Metadata unchanged after creation ...");
                 continue;
             }
 
