@@ -217,4 +217,21 @@ public class ClientSocketStats {
     SocketDestination getDestination() {
         return destination;
     }
+
+    /**
+     * Unregister all MBeans
+     */
+    public void close() {
+        Iterator<SocketDestination> it = getStatsMap().keySet().iterator();
+        while(it.hasNext()) {
+            try {
+                SocketDestination destination = it.next();
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
+                                                                   "stats_"
+                                                                           + destination.toString()
+                                                                                        .replace(':',
+                                                                                                 '_')));
+            } catch(Exception e) {}
+        }
+    }
 }

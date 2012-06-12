@@ -16,7 +16,6 @@
 
 package voldemort.store.socket.clientrequest;
 
-import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
@@ -176,23 +175,14 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     public void close() {
         // unregister MBeans
         if(stats != null) {
-            Iterator<SocketDestination> it = stats.getStatsMap().keySet().iterator();
-            while(it.hasNext()) {
-                try {
-                    SocketDestination destination = it.next();
-                    JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
-                                                                       "stats_"
-                                                                               + destination.toString()
-                                                                                            .replace(':',
-                                                                                                     '_')));
-                } catch(Exception e) {}
-            }
-            JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
-                                                               "aggregated"));
+            try {
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
+                                                                   "aggregated"));
+            } catch(Exception e) {}
+            stats.close();
         }
         factory.close();
         pool.close();
-
     }
 
     public ClientSocketStats getStats() {
