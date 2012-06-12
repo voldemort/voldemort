@@ -31,8 +31,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -49,8 +49,8 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
-import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto;
+import voldemort.client.protocol.pb.VAdminProto.RebalancePartitionInfoMap;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
@@ -72,6 +72,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -962,9 +963,9 @@ public class AdminClient {
     private HashMap<Integer, List<Integer>> getReplicaToPartitionMap(int nodeId,
                                                                      String storeName,
                                                                      List<Integer> partitions) {
-
-        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(getRemoteStoreDefList(nodeId).getValue(),
-                                                                        storeName);
+        List<StoreDefinition> allStoreDefs = getRemoteStoreDefList(nodeId).getValue();
+        allStoreDefs.addAll(SystemStoreConstants.getAllSystemStoreDefs());
+        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(allStoreDefs, storeName);
         HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
         for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
             replicaToPartitionList.put(replicaNum, partitions);

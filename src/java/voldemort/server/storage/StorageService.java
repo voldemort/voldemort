@@ -18,7 +18,6 @@ package voldemort.server.storage;
 
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
-import java.io.StringReader;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -55,7 +54,6 @@ import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
 import voldemort.server.StoreRepository;
-import voldemort.server.SystemStoreConstants;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
 import voldemort.server.scheduler.SchedulerService;
@@ -84,6 +82,7 @@ import voldemort.store.stats.DataSetStats;
 import voldemort.store.stats.StatTrackingStore;
 import voldemort.store.stats.StoreStats;
 import voldemort.store.stats.StoreStatsJmx;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.store.views.ViewStorageEngine;
@@ -100,7 +99,6 @@ import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
-import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * The service responsible for managing all storage types
@@ -209,7 +207,7 @@ public class StorageService extends AbstractService {
     }
 
     private void initSystemStores() {
-        List<StoreDefinition> storesDefs = (new StoreDefinitionsMapper()).readStoreList(new StringReader(SystemStoreConstants.SYSTEM_STORE_SCHEMA));
+        List<StoreDefinition> storesDefs = SystemStoreConstants.getAllSystemStoreDefs();
 
         // TODO: replication factor can't now be determined unless the
         // cluster.xml is made available to the server at runtime. So we need to

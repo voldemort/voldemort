@@ -46,11 +46,11 @@ import voldemort.client.RoutingTier;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.Compression;
 import voldemort.serialization.SerializerDefinition;
-import voldemort.server.SystemStoreConstants;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 

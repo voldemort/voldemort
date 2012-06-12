@@ -16,13 +16,9 @@
 
 package voldemort.client;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.StringReader;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -193,8 +189,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
                 storeDef = d;
-        if(storeDef == null)
+        if(storeDef == null) {
+            logger.error("Bootstrap - unknown store: " + storeName);
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug(cluster.toString(true));
@@ -454,27 +452,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
      * @param clientSequence the client sequence number
      * @return unique client ID
      */
-    public static UUID generateClientId(String storeName, String contextName, int clientSequence) {
+    public static UUID generateClientId(ClientInfo clientInfo) {
+        String contextName = clientInfo.getContext();
+        int clientSequence = clientInfo.getClientSequence();
+
         String newLine = System.getProperty("line.separator");
         StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
         context.append(0 == clientSequence ? "" : ("." + clientSequence));
-        context.append(".").append(storeName);
-
-        try {
-            InetAddress host = InetAddress.getLocalHost();
-            context.append("@").append(host.getHostName()).append(":");
-        } catch(UnknownHostException e) {
-            logger.info("Unable to obtain client hostname.");
-            logger.info(e.getMessage());
-        }
-
-        try {
-            String currentPath = new File(".").getCanonicalPath();
-            context.append(currentPath).append(newLine);
-        } catch(IOException e) {
-            logger.info("Unable to obtain client run path.");
-            logger.info(e.getMessage());
-        }
+        context.append(".").append(clientInfo.getStoreName());
+        context.append("@").append(clientInfo.getLocalHostName()).append(":");
+        context.append(clientInfo.getDeploymentPath()).append(newLine);
 
         if(logger.isDebugEnabled()) {
             logger.debug(context.toString());
@@ -482,4 +469,5 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         return UUID.nameUUIDFromBytes(context.toString().getBytes());
     }
+
 }
