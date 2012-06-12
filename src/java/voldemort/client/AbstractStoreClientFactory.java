@@ -305,7 +305,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
-        throw new BootstrapFailureException("No available boostrap servers found!");
+        throw new BootstrapFailureException("No available bootstrap servers found!");
     }
 
     public String bootstrapMetadataWithRetries(String key) {
