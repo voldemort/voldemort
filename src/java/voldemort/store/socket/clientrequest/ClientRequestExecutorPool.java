@@ -27,6 +27,7 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.stats.ClientSocketStats;
+import voldemort.store.stats.ClientSocketStatsJmx;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
@@ -56,14 +57,20 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive,
-                                     ClientSocketStats stats) {
+                                     boolean enableJmx) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
                                                             .setMaxPoolSize(maxConnectionsPerNode)
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
-
-        this.stats = stats;
+        if(enableJmx) {
+            stats = new ClientSocketStats();
+            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             "aggregated"));
+        } else {
+            stats = null;
+        }
         this.factory = new ClientRequestExecutorFactory(selectors,
                                                         connectionTimeoutMs,
                                                         soTimeoutMs,
@@ -76,20 +83,20 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
-    // JMX bean is disabled by default
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
                                      int connectionTimeoutMs,
                                      int soTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive) {
+        // JMX bean is disabled by default
         this(selectors,
              maxConnectionsPerNode,
              connectionTimeoutMs,
              soTimeoutMs,
              socketBufferSize,
              socketKeepAlive,
-             null);
+             false);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,

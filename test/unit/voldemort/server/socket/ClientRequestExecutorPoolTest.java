@@ -69,7 +69,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
     @Override
     @Before
     public void setUp() {
-        this.stats = new ClientSocketStats();
         this.port = ServerTestUtils.findFreePort();
         this.pool = new ClientRequestExecutorPool(2,
                                                   maxConnectionsPerNode,
@@ -77,7 +76,7 @@ public class ClientRequestExecutorPoolTest extends TestCase {
                                                   1000,
                                                   32 * 1024,
                                                   false,
-                                                  stats);
+                                                  true);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,
