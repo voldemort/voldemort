@@ -133,20 +133,21 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
 
     public ClientRequestExecutor checkout(SocketDestination destination) {
+        // time checkout
+        long start = System.nanoTime();
+        ClientRequestExecutor clientRequestExecutor;
         try {
-            // time checkout
-            long start = System.nanoTime();
-            ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
+            clientRequestExecutor = pool.checkout(destination);
+        } catch(Exception e) {
+            throw new UnreachableStoreException("Failure while checking out socket for "
+                                                + destination + ": ", e);
+        } finally {
             long end = System.nanoTime();
             if(stats != null) {
                 stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
             }
-
-            return clientRequestExecutor;
-        } catch(Exception e) {
-            throw new UnreachableStoreException("Failure while checking out socket for "
-                                                + destination + ": ", e);
         }
+        return clientRequestExecutor;
     }
 
     /**
