@@ -43,6 +43,7 @@ if [ ! -f .libs/libsnappy.a ]; then
   make                                        
 fi                                            
 cd ../leveldb                                 
+git checkout c8c5866a86c8
 export LIBRARY_PATH=`cd ../snappy-1.0.4; pwd` 
 export LIBRARY_PATH=`cd ../snappy-1.0.4/.libs; pwd`:$LIBRARY_PATH 
 export C_INCLUDE_PATH=${LIBRARY_PATH}         
