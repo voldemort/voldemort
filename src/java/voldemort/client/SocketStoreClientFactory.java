@@ -70,7 +70,10 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive());
         if(config.isJmxEnabled())
-            JmxUtils.registerMbean(storeFactory, JmxUtils.createObjectName(storeFactory.getClass()));
+            JmxUtils.registerMbean(storeFactory,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
+                                                             JmxUtils.getClassName(storeFactory.getClass())
+                                                                     + jmxId()));
     }
 
     @Override
@@ -87,7 +90,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         return getParentStoreClient(storeName, resolver);
     }
 
-    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName, InconsistencyResolver<Versioned<V>> resolver) {
+    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName,
+                                                          InconsistencyResolver<Versioned<V>> resolver) {
         return super.getStoreClient(storeName, resolver);
     }
 
@@ -96,7 +100,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         try {
             return super.getRemoteMetadata(key, url);
         } catch(VoldemortException e) {
-            // Fix SNA-4227: When an error occurs during bootstrap, close the socket
+            // Fix SNA-4227: When an error occurs during bootstrap, close the
+            // socket
             SocketDestination destination = new SocketDestination(url.getHost(),
                                                                   url.getPort(),
                                                                   getRequestFormatType());

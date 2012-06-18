@@ -274,8 +274,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
-                if(result == null)
+                if(result == null) {
                     failureDetector = result = initFailureDetector(config, cluster.getNodes());
+                    JmxUtils.registerMbean(failureDetector,
+                                           JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                     JmxUtils.getClassName(failureDetector.getClass())
+                                                                             + jmxId()));
+                }
             }
         }
 
@@ -400,7 +405,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     /* Give a unique id to avoid jmx clashes */
-    private String jmxId() {
+    public String jmxId() {
         return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
