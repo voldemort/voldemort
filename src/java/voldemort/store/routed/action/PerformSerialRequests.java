@@ -66,6 +66,20 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
         this.insufficientSuccessesEvent = insufficientSuccessesEvent;
     }
 
+    /**
+     * Checks whether every property except 'preferred' is satisfied
+     * 
+     * @return
+     */
+    private boolean isSatisfied() {
+        if(pipelineData.getZonesRequired() != null) {
+            return ((pipelineData.getSuccesses() >= required) && (pipelineData.getZoneResponses()
+                                                                              .size() >= (pipelineData.getZonesRequired() + 1)));
+        } else {
+            return pipelineData.getSuccesses() >= required;
+        }
+    }
+
     public void execute(Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
 
@@ -95,6 +109,10 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                     return;
             }
 
+            // break out if we have satisfied everything
+            if(isSatisfied())
+                break;
+
             pipelineData.incrementNodeIndex();
         }
 
@@ -123,6 +141,14 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
                     pipeline.addEvent(completeEvent);
                 } else {
+                    // if you run with zoneCountReads > 0, we could frequently
+                    // run into this exception since our preference list for
+                    // zone routing is laid out thus : <a node from each of
+                    // 'zoneCountReads' zones>, <nodes from local zone>, <nodes
+                    // from remote zone1>, <nodes from remote zone2>,...
+                    // #preferred number of reads may not be able to satisfy
+                    // zoneCountReads, if the original read to a remote node
+                    // fails in the parallel stage
                     pipelineData.setFatalError(new InsufficientZoneResponsesException((pipelineData.getZonesRequired() + 1)
                                                                                       + " "
                                                                                       + pipeline.getOperation()
@@ -139,5 +165,4 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
             }
         }
     }
-
 }
