@@ -171,4 +171,63 @@ public class ClientSocketStatsTest {
         assertEquals(-1, child2.getAveWaitUs());
         assertEquals(0, child2.getConnectionsCheckedout());
     }
+
+    @Test
+    public void concurrentTest() {
+        SocketDestination dest3 = new SocketDestination("localhost",
+                                                        dest1.getPort() + 2,
+                                                        RequestFormatType.VOLDEMORT_V1);
+        SocketDestination dest4 = new SocketDestination("localhost",
+                                                        dest1.getPort() + 3,
+                                                        RequestFormatType.VOLDEMORT_V1);
+        class TestThread implements Runnable {
+
+            SocketDestination dest;
+
+            public TestThread(SocketDestination dest) {
+                this.dest = dest;
+            }
+
+            public void run() {
+                masterStats.recordCheckoutTimeUs(dest, 1000);
+                masterStats.recordCheckoutTimeUs(dest, 2000);
+                masterStats.recordCheckoutTimeUs(dest, 3000);
+                masterStats.recordCheckoutTimeUs(dest, 4000);
+                masterStats.recordCheckoutTimeUs(dest, 5000);
+                masterStats.recordCheckoutTimeUs(dest, 6000);
+                masterStats.recordCheckoutTimeUs(dest, 7000);
+                masterStats.recordCheckoutTimeUs(dest, 8000);
+                masterStats.recordCheckoutTimeUs(dest, 9000);
+            }
+        }
+        Thread t1 = new Thread(new TestThread(dest1));
+        Thread t1_1 = new Thread(new TestThread(dest1));
+        Thread t1_2 = new Thread(new TestThread(dest1));
+        Thread t1_3 = new Thread(new TestThread(dest1));
+        Thread t2 = new Thread(new TestThread(dest2));
+        Thread t2_1 = new Thread(new TestThread(dest2));
+        t1.start();
+        t2.start();
+        t2_1.start();
+        t1_1.start();
+        t1_2.start();
+        t1_3.start();
+        try {
+            t1.join();
+            t2.join();
+            t2_1.join();
+            t1_1.join();
+            t1_2.join();
+            t1_3.join();
+        } catch(Exception e) {}
+        assertEquals(masterStats.getWaitHistogram().getQuantile(0.01), 1000);
+        assertEquals(masterStats.getWaitHistogram().getQuantile(0.5), 5000);
+
+        assertEquals(masterStats.getStatsMap().get(dest1).getWaitHistogram().getQuantile(0.01),
+                     1000);
+        assertEquals(masterStats.getStatsMap().get(dest1).getWaitHistogram().getQuantile(0.5), 5000);
+        assertEquals(masterStats.getStatsMap().get(dest2).getWaitHistogram().getQuantile(0.01),
+                     1000);
+        assertEquals(masterStats.getStatsMap().get(dest2).getWaitHistogram().getQuantile(0.5), 5000);
+    }
 }
