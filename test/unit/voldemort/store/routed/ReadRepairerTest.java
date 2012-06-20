@@ -46,6 +46,7 @@ import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortTestConstants;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -56,7 +57,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
-import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Iterables;

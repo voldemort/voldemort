@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,6 +46,8 @@ import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
+import voldemort.client.TimeoutConfig;
+import voldemort.client.VoldemortOperation;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
@@ -74,7 +75,6 @@ import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
-import voldemort.utils.TimeoutConfig;
 import voldemort.utils.Utils;
 import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
@@ -818,7 +818,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         TimeoutConfig timeoutConfig = new TimeoutConfig(1500, true);
         // This means, the getall will only succeed on two of the nodes
-        timeoutConfig.getAllTimeoutMs(250, TimeUnit.MILLISECONDS);
+        timeoutConfig.setOperationTimeout(VoldemortOperation.GETALL, 250);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        timeoutConfig);
@@ -1190,7 +1190,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // with a 500ms general timeout and a 100ms get timeout, only get should
         // fail
         TimeoutConfig timeoutConfig = new TimeoutConfig(1500, false);
-        timeoutConfig.getTimeoutMs(100, TimeUnit.MILLISECONDS);
+        timeoutConfig.setOperationTimeout(VoldemortOperation.GET, 100);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        timeoutConfig);

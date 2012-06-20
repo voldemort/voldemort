@@ -30,6 +30,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -61,7 +62,6 @@ import voldemort.store.slop.SlopStorageEngine;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 

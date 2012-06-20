@@ -36,6 +36,8 @@ import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
+import voldemort.client.VoldemortOperation;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -48,7 +50,6 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
-import voldemort.utils.TimeoutConfig;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -208,7 +209,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         } else {
             for(int i = 0; i < numNodes; i++) {
                 try {
-                    long timeoutMs = timeoutConfig.deleteTimeoutMs();
+                    long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOperation.DELETE);
                     boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
                     if(!acquired)
                         logger.warn("Delete operation timed out waiting for operation " + i
@@ -302,7 +303,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             keyToSuccessCount.put(key, new MutableInt(0));
 
         List<Future<GetAllResult>> futures;
-        long timeoutMs = timeoutConfig.getAllTimeoutMs();
+        long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOperation.GETALL);
         try {
             // TODO What to do about timeouts? They should be longer as getAll
             // is likely to
@@ -465,8 +466,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         }
 
         List<Future<GetResult<R>>> futures;
-        long timeoutMs = (fetcher == VERSION_OP) ? timeoutConfig.getVersionsTimeoutMs()
-                                                : timeoutConfig.getTimeoutMs();
+        long timeoutMs = (fetcher == VERSION_OP) ? timeoutConfig.getOperationTimeout(VoldemortOperation.GETVERSIONS)
+                                                : timeoutConfig.getOperationTimeout(VoldemortOperation.GET);
         try {
             futures = executor.invokeAll(callables, timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
@@ -773,7 +774,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         for(int i = startingIndex; i < blockCount; i++) {
             try {
                 long ellapsedNs = System.nanoTime() - startNs;
-                long remainingNs = (timeoutConfig.putTimeoutMs() * Time.NS_PER_MS) - ellapsedNs;
+                long remainingNs = (timeoutConfig.getOperationTimeout(VoldemortOperation.PUT) * Time.NS_PER_MS)
+                                   - ellapsedNs;
                 boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
                                                               TimeUnit.NANOSECONDS);
                 if(!acquiredPermit) {

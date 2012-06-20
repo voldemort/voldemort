@@ -21,8 +21,9 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
+import voldemort.client.TimeoutConfig;
+import voldemort.client.VoldemortOperation;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
@@ -35,7 +36,6 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
-import voldemort.utils.TimeoutConfig;
 import voldemort.utils.UndefinedPropertyException;
 import voldemort.utils.Utils;
 
@@ -279,21 +279,21 @@ public class VoldemortConfig implements Serializable {
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
         this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
-        this.clientTimeoutConfig.getTimeoutMs(props.getInt("client.routing.get.timeout.ms",
-                                                           this.clientRoutingTimeoutMs),
-                                              TimeUnit.MILLISECONDS);
-        this.clientTimeoutConfig.getAllTimeoutMs(props.getInt("client.routing.getall.timeout.ms",
-                                                              this.clientRoutingTimeoutMs),
-                                                 TimeUnit.MILLISECONDS);
-        this.clientTimeoutConfig.putTimeoutMs(props.getInt("client.routing.put.timeout.ms",
-                                                           this.clientRoutingTimeoutMs),
-                                              TimeUnit.MILLISECONDS);
-        this.clientTimeoutConfig.getVersionsTimeoutMs(props.getLong("client.routing.getversions.timeout.ms",
-                                                                    this.clientTimeoutConfig.putTimeoutMs()),
-                                                      TimeUnit.MILLISECONDS);
-        this.clientTimeoutConfig.deleteTimeoutMs(props.getInt("client.routing.delete.timeout.ms",
-                                                              this.clientRoutingTimeoutMs),
-                                                 TimeUnit.MILLISECONDS);
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GET,
+                                                     props.getInt("client.routing.get.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GETALL,
+                                                     props.getInt("client.routing.getall.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.PUT,
+                                                     props.getInt("client.routing.put.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS,
+                                                     props.getLong("client.routing.getversions.timeout.ms",
+                                                                   this.clientTimeoutConfig.getOperationTimeout(VoldemortOperation.PUT)));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.DELETE,
+                                                     props.getInt("client.routing.delete.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
         this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",
                                                                           false));
         this.clientMaxThreads = props.getInt("client.max.threads", 500);

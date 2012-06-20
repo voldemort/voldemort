@@ -7,6 +7,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -18,7 +19,6 @@ import voldemort.store.nonblockingstore.ThreadPoolBasedNonblockingStoreImpl;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
 import voldemort.utils.SystemTime;
-import voldemort.utils.TimeoutConfig;
 
 import com.google.common.collect.Maps;
 

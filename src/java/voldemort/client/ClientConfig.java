@@ -36,7 +36,6 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ConfigurationException;
 import voldemort.utils.Props;
 import voldemort.utils.ReflectUtils;
-import voldemort.utils.TimeoutConfig;
 import voldemort.utils.Utils;
 
 /**
@@ -186,28 +185,28 @@ public class ClientConfig {
         timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
 
         if(props.containsKey(GETALL_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.getAllTimeoutMs(props.getInt(GETALL_ROUTING_TIMEOUT_MS_PROPERTY),
-                                          TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.GETALL,
+                                              props.getInt(GETALL_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(GET_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.getTimeoutMs(props.getInt(GET_ROUTING_TIMEOUT_MS_PROPERTY),
-                                       TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.GET,
+                                              props.getInt(GET_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(PUT_ROUTING_TIMEOUT_MS_PROPERTY)) {
             long putTimeoutMs = props.getInt(PUT_ROUTING_TIMEOUT_MS_PROPERTY);
-            timeoutConfig.putTimeoutMs(putTimeoutMs, TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.PUT, putTimeoutMs);
             // By default, use the same thing for getVersions() also
-            timeoutConfig.getVersionsTimeoutMs(putTimeoutMs, TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS, putTimeoutMs);
         }
 
         // of course, if someone overrides it, we will respect that
         if(props.containsKey(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.getVersionsTimeoutMs(props.getInt(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY),
-                                               TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS,
+                                              props.getInt(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(DELETE_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.deleteTimeoutMs(props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY),
-                                          TimeUnit.MILLISECONDS);
+            timeoutConfig.setOperationTimeout(VoldemortOperation.DELETE,
+                                              props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(ALLOW_PARTIAL_GETALLS_PROPERTY))
             timeoutConfig.setPartialGetAllAllowed(props.getBoolean(ALLOW_PARTIAL_GETALLS_PROPERTY));

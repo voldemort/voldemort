@@ -28,8 +28,8 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.TimeoutConfig;
 import voldemort.utils.CmdUtils;
-import voldemort.utils.TimeoutConfig;
 
 /**
  * Stress tests the client. Intended to diagnose issues such as connection leaks

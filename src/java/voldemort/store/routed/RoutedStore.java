@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
@@ -32,7 +33,6 @@ import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
-import voldemort.utils.TimeoutConfig;
 import voldemort.utils.Utils;
 
 /**

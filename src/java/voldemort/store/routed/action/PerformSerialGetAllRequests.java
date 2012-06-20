@@ -33,6 +33,7 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
@@ -163,6 +164,10 @@ public class PerformSerialGetAllRequests
                 // if we allow partial results, then just remove keys that did
                 // not meet 'required' guarantee; else raise error
                 if(allowPartial) {
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("Excluding Key " + ByteUtils.toHexString(key.get())
+                                     + " from partial get_all result");
+                    }
                     result.remove(key);
                 } else {
                     pipelineData.setFatalError(new InsufficientOperationalNodesException(required
