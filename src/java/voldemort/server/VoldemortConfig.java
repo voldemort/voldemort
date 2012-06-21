@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Properties;
 
 import voldemort.client.TimeoutConfig;
-import voldemort.client.VoldemortOperation;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.VoldemortOpCode;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
@@ -279,19 +279,19 @@ public class VoldemortConfig implements Serializable {
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
         this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GET,
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
                                                      props.getInt("client.routing.get.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GETALL,
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
                                                      props.getInt("client.routing.getall.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.PUT,
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE,
                                                      props.getInt("client.routing.put.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS,
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
                                                      props.getLong("client.routing.getversions.timeout.ms",
-                                                                   this.clientTimeoutConfig.getOperationTimeout(VoldemortOperation.PUT)));
-        this.clientTimeoutConfig.setOperationTimeout(VoldemortOperation.DELETE,
+                                                                   this.clientTimeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE)));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
                                                      props.getInt("client.routing.delete.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
         this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",

@@ -47,12 +47,12 @@ import voldemort.VoldemortException;
 import voldemort.VoldemortTestConstants;
 import voldemort.client.RoutingTier;
 import voldemort.client.TimeoutConfig;
-import voldemort.client.VoldemortOperation;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.VoldemortOpCode;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
@@ -818,7 +818,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         TimeoutConfig timeoutConfig = new TimeoutConfig(1500, true);
         // This means, the getall will only succeed on two of the nodes
-        timeoutConfig.setOperationTimeout(VoldemortOperation.GETALL, 250);
+        timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE, 250);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        timeoutConfig);
@@ -1190,7 +1190,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         // with a 500ms general timeout and a 100ms get timeout, only get should
         // fail
         TimeoutConfig timeoutConfig = new TimeoutConfig(1500, false);
-        timeoutConfig.setOperationTimeout(VoldemortOperation.GET, 100);
+        timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE, 100);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        timeoutConfig);

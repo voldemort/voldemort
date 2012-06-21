@@ -2,13 +2,15 @@ package voldemort.client;
 
 import java.util.HashMap;
 
+import voldemort.common.VoldemortOpCode;
+
 /**
  * Encapsulates the timeouts for various voldemort operations
  * 
  */
 public class TimeoutConfig {
 
-    private HashMap<VoldemortOperation, Long> timeoutMap;
+    private HashMap<Byte, Long> timeoutMap;
 
     private boolean partialGetAllAllowed;
 
@@ -27,22 +29,22 @@ public class TimeoutConfig {
                          long getAllTimeout,
                          long getVersionsTimeout,
                          boolean allowPartialGetAlls) {
-        timeoutMap = new HashMap<VoldemortOperation, Long>();
-        timeoutMap.put(VoldemortOperation.GET, getTimeout);
-        timeoutMap.put(VoldemortOperation.PUT, putTimeout);
-        timeoutMap.put(VoldemortOperation.DELETE, deleteTimeout);
-        timeoutMap.put(VoldemortOperation.GETALL, getAllTimeout);
-        timeoutMap.put(VoldemortOperation.GETVERSIONS, getVersionsTimeout);
+        timeoutMap = new HashMap<Byte, Long>();
+        timeoutMap.put(VoldemortOpCode.GET_OP_CODE, getTimeout);
+        timeoutMap.put(VoldemortOpCode.PUT_OP_CODE, putTimeout);
+        timeoutMap.put(VoldemortOpCode.DELETE_OP_CODE, deleteTimeout);
+        timeoutMap.put(VoldemortOpCode.GET_ALL_OP_CODE, getAllTimeout);
+        timeoutMap.put(VoldemortOpCode.GET_VERSION_OP_CODE, getVersionsTimeout);
         setPartialGetAllAllowed(allowPartialGetAlls);
     }
 
-    public long getOperationTimeout(VoldemortOperation operation) {
-        assert timeoutMap.containsKey(operation);
-        return timeoutMap.get(operation);
+    public long getOperationTimeout(Byte opCode) {
+        assert timeoutMap.containsKey(opCode);
+        return timeoutMap.get(opCode);
     }
 
-    public void setOperationTimeout(VoldemortOperation operation, long timeoutMs) {
-        timeoutMap.put(operation, timeoutMs);
+    public void setOperationTimeout(Byte opCode, long timeoutMs) {
+        timeoutMap.put(opCode, timeoutMs);
     }
 
     public boolean isPartialGetAllAllowed() {

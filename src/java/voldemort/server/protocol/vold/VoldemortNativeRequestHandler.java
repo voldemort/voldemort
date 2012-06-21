@@ -12,7 +12,7 @@ import java.util.Map;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.serialization.VoldemortOpCode;
+import voldemort.common.VoldemortOpCode;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;

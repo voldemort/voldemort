@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.serialization;
+package voldemort.common;
 
 public class VoldemortOpCode {
 

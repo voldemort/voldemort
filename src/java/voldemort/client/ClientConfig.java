@@ -31,6 +31,7 @@ import org.apache.commons.io.IOUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.VoldemortOpCode;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ConfigurationException;
@@ -185,27 +186,27 @@ public class ClientConfig {
         timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
 
         if(props.containsKey(GETALL_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.setOperationTimeout(VoldemortOperation.GETALL,
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
                                               props.getInt(GETALL_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(GET_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.setOperationTimeout(VoldemortOperation.GET,
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
                                               props.getInt(GET_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(PUT_ROUTING_TIMEOUT_MS_PROPERTY)) {
             long putTimeoutMs = props.getInt(PUT_ROUTING_TIMEOUT_MS_PROPERTY);
-            timeoutConfig.setOperationTimeout(VoldemortOperation.PUT, putTimeoutMs);
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE, putTimeoutMs);
             // By default, use the same thing for getVersions() also
-            timeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS, putTimeoutMs);
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE, putTimeoutMs);
         }
 
         // of course, if someone overrides it, we will respect that
         if(props.containsKey(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.setOperationTimeout(VoldemortOperation.GETVERSIONS,
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
                                               props.getInt(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(DELETE_ROUTING_TIMEOUT_MS_PROPERTY))
-            timeoutConfig.setOperationTimeout(VoldemortOperation.DELETE,
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
                                               props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(ALLOW_PARTIAL_GETALLS_PROPERTY))
