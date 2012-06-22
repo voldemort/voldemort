@@ -90,6 +90,17 @@ public class VoldemortConfig implements Serializable {
     private String mysqlHost;
     private int mysqlPort;
 
+    // all level db settings are per-store
+    private long levelDbCacheSize;
+    private int levelDbWriteBufferSize;
+    private int levelDbMaxOpenFiles;
+    private int levelDbBlockSize;
+    private int levelDbNumLockStripes;
+    private boolean levelDbParanoidChecks;
+    private boolean levelDbVerifyChecksums;
+    private String levelDbCompressionType;
+    private String levelDbDataDirectory;
+
     private int readOnlyBackups;
     private String readOnlyStorageDir;
     private String readOnlySearchStrategy;
@@ -243,6 +254,20 @@ public class VoldemortConfig implements Serializable {
         this.mysqlHost = props.getString("mysql.host", "localhost");
         this.mysqlPort = props.getInt("mysql.port", 3306);
         this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
+
+        this.levelDbCacheSize = props.getBytes("leveldb.cache.size", 200 * 1024 * 1024);
+        this.levelDbWriteBufferSize = (int) props.getBytes("leveldb.write.buffer.size",
+                                                           32 * 1024 * 1024);
+        this.levelDbMaxOpenFiles = props.getInt("leveldb.max.open.files", 100000);
+        // most of these you shouldn't need to change
+        this.levelDbBlockSize = (int) props.getBytes("leveldb.block.size", 8 * 1024);
+        this.levelDbNumLockStripes = props.getInt("leveldb.lock.stripes", 100);
+        this.levelDbParanoidChecks = props.getBoolean("leveldb.paranoid.checks", false);
+        this.levelDbVerifyChecksums = props.getBoolean("leveldb.verify.checksums", false);
+        this.levelDbCompressionType = props.getString("leveldb.compression.type", null);
+        this.levelDbDataDirectory = props.getString("leveldb.data.directory", this.dataDirectory
+                                                                              + File.separator
+                                                                              + "leveldb");
 
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
@@ -1196,6 +1221,42 @@ public class VoldemortConfig implements Serializable {
 
     public boolean isBdbOneEnvPerStore() {
         return bdbOneEnvPerStore;
+    }
+
+    public String getLevelDbDataDirectory() {
+        return levelDbDataDirectory;
+    }
+
+    public int getLevelDbNumLockStripes() {
+        return levelDbNumLockStripes;
+    }
+
+    public long getLevelDbCacheSize() {
+        return levelDbCacheSize;
+    }
+
+    public int getLevelDbWriteBufferSize() {
+        return levelDbWriteBufferSize;
+    }
+
+    public int getLevelDbMaxOpenFiles() {
+        return levelDbMaxOpenFiles;
+    }
+
+    public int getLevelDbBlockSize() {
+        return levelDbBlockSize;
+    }
+
+    public boolean isLevelDbParanoidChecksEnabled() {
+        return levelDbParanoidChecks;
+    }
+
+    public boolean isLevelDbVerifyChecksumsEnabled() {
+        return levelDbVerifyChecksums;
+    }
+
+    public String getLevelDbCompressionType() {
+        return levelDbCompressionType;
     }
 
     public int getSocketBufferSize() {

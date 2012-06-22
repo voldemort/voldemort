@@ -9,10 +9,13 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 /**
- * The format of the values stored on disk. The format is VERSION - 1 byte CLOCK
- * - variable length, self delimiting VALUE_SIZE - 4 bytes VALUE - size given
- * above Repeat clock, value_size, value...
- * 
+ * The format of the values stored on disk. The format is 
+ *   VERSION - 1 byte
+ *   ------------repeating------------------- 
+ *   CLOCK - variable length, self delimiting 
+ *   VALUE_SIZE - 4 bytes 
+ *   VALUE - size given
+ *   ----------------------------------------
  */
 public class LevelDbBinaryFormat {
 

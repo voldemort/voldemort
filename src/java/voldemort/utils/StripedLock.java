@@ -1,5 +1,8 @@
 package voldemort.utils;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * A parallel keyed lock
  * 
@@ -10,24 +13,24 @@ public class StripedLock {
 
     private static final FnvHashFunction hash = new FnvHashFunction();
 
-    private final Object[] locks;
+    private final Lock[] locks;
 
     public StripedLock(int locks) {
-        this.locks = new Object[locks];
+        this.locks = new ReentrantLock[locks];
         for(int i = 0; i < this.locks.length; i++)
-            this.locks[i] = new Object();
+            this.locks[i] = new ReentrantLock();
     }
 
-    public Object lockFor(int key) {
+    public Lock lockFor(int key) {
         return locks[Math.abs(key % locks.length)];
     }
 
-    public Object lockFor(long key) {
+    public Lock lockFor(long key) {
         int k = (int) (key % Integer.MAX_VALUE);
         return lockFor(k);
     }
 
-    public Object lockFor(byte[] key) {
+    public Lock lockFor(byte[] key) {
         return lockFor(hash.hash(key));
     }
 }

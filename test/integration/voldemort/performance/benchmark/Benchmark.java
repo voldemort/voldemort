@@ -342,6 +342,8 @@ public class Benchmark {
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
             this.storeClient = socketFactory.getStoreClient(storeName);
             StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
+            if(storeDef == null)
+                throw new VoldemortException("No such store exists '" + storeName + "'!");
             this.keyType = findKeyType(storeDef);
             benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
             this.factory = socketFactory;
@@ -679,6 +681,8 @@ public class Benchmark {
         } catch(Exception e) {
             if(options.has(VERBOSE)) {
                 e.printStackTrace();
+            } else {
+                System.err.println("Error in benchmark: " + e.getMessage());
             }
             parser.printHelpOn(System.err);
             System.exit(-1);

@@ -51,8 +51,9 @@
 	<classpathentry kind="lib" path="lib/libthrift-0.5.0.jar"/>
 	<classpathentry kind="lib" path="lib/compress-lzf-0.9.1.jar"/>
 	<classpathentry kind="lib" path="lib/snappy-0.2.jar"/>
-	<classpathentry kind="lib" path="lib/httpclient-4.1.2.jar" />
-	<classpathentry kind="lib" path="lib/httpcore-4.1.2.jar" />
+	<classpathentry kind="lib" path="lib/httpclient-4.1.2.jar"/>
+	<classpathentry kind="lib" path="lib/httpcore-4.1.2.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="lib" path="lib/leveldbjni-all-1.1.jar"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>
