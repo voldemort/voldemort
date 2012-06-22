@@ -38,6 +38,7 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -68,6 +69,11 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
                                                           config.isJmxEnabled());
+        if(config.isJmxEnabled())
+            JmxUtils.registerMbean(storeFactory,
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
+                                                             JmxUtils.getClassName(storeFactory.getClass())
+                                                                     + jmxId()));
     }
 
     @Override
