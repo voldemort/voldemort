@@ -56,7 +56,7 @@ public class LevelDbStorageConfiguration implements StorageConfiguration {
             if("snappy".equals(config.getLevelDbCompressionType().toLowerCase()))
                 this.options.compressionType(CompressionType.SNAPPY);
             else if("none".equals(config.getLevelDbCompressionType().toLowerCase()))
-                this.options.compressionType(CompressionType.SNAPPY);
+                this.options.compressionType(CompressionType.NONE);
             else
                 throw new VoldemortException("Unknown leveldb compression type specified in config: "
                                              + config.getLevelDbCompressionType());
