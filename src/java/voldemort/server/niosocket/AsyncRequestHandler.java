@@ -282,7 +282,22 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 traceInputBufferState("Before streaming request handler");
 
+            // this is the lowest level in the NioSocketServer stack at which we
+            // still have a reference to the client IP address and port
+            long startNs = -1;
+
+            if(logger.isDebugEnabled())
+                startNs = System.nanoTime();
+
             state = streamRequestHandler.handleRequest(dataInputStream, dataOutputStream);
+
+            if(logger.isDebugEnabled()) {
+                logger.debug("Handled request from "
+                             + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
+                             + System.identityHashCode(streamRequestHandler) + " at time: "
+                             + System.currentTimeMillis() + " elapsed time: "
+                             + (System.nanoTime() - startNs) + " ns");
+            }
 
             if(logger.isTraceEnabled())
                 traceInputBufferState("After streaming request handler");

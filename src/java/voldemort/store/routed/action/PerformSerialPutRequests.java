@@ -74,11 +74,20 @@ public class PerformSerialPutRequests extends
         int currentNode = 0;
         List<Node> nodes = pipelineData.getNodes();
 
+        long startMasterMs = -1;
+        long startMasterNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startMasterMs = System.currentTimeMillis();
+            startMasterNs = System.nanoTime();
+        }
+
         if(logger.isDebugEnabled())
             logger.debug("Performing serial put requests to determine master");
 
+        Node node = null;
         for(; currentNode < nodes.size(); currentNode++) {
-            Node node = nodes.get(currentNode);
+            node = nodes.get(currentNode);
             pipelineData.incrementNodeIndex();
 
             VectorClock versionedClock = (VectorClock) versioned.getVersion();
@@ -107,6 +116,12 @@ public class PerformSerialPutRequests extends
                 break;
             } catch(Exception e) {
                 long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
+
+                if(logger.isDebugEnabled())
+                    logger.debug("Master PUT at node " + currentNode + "(" + node.getHost() + ")"
+                                 + " failed (" + e.getMessage() + ") in "
+                                 + (System.nanoTime() - start) + " ns" + " (keyRef: "
+                                 + System.identityHashCode(key) + ")");
 
                 if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
                     return;
@@ -161,6 +176,13 @@ public class PerformSerialPutRequests extends
                 }
             }
         } else {
+            if(logger.isDebugEnabled())
+                logger.debug("Finished master PUT for key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + "); started at " + startMasterMs
+                             + " took " + (System.nanoTime() - startMasterNs) + " ns on node "
+                             + (node == null ? "NULL" : node.getId()) + "("
+                             + (node == null ? "NULL" : node.getHost()) + ")");
+
             pipeline.addEvent(masterDeterminedEvent);
         }
     }

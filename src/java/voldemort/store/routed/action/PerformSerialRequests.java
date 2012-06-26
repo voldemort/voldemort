@@ -98,6 +98,12 @@ public class PerformSerialRequests<V, PD extends BasicPipelineData<V>> extends
                                                                              result,
                                                                              ((System.nanoTime() - start) / Time.NS_PER_MS));
 
+                if(logger.isDebugEnabled())
+                    logger.debug("GET for key " + key + " successes: "
+                                 + pipelineData.getSuccesses() + " preferred: " + preferred
+                                 + " required: " + required + " new GET success on node "
+                                 + node.getId());
+
                 pipelineData.incrementSuccesses();
                 pipelineData.getResponses().add(response);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());

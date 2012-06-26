@@ -101,6 +101,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
     private void handleGetVersion(DataInputStream inputStream,
                                   DataOutputStream outputStream,
                                   Store<ByteArray, byte[], byte[]> store) throws IOException {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         ByteArray key = readKey(inputStream);
         List<Version> results = null;
         try {
@@ -112,10 +120,24 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return;
         }
         outputStream.writeInt(results.size());
+
+        String clockStr = "";
+
         for(Version v: results) {
             byte[] clock = ((VectorClock) v).toBytes();
+
+            if(logger.isDebugEnabled())
+                clockStr += clock + " ";
+
             outputStream.writeInt(clock.length);
             outputStream.write(clock);
+        }
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("GETVERSIONS started at: " + startTimeMs + " handlerRef: "
+                         + System.identityHashCode(this) + " key: " + key + " "
+                         + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
+                         + "clocks: " + clockStr);
         }
     }
 
@@ -269,6 +291,14 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
     private void handleGet(DataInputStream inputStream,
                            DataOutputStream outputStream,
                            Store<ByteArray, byte[], byte[]> store) throws IOException {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         ByteArray key = readKey(inputStream);
 
         byte[] transforms = null;
@@ -286,11 +316,22 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             return;
         }
         writeResults(outputStream, results);
+        if(logger.isDebugEnabled()) {
+            debugLogReturnValue(key, results, startTimeMs, startTimeNs, "GET");
+        }
     }
 
     private void handleGetAll(DataInputStream inputStream,
                               DataOutputStream outputStream,
                               Store<ByteArray, byte[], byte[]> store) throws IOException {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         // read keys
         int numKeys = inputStream.readInt();
         List<ByteArray> keys = new ArrayList<ByteArray>(numKeys);
@@ -321,18 +362,67 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
         // write back the results
         outputStream.writeInt(results.size());
+
+        logger.debug("GETALL start");
+
         for(Map.Entry<ByteArray, List<Versioned<byte[]>>> entry: results.entrySet()) {
             // write the key
             outputStream.writeInt(entry.getKey().length());
             outputStream.write(entry.getKey().get());
             // write the values
             writeResults(outputStream, entry.getValue());
+
+            if(logger.isDebugEnabled()) {
+                debugLogReturnValue(entry.getKey(),
+                                    entry.getValue(),
+                                    startTimeMs,
+                                    startTimeNs,
+                                    "GETALL");
+            }
         }
+
+        logger.debug("GETALL end");
+    }
+
+    private void debugLogReturnValue(ByteArray key,
+                                     List<Versioned<byte[]>> values,
+                                     long startTimeMs,
+                                     long startTimeNs,
+                                     String getType) {
+        long totalValueSize = 0;
+        String valueSizeStr = "[";
+        String valueHashStr = "[";
+        String versionsStr = "[";
+        for(Versioned<byte[]> b: values) {
+            int len = b.getValue().length;
+            totalValueSize += len;
+            valueSizeStr += len + ",";
+            valueHashStr += b.hashCode() + ",";
+            versionsStr += b.getVersion();
+        }
+        valueSizeStr += "]";
+        valueHashStr += "]";
+        versionsStr += "]";
+
+        logger.debug(getType + " handlerRef: " + System.identityHashCode(this) + " start time: "
+                     + startTimeMs + " key: " + key + " elapsed time: "
+                     + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
+                     + " numResults: " + values.size() + " totalResultSize: " + totalValueSize
+                     + " resultSizes: " + valueSizeStr + " resultHashes: " + valueHashStr
+                     + " versions: " + versionsStr + " current time: " + System.currentTimeMillis());
     }
 
     private void handlePut(DataInputStream inputStream,
                            DataOutputStream outputStream,
                            Store<ByteArray, byte[], byte[]> store) throws IOException {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         ByteArray key = readKey(inputStream);
         int valueSize = inputStream.readInt();
         byte[] bytes = new byte[valueSize];
@@ -352,11 +442,28 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         } catch(VoldemortException e) {
             writeException(outputStream, e);
         }
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("PUT started at: " + startTimeMs + " handlerRef: "
+                         + System.identityHashCode(this) + " key: " + key + " "
+                         + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
+                         + " valueHash: " + value.hashCode() + " valueSize: " + valueSize
+                         + " clockSize: " + clock.sizeInBytes() + " time: "
+                         + System.currentTimeMillis());
+        }
     }
 
     private void handleDelete(DataInputStream inputStream,
                               DataOutputStream outputStream,
                               Store<ByteArray, byte[], byte[]> store) throws IOException {
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         ByteArray key = readKey(inputStream);
         int versionSize = inputStream.readShort();
         byte[] versionBytes = new byte[versionSize];
@@ -368,6 +475,13 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             outputStream.writeBoolean(succeeded);
         } catch(VoldemortException e) {
             writeException(outputStream, e);
+        }
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("DELETE started at: " + startTimeMs + " key: " + key + " handlerRef: "
+                         + System.identityHashCode(this) + " time: "
+                         + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
+                         + " clockSize: " + version.sizeInBytes());
         }
     }
 
