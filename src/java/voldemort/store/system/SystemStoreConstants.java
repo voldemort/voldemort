@@ -4,6 +4,7 @@ import java.io.StringReader;
 import java.util.List;
 
 import voldemort.store.StoreDefinition;
+import voldemort.utils.RebalanceUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
@@ -22,7 +23,7 @@ public class SystemStoreConstants {
     public static final String SYSTEM_STORE_SCHEMA = "<stores>"
                                                      + "  <store>"
                                                      + "    <name>voldsys$_client_registry</name>"
-                                                     + "    <routing-strategy>zone-routing</routing-strategy>"
+                                                     + "    <routing-strategy>all-routing</routing-strategy>"
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
                                                      + "    <persistence>memory</persistence>"
                                                      + "    <routing>client</routing>"
@@ -92,13 +93,7 @@ public class SystemStoreConstants {
     }
 
     public static StoreDefinition getSystemStoreDef(String name) {
-        StoreDefinition storeDef = null;
         List<StoreDefinition> allDefs = getAllSystemStoreDefs();
-        for(StoreDefinition def: allDefs) {
-            if(name.equals(def.getName())) {
-                storeDef = def;
-            }
-        }
-        return storeDef;
+        return RebalanceUtils.getStoreDefinitionWithName(allDefs, name);
     }
 }

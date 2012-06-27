@@ -80,6 +80,8 @@ public class ClientConfig {
     private volatile int maxBootstrapRetries = 2;
     private volatile String clientContextName = "default";
     private volatile long asyncCheckMetadataInterval = 5000;
+    /* 12 hr refresh internval */
+    private volatile long clientRegistryRefreshInterval = 3600 * 1000 * 12;
 
     public ClientConfig() {}
 
@@ -719,6 +721,15 @@ public class ClientConfig {
 
     public ClientConfig setAsyncCheckMetadataInterval(long asyncCheckMetadataInterval) {
         this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
+        return this;
+    }
+
+    public long getClientRegistryRefreshInterval() {
+        return this.clientRegistryRefreshInterval;
+    }
+
+    public ClientConfig setClientRegistryRefreshInterval(long clientRegistryRefrshInterval) {
+        this.clientRegistryRefreshInterval = clientRegistryRefrshInterval;
         return this;
     }
 }

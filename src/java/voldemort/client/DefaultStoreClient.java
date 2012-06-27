@@ -37,6 +37,7 @@ import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.ManifestFileReader;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -98,7 +99,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.clientInfo = new ClientInfo(storeName,
                                          clientContext,
                                          clientSequence,
-                                         System.currentTimeMillis());
+                                         System.currentTimeMillis(),
+                                         ManifestFileReader.getReleaseVersion());
         this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
         this.config = config;
 
@@ -120,8 +122,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
 
         registerClient();
-        logger.info("Voldemort client created: clientContext=" + clientContext + " clientSequence="
-                    + clientSequence + " clientId=" + clientId.toString());
+        logger.info("Voldemort client created: " + clientId.toString() + "\n" + clientInfo);
     }
 
     private void registerClient() {

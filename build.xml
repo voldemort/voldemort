@@ -5,7 +5,7 @@
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
-  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao" />
+  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
   <property environment="env" />
 
   <path id="main-classpath">
@@ -76,6 +76,12 @@
         <exclude name="**/log4j.properties" />
       </fileset>
     </copy>
+    <replace-dir dir="META-INF" />
+    <manifest file="META-INF/MANIFEST.MF">       
+      <attribute name="Implementation-Title" value="Voldemort" />
+      <attribute name="Implementation-Version" value="${curr.release}" />
+      <attribute name="Implementation-Vendor" value="LinkedIn" />
+    </manifest>
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
@@ -140,6 +146,9 @@
       <!-- include xsds -->
       <fileset dir="${java.dir}">
         <include name="**/*.xsd" />
+      </fileset>
+    	<fileset dir=".">
+    		<include name="META-INF/MANIFEST.MF" />
       </fileset>
     </jar>
   </target>
