@@ -89,8 +89,11 @@ public interface StoreClientFactory {
     /**
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> Adding System store functionality
+=======
+>>>>>>> leigao/client-registry
      * Get the underlying store, not the public StoreClient interface
      * 
      * @param storeName The name of the store
@@ -106,10 +109,13 @@ public interface StoreClientFactory {
 
     /**
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> add clientId for voldemort client
 =======
 >>>>>>> Adding System store functionality
+=======
+>>>>>>> leigao/client-registry
      * Close the store client
      */
     public void close();

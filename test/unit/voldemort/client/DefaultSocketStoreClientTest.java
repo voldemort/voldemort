@@ -53,7 +53,7 @@ public class DefaultSocketStoreClientTest {
         storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
         servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
+                                                          ServerTestUtils.createServerConfig(true,
                                                                                              0,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),
@@ -62,7 +62,7 @@ public class DefaultSocketStoreClientTest {
                                                                                              new Properties()),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
+                                                          ServerTestUtils.createServerConfig(true,
                                                                                              1,
                                                                                              TestUtils.createTempDir()
                                                                                                       .getAbsolutePath(),

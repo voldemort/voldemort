@@ -73,7 +73,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Map<String, SystemStore> sysStoreMap;
     private AsyncMetadataVersionManager asyncCheckMetadata;
-
     private ClientInfo clientInfo;
 
     public DefaultStoreClient(String storeName,

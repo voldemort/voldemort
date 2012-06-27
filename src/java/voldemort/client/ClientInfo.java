@@ -164,5 +164,4 @@ public class ClientInfo implements Serializable {
         builder.append("releaseVersion[").append(releaseVersion).append("]");
         return builder.toString();
     }
-
 }
