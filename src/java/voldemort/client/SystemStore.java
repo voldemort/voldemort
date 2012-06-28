@@ -26,14 +26,14 @@ public class SystemStore<K, V> {
 
         ClientConfig config = new ClientConfig();
         config.setSelectors(1)
-              .setBootstrapUrls(config.getBootstrapUrls())
+              .setBootstrapUrls(bootstrapUrls)
               .setMaxConnectionsPerNode(2)
               .setConnectionTimeout(1500, TimeUnit.MILLISECONDS)
               .setSocketTimeout(5000, TimeUnit.MILLISECONDS)
               .setRoutingTimeout(5000, TimeUnit.MILLISECONDS)
               .setEnableJmx(false)
               .setEnablePipelineRoutedStore(true)
-              .setClientZoneId(config.getClientZoneId());
+              .setClientZoneId(clientZoneID);
         this.systemStoreFactory = new SocketStoreClientFactory(config);
         this.storeName = storeName;
         this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName);

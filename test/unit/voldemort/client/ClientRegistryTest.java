@@ -1,14 +1,13 @@
 package voldemort.client;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
-
-import junit.framework.Assert;
 
 import org.junit.After;
 import org.junit.Before;
@@ -112,7 +111,8 @@ public class ClientRegistryTest {
         assertEquals(0, infoList.get(0).getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
         assertEquals(1, infoList.size());
 
         it = adminClient.fetchEntries(1,
@@ -126,7 +126,7 @@ public class ClientRegistryTest {
         assertEquals(0, infoList.get(0).getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
         assertEquals(1, infoList.size());
 
         try {
@@ -173,7 +173,7 @@ public class ClientRegistryTest {
                                                                              .getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
 
         assertEquals(TEST_STORE_NAME, infoList.get(1).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(1).getContext());
@@ -181,7 +181,7 @@ public class ClientRegistryTest {
                                                                              .getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(1).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
         assertEquals(infoList.size(), 2);
 
         it = adminClient.fetchEntries(1,
@@ -196,7 +196,7 @@ public class ClientRegistryTest {
                                                                              .getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
 
         assertEquals(TEST_STORE_NAME, infoList.get(1).getStoreName());
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(1).getContext());
@@ -204,7 +204,7 @@ public class ClientRegistryTest {
                                                                              .getClientSequence());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(1).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         assertEquals(infoList.size(), 2);
 
@@ -252,12 +252,12 @@ public class ClientRegistryTest {
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
 
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(1).getContext());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(1).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
             assertEquals(0, infoList.get(0).getClientSequence());
@@ -284,12 +284,12 @@ public class ClientRegistryTest {
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(0).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
 
         assertEquals(CLIENT_CONTEXT_NAME, infoList.get(1).getContext());
         assertTrue("Client registry bootstrap time incorrect",
                    startTime <= infoList.get(1).getBootstrapTime());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
             assertEquals(0, infoList.get(0).getClientSequence());
@@ -356,8 +356,8 @@ public class ClientRegistryTest {
                                                                                    false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
             assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -398,8 +398,8 @@ public class ClientRegistryTest {
                                       false);
         infoList = getClientRegistryContent(it);
 
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
             assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -486,8 +486,8 @@ public class ClientRegistryTest {
                                                                                    false);
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
 
-        Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
-        Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+        assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
         if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
             assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
@@ -616,8 +616,8 @@ public class ClientRegistryTest {
 
             assertEquals("Incrrect # of entries created in client registry", 2, infoList.size());
 
-            Assert.assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
-            Assert.assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
+            assertNotNull("Client version is null", infoList.get(0).getReleaseVersion());
+            assertNotNull("Client version is null", infoList.get(1).getReleaseVersion());
 
             if(infoList.get(0).getStoreName().equals(TEST_STORE_NAME)) {
                 assertEquals(CLIENT_CONTEXT_NAME, infoList.get(0).getContext());
