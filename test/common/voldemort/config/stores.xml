@@ -186,8 +186,13 @@
     <hint-preflist-size>10</hint-preflist-size>
   </store>
   <store>
+<<<<<<< HEAD
     <name>test-store-eventual-1</name>
     <persistence>bdb</persistence>
+=======
+    <name>test-basic-replication-memory</name>
+    <persistence>memory</persistence>
+>>>>>>> 1e726e7... Updated async metadata checker for both stores and cluster.xml. Updated DefaultSocketStoreClientTest. Moved system stores repository to a new class.
     <routing>client</routing>
     <replication-factor>2</replication-factor>
     <required-reads>1</required-reads>
@@ -197,6 +202,7 @@
       <schema-info>UTF-8</schema-info>
     </key-serializer>
     <value-serializer>
+<<<<<<< HEAD
       <type>java-serialization</type>
     </value-serializer>
   </store>
@@ -213,6 +219,10 @@
     </key-serializer>
     <value-serializer>
       <type>java-serialization</type>
+=======
+      <type>string</type>
+      <schema-info>UTF-8</schema-info>
+>>>>>>> 1e726e7... Updated async metadata checker for both stores and cluster.xml. Updated DefaultSocketStoreClientTest. Moved system stores repository to a new class.
     </value-serializer>
   </store>
 </stores>

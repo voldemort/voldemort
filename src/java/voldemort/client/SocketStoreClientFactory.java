@@ -183,7 +183,11 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super.close();
     }
 
-    public <K, V, T> Store<K, V, T> getSystemStore(String storeName) {
-        return getRawStore(storeName, null, null, SystemStoreConstants.SYSTEM_STORE_SCHEMA);
+    public <K, V, T> Store<K, V, T> getSystemStore(String storeName, String clusterXml) {
+        return getRawStore(storeName,
+                           null,
+                           null,
+                           SystemStoreConstants.SYSTEM_STORE_SCHEMA,
+                           clusterXml);
     }
 }

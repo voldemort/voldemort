@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import org.apache.log4j.Logger;
+
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
 import voldemort.versioning.ObsoleteVersionException;
@@ -34,11 +36,25 @@ import voldemort.versioning.Versioned;
  */
 public class LazyStoreClient<K, V> implements StoreClient<K, V> {
 
+    private final Logger logger = Logger.getLogger(LazyStoreClient.class);
     private final Callable<StoreClient<K, V>> storeClientThunk;
     private StoreClient<K, V> storeClient;
 
     public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk) {
         this.storeClientThunk = storeClientThunk;
+
+        /*
+         * Although it says Lazy Store Client, we try to bootstrap during
+         * initialization if we can. If the server isn't up at this time, it
+         * will be done lazily during the next client API call.
+         */
+        try {
+            storeClient = initStoreClient();
+        } catch(Exception e) {
+            storeClient = null;
+            e.printStackTrace();
+            logger.info("Could not bootstrap right away. Trying on the next call ... ");
+        }
     }
 
     public synchronized StoreClient<K, V> getStoreClient() {

@@ -88,6 +88,8 @@ import com.google.common.collect.Sets;
 public class VoldemortAdminTool {
 
     private static final String ALL_METADATA = "all";
+    private static final String STORES_VERSION_KEY = "stores.xml";
+    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
     private static SystemStore<String, Long> sysStoreVersion = null;
 
     @SuppressWarnings("unchecked")
@@ -429,6 +431,9 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.CLUSTER_KEY,
                                            mapper.writeCluster(newCluster));
+
+                        // Update the cluster.xml version info
+                        updateMetadataversion(CLUSTER_VERSION_KEY);
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
                         executeSetMetadata(nodeId,
@@ -445,8 +450,14 @@ public class VoldemortAdminTool {
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
 
-                        // Update the store metadata version
-                        updateStoreMetadataversion();
+                        /*
+                         * Update the store metadata version
+                         * 
+                         * TODO: For now write one version for the entire
+                         * stores.xml When we split the stores.xml, make this
+                         * more granular
+                         */
+                        updateMetadataversion(STORES_VERSION_KEY);
 
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
@@ -737,22 +748,17 @@ public class VoldemortAdminTool {
         }
     }
 
-    /*
-     * TODO: For now write one version for the entire stores.xml When we split
-     * the stores.xml, make this more granular
-     */
-    private static void updateStoreMetadataversion() {
-        String versionKey = "stores.xml";
-        Versioned<Long> storesVersion = sysStoreVersion.getSysStore(versionKey);
-        if(storesVersion == null) {
+    private static void updateMetadataversion(String versionKey) {
+        Versioned<Long> metadataVersion = sysStoreVersion.getSysStore(versionKey);
+        if(metadataVersion == null) {
             System.err.println("Current version is null. Assuming version 0.");
-            storesVersion = new Versioned<Long>((long) 1);
+            metadataVersion = new Versioned<Long>((long) 1);
         } else {
-            System.out.println("Version obtained = " + storesVersion.getValue());
-            long newValue = storesVersion.getValue() + 1;
-            storesVersion.setObject(newValue);
+            System.out.println("Version obtained = " + metadataVersion.getValue());
+            long newValue = metadataVersion.getValue() + 1;
+            metadataVersion.setObject(newValue);
         }
-        sysStoreVersion.putSysStore(versionKey, storesVersion);
+        sysStoreVersion.putSysStore(versionKey, metadataVersion);
     }
 
     private static void executeSetMetadata(Integer nodeId,
@@ -794,8 +800,9 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
-                                                                                 updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId,
+                                             key,
+                                             Versioned.value(value.toString(), updatedVersion));
         }
     }
 

@@ -127,7 +127,8 @@ public class CachingStoreClientFactory implements StoreClientFactory {
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver,
                                                 UUID clientId,
-                                                String storesXml) {
-        return inner.getRawStore(storeName, resolver, clientId, storesXml);
+                                                String storesXml,
+                                                String clusterXml) {
+        return inner.getRawStore(storeName, resolver, clientId, storesXml, clusterXml);
     }
 }

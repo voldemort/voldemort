@@ -77,7 +77,8 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver,
                                                 UUID clientId,
-                                                String storesXml) {
+                                                String storesXml,
+                                                String clusterXml) {
         return null;
     }
 

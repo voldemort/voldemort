@@ -14,12 +14,16 @@ import voldemort.versioning.Versioned;
 
 public class SystemStore<K, V> {
 
-    private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
+    private final Logger logger = Logger.getLogger(SystemStore.class);
     private final SocketStoreClientFactory systemStoreFactory;
     private final String storeName;
     private volatile Store<K, V, Object> sysStore;
 
     public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID) {
+        this(storeName, bootstrapUrls, clientZoneID, null);
+    }
+
+    public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID, String clusterXml) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
         if(!SystemStoreConstants.NAME_PREFIX.equals(prefix))
             throw new VoldemortException("Illegal system store : " + storeName);
@@ -36,7 +40,7 @@ public class SystemStore<K, V> {
               .setClientZoneId(clientZoneID);
         this.systemStoreFactory = new SocketStoreClientFactory(config);
         this.storeName = storeName;
-        this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName);
+        this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml);
     }
 
     public void putSysStore(K key, V value) {
