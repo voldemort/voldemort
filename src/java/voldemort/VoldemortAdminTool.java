@@ -800,9 +800,8 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId,
-                                             key,
-                                             Versioned.value(value.toString(), updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
+                                                                                 updatedVersion));
         }
     }
 
@@ -1251,6 +1250,10 @@ public class VoldemortAdminTool {
         if(stores == null) {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
+        } else {
+            // add system store to the map so they can be fetched when specified
+            // explicitly
+            storeDefinitionMap.putAll(getSystemStoreDef());
         }
 
         // Pick up all the partitions
