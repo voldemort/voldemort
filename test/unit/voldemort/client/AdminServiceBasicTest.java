@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,6 +55,7 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -67,6 +69,7 @@ import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -1253,6 +1256,245 @@ public class AdminServiceBasicTest extends TestCase {
                      fetchPartitionKeyCount,
                      count);
 
+    }
+
+    @Test
+    public void testQuery() {
+        HashMap<ByteArray, byte[]> belongToAndInsideServer0 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> belongToAndInsideServer1 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> notBelongServer0ButInsideServer0 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> belongToServer0ButOutsideBoth = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> notBelongToServer0AndOutsideBoth = new HashMap<ByteArray, byte[]>();
+
+        Store<ByteArray, byte[], byte[]> store0 = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store1 = getStore(1, testStoreName);
+
+        HashMap<ByteArray, byte[]> entrySet = null;
+        Iterator<ByteArray> keys = null;
+        RoutingStrategy strategy = servers[0].getMetadataStore().getRoutingStrategy(testStoreName);
+        while(true) {
+            ByteArray key;
+            byte[] value;
+            if(keys == null || !keys.hasNext()) {
+                entrySet = ServerTestUtils.createRandomKeyValuePairs(100);
+                keys = entrySet.keySet().iterator();
+            }
+            key = keys.next();
+            value = entrySet.get(key);
+            List<Node> routedNodes = strategy.routeRequest(key.get());
+            boolean keyShouldBeInNode0 = false;
+            boolean keyShouldBeInNode1 = false;
+            for(Node node: routedNodes) {
+                keyShouldBeInNode0 = keyShouldBeInNode0 || (node.getId() == 0);
+                keyShouldBeInNode1 = keyShouldBeInNode1 || (node.getId() == 1);
+            }
+
+            if(belongToAndInsideServer0.size() < 10) {
+                if(keyShouldBeInNode0) {
+                    belongToAndInsideServer0.put(key, value);
+                    store0.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(belongToAndInsideServer1.size() < 10) {
+                if(keyShouldBeInNode1) {
+                    belongToAndInsideServer1.put(key, value);
+                    store1.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(notBelongServer0ButInsideServer0.size() < 5) {
+                if(!keyShouldBeInNode0) {
+                    notBelongServer0ButInsideServer0.put(key, value);
+                    store0.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(belongToServer0ButOutsideBoth.size() < 5) {
+                if(keyShouldBeInNode0) {
+                    belongToServer0ButOutsideBoth.put(key, value);
+                }
+            } else if(notBelongToServer0AndOutsideBoth.size() < 5) {
+                if(!keyShouldBeInNode0) {
+                    notBelongToServer0AndOutsideBoth.put(key, value);
+                }
+            } else {
+                break;
+            }
+        }
+
+        ArrayList<ByteArray> belongToAndInsideServer0Keys = new ArrayList<ByteArray>(belongToAndInsideServer0.keySet());
+        ArrayList<ByteArray> belongToAndInsideServer1Keys = new ArrayList<ByteArray>(belongToAndInsideServer1.keySet());
+        ArrayList<ByteArray> notBelongServer0ButInsideServer0Keys = new ArrayList<ByteArray>(notBelongServer0ButInsideServer0.keySet());
+        ArrayList<ByteArray> belongToServer0ButOutsideBothKeys = new ArrayList<ByteArray>(belongToServer0ButOutsideBoth.keySet());
+        ArrayList<ByteArray> notBelongToServer0AndOutsideBothKeys = new ArrayList<ByteArray>(notBelongToServer0AndOutsideBoth.keySet());
+
+        List<ByteArray> queryKeys;
+        Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> results;
+        Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> entry;
+        // test one key on store 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertEquals(queryKeys.get(0), entry.getFirst());
+        assertNull("There should not be exception in response", entry.getSecond().getSecond());
+        assertEquals("There should be only 1 value in versioned list", 1, entry.getSecond()
+                                                                               .getFirst()
+                                                                               .size());
+        assertEquals("Two byte[] should be equal",
+                     0,
+                     ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
+                                       entry.getSecond().getFirst().get(0).getValue()));
+        assertFalse("There should be only one result", results.hasNext());
+
+        // test one key belongs to but not exists in server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToServer0ButOutsideBothKeys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
+        assertNull("There should not be exception", entry.getSecond().getSecond());
+
+        // test one key not exist and does not belong to server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+
+        // test one key that exists on server 0 but does not belong to server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+
+        // test one key deleted
+        store0.delete(belongToAndInsideServer0Keys.get(4), null);
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(4));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
+        assertNull("There should not be exception", entry.getSecond().getSecond());
+
+        // test empty request
+        queryKeys = new ArrayList<ByteArray>();
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertFalse("Results should be empty", results.hasNext());
+
+        // test null key
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(null);
+        assertEquals(1, queryKeys.size());
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be IllegalArgumentException exception",
+                   entry.getSecond().getSecond() instanceof IllegalArgumentException);
+
+        // test multiple keys (3) on store 1
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer1Keys.get(0));
+        queryKeys.add(belongToAndInsideServer1Keys.get(1));
+        queryKeys.add(belongToAndInsideServer1Keys.get(2));
+        results = getAdminClient().queryKeys(1, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        Map<ByteArray, List<Versioned<byte[]>>> entries = new HashMap<ByteArray, List<Versioned<byte[]>>>();
+        int resultCount = 0;
+        while(results.hasNext()) {
+            resultCount++;
+            entry = results.next();
+            assertNull("There should not be exception in response", entry.getSecond().getSecond());
+            assertNotNull("Value should not be null for Key: ", entry.getSecond().getFirst());
+            entries.put(entry.getFirst(), entry.getSecond().getFirst());
+        }
+        assertEquals("There should 3 and only 3 results", 3, resultCount);
+        for(ByteArray key: queryKeys) {
+            // this loop and the count ensure one-to-one mapping
+            assertNotNull("This key should exist in the results: " + key, entries.get(key));
+            assertEquals("Two byte[] should be equal for key: " + key,
+                         0,
+                         ByteUtils.compare(belongToAndInsideServer1.get(key),
+                                           entries.get(key).get(0).getValue()));
+        }
+
+        // test multiple keys, mixed situation
+        // key 0: Exists and belongs to
+        // key 1: Exists but does not belong to
+        // key 2: Does not exist but belongs to
+        // key 3: Does not belong and not exist
+        // key 4: Same situation with key0
+        // key 5: Deleted
+        // key 6: Same situation with key2
+        store0.delete(belongToAndInsideServer0Keys.get(5), null);
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(2));
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(1));
+        queryKeys.add(belongToServer0ButOutsideBothKeys.get(1));
+        queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(1));
+        queryKeys.add(belongToAndInsideServer0Keys.get(3));
+        queryKeys.add(belongToAndInsideServer0Keys.get(5));
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(2));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        // key 0
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
+                                          entry.getSecond().getFirst().get(0).getValue()));
+        assertNull(entry.getSecond().getSecond());
+        // key 1
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(1).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // key 2
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(2).get(), entry.getFirst().get()));
+        assertEquals(0, entry.getSecond().getFirst().size());
+        assertNull(entry.getSecond().getSecond());
+        // key 3
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(3).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // key 4
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(4).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(4)),
+                                          entry.getSecond().getFirst().get(0).getValue()));
+        assertNull(entry.getSecond().getSecond());
+        // key 5
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(5).get(), entry.getFirst().get()));
+        assertEquals(0, entry.getSecond().getFirst().size());
+        assertNull(entry.getSecond().getSecond());
+        // key 6
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(6).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // no more keys
+        assertFalse(results.hasNext());
     }
 
     @Test

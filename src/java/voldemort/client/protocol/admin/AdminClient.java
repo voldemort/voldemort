@@ -58,10 +58,12 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -73,6 +75,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -508,6 +511,67 @@ public class AdminClient {
             }
         };
 
+    }
+
+    /**
+     * Fetch key/value tuples belonging to a node with given key values
+     * 
+     * <p>
+     * Entries are being queried synchronously <em>as the iteration happens</em>
+     * i.e. the whole result set is <b>not</b> buffered in memory.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param keys An Iterable of keys
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> queryKeys(int nodeId,
+                                                                                         String storeName,
+                                                                                         final Iterator<ByteArray> keys) {
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        ClientConfig clientConfig = new ClientConfig();
+        final Store<ByteArray, byte[], byte[]> store;
+        final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                                                   clientConfig.getMaxConnectionsPerNode(),
+                                                                                   clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketBufferSize(),
+                                                                                   clientConfig.getSocketKeepAlive());
+        try {
+            store = clientPool.create(storeName,
+                                      node.getHost(),
+                                      node.getSocketPort(),
+                                      clientConfig.getRequestFormatType(),
+                                      RequestRoutingType.IGNORE_CHECKS);
+
+        } catch(Exception e) {
+            clientPool.close();
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>() {
+
+            @Override
+            public Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> computeNext() {
+                ByteArray key;
+                Exception exception = null;
+                List<Versioned<byte[]>> value = null;
+                if(!keys.hasNext()) {
+                    clientPool.close();
+                    return endOfData();
+                } else {
+                    key = keys.next();
+                }
+                try {
+                    value = store.get(key, null);
+                } catch(Exception e) {
+                    exception = e;
+                }
+                return Pair.create(key, Pair.create(value, exception));
+            }
+        };
     }
 
     /**
