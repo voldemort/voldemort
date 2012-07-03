@@ -10,6 +10,7 @@ import voldemort.store.Store;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.versioning.InconsistentDataException;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 public class SystemStore<K, V> {
@@ -43,7 +44,8 @@ public class SystemStore<K, V> {
         this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml);
     }
 
-    public void putSysStore(K key, V value) {
+    public Version putSysStore(K key, V value) {
+        Version version = null;
         try {
             logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
             Versioned<V> versioned = getSysStore(key);
@@ -52,20 +54,25 @@ public class SystemStore<K, V> {
             else
                 versioned.setObject(value);
             this.sysStore.put(key, versioned, null);
+            version = versioned.getVersion();
         } catch(Exception e) {
             logger.info("Exception caught during putSysStore:");
             e.printStackTrace();
         }
+        return version;
     }
 
-    public void putSysStore(K key, Versioned<V> value) {
+    public Version putSysStore(K key, Versioned<V> value) {
+        Version version = null;
         try {
             logger.debug("Invoking Put for key : " + key + " on store name : " + this.storeName);
             this.sysStore.put(key, value, null);
+            version = value.getVersion();
         } catch(Exception e) {
             logger.info("Exception caught during putSysStore:");
             e.printStackTrace();
         }
+        return version;
     }
 
     public Versioned<V> getSysStore(K key) {

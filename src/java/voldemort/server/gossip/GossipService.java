@@ -18,10 +18,10 @@ package voldemort.server.gossip;
 
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.RebalanceUtils;
 

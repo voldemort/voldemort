@@ -16,10 +16,13 @@
 
 package voldemort.client;
 
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
@@ -29,7 +32,10 @@ import voldemort.annotations.concurrency.Threadsafe;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.client.scheduler.AsyncMetadataVersionManager;
+import voldemort.client.scheduler.ClientRegistryRefresher;
 import voldemort.cluster.Node;
+import voldemort.common.service.SchedulerService;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.store.InvalidMetadataException;
@@ -39,6 +45,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ManifestFileReader;
+import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -62,6 +69,9 @@ import com.google.common.collect.Maps;
 @JmxManaged(description = "A voldemort client")
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
+    private static final int ASYNC_THREADS_COUNT = 2;
+    private static final boolean ALLOW_INTERRUPT_ASYNC = true;
+
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
     private final StoreClientFactory storeFactory;
 
@@ -72,9 +82,10 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final SystemStoreRepository sysRepository;
     private final UUID clientId;
     private volatile Store<K, V, Object> store;
-    private AsyncMetadataVersionManager asyncCheckMetadata = null;
+    private final SchedulerService scheduler;
     private ClientInfo clientInfo;
     private String clusterXml;
+    private AsyncMetadataVersionManager asyncCheckMetadata = null;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
@@ -103,7 +114,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository();
-
+        this.scheduler = new SchedulerService(ASYNC_THREADS_COUNT,
+                                              SystemTime.INSTANCE,
+                                              ALLOW_INTERRUPT_ASYNC);
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
@@ -117,18 +130,31 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
         // Initialize the background thread for checking metadata version
         if(config != null) {
-            asyncCheckMetadata = createMetadataChecker();
+            asyncCheckMetadata = scheduleMetadataChecker(clientId.toString(),
+                                                         config.getAsyncCheckMetadataInterval());
         }
 
-        registerClient();
+        registerClient(clientId.toString(), config.getClientRegistryRefreshInterval());
         logger.info("Voldemort client created: " + clientId.toString() + "\n" + clientInfo);
     }
 
-    private void registerClient() {
+    private void registerClient(String jobId, int interval) {
         SystemStore<String, ClientInfo> clientRegistry = this.sysRepository.getClientRegistryStore();
         if(null != clientRegistry) {
             try {
-                clientRegistry.putSysStore(clientId.toString(), clientInfo);
+                Version version = clientRegistry.putSysStore(clientId.toString(), clientInfo);
+                ClientRegistryRefresher refresher = new ClientRegistryRefresher(clientRegistry,
+                                                                                clientId.toString(),
+                                                                                clientInfo,
+                                                                                version);
+                GregorianCalendar cal = new GregorianCalendar();
+                cal.add(Calendar.SECOND, interval);
+                scheduler.schedule(jobId + refresher.getClass().getName(),
+                                   refresher,
+                                   cal.getTime(),
+                                   interval * 1000);
+                logger.info("Client registry refresher thread started, refresh frequency: "
+                            + interval + " seconds");
             } catch(Exception e) {
                 logger.warn("Unable to register with the cluster due to the following error:", e);
             }
@@ -138,7 +164,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
     }
 
-    private AsyncMetadataVersionManager createMetadataChecker() {
+    private AsyncMetadataVersionManager scheduleMetadataChecker(String jobId, long interval) {
         AsyncMetadataVersionManager asyncCheckMetadata = null;
         SystemStore<String, Long> versionStore = this.sysRepository.getVersionStore();
         if(versionStore == null)
@@ -155,10 +181,17 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
             };
 
             asyncCheckMetadata = new AsyncMetadataVersionManager(this.sysRepository,
-                                                                 config,
                                                                  rebootstrapCallback);
-            logger.info("Metadata version check thread started. Frequency = Every "
-                        + config.getAsyncCheckMetadataInterval() + " ms");
+
+            // schedule the job to run every 'checkInterval' period, starting
+            // now
+            scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
+                               asyncCheckMetadata,
+                               new Date(),
+                               interval);
+            logger.info("Metadata version check thread started. Frequency = Every " + interval
+                        + " ms");
+
         }
         return asyncCheckMetadata;
     }
@@ -191,6 +224,10 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         if(asyncCheckMetadata != null) {
             asyncCheckMetadata.updateMetadataVersions();
         }
+    }
+
+    public void close() {
+        scheduler.stopInner();
     }
 
     public boolean delete(K key) {

@@ -30,7 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.server.ServiceType;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;

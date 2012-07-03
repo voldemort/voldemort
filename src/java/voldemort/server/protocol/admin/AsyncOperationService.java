@@ -25,9 +25,9 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
-import voldemort.server.scheduler.SchedulerService;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
 
 /**
  * Asynchronous job scheduler for admin service operations.

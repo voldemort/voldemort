@@ -29,7 +29,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
 
-import voldemort.server.ServiceType;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.utils.Utils;

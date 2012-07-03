@@ -1,4 +1,4 @@
-package voldemort.client;
+package voldemort.client.scheduler;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Random;
@@ -7,6 +7,7 @@ import java.util.concurrent.Callable;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.client.SystemStoreRepository;
 import voldemort.versioning.Versioned;
 
 /*
@@ -28,18 +29,14 @@ public class AsyncMetadataVersionManager implements Runnable {
     private final Logger logger = Logger.getLogger(this.getClass());
     private Versioned<Long> currentStoreVersion;
     private Versioned<Long> currentClusterVersion;
-    private volatile boolean isRunning;
     private final Callable<Void> storeClientThunk;
-    private long asyncMetadataCheckInterval;
     private final SystemStoreRepository sysRepository;
-    private final ClientConfig clientConfig;
 
     // Random delta generator
     private final int DELTA_MAX = 2000;
     private final Random randomGenerator = new Random(System.currentTimeMillis());
 
     public AsyncMetadataVersionManager(SystemStoreRepository sysRepository,
-                                       ClientConfig config,
                                        Callable<Void> storeClientThunk) {
         this.sysRepository = sysRepository;
 
@@ -64,9 +61,6 @@ public class AsyncMetadataVersionManager implements Runnable {
         if(currentClusterVersion == null)
             currentClusterVersion = new Versioned<Long>((long) 0);
 
-        // Initialize and start the background check thread
-        isRunning = true;
-
         Thread checkVersionThread = new Thread(this, "AsyncVersionCheckThread");
         checkVersionThread.setDaemon(true);
         checkVersionThread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
@@ -78,14 +72,6 @@ public class AsyncMetadataVersionManager implements Runnable {
         });
 
         this.storeClientThunk = storeClientThunk;
-        this.asyncMetadataCheckInterval = config.getAsyncCheckMetadataInterval();
-        this.clientConfig = config;
-        checkVersionThread.start();
-
-    }
-
-    public void destroy() {
-        isRunning = false;
     }
 
     /*
@@ -120,23 +106,12 @@ public class AsyncMetadataVersionManager implements Runnable {
     }
 
     public void run() {
-        Versioned<Long> newStoresVersion, newClusterVersion;
-        while(!Thread.currentThread().isInterrupted() && isRunning) {
-            newStoresVersion = newClusterVersion = null;
+        Versioned<Long> newStoresVersion = fetchNewVersion(STORES_VERSION_KEY, currentStoreVersion);
+        Versioned<Long> newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
+                                                            currentClusterVersion);
 
-            try {
-                Thread.sleep(asyncMetadataCheckInterval);
-            } catch(InterruptedException e) {
-                break;
-            }
-
-            newStoresVersion = fetchNewVersion(STORES_VERSION_KEY, currentStoreVersion);
-            newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY, currentClusterVersion);
-
-            // If nothing has been updated, continue
-            if(newStoresVersion == null && newClusterVersion == null) {
-                continue;
-            }
+        // If nothing has been updated, continue
+        if((newStoresVersion != null) || (newClusterVersion != null)) {
 
             logger.info("Metadata version mismatch detected.");
 
@@ -147,7 +122,7 @@ public class AsyncMetadataVersionManager implements Runnable {
                 logger.info("Sleeping for delta : " + delta + " (ms) before re-bootstrapping.");
                 Thread.sleep(delta);
             } catch(InterruptedException e) {
-                break;
+                // do nothing, continue.
             }
 
             try {
@@ -164,8 +139,8 @@ public class AsyncMetadataVersionManager implements Runnable {
                 e.printStackTrace();
                 logger.info(e.getMessage());
             }
-
         }
+
     }
 
     public Versioned<Long> getStoreMetadataVersion() {

@@ -35,7 +35,7 @@ import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.ServiceType;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.storage.StorageService;

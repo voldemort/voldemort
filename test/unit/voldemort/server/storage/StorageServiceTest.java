@@ -8,9 +8,9 @@ import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 

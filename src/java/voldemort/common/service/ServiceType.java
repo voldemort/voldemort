@@ -1,4 +1,4 @@
-package voldemort.server;
+package voldemort.common.service;
 
 /**
  * The various types of voldemort services
