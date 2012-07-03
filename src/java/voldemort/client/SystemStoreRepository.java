@@ -18,13 +18,17 @@ public class SystemStoreRepository {
         sysStoreMap = new ConcurrentHashMap<String, SystemStore>();
     }
 
+    public void addSystemStore(SystemStore newSysStore, String storeName) {
+        this.sysStoreMap.put(storeName, newSysStore);
+    }
+
     public void createSystemStores(ClientConfig config, String clusterXml) {
         for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
-            SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>(storeName.name(),
-                                                                                      config.getBootstrapUrls(),
-                                                                                      config.getClientZoneId(),
-                                                                                      clusterXml);
-            this.sysStoreMap.put(storeName.name(), sysVersionStore);
+            SystemStore sysStore = new SystemStore(storeName.name(),
+                                                   config.getBootstrapUrls(),
+                                                   config.getClientZoneId(),
+                                                   clusterXml);
+            this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }
 

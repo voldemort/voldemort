@@ -1,10 +1,8 @@
 package voldemort.client.scheduler;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Random;
 import java.util.concurrent.Callable;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.client.SystemStoreRepository;
@@ -15,16 +13,16 @@ import voldemort.versioning.Versioned;
  * cluster and if necessary Re-bootstrap the client.
  * 
  * During initialization, it will retrieve the current version of the store (or
- * the entire stores.xml depending upon granularity) and then periodically check
- * whether this has been updated. During init if the initial version turns out
- * to be null, it means that no change has been done to that store since it was
- * created. In this case, we assume version '0'.
+ * the entire stores.xml depending upon granularity) and cluster.xml and then
+ * periodically check whether this has been updated. During init if the initial
+ * version turns out to be null, it means that no change has been done to that
+ * store since it was created. In this case, we assume version '0'.
  */
 
 public class AsyncMetadataVersionManager implements Runnable {
 
-    private static final String STORES_VERSION_KEY = "stores.xml";
-    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
+    public static final String STORES_VERSION_KEY = "stores.xml";
+    public static final String CLUSTER_VERSION_KEY = "cluster.xml";
 
     private final Logger logger = Logger.getLogger(this.getClass());
     private Versioned<Long> currentStoreVersion;
@@ -35,6 +33,8 @@ public class AsyncMetadataVersionManager implements Runnable {
     // Random delta generator
     private final int DELTA_MAX = 2000;
     private final Random randomGenerator = new Random(System.currentTimeMillis());
+
+    public boolean isActive = false;
 
     public AsyncMetadataVersionManager(SystemStoreRepository sysRepository,
                                        Callable<Void> storeClientThunk) {
@@ -56,22 +56,18 @@ public class AsyncMetadataVersionManager implements Runnable {
         }
 
         // If the received version is null, assume version 0
-        if(currentStoreVersion == null)
+        if(currentStoreVersion == null) {
             currentStoreVersion = new Versioned<Long>((long) 0);
-        if(currentClusterVersion == null)
+        }
+        if(currentClusterVersion == null) {
             currentClusterVersion = new Versioned<Long>((long) 0);
+        }
 
-        Thread checkVersionThread = new Thread(this, "AsyncVersionCheckThread");
-        checkVersionThread.setDaemon(true);
-        checkVersionThread.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {
-
-            public void uncaughtException(Thread t, Throwable e) {
-                if(logger.isEnabledFor(Level.ERROR))
-                    logger.error("Uncaught exception in Metadata Version check thread:", e);
-            }
-        });
+        logger.debug("Initial stores.xml version = " + this.currentStoreVersion);
+        logger.debug("Initial cluster.xml version = " + this.currentClusterVersion);
 
         this.storeClientThunk = storeClientThunk;
+        this.isActive = true;
     }
 
     /*
@@ -126,15 +122,17 @@ public class AsyncMetadataVersionManager implements Runnable {
             }
 
             try {
-                this.storeClientThunk.call();
-
                 if(newStoresVersion != null) {
+                    logger.info("Updating stores version");
                     currentStoreVersion = newStoresVersion;
                 }
 
                 if(newClusterVersion != null) {
+                    logger.info("Updating cluster version");
                     currentClusterVersion = newClusterVersion;
                 }
+
+                this.storeClientThunk.call();
             } catch(Exception e) {
                 e.printStackTrace();
                 logger.info(e.getMessage());
