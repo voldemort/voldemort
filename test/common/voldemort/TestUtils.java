@@ -31,6 +31,7 @@ import junit.framework.AssertionFailedError;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.store.Store;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -338,6 +339,69 @@ public class TestUtils {
         Field eventDataQueueField = instance.getClass().getDeclaredField(fieldName);
         eventDataQueueField.setAccessible(true);
         return (T) eventDataQueueField.get(instance);
+    }
+
+    /**
+     * Wrapper to get a StoreDefinition object constructed, given a store name
+     */
+    public static StoreDefinition makeStoreDefinition(String storeName) {
+        return new StoreDefinition(storeName,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0);
+    }
+
+    /**
+     * Wrapper to get a StoreDefinition object constructed, given a store name,
+     * memory foot print
+     */
+    public static StoreDefinition makeStoreDefinition(String storeName, long memFootprintMB) {
+        return new StoreDefinition(storeName,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   0,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   null,
+                                   memFootprintMB);
     }
 
 }

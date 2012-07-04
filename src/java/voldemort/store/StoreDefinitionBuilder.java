@@ -40,6 +40,7 @@ public class StoreDefinitionBuilder {
     private HintedHandoffStrategyType hintedHandoffStrategy = null;
     private Integer hintPrefListSize = null;
     private List<String> owners = null;
+    private long memoryFootprintMB = 0;
 
     public String getName() {
         return Utils.notNull(name);
@@ -273,30 +274,42 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public long getMemoryFootprintMB() {
+        return memoryFootprintMB;
+    }
+
+    public StoreDefinitionBuilder setMemoryFootprintMB(long memoryFootprintMB) {
+        this.memoryFootprintMB = memoryFootprintMB;
+        return this;
+    }
+
     public StoreDefinition build() {
-        return new StoreDefinition(this.getName(),
-                                   this.getType(),
-                                   this.getDescription(),
-                                   this.getKeySerializer(),
-                                   this.getValueSerializer(),
-                                   this.getTransformsSerializer(),
-                                   this.getRoutingPolicy(),
-                                   this.getRoutingStrategyType(),
-                                   this.getReplicationFactor(),
-                                   this.getPreferredReads(),
-                                   this.getRequiredReads(),
-                                   this.getPreferredWrites(),
-                                   this.getRequiredWrites(),
-                                   this.getViewOf(),
-                                   this.getView(),
-                                   this.getZoneReplicationFactor(),
-                                   this.getZoneCountReads(),
-                                   this.getZoneCountWrites(),
-                                   this.getRetentionPeriodDays(),
-                                   this.getRetentionScanThrottleRate(),
-                                   this.getSerializerFactory(),
-                                   this.getHintedHandoffStrategy(),
-                                   this.getHintPrefListSize(),
-                                   this.getOwners());
+        StoreDefinition storeDef = new StoreDefinition(this.getName(),
+                                                       this.getType(),
+                                                       this.getDescription(),
+                                                       this.getKeySerializer(),
+                                                       this.getValueSerializer(),
+                                                       this.getTransformsSerializer(),
+                                                       this.getRoutingPolicy(),
+                                                       this.getRoutingStrategyType(),
+                                                       this.getReplicationFactor(),
+                                                       this.getPreferredReads(),
+                                                       this.getRequiredReads(),
+                                                       this.getPreferredWrites(),
+                                                       this.getRequiredWrites(),
+                                                       this.getViewOf(),
+                                                       this.getView(),
+                                                       this.getZoneReplicationFactor(),
+                                                       this.getZoneCountReads(),
+                                                       this.getZoneCountWrites(),
+                                                       this.getRetentionPeriodDays(),
+                                                       this.getRetentionScanThrottleRate(),
+                                                       this.getSerializerFactory(),
+                                                       this.getHintedHandoffStrategy(),
+                                                       this.getHintPrefListSize(),
+                                                       this.getOwners(),
+                                                       this.getMemoryFootprintMB());
+        storeDef.checkParameterLegality();
+        return storeDef;
     }
 }

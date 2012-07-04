@@ -214,7 +214,33 @@ public class StorageService extends AbstractService {
                                                  + voldemortConfig.getSlopStoreType()
                                                  + " storage engine has not been enabled.");
 
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
+            // make a dummy store definition object
+            StoreDefinition slopStoreDefinition = new StoreDefinition(SlopStorageEngine.SLOP_STORE_NAME,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0);
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
                                                                  metadata.getCluster());
             registerEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
@@ -282,6 +308,16 @@ public class StorageService extends AbstractService {
         logger.info("All stores initialized.");
     }
 
+    public void updateStore(StoreDefinition storeDef) {
+        logger.info("Updating store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine has not been enabled.");
+        config.update(storeDef);
+    }
+
     public void openStore(StoreDefinition storeDef) {
 
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
@@ -299,7 +335,7 @@ public class StorageService extends AbstractService {
             ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
         }
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
         // Update the routing strategy + add listener to metadata
         if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {

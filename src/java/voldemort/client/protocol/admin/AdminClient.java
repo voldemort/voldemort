@@ -26,6 +26,7 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -2447,5 +2448,43 @@ public class AdminClient {
 
         int asyncId = response.getRequestId();
         waitForCompletion(nodeId, asyncId, timeOut, TimeUnit.MINUTES);
+    }
+
+    /**
+     * Reserve memory for the stores
+     * 
+     * @param nodeId The node id to reserve, -1 for entire cluster
+     * @param stores list of stores for which to reserve
+     * @param sizeInMB size of reservation
+     */
+    public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
+
+        List<Integer> reserveNodes = new ArrayList<Integer>();
+        if(nodeId == -1) {
+            // if no node is specified send it to the entire cluster
+            for(Node node: currentCluster.getNodes())
+                reserveNodes.add(node.getId());
+        } else {
+            reserveNodes.add(nodeId);
+        }
+        for(String storeName: stores) {
+            for(Integer reserveNodeId: reserveNodes) {
+
+                VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
+                                                                                                  .setStoreName(storeName)
+                                                                                                  .setSizeInMb(sizeInMB)
+                                                                                                  .build();
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setReserveMemory(reserveRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
+                                                                                                  .build();
+                VAdminProto.ReserveMemoryResponse.Builder response = sendAndReceive(reserveNodeId,
+                                                                                    adminRequest,
+                                                                                    VAdminProto.ReserveMemoryResponse.newBuilder());
+                if(response.hasError())
+                    throwException(response.getError());
+            }
+            logger.info("Finished reserving memory for store : " + storeName);
+        }
     }
 }

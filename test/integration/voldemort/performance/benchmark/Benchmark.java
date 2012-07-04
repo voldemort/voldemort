@@ -27,6 +27,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.ServerTestUtils;
 import voldemort.StaticStoreClientFactory;
+import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.AbstractStoreClientFactory;
 import voldemort.client.ClientConfig;
@@ -357,7 +358,7 @@ public class Benchmark {
             StorageConfiguration conf = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                             new Object[] { ServerTestUtils.getVoldemortConfig() });
 
-            StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(DUMMY_DB);
+            StorageEngine<ByteArray, byte[], byte[]> engine = conf.getStore(TestUtils.makeStoreDefinition(DUMMY_DB));
             if(conf.getType().compareTo(ViewStorageConfiguration.TYPE_NAME) == 0) {
                 engine = new ViewStorageEngine(STORE_NAME,
                                                engine,

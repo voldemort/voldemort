@@ -96,6 +96,7 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_TRANS_ELMT = "view-class";
     public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
+    private final static String STORE_MEMORY_FOOTPRINT = "memory-footprint";
 
     private final Schema schema;
 
@@ -248,6 +249,11 @@ public class StoreDefinitionsMapper {
         Integer hintPrefListSize = (null != hintPrefListSizeStr) ? Integer.parseInt(hintPrefListSizeStr)
                                                                 : null;
 
+        String memoryFootprintStr = store.getChildText(STORE_MEMORY_FOOTPRINT);
+        long memoryFootprintMB = 0;
+        if(memoryFootprintStr != null)
+            memoryFootprintMB = Long.parseLong(memoryFootprintStr);
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setDescription(description)
@@ -268,6 +274,7 @@ public class StoreDefinitionsMapper {
                                            .setZoneCountWrites(zoneCountWrites)
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
+                                           .setMemoryFootprintMB(memoryFootprintMB)
                                            .build();
     }
 
@@ -459,6 +466,10 @@ public class StoreDefinitionsMapper {
 
         if(storeDefinition.hasRetentionScanThrottleRate())
             store.addContent(new Element(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionScanThrottleRate())));
+
+        if(storeDefinition.hasMemoryFootprint()) {
+            store.addContent(new Element(STORE_MEMORY_FOOTPRINT).setText(Long.toString(storeDefinition.getMemoryFootprintMB())));
+        }
 
         return store;
     }

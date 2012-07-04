@@ -79,8 +79,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbOneEnvPerStore(false);
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"));
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"));
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),
@@ -124,8 +124,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbDataDirectory(bdbMasterDir.toURI().getPath());
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"));
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"));
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),

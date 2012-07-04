@@ -220,6 +220,10 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("version")
               .ofType(Long.class);
+        parser.accepts("reserve-memory", "Memory in MB to reserve for the store")
+              .withRequiredArg()
+              .describedAs("size-in-mb")
+              .ofType(Long.class);
 
         OptionSet options = parser.parse(args);
 
@@ -236,7 +240,7 @@ public class VoldemortAdminTool {
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
-                 || options.has("async") || options.has("native-backup") || options.has("rollback"))) {
+                 || options.has("async") || options.has("native-backup") || options.has("rollback") || options.has("reserve-memory"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -311,11 +315,17 @@ public class VoldemortAdminTool {
             }
             ops += "o";
         }
+        if(options.has("reserve-memory")) {
+            if(!options.has("stores")) {
+                Utils.croak("Specify the list of stores to reserve memory");
+            }
+            ops += "f";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                         + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
-                        + "repair-job, native-backup) must be specified");
+                        + "repair-job, native-backup, rollback, reserve-memory) must be specified");
         }
 
         List<String> storeNames = null;
@@ -479,6 +489,10 @@ public class VoldemortAdminTool {
                 String storeName = (String) options.valueOf("rollback");
                 long pushVersion = (Long) options.valueOf("version");
                 executeRollback(nodeId, storeName, pushVersion, adminClient);
+            }
+            if(ops.contains("f")) {
+                long reserveMB = (Long) options.valueOf("reserve-memory");
+                adminClient.reserveMemory(nodeId, storeNames, reserveMB);
             }
         } catch(Exception e) {
             e.printStackTrace();
