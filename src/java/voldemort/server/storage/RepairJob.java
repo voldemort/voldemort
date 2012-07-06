@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.MBeanOperationInfo;
 
@@ -75,8 +76,8 @@ public class RepairJob implements Runnable {
         for(StoreDefinition storeDef: metadataStore.getStoreDefList()) {
             localStats.put(storeDef.getName(), 0L);
         }
-
-        if(!acquireRepairPermit())
+        AtomicLong progress = new AtomicLong(0);
+        if(!acquireRepairPermit(progress))
             return;
         try {
             // Get routing factory
@@ -93,7 +94,6 @@ public class RepairJob implements Runnable {
                                                                                                    metadataStore.getCluster());
                     long repairSlops = 0L;
                     long numDeletedKeys = 0;
-                    long numScannedKeys = 0;
                     while(iterator.hasNext()) {
                         Pair<ByteArray, Versioned<byte[]>> keyAndVal;
                         keyAndVal = iterator.next();
@@ -103,10 +103,9 @@ public class RepairJob implements Runnable {
                             engine.delete(keyAndVal.getFirst(), keyAndVal.getSecond().getVersion());
                             numDeletedKeys++;
                         }
-                        numScannedKeys++;
-                        if(numScannedKeys % deleteBatchSize == 0)
-                            logger.info("#Scanned:" + numScannedKeys + " #Deleted:"
-                                        + numDeletedKeys);
+                        long itemsScanned = progress.incrementAndGet();
+                        if(itemsScanned % deleteBatchSize == 0)
+                            logger.info("#Scanned:" + itemsScanned + " #Deleted:" + numDeletedKeys);
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
@@ -149,9 +148,9 @@ public class RepairJob implements Runnable {
         }
     }
 
-    private boolean acquireRepairPermit() {
+    private boolean acquireRepairPermit(AtomicLong progress) {
         logger.info("Acquiring lock to perform repair job ");
-        if(this.repairPermits.tryAcquire()) {
+        if(this.repairPermits.tryAcquire(progress)) {
             logger.info("Acquired lock to perform repair job ");
             return true;
         } else {

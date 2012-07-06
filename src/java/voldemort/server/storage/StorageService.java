@@ -591,6 +591,9 @@ public class StorageService extends AbstractService {
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
                                                                             throttler);
+        if(voldemortConfig.isJmxEnabled()) {
+            JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
+        }
 
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
@@ -818,5 +821,15 @@ public class StorageService extends AbstractService {
     @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
     public List<String> getPermitOwners() {
         return this.scanPermitWrapper.getPermitOwners();
+    }
+
+    @JmxGetter(name = "numGrantedScanPermits", description = "Returns number of scan permits granted at the moment")
+    public long getGrantedPermits() {
+        return this.scanPermitWrapper.getGrantedPermits();
+    }
+
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned since last call")
+    public long getEntriesScanned() {
+        return this.scanPermitWrapper.getEntriesScanned();
     }
 }

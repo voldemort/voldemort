@@ -1,24 +1,27 @@
 package voldemort.store.bdb.stats;
 
+import java.util.concurrent.Callable;
 
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.StatsConfig;
 import voldemort.VoldemortException;
 import voldemort.annotations.Experimental;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.utils.CachedCallable;
 
-import java.util.concurrent.Callable;
+import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.EnvironmentStats;
+import com.sleepycat.je.StatsConfig;
 
 public class BdbEnvironmentStats {
 
     private final Environment environment;
     private final CachedCallable<EnvironmentStats> fastStats;
+    private final CachedCallable<SpaceUtilizationStats> fastSpaceStats;
+    private final boolean exposeSpaceStats;
 
-    public BdbEnvironmentStats(Environment environment, long ttlMs) {
+    public BdbEnvironmentStats(Environment environment, long ttlMs, boolean exposeSpaceUtil) {
         this.environment = environment;
+        this.exposeSpaceStats = exposeSpaceUtil;
         Callable<EnvironmentStats> fastStatsCallable = new Callable<EnvironmentStats>() {
 
             public EnvironmentStats call() throws Exception {
@@ -26,12 +29,32 @@ public class BdbEnvironmentStats {
             }
         };
         fastStats = new CachedCallable<EnvironmentStats>(fastStatsCallable, ttlMs);
+
+        Callable<SpaceUtilizationStats> fastDbStatsCallable = new Callable<SpaceUtilizationStats>() {
+
+            public SpaceUtilizationStats call() throws Exception {
+                return getSpaceUtilizationStats();
+            }
+        };
+        fastSpaceStats = new CachedCallable<SpaceUtilizationStats>(fastDbStatsCallable, ttlMs);
     }
 
     private EnvironmentStats getEnvironmentStats(boolean fast) {
         StatsConfig config = new StatsConfig();
         config.setFast(fast);
         return environment.getStats(config);
+    }
+
+    private SpaceUtilizationStats getSpaceUtilizationStats() {
+        return new SpaceUtilizationStats(environment);
+    }
+
+    private SpaceUtilizationStats getFastSpaceUtilizationStats() {
+        try {
+            return fastSpaceStats.call();
+        } catch(Exception e) {
+            throw new VoldemortException(e);
+        }
     }
 
     private EnvironmentStats getFastStats() {
@@ -47,6 +70,8 @@ public class BdbEnvironmentStats {
         return getFastStats().toString();
     }
 
+    // 1. Caching
+
     @JmxGetter(name = "NumCacheMiss")
     public long getNumCacheMiss() {
         return getFastStats().getNCacheMiss();
@@ -57,6 +82,22 @@ public class BdbEnvironmentStats {
         return getFastStats().getNNotResident();
     }
 
+    @JmxGetter(name = "TotalCacheSize")
+    public long getTotalCacheSize() {
+        return getFastStats().getSharedCacheTotalBytes();
+    }
+
+    @JmxGetter(name = "AllotedCacheSize")
+    public long getAllotedCacheSize() {
+        return getFastStats().getCacheTotalBytes();
+    }
+
+    @JmxGetter(name = "EvictionPasses")
+    public long getEvictedLNs() {
+        return getFastStats().getNEvictPasses();
+    }
+
+    // 2. IO
     @JmxGetter(name = "NumRandomWrites")
     public long getNumRandomWrites() {
         return getFastStats().getNRandomWrites();
@@ -97,6 +138,18 @@ public class BdbEnvironmentStats {
         return getFastStats().getNSequentialReadBytes();
     }
 
+    @JmxGetter(name = "NumFSyncs")
+    public long getNumFSyncs() {
+        return getFastStats().getNFSyncs();
+    }
+
+    // 3. Cleaning & Checkpointing
+
+    @JmxGetter(name = "NumCleanerEntriesRead")
+    public long getNumCleanerEntriesRead() {
+        return getFastStats().getNCleanerEntriesRead();
+    }
+
     @JmxGetter(name = "FileDeletionBacklog")
     public long getFileDeletionBacklog() {
         return getFastStats().getFileDeletionBacklog();
@@ -115,31 +168,6 @@ public class BdbEnvironmentStats {
         return getFastStats().getCleanerBacklog();
     }
 
-    @JmxGetter(name = "NumAcquiresWithContention")
-    public long getNumAcquiresWithContention() {
-        return getFastStats().getNAcquiresWithContention();
-    }
-
-    @JmxGetter(name = "NumAcquiresNoWaiters")
-    public long getNumAcquiresNoWaiters() {
-        return getFastStats().getNAcquiresNoWaiters();
-    }
-
-    @JmxGetter(name = "NumCheckpoints")
-    public long getNumCheckpoints() {
-        return getFastStats().getNCheckpoints();
-    }
-
-    @JmxGetter(name = "NumCleanerEntriesRead")
-    public long getNumCleanerEntriesRead() {
-        return getFastStats().getNCleanerEntriesRead();
-    }
-
-    @JmxGetter(name = "NumFSyncs")
-    public long getNumFSyncs() {
-        return getFastStats().getNFSyncs();
-    }
-
     @JmxGetter(name = "NumCleanerRuns")
     public long getNumCleanerRuns() {
         return getFastStats().getNCleanerRuns();
@@ -150,27 +178,80 @@ public class BdbEnvironmentStats {
         return getFastStats().getNCleanerRuns();
     }
 
-    // Compound statistics
+    @JmxGetter(name = "NumCheckpoints")
+    public long getNumCheckpoints() {
+        return getFastStats().getNCheckpoints();
+    }
+
+    @JmxGetter(name = "TotalSpace")
+    public long getTotalSpace() {
+        if(this.exposeSpaceStats)
+            return getFastSpaceUtilizationStats().getTotalSpaceUsed();
+        else
+            return 0;
+    }
+
+    @JmxGetter(name = "TotalSpaceUtilized")
+    public long getTotalSpaceUtilized() {
+        if(this.exposeSpaceStats)
+            return getFastSpaceUtilizationStats().getTotalSpaceUtilized();
+        else
+            return 0;
+    }
+
+    @JmxGetter(name = "UtilizationSummary", description = "Displays the disk space utilization for an environment.")
+    public String getUtilizationSummaryAsString() {
+        return getFastSpaceUtilizationStats().getSummariesAsString();
+    }
+
+    // 4. Latching/Locking
+
+    @JmxGetter(name = "BtreeLatches")
+    public long getBtreeLatches() {
+        return getFastStats().getRelatchesRequired();
+    }
+
+    @JmxGetter(name = "NumAcquiresWithContention")
+    public long getNumAcquiresWithContention() {
+        return getFastStats().getNAcquiresWithContention();
+    }
+
+    @JmxGetter(name = "NumAcquiresNoWaiters")
+    public long getNumAcquiresNoWaiters() {
+        return getFastStats().getNAcquiresNoWaiters();
+    }
+
+    // Compound statistics derived from raw statistics
 
     @JmxGetter(name = "NumWritesTotal")
     public long getNumWritesTotal() {
         return getNumRandomWrites() + getNumSequentialWrites();
     }
 
+    @JmxGetter(name = "NumWriteBytesTotal")
+    public long getNumWriteBytesTotal() {
+        return getNumSequentialWriteBytes() + getNumRandomWriteBytes();
+    }
+
     @JmxGetter(name = "PercentRandomWrites")
     public double getPercentRandomWrites() {
-       return safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
+        return safeGetPercentage(getNumRandomWrites(), getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageRandomWriteBytes")
     public double getPercentageRandomWriteBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes() +
-                                                           getNumSequentialWriteBytes());
+        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomWriteBytes()
+                                                           + getNumSequentialWriteBytes());
     }
 
     @JmxGetter(name = "NumReadsTotal")
     public long getNumReadsTotal() {
         return getNumRandomReads() + getNumSequentialReads();
+    }
+
+    @JmxGetter(name = "NumReadBytesTotal")
+    public long getNumReadBytesTotal() {
+        return getNumRandomReadBytes() + getNumSequentialReadBytes();
     }
 
     @JmxGetter(name = "PercentageRandomReads")
@@ -180,8 +261,19 @@ public class BdbEnvironmentStats {
 
     @JmxGetter(name = "PercentageRandomReadBytes")
     public double getPercentageRandomReadBytes() {
-        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes() +
-                                                           getNumSequentialReadBytes());
+        return safeGetPercentage(getNumRandomWriteBytes(), getNumRandomReadBytes()
+                                                           + getNumSequentialReadBytes());
+    }
+
+    @JmxGetter(name = "PercentageReads")
+    public double getPercentageReads() {
+        return safeGetPercentage(getNumReadsTotal(), getNumReadsTotal() + getNumWritesTotal());
+    }
+
+    @JmxGetter(name = "PercentageReadBytes")
+    public double getPercentageReadBytes() {
+        return safeGetPercentage(getNumReadBytesTotal(), getNumWriteBytesTotal()
+                                                         + getNumReadBytesTotal());
     }
 
     @Experimental
@@ -193,17 +285,21 @@ public class BdbEnvironmentStats {
     @Experimental
     @JmxGetter(name = "PercentageCacheMisses")
     public double getPercentageCacheMisses() {
-        return safeGetPercentage(getNumCacheMiss(),
-                                 getNumReadsTotal() + getNumWritesTotal());
+        return safeGetPercentage(getNumCacheMiss(), getNumReadsTotal() + getNumWritesTotal());
     }
 
     @JmxGetter(name = "PercentageContended")
     public double getPercentageContended() {
-        return safeGetPercentage(getNumAcquiresWithContention(),
-                                 getNumAcquiresWithContention() + getNumAcquiresNoWaiters());
+        return safeGetPercentage(getNumAcquiresWithContention(), getNumAcquiresWithContention()
+                                                                 + getNumAcquiresNoWaiters());
+    }
+
+    @JmxGetter(name = "PercentageUtilization")
+    public double getPercentageUtilization() {
+        return safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {
-        return total == 0 ? 0.0d : rawNum / (float)total;
+        return total == 0 ? 0.0d : rawNum / (float) total;
     }
 }
