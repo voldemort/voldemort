@@ -153,30 +153,31 @@ public class PipelineRoutedStore extends RoutedStore {
         }
     }
 
-    private ConfigureNodesType getNodeConfigurationType(BasicPipelineData<List<Versioned<byte[]>>> pipelineData) {
+    private ConfigureNodesType obtainNodeConfigurationType(Integer zonesRequired) {
         // If Zone and local preference required
-        if(pipelineData.getZonesRequired() != null
+        if(zonesRequired != null
            && routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
             return ConfigureNodesType.BYZONE_LOCAL;
 
         // If only local preference required
-        else if(pipelineData.getZonesRequired() == null
+        else if(zonesRequired == null
                 && routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
             return ConfigureNodesType.DEFAULT_LOCAL;
 
         // If only Zone required
-        else if(pipelineData.getZonesRequired() != null
+        else if(zonesRequired != null
                 && !routingStrategy.getType()
                                    .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
             return ConfigureNodesType.BYZONE;
 
         // Default case
         return ConfigureNodesType.DEFAULT;
+
     }
 
     private AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> getNodeConfiguration(BasicPipelineData<List<Versioned<byte[]>>> pipelineData,
                                                                                                                                         ByteArray key) {
-        switch(getNodeConfigurationType(pipelineData)) {
+        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
             case DEFAULT:
                 return new ConfigureNodesDefault<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
                                                                                                                       Event.CONFIGURED,
@@ -566,6 +567,45 @@ public class PipelineRoutedStore extends RoutedStore {
         return slopStores != null;
     }
 
+    private AbstractConfigureNodes<ByteArray, Void, PutPipelineData> putNodeConfiguration(PutPipelineData pipelineData,
+                                                                                          ByteArray key) {
+        switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
+            case DEFAULT:
+                return new ConfigureNodesDefault<Void, PutPipelineData>(pipelineData,
+                                                                        Event.CONFIGURED,
+                                                                        failureDetector,
+                                                                        storeDef.getRequiredWrites(),
+                                                                        routingStrategy,
+                                                                        key);
+            case BYZONE:
+                return new ConfigureNodesByZone<Void, PutPipelineData>(pipelineData,
+                                                                       Event.CONFIGURED,
+                                                                       failureDetector,
+                                                                       storeDef.getRequiredWrites(),
+                                                                       routingStrategy,
+                                                                       key,
+                                                                       clientZone);
+            case DEFAULT_LOCAL:
+                return new ConfigureNodesLocalHost<Void, PutPipelineData>(pipelineData,
+                                                                          Event.CONFIGURED,
+                                                                          failureDetector,
+                                                                          storeDef.getRequiredWrites(),
+                                                                          routingStrategy,
+                                                                          key);
+            case BYZONE_LOCAL:
+                return new ConfigureNodesLocalHostByZone<Void, PutPipelineData>(pipelineData,
+                                                                                Event.CONFIGURED,
+                                                                                failureDetector,
+                                                                                storeDef.getRequiredWrites(),
+                                                                                routingStrategy,
+                                                                                key,
+                                                                                clientZone);
+            default:
+                return null;
+        }
+
+    }
+
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -585,6 +625,11 @@ public class PipelineRoutedStore extends RoutedStore {
 
         HintedHandoff hintedHandoff = null;
 
+        // Get the correct type of configure nodes action depending on the store
+        // requirements
+        AbstractConfigureNodes<ByteArray, Void, PutPipelineData> configureNodes = putNodeConfiguration(pipelineData,
+                                                                                                       key);
+
         if(isHintedHandoffEnabled())
             hintedHandoff = new HintedHandoff(failureDetector,
                                               slopStores,
@@ -593,14 +638,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                               pipelineData.getFailedNodes(),
                                               timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE));
 
-        pipeline.addEventAction(Event.STARTED,
-                                new ConfigureNodes<Void, PutPipelineData>(pipelineData,
-                                                                          Event.CONFIGURED,
-                                                                          failureDetector,
-                                                                          storeDef.getRequiredWrites(),
-                                                                          routingStrategy,
-                                                                          key,
-                                                                          clientZone));
+        pipeline.addEventAction(Event.STARTED, configureNodes);
+
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformSerialPutRequests(pipelineData,
                                                              isHintedHandoffEnabled() ? Event.RESPONSES_RECEIVED
