@@ -39,7 +39,7 @@ public class SystemStore<K, V> {
               .setEnableJmx(false)
               .setEnablePipelineRoutedStore(true)
               .setClientZoneId(clientZoneID);
-        this.systemStoreFactory = new SocketStoreClientFactory(config);
+        this.systemStoreFactory = new SystemStoreClientFactory(config);
         this.storeName = storeName;
         this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml);
     }

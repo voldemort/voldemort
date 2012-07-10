@@ -111,7 +111,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
-        this.jmxId = jmxIdCounter.getAndIncrement();
+        this.jmxId = getNextJmxId();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
         this.clientZoneId = config.getClientZoneId();
@@ -135,6 +135,14 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                              clientContextName + ".aggregate-perf"
                                                                      + jmxId()));
         }
+    }
+
+    public int getNextJmxId() {
+        return jmxIdCounter.getAndIncrement();
+    }
+
+    public int getCurrentJmxId() {
+        return jmxIdCounter.get();
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {

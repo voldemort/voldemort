@@ -36,7 +36,7 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
     private static String getAndIncrementJmxId() {
         int current = factoryJmxId;
         factoryJmxId++;
-        return (0 == current ? "" : "." + current);
+        return (0 == current ? "" : "" + current);
     }
 
     @Override
