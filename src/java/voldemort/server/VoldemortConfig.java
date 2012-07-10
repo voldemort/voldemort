@@ -86,6 +86,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbFairLatches;
     private long bdbStatsCacheTtlMs;
     private boolean bdbExposeSpaceUtilization;
+    private long bdbMinimumSharedCache;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -228,6 +229,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
         this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
+        this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -1165,6 +1167,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
         this.bdbStatsCacheTtlMs = statsCacheTtlMs;
+    }
+
+    public long getBdbMinimumSharedCache() {
+        return this.bdbMinimumSharedCache;
+    }
+
+    public void setBdbMinimumSharedCache(long minimumSharedCache) {
+        this.bdbMinimumSharedCache = minimumSharedCache;
     }
 
     public int getSchedulerThreads() {

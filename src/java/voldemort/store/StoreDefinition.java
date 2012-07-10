@@ -388,7 +388,8 @@ public class StoreDefinition implements Serializable {
                                 def.getSerializerFactory() != null ? def.getSerializerFactory()
                                                                   : null)
                && Objects.equal(getHintedHandoffStrategyType(), def.getHintedHandoffStrategyType())
-               && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize());
+               && Objects.equal(getHintPrefListSize(), def.getHintPrefListSize())
+               && Objects.equal(getMemoryFootprintMB(), def.getMemoryFootprintMB());
     }
 
     @Override
@@ -419,7 +420,8 @@ public class StoreDefinition implements Serializable {
                                 hasHintedHandoffStrategyType() ? getHintedHandoffStrategyType()
                                                               : null,
                                 hasHintPreflistSize() ? getHintPrefListSize() : null,
-                                getOwners());
+                                getOwners(),
+                                getMemoryFootprintMB());
     }
 
     @Override
@@ -439,6 +441,6 @@ public class StoreDefinition implements Serializable {
                + getZoneCountWrites() + ", serializer factory = " + getSerializerFactory() + ")"
                + ", hinted-handoff-strategy = " + getHintedHandoffStrategyType()
                + ", hint-preflist-size = " + getHintPrefListSize() + ", owners = " + getOwners()
-               + ")";
+               + ", memory-footprint(MB)" + getMemoryFootprintMB() + ")";
     }
 }

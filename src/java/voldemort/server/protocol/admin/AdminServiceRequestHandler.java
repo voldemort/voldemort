@@ -1510,6 +1510,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                             storeDefList.set(i, newStoreDef);
                             storageService.updateStore(newStoreDef);
+                            break;
                         }
                     }
 

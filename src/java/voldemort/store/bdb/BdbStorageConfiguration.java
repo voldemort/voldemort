@@ -32,6 +32,7 @@ import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 
@@ -58,8 +59,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private static final String SHARED_ENV_KEY = "shared";
 
     private static Logger logger = Logger.getLogger(BdbStorageConfiguration.class);
-    private static final long BYTES_PER_MB = 1048576;
-
     private final Object lock = new Object();
     private final Map<String, Environment> environments = Maps.newHashMap();
     private final EnvironmentConfig environmentConfig;
@@ -67,7 +66,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
     private final String bdbMasterDir;
     private final boolean useOneEnvPerStore;
     private final VoldemortConfig voldemortConfig;
-    private final long totalCacheSize;
     private long reservedCacheSize = 0;
     private Set<Environment> unreservedStores;
 
@@ -75,7 +73,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         this.voldemortConfig = config;
         environmentConfig = new EnvironmentConfig();
         environmentConfig.setTransactional(true);
-        totalCacheSize = config.getBdbCacheSize();
         if(config.isBdbWriteTransactionsEnabled() && config.isBdbFlushTransactionsEnabled()) {
             environmentConfig.setDurability(Durability.COMMIT_SYNC);
         } else if(config.isBdbWriteTransactionsEnabled() && !config.isBdbFlushTransactionsEnabled()) {
@@ -155,7 +152,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
      * 
      */
     private void adjustCacheSizes() {
-        long newSharedCacheSize = this.totalCacheSize - this.reservedCacheSize;
+        long newSharedCacheSize = voldemortConfig.getBdbCacheSize() - this.reservedCacheSize;
         logger.info("Setting the shared cache size to " + newSharedCacheSize);
         for(Environment environment: unreservedStores) {
             EnvironmentMutableConfig mConfig = environment.getMutableConfig();
@@ -180,14 +177,27 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 // configure the BDB cache
                 if(storeDef.hasMemoryFootprint()) {
                     // make room for the reservation, by adjusting other stores
-                    long reservedBytes = storeDef.getMemoryFootprintMB() * BYTES_PER_MB;
-                    this.reservedCacheSize += reservedBytes;
+                    long reservedBytes = storeDef.getMemoryFootprintMB() * ByteUtils.BYTES_PER_MB;
+                    long newReservedCacheSize = this.reservedCacheSize + reservedBytes;
+
+                    // check that we leave a 'minimum' shared cache
+                    if((voldemortConfig.getBdbCacheSize() - newReservedCacheSize) < voldemortConfig.getBdbMinimumSharedCache()) {
+                        throw new StorageInitializationException("Reservation of "
+                                                                 + storeDef.getMemoryFootprintMB()
+                                                                 + " MB for store "
+                                                                 + storeName
+                                                                 + " violates minimum shared cache size of "
+                                                                 + voldemortConfig.getBdbMinimumSharedCache());
+                    }
+
+                    this.reservedCacheSize = newReservedCacheSize;
                     adjustCacheSizes();
                     environmentConfig.setSharedCache(false);
                     environmentConfig.setCacheSize(reservedBytes);
                 } else {
                     environmentConfig.setSharedCache(true);
-                    environmentConfig.setCacheSize(this.totalCacheSize - this.reservedCacheSize);
+                    environmentConfig.setCacheSize(voldemortConfig.getBdbCacheSize()
+                                                   - this.reservedCacheSize);
                 }
 
                 Environment environment = new Environment(bdbDir, environmentConfig);
@@ -307,14 +317,28 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         if(!useOneEnvPerStore)
             throw new VoldemortException("Memory foot print can be set only when using different environments per store");
 
-        Environment environment = environments.get(storeDef.getName());
+        String storeName = storeDef.getName();
+        Environment environment = environments.get(storeName);
         // change reservation amount of reserved store
         if(!unreservedStores.contains(environment) && storeDef.hasMemoryFootprint()) {
             EnvironmentMutableConfig mConfig = environment.getMutableConfig();
             long currentCacheSize = mConfig.getCacheSize();
-            long newCacheSize = storeDef.getMemoryFootprintMB() * BYTES_PER_MB;
+            long newCacheSize = storeDef.getMemoryFootprintMB() * ByteUtils.BYTES_PER_MB;
             if(currentCacheSize != newCacheSize) {
-                this.reservedCacheSize = this.reservedCacheSize - currentCacheSize + newCacheSize;
+                long newReservedCacheSize = this.reservedCacheSize - currentCacheSize
+                                            + newCacheSize;
+
+                // check that we leave a 'minimum' shared cache
+                if((voldemortConfig.getBdbCacheSize() - newReservedCacheSize) < voldemortConfig.getBdbMinimumSharedCache()) {
+                    throw new StorageInitializationException("Reservation of "
+                                                             + storeDef.getMemoryFootprintMB()
+                                                             + " MB for store "
+                                                             + storeName
+                                                             + " violates minimum shared cache size of "
+                                                             + voldemortConfig.getBdbMinimumSharedCache());
+                }
+
+                this.reservedCacheSize = newReservedCacheSize;
                 adjustCacheSizes();
                 mConfig.setCacheSize(newCacheSize);
                 environment.setMutableConfig(mConfig);
@@ -326,5 +350,9 @@ public class BdbStorageConfiguration implements StorageConfiguration {
             // versa since the sharedCache param is not mutable
             throw new VoldemortException("Cannot switch between shared and private cache dynamically");
         }
+    }
+
+    public long getReservedCacheSize() {
+        return this.reservedCacheSize;
     }
 }
