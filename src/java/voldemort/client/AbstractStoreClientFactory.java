@@ -458,7 +458,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     /**
      * Generate a unique client ID based on: 0. clientContext, if specified; 1.
-     * storeName 2. run path 3. client sequence
+     * storeName; 2. deployment path; 3. client sequence
      * 
      * @param storeName the name of the store the client is created for
      * @param contextName the name of the client context

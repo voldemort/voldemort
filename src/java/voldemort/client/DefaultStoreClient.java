@@ -21,9 +21,10 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -69,9 +70,6 @@ import com.google.common.collect.Maps;
 @JmxManaged(description = "A voldemort client")
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
-    private static final int ASYNC_THREADS_COUNT = 2;
-    private static final boolean ALLOW_INTERRUPT_ASYNC = true;
-
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
     private final StoreClientFactory storeFactory;
 
@@ -114,9 +112,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository();
-        this.scheduler = new SchedulerService(ASYNC_THREADS_COUNT,
+        this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
                                               SystemTime.INSTANCE,
-                                              ALLOW_INTERRUPT_ASYNC);
+                                              true);
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
@@ -152,15 +150,15 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                 scheduler.schedule(jobId + refresher.getClass().getName(),
                                    refresher,
                                    cal.getTime(),
-                                   interval * 1000);
-                logger.info("Client registry refresher thread started, refresh frequency: "
+                                   TimeUnit.MILLISECONDS.convert(interval, TimeUnit.SECONDS));
+                logger.info("Client registry refresher thread started, refresh interval: "
                             + interval + " seconds");
             } catch(Exception e) {
                 logger.warn("Unable to register with the cluster due to the following error:", e);
             }
         } else {
             logger.warn(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name()
-                        + "not found. Unable to registry with voldemort cluster.");
+                        + " not found. Unable to registry with voldemort cluster.");
         }
     }
 

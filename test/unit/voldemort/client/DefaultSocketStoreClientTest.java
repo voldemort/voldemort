@@ -101,19 +101,4 @@ public class DefaultSocketStoreClientTest {
         assertNull("After a successful delete(k), get(k) should return null.", client.get("k"));
     }
 
-    @Test
-    public void testClientRegistryHappyPath() {
-        ClientConfig clientConfig = new ClientConfig().setMaxThreads(4)
-                                                      .setMaxTotalConnections(4)
-                                                      .setMaxConnectionsPerNode(4)
-                                                      .setBootstrapUrls(socketUrl)
-                                                      .setClientContextName("testClientRegistryHappyPath");
-        SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
-        this.client = socketFactory.getStoreClient(testStoreName);
-        client.put("k", "v");
-        adminClient.fetchEntries(0, testStoreName, null, null, false);
-        adminClient.fetchEntries(1, testStoreName, null, null, false);
-        // TODO: verify that the values in registry are correct.
-    }
-
 }

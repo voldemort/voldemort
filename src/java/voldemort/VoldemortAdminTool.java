@@ -998,9 +998,9 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         } else {
-            // add system store to the map so they can be fetched when specified
-            // explicitly
-            storeDefinitionMap.putAll(getSystemStoreDef());
+            // add system stores to the map so they can be fetched when
+            // specified explicitly
+            storeDefinitionMap.putAll(getSystemStoreDefs());
         }
 
         // Pick up all the partitions
@@ -1045,13 +1045,13 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static Map<String, StoreDefinition> getSystemStoreDef() {
-        Map<String, StoreDefinition> sysStoreDef = Maps.newHashMap();
+    private static Map<String, StoreDefinition> getSystemStoreDefs() {
+        Map<String, StoreDefinition> sysStoreDefMap = Maps.newHashMap();
         List<StoreDefinition> storesDefs = SystemStoreConstants.getAllSystemStoreDefs();
         for(StoreDefinition def: storesDefs) {
-            sysStoreDef.put(def.getName(), def);
+            sysStoreDefMap.put(def.getName(), def);
         }
-        return sysStoreDef;
+        return sysStoreDefMap;
     }
 
     private static void executeUpdateEntries(Integer nodeId,
@@ -1251,9 +1251,9 @@ public class VoldemortAdminTool {
             stores = Lists.newArrayList();
             stores.addAll(storeDefinitionMap.keySet());
         } else {
-            // add system store to the map so they can be fetched when specified
-            // explicitly
-            storeDefinitionMap.putAll(getSystemStoreDef());
+            // add system stores to the map so they can be fetched when
+            // specified explicitly
+            storeDefinitionMap.putAll(getSystemStoreDefs());
         }
 
         // Pick up all the partitions
