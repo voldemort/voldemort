@@ -372,6 +372,7 @@
     <replace-dir dir="${testhtml.dir}" />
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="test-classpath" />
+      <classpath path="${log4j.properties.dir}" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
         <fileset dir="${unittestsrc.dir}">
