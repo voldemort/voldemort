@@ -30,7 +30,7 @@ genType.add_argument('-l', '--loops', type=int, default=1000, dest='loops',
                           time (Note: not currently supported)')
 parser.add_argument('-z', '--zones', type=int, dest='zones',
                     help='if using zones, the number of zones you will have\
-                          (Note: you must add your own <zones> field \
+                          (Note: you must add your own <zone> fields \
                           manually)')
 
 # Parse arguments
