@@ -5,7 +5,7 @@ import random
 import argparse
 
 # Get a random seed
-seed = int(random.randint(00000000001,99999999999))
+rseed = int(random.randint(00000000001,99999999999))
 
 # Setup and argument parser
 parser = argparse.ArgumentParser(description='Build a voldemort cluster.xml.')
@@ -23,7 +23,7 @@ parser.add_argument('-a', '--admin-port', type=int, default=6667,
 parser.add_argument('-H', '--http-port', type=int, default=6665,
                     dest='http_port', help='http port number')
 genType = parser.add_mutually_exclusive_group()
-genType.add_argument('-S', '--seed', type=int, default=seed, dest='seed',
+genType.add_argument('-S', '--seed', type=int, default=rseed, dest='seed',
                     help='seed for randomizing partition distribution')
 genType.add_argument('-l', '--loops', type=int, default=1000, dest='loops',
                     help='loop n times, using a different random seed every \
@@ -50,6 +50,7 @@ name = args.name
 http_port = args.http_port
 sock_port = args.sock_port
 admin_port = args.admin_port
+seed = args.seed
 
 # Generate the full list of partition IDs
 part_ids = range(nodes * partitions)
