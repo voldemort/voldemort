@@ -83,7 +83,7 @@ public class Cluster implements Serializable {
         for(Node node: nodes)
             tags.addAll(node.getPartitionIds());
         Collections.sort(tags);
-        for(int i = 0; i < numberOfTags; i++) {
+        for(int i = 0; i < tags.size(); i++) {
             if(tags.get(i).intValue() != i)
                 throw new IllegalArgumentException("Invalid tag assignment.");
         }
