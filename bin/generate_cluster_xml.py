@@ -58,8 +58,8 @@ part_ids = range(nodes * partitions)
 if args.zones:
   zone_ids = range(zones)
   zone_id = 0
-## Use known seed so this is repeatable
-#random.seed(3119578866)
+
+# Shuffle up the partitions
 random.seed(seed)
 random.shuffle(part_ids)
 
