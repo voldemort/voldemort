@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 
 import krati.array.DataArray;
 import krati.core.segment.SegmentFactory;
@@ -150,7 +151,9 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
     public boolean delete(ByteArray key, Version maxVersion) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
-        synchronized(this.locks.lockFor(key.get())) {
+        Lock lock = this.locks.lockFor(key.get());
+        try {
+            lock.lock();
             if(maxVersion == null) {
                 try {
                     return datastore.delete(key.get());
@@ -186,6 +189,8 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
                 logger.error(message, e);
                 throw new VoldemortException(message, e);
             }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -193,7 +198,9 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
-        synchronized(this.locks.lockFor(key.get())) {
+        Lock lock = this.locks.lockFor(key.get());
+        try {
+            lock.lock();
             // First get the value
             List<Versioned<byte[]>> existingValuesList = this.get(key, null);
 
@@ -224,6 +231,8 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
                 logger.error(message, e);
                 throw new VoldemortException(message, e);
             }
+        } finally {
+            lock.unlock();
         }
     }
 
