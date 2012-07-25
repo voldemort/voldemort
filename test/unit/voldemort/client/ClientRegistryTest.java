@@ -30,7 +30,7 @@ import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 
-@SuppressWarnings({ "unchecked" })
+@SuppressWarnings( { "unchecked" })
 public class ClientRegistryTest {
 
     public static final String SERVER_LOCAL_URL = "tcp://localhost:";
@@ -143,7 +143,7 @@ public class ClientRegistryTest {
         infoList = getClientRegistryContent(it);
         assertTrue("Client registry not updated.",
                    infoList.get(0).getBootstrapTime() < infoList.get(0).getUpdateTime());
-        ((DefaultStoreClient<String, String>) client1).close();
+        socketFactory.close();
     }
 
     @Test
@@ -227,8 +227,7 @@ public class ClientRegistryTest {
         assertTrue("Client registry not updated.",
                    infoList.get(1).getBootstrapTime() < infoList.get(1).getUpdateTime());
 
-        ((DefaultStoreClient<String, String>) client1).close();
-        ((DefaultStoreClient<String, String>) client2).close();
+        socketFactory.close();
     }
 
     @Test
@@ -329,8 +328,7 @@ public class ClientRegistryTest {
         assertTrue("Client registry not updated.",
                    infoList.get(1).getBootstrapTime() < infoList.get(1).getUpdateTime());
 
-        ((DefaultStoreClient<String, String>) client1).close();
-        ((DefaultStoreClient<String, String>) client2).close();
+        socketFactory.close();
     }
 
     @Test
@@ -462,8 +460,8 @@ public class ClientRegistryTest {
         assertTrue("Client registry not updated.",
                    infoList.get(1).getBootstrapTime() < infoList.get(1).getUpdateTime());
 
-        ((DefaultStoreClient<String, String>) client1).close();
-        ((DefaultStoreClient<String, String>) client2).close();
+        socketFactory1.close();
+        socketFactory2.close();
     }
 
     @Test
@@ -556,8 +554,8 @@ public class ClientRegistryTest {
         assertTrue("Client registry not updated.",
                    infoList.get(1).getBootstrapTime() < infoList.get(1).getUpdateTime());
 
-        ((DefaultStoreClient<String, String>) client1).close();
-        ((DefaultStoreClient<String, String>) client2).close();
+        socketFactory1.close();
+        socketFactory2.close();
     }
 
     @Test
@@ -592,8 +590,6 @@ public class ClientRegistryTest {
             client1.put("k1", "v1");
             client2.put("k2", "v2");
 
-            ((DefaultStoreClient<String, String>) client1).close();
-            ((DefaultStoreClient<String, String>) client2).close();
         }
 
         Iterator<Pair<ByteArray, Versioned<byte[]>>> it = adminClient.fetchEntries(1,
@@ -604,6 +600,8 @@ public class ClientRegistryTest {
         ArrayList<ClientInfo> infoList = getClientRegistryContent(it);
         assertEquals("Incrrect # of entries created in client registry", 6, infoList.size());
 
+        socketFactory1.close();
+        socketFactory2.close();
     }
 
     @Test
@@ -709,8 +707,8 @@ public class ClientRegistryTest {
             client1LastBootstrapTime = infoList.get(0).getBootstrapTime();
             client2LastBootstrapTime = infoList.get(0).getBootstrapTime();
 
-            ((DefaultStoreClient<String, String>) client1).close();
-            ((DefaultStoreClient<String, String>) client2).close();
+            socketFactory1.close();
+            socketFactory2.close();
         }
     }
 

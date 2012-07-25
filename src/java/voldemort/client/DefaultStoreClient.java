@@ -46,7 +46,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ManifestFileReader;
-import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -89,7 +88,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
+        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null, null);
     }
 
     public DefaultStoreClient(String storeName,
@@ -98,7 +97,8 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                               int maxMetadataRefreshAttempts,
                               String clientContext,
                               int clientSequence,
-                              ClientConfig config) {
+                              ClientConfig config,
+                              SchedulerService scheduler) {
 
         this.storeName = Utils.notNull(storeName);
         this.resolver = resolver;
@@ -112,9 +112,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository();
-        this.scheduler = new SchedulerService(config.getAsyncJobThreadPoolSize(),
-                                              SystemTime.INSTANCE,
-                                              true);
+        this.scheduler = scheduler;
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
@@ -147,12 +145,17 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                                                                 version);
                 GregorianCalendar cal = new GregorianCalendar();
                 cal.add(Calendar.SECOND, interval);
-                scheduler.schedule(jobId + refresher.getClass().getName(),
-                                   refresher,
-                                   cal.getTime(),
-                                   TimeUnit.MILLISECONDS.convert(interval, TimeUnit.SECONDS));
-                logger.info("Client registry refresher thread started, refresh interval: "
-                            + interval + " seconds");
+
+                if(scheduler != null) {
+                    scheduler.schedule(jobId + refresher.getClass().getName(),
+                                       refresher,
+                                       cal.getTime(),
+                                       TimeUnit.MILLISECONDS.convert(interval, TimeUnit.SECONDS));
+                    logger.info("Client registry refresher thread started, refresh interval: "
+                                + interval + " seconds");
+                } else {
+                    logger.warn("Client registry won't run because scheduler service is not configured");
+                }
             } catch(Exception e) {
                 logger.warn("Unable to register with the cluster due to the following error:", e);
             }
@@ -183,13 +186,16 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
             // schedule the job to run every 'checkInterval' period, starting
             // now
-            scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
-                               asyncCheckMetadata,
-                               new Date(),
-                               interval);
-            logger.info("Metadata version check thread started. Frequency = Every " + interval
-                        + " ms");
-
+            if(scheduler != null) {
+                scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
+                                   asyncCheckMetadata,
+                                   new Date(),
+                                   interval);
+                logger.info("Metadata version check thread started. Frequency = Every " + interval
+                            + " ms");
+            } else {
+                logger.warn("Metadata version check thread won't start because the scheduler service is not configured.");
+            }
         }
         return asyncCheckMetadata;
     }
@@ -222,10 +228,6 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         if(asyncCheckMetadata != null) {
             asyncCheckMetadata.updateMetadataVersions();
         }
-    }
-
-    public void close() {
-        scheduler.stopInner();
     }
 
     public boolean delete(K key) {

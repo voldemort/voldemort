@@ -20,6 +20,8 @@ import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +35,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.service.SchedulerService;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializationException;
@@ -58,6 +61,7 @@ import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -101,6 +105,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final int clientZoneId;
     private final String clientContextName;
     private final AtomicInteger sequencer;
+    private final HashSet<SchedulerService> clientAsyncServiceRepo;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -122,6 +127,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                          config.getTimeoutConfig());
 
         this.sequencer = new AtomicInteger(0);
+        this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
@@ -151,13 +157,19 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
+        SchedulerService service = new SchedulerService(config.getAsyncJobThreadPoolSize(),
+                                                        SystemTime.INSTANCE,
+                                                        true);
+        clientAsyncServiceRepo.add(service);
+
         return new DefaultStoreClient<K, V>(storeName,
                                             resolver,
                                             this,
                                             3,
                                             clientContextName,
                                             sequencer.getAndIncrement(),
-                                            config);
+                                            config,
+                                            service);
     }
 
     @SuppressWarnings("unchecked")
@@ -457,6 +469,16 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
         if(failureDetector != null)
             failureDetector.destroy();
+
+        stopClientAsyncSchedulers();
+    }
+
+    private void stopClientAsyncSchedulers() {
+        Iterator<SchedulerService> it = clientAsyncServiceRepo.iterator();
+        while(it.hasNext()) {
+            it.next().stop();
+        }
+        clientAsyncServiceRepo.clear();
     }
 
     /* Give a unique id to avoid jmx clashes */
