@@ -11,7 +11,7 @@ rseed = int(random.randint(00000000001,99999999999))
 parser = argparse.ArgumentParser(description='Build a voldemort cluster.xml.')
 # Add supported arguments
 parser.add_argument('-N', '--name', type=str, default='voldemort', dest='name',
-                    help='the name you want to give the clusteer')
+                    help='the name you want to give the cluster')
 parser.add_argument('-n', '--nodes', type=int, default=2, dest='nodes',
                     help='the number of nodes in the cluster')
 parser.add_argument('-p', '--partitions', type=int, default=300,
@@ -63,14 +63,13 @@ if args.zones:
 random.seed(seed)
 random.shuffle(part_ids)
 
-# Assining partitions to nodes and printing cluster.xml
-part_map = dict()
+# Printing cluster.xml
 print "<!-- Partition distribution generated using seed [%d] -->" % seed
 print "<cluster>"
 print "  <name>%s</name>" % name
 
 for i in xrange(nodes):
-  part_map[i] = ", ".join(str(p) for p in sorted(part_ids[i*partitions:(i+1)*partitions]))
+  node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*partitions:(i+1)*partitions]))
 
   print "  <server>"
   print "    <id>%d</id>" % i
@@ -78,7 +77,7 @@ for i in xrange(nodes):
   print "    <http-port>%d</http-port>" % http_port
   print "    <socket-port>%d</socket-port>" % sock_port
   print "    <admin-port>%d</admin-port>" % admin_port
-  print "    <partitions>%s</partitions>" % part_map[i]
+  print "    <partitions>%s</partitions>" % node_partitions
   # If zones are being used, assign a zone-id
   if args.zones:
     print "    <zone-id>%d</zone-id>" % zone_id
