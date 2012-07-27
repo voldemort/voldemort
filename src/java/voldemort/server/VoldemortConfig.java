@@ -214,7 +214,7 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
-        this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", true);
+        this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", false);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);

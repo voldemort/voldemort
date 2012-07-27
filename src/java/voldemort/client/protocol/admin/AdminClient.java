@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -2486,5 +2487,102 @@ public class AdminClient {
             }
             logger.info("Finished reserving memory for store : " + storeName);
         }
+    }
+
+    /**
+     * Mirror data from another voldemort server
+     * 
+     * @param nodeId node in the current cluster to mirror to
+     * @param mirrorNodeId node from which to mirror data
+     * @param stores set of stores to be mirrored
+     * @param mirrorUrl cluster bootstrap url to mirror from
+     */
+    public void mirrorData(final int nodeId,
+                           final int mirrorNodeId,
+                           List<String> stores,
+                           final String mirrorUrl) {
+        final AdminClient mirrorAdminClient = new AdminClient(mirrorUrl, new AdminClientConfig());
+        final AdminClient currentAdminClient = this;
+
+        // determine the partitions residing on the mirror node
+        Node mirrorNode = mirrorAdminClient.getAdminClientCluster().getNodeById(mirrorNodeId);
+
+        if(mirrorNode == null) {
+            logger.error("Mirror node specified does not exist in the mirror cluster");
+            return;
+        }
+
+        // compare the mirror-from and mirrored-to nodes have same set of stores
+        List<StoreDefinition> currentStoreList = currentAdminClient.getRemoteStoreDefList(nodeId)
+                                                                   .getValue();
+        int numStoresCurr = 0;
+        for(StoreDefinition storeDef: currentStoreList) {
+            if(stores.contains(storeDef.getName()))
+                numStoresCurr++;
+        }
+        List<StoreDefinition> mirrorStoreList = mirrorAdminClient.getRemoteStoreDefList(mirrorNodeId)
+                                                                 .getValue();
+        int numStoresMirror = 0;
+        for(StoreDefinition storeDef: mirrorStoreList) {
+            if(stores.contains(storeDef.getName()))
+                numStoresMirror++;
+        }
+        if(numStoresCurr != stores.size() || numStoresMirror != stores.size()) {
+            logger.error("Make sure the set of stores specified exist on both sides");
+            return;
+        }
+
+        ExecutorService executors = Executors.newFixedThreadPool(stores.size(),
+                                                                 new ThreadFactory() {
+
+                                                                     public Thread newThread(Runnable r) {
+                                                                         Thread thread = new Thread(r);
+                                                                         thread.setName("mirror-data-thread");
+                                                                         return thread;
+                                                                     }
+                                                                 });
+
+        final List<Integer> partitionIdList = mirrorNode.getPartitionIds();
+        final CyclicBarrier barrier = new CyclicBarrier(stores.size() + 1);
+        try {
+            for(final String storeName: stores)
+                executors.submit(new Runnable() {
+
+                    public void run() {
+                        try {
+                            logger.info("Mirroring data for store " + storeName + " from node "
+                                        + mirrorNodeId + "(" + mirrorUrl + ") to node " + nodeId
+                                        + " partitions:" + partitionIdList);
+
+                            Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = mirrorAdminClient.fetchEntries(mirrorNodeId,
+                                                                                                                   storeName,
+                                                                                                                   partitionIdList,
+                                                                                                                   null,
+                                                                                                                   false);
+                            currentAdminClient.updateEntries(nodeId, storeName, iterator, null);
+
+                            logger.info("Mirroring data for store:" + storeName + " from node "
+                                        + mirrorNodeId + " completed.");
+                        } catch(Exception e) {
+                            logger.error("Mirroring operation for store " + storeName
+                                         + "from node " + mirrorNodeId + " failed.", e);
+                        } finally {
+                            try {
+                                barrier.await();
+                            } catch(Exception e) {
+                                logger.error("Error waiting for barrier while mirroring for "
+                                             + storeName, e);
+                            }
+                        }
+                    }
+                });
+            barrier.await();
+        } catch(Exception e) {
+            logger.error("Mirroring operation failed.", e);
+        } finally {
+            executors.shutdown();
+            logger.info("Finished mirroring data.");
+        }
+
     }
 }
