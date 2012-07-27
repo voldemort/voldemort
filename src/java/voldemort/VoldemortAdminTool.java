@@ -252,6 +252,14 @@ public class VoldemortAdminTool {
               .describedAs("query-keys")
               .withValuesSeparatedBy(',')
               .ofType(String.class);
+        parser.accepts("mirror-url", "Cluster url to mirror data from")
+              .withRequiredArg()
+              .describedAs("mirror-cluster-bootstrap-url")
+              .ofType(String.class);
+        parser.accepts("mirror-node", "Node id in the mirror cluster to mirror from")
+              .withRequiredArg()
+              .describedAs("id-of-mirror-node")
+              .ofType(Integer.class);
 
         OptionSet options = parser.parse(args);
 
@@ -263,6 +271,8 @@ public class VoldemortAdminTool {
         Set<String> missing = CmdUtils.missing(options, "url", "node");
         if(missing.size() > 0) {
             // Not the most elegant way to do this
+            // basically check if only "node" is missing for these set of
+            // options; all these can live without explicit node ids
             if(!(missing.equals(ImmutableSet.of("node"))
                  && (options.has("add-stores") || options.has("delete-store")
                      || options.has("ro-metadata") || options.has("set-metadata")
@@ -363,11 +373,20 @@ public class VoldemortAdminTool {
             ops += "q";
         }
 
+        if(options.has("mirror-url")) {
+            if(!options.has("mirror-node")) {
+                Utils.croak("Specify the mirror node to fetch from");
+            }
+            if(!options.has("stores")) {
+                Utils.croak("Specify the list of stores to mirror");
+            }
+            ops += "h";
+        }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                         + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
-                        + "repair-job, native-backup, rollback, reserve-memory, verify-metadata-version) must be specified");
+                        + "repair-job, native-backup, rollback, reserve-memory, mirror-url, verify-metadata-version) must be specified");
         }
 
         List<String> storeNames = null;
@@ -583,6 +602,21 @@ public class VoldemortAdminTool {
                 }
                 executeQueryKeys(nodeId, adminClient, storeNames, keyList);
             }
+            if(ops.contains("h")) {
+                if(nodeId == -1) {
+                    System.err.println("Cannot run mirroring without node id");
+                    System.exit(1);
+                }
+                Integer mirrorNodeId = CmdUtils.valueOf(options, "mirror-node", -1);
+                if(mirrorNodeId == -1) {
+                    System.err.println("Cannot run mirroring without mirror node id");
+                    System.exit(1);
+                }
+                adminClient.mirrorData(nodeId,
+                                       mirrorNodeId,
+                                       storeNames,
+                                       (String) options.valueOf("mirror-url"));
+            }
         } catch(Exception e) {
             e.printStackTrace();
             Utils.croak(e.getMessage());
@@ -775,6 +809,8 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println("\t10) Query stores for a set of keys on a specific node.");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println("\t11) Mirror data from another voldemort server");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
         stream.println();
         stream.println("READ-ONLY OPERATIONS");
         stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
