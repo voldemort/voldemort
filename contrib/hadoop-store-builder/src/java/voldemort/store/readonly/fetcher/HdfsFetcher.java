@@ -16,6 +16,7 @@
 
 package voldemort.store.readonly.fetcher;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -200,16 +201,16 @@ public class HdfsFetcher implements FileFetcher {
         OutputStream output = null;
         try {
             input = fs.open(source);
-            output = new FileOutputStream(dest);
+            output = new BufferedOutputStream(new FileOutputStream(dest));
             byte[] buffer = new byte[bufferSize];
             while(true) {
                 int read = input.read(buffer);
                 if(read < 0) {
                     break;
-                } else if(read < bufferSize) {
-                    buffer = ByteUtils.copy(buffer, 0, read);
+                } else {
+	                output.write(buffer, 0, read);
                 }
-                output.write(buffer);
+                
                 if(fileCheckSumGenerator != null)
                     fileCheckSumGenerator.update(buffer);
                 if(throttler != null)
