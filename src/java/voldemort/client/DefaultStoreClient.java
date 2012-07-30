@@ -21,7 +21,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -77,7 +76,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     private final String storeName;
     private final InconsistencyResolver<Versioned<V>> resolver;
     private final SystemStoreRepository sysRepository;
-    private final UUID clientId;
+    private final String clientId;
     private volatile Store<K, V, Object> store;
     private final SchedulerService scheduler;
     private ClientInfo clientInfo;
@@ -109,7 +108,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                          clientSequence,
                                          System.currentTimeMillis(),
                                          ManifestFileReader.getReleaseVersion());
-        this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
+        this.clientId = generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository();
         this.scheduler = scheduler;
@@ -117,9 +116,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                          JmxUtils.getClassName(this.getClass())
-                                                                 + "." + clientContext + "."
-                                                                 + storeName + "."
-                                                                 + clientId.toString()));
+                                                                 + "." + storeName));
 
         // Bootstrap this client
         bootStrap();
@@ -130,17 +127,17 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                                          config.getAsyncCheckMetadataInterval());
         }
 
-        registerClient(clientId.toString(), config.getClientRegistryRefreshInterval());
-        logger.info("Voldemort client created: " + clientId.toString() + "\n" + clientInfo);
+        registerClient(clientId, config.getClientRegistryRefreshInterval());
+        logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
     private void registerClient(String jobId, int interval) {
         SystemStore<String, ClientInfo> clientRegistry = this.sysRepository.getClientRegistryStore();
         if(null != clientRegistry) {
             try {
-                Version version = clientRegistry.putSysStore(clientId.toString(), clientInfo);
+                Version version = clientRegistry.putSysStore(clientId, clientInfo);
                 ClientRegistryRefresher refresher = new ClientRegistryRefresher(clientRegistry,
-                                                                                clientId.toString(),
+                                                                                clientId,
                                                                                 clientInfo,
                                                                                 version);
                 GregorianCalendar cal = new GregorianCalendar();
@@ -214,7 +211,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
          */
         clusterXml = ((AbstractStoreClientFactory) storeFactory).bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
 
-        this.store = storeFactory.getRawStore(storeName, resolver, clientId, null, clusterXml);
+        this.store = storeFactory.getRawStore(storeName, resolver, null, clusterXml);
 
         // Create system stores
         logger.info("Creating system stores for store " + this.storeName);
@@ -498,7 +495,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     }
 
-    public UUID getClientId() {
+    public String getClientId() {
         return clientId;
     }
 
@@ -515,4 +512,32 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                         + this.asyncCheckMetadata.getClusterMetadataVersion();
         return result;
     }
+
+    /**
+     * Generate a unique client ID based on: 0. clientContext, if specified; 1.
+     * storeName; 2. deployment path; 3. client sequence
+     * 
+     * @param storeName the name of the store the client is created for
+     * @param contextName the name of the client context
+     * @param clientSequence the client sequence number
+     * @return unique client ID
+     */
+    public String generateClientId(ClientInfo clientInfo) {
+        String contextName = clientInfo.getContext();
+        int clientSequence = clientInfo.getClientSequence();
+
+        String newLine = System.getProperty("line.separator");
+        StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
+        context.append(0 == clientSequence ? "" : ("." + clientSequence));
+        context.append(".").append(clientInfo.getStoreName());
+        context.append("@").append(clientInfo.getLocalHostName()).append(":");
+        context.append(clientInfo.getDeploymentPath()).append(newLine);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug(context.toString());
+        }
+
+        return context.toString();
+    }
+
 }

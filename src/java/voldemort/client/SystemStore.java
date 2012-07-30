@@ -56,8 +56,10 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, versioned, null);
             version = versioned.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during putSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return version;
     }
@@ -69,8 +71,10 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, value, null);
             version = value.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during putSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return version;
     }
@@ -91,8 +95,10 @@ public class SystemStore<K, V> {
             else
                 logger.debug("Got null value");
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during getSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return versioned;
     }
@@ -108,8 +114,10 @@ public class SystemStore<K, V> {
                 value = versioned.getValue();
             }
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during getSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return value;
     }

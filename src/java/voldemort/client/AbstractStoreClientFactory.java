@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -104,7 +103,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
     private final String clientContextName;
-    private final AtomicInteger sequencer;
+    private final AtomicInteger clientSequencer;
     private final HashSet<SchedulerService> clientAsyncServiceRepo;
 
     public AbstractStoreClientFactory(ClientConfig config) {
@@ -120,26 +119,22 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
         this.clientZoneId = config.getClientZoneId();
-        this.clientContextName = (null == config.getClientContextName() ? ""
-                                                                       : config.getClientContextName());
+        this.clientContextName = config.getClientContextName();
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getTimeoutConfig());
 
-        this.sequencer = new AtomicInteger(0);
+        this.clientSequencer = new AtomicInteger(0);
         this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
-                                                                     + "."
-                                                                     + clientContextName
                                                                      + jmxId()));
             JmxUtils.registerMbean(new StoreStatsJmx(stats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             clientContextName + ".aggregate-perf"
-                                                                     + jmxId()));
+                                                             "aggregate-perf" + jmxId()));
         }
     }
 
@@ -167,22 +162,20 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                             this,
                                             3,
                                             clientContextName,
-                                            sequencer.getAndIncrement(),
+                                            clientSequencer.getAndIncrement(),
                                             config,
                                             service);
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return getRawStore(storeName, resolver, clientId, null, null);
+                                                InconsistencyResolver<Versioned<V>> resolver) {
+        return getRawStore(storeName, resolver, null, null);
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId,
                                                 String customStoresXml,
                                                 String clusterXmlString) {
 
@@ -279,13 +272,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             clientContextName
-                                                                     + "."
-                                                                     + store.getName()
-                                                                     + jmxId()
-                                                                     + (null == clientId ? ""
-                                                                                        : "."
-                                                                                          + clientId.toString())));
+                                                             store.getName() + jmxId()));
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -317,11 +304,6 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                    new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                      secondaryResolver));
         return serializedStore;
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
     }
 
     protected ClientConfig getConfig() {
@@ -481,36 +463,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         clientAsyncServiceRepo.clear();
     }
 
+    protected String getClientContext() {
+        return clientContextName;
+    }
+
     /* Give a unique id to avoid jmx clashes */
     public String jmxId() {
         return jmxId == 0 ? "" : Integer.toString(jmxId);
-    }
-
-    /**
-     * Generate a unique client ID based on: 0. clientContext, if specified; 1.
-     * storeName; 2. deployment path; 3. client sequence
-     * 
-     * @param storeName the name of the store the client is created for
-     * @param contextName the name of the client context
-     * @param clientSequence the client sequence number
-     * @return unique client ID
-     */
-    public static UUID generateClientId(ClientInfo clientInfo) {
-        String contextName = clientInfo.getContext();
-        int clientSequence = clientInfo.getClientSequence();
-
-        String newLine = System.getProperty("line.separator");
-        StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
-        context.append(0 == clientSequence ? "" : ("." + clientSequence));
-        context.append(".").append(clientInfo.getStoreName());
-        context.append("@").append(clientInfo.getLocalHostName()).append(":");
-        context.append(clientInfo.getDeploymentPath()).append(newLine);
-
-        if(logger.isDebugEnabled()) {
-            logger.debug(context.toString());
-        }
-
-        return UUID.nameUUIDFromBytes(context.toString().getBytes());
     }
 
 }

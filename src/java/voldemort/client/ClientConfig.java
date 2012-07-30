@@ -78,7 +78,7 @@ public class ClientConfig {
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
     private volatile int maxBootstrapRetries = 2;
-    private volatile String clientContextName = "default";
+    private volatile String clientContextName = "";
 
     /* 5 second check interval, in ms */
     private volatile long asyncCheckMetadataInterval = 5000;

@@ -16,6 +16,16 @@ import voldemort.serialization.SerializerFactory;
 import voldemort.server.AbstractSocketService;
 import voldemort.utils.JmxUtils;
 
+/**
+ * 
+ * @author lgao Note: this test suite was originally created for testing mbean
+ *         registration with client context. Because changing mbean names can be
+ *         difficult for customers who builds monitoring systems based on the
+ *         mbean names. We need to give some more thoughts on using client
+ *         context as part of mbean names. This test suit is just a place holder
+ *         for now.
+ */
+
 public class ClientJmxTest extends AbstractStoreClientFactoryTest {
 
     private static String STATS_DOMAIN = "voldemort.store.stats";
@@ -88,11 +98,9 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
                                                                      getValidBootstrapUrl()).getStoreClient(getValidStoreName());
 
         // checking for aggregate stats
-        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext1
-                                                                              + ".aggregate-perf"
+        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId1);
-        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext2
-                                                                              + ".aggregate-perf"
+        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId2);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
@@ -100,18 +108,12 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
 
         // checking for per store stats
-        String c1type = clientContext1 + ".test" + jmxId1;
-        String c2type = clientContext2 + ".test" + jmxId2;
-        c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c1type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
-        c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c2type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+        String c1type = "test" + jmxId1;
+        String c2type = "test" + jmxId2;
+        c1Name = JmxUtils.createObjectName(STATS_DOMAIN, c1type);
+
+        c2Name = JmxUtils.createObjectName(STATS_DOMAIN, c2type);
+
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -130,11 +132,9 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         }
 
         // checking for aggregate stats
-        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext
-                                                                              + ".aggregate-perf"
+        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId1);
-        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext
-                                                                              + ".aggregate-perf"
+        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId2);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
@@ -142,18 +142,10 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
 
         // checking for per store stats
-        String c1type = clientContext + ".test" + jmxId1;
-        String c2type = clientContext + ".test" + jmxId2;
-        c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c1type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                      .toString());
-        c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c2type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                      .toString());
+        String c1type = "test" + jmxId1;
+        String c2type = "test" + jmxId2;
+        c1Name = JmxUtils.createObjectName(STATS_DOMAIN, c1type);
+        c2Name = JmxUtils.createObjectName(STATS_DOMAIN, c2type);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -162,7 +154,7 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
 
     @Test
     public void testTwoClientNoContextOnJmx() throws Exception {
-        String clientContextCompare = "default";
+        String clientContextCompare = "";
         String jmxId1 = getAndIncrementJmxId();
         String jmxId2 = getAndIncrementJmxId();
 
@@ -170,11 +162,9 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         StoreClient<Object, Object> c2 = getFactory(getValidBootstrapUrl()).getStoreClient(getValidStoreName());
 
         // checking for aggregate stats
-        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContextCompare
-                                                                              + ".aggregate-perf"
+        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId1);
-        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContextCompare
-                                                                              + ".aggregate-perf"
+        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId2);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
@@ -182,18 +172,10 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
 
         // checking for per store stats
-        String c1type = clientContextCompare + ".test" + jmxId1;
-        String c2type = clientContextCompare + ".test" + jmxId2;
-        c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c1type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
-        c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c2type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+        String c1type = clientContextCompare + "test" + jmxId1;
+        String c2type = clientContextCompare + "test" + jmxId2;
+        c1Name = JmxUtils.createObjectName(STATS_DOMAIN, c1type);
+        c2Name = JmxUtils.createObjectName(STATS_DOMAIN, c2type);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -210,11 +192,9 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         StoreClient<Object, Object> c2 = getFactoryWithClientContext(null, getValidBootstrapUrl()).getStoreClient(getValidStoreName());
 
         // checking for aggregate stats
-        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContextCompare
-                                                                              + ".aggregate-perf"
+        ObjectName c1Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId1);
-        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContextCompare
-                                                                              + ".aggregate-perf"
+        ObjectName c2Name = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                               + jmxId2);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
@@ -222,18 +202,10 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         mbServer.unregisterMBean(c2Name);
 
         // checking for per store stats
-        String c1type = clientContextCompare + ".test" + jmxId1;
-        String c2type = clientContextCompare + ".test" + jmxId2;
-        c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c1type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
-        c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                           c2type
-                                                   + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+        String c1type = clientContextCompare + "test" + jmxId1;
+        String c2type = clientContextCompare + "test" + jmxId2;
+        c1Name = JmxUtils.createObjectName(STATS_DOMAIN, c1type);
+        c2Name = JmxUtils.createObjectName(STATS_DOMAIN, c2type);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -252,24 +224,15 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
             clients[i] = factory.getStoreClient(getValidStoreName());
         }
 
-        ObjectName cName = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext
-                                                                             + ".aggregate-perf"
+        ObjectName cName = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                              + jmxId);
         checkForMbeanFound(cName);
         mbServer.unregisterMBean(cName);
 
         // checking for per store stats
-        String ctype = clientContext + ".test" + jmxId;
-        ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                                      ctype
-                                                              + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                                 .toString());
-        ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                                      ctype
-                                                              + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                                 .toString());
+        String ctype = "test" + jmxId;
+        ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN, ctype);
+        ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN, ctype);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -286,29 +249,20 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         clients[0] = factory.getStoreClient(getValidStoreName());
         clients[1] = factory.getStoreClient(getValidStoreName());
 
-        ObjectName cName = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, clientContext
-                                                                             + ".aggregate-perf"
+        ObjectName cName = JmxUtils.createObjectName(AGGREGATE_STATS_DOMAIN, "aggregate-perf"
                                                                              + jmxId);
         checkForMbeanFound(cName);
         mbServer.unregisterMBean(cName);
 
         // checking for per store stats
-        String ctype = clientContext + ".test" + jmxId;
-        ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                                      ctype
-                                                              + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                                 .toString());
-        ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
-                                                      ctype
-                                                              + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                                 .toString());
+        String ctype = "test" + jmxId;
+        ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN, ctype);
+        ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN, ctype);
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
-        assertTrue(!c1Name.equals(c2Name));
+        // assertTrue(!c1Name.equals(c2Name));
         mbServer.unregisterMBean(c1Name);
-        mbServer.unregisterMBean(c2Name);
+        // mbServer.unregisterMBean(c2Name);
     }
 
     private void checkForMbeanFound(ObjectName name) {

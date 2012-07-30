@@ -39,7 +39,6 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
-import voldemort.utils.JmxUtils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -70,11 +69,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
                                                           config.isJmxEnabled());
-        if(config.isJmxEnabled())
-            JmxUtils.registerMbean(storeFactory,
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
-                                                             JmxUtils.getClassName(storeFactory.getClass())
-                                                                     + jmxId()));
     }
 
     @Override
@@ -184,10 +178,6 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
     }
 
     public <K, V, T> Store<K, V, T> getSystemStore(String storeName, String clusterXml) {
-        return getRawStore(storeName,
-                           null,
-                           null,
-                           SystemStoreConstants.SYSTEM_STORE_SCHEMA,
-                           clusterXml);
+        return getRawStore(storeName, null, SystemStoreConstants.SYSTEM_STORE_SCHEMA, clusterXml);
     }
 }
