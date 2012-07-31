@@ -1,0 +1,11 @@
+<ivysettings>
+  <settings defaultResolver="default"/>
+  <credentials realm="Sonatype Nexus Repository Manager"
+               host="${nexus.hostname}" username="${nexus.username}" passwd="${nexus.password}"/>
+  <resolvers>
+    <chain name="nexus">
+      <ibiblio name="${nexus.repository-id}" root="${nexus.repository-url}" m2compatible="true"/>
+    </chain>
+  </resolvers>
+  <include url="${ivy.default.settings.dir}/ivysettings.xml"/>
+</ivysettings>

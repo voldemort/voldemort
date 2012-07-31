@@ -1,19 +1,11 @@
 <?xml version="1.0"?>
-
-<project name="voldemort" basedir="." default="all">
+<project xmlns:ivy="antlib:org.apache.ivy.ant" name="voldemort" basedir="." default="all">
   <property file="build.properties" />
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
   <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao" />
   <property environment="env" />
-
-  <path id="main-classpath">
-    <fileset dir="${lib.dir}">
-      <include name="*.jar" />
-    </fileset>
-    <pathelement path="${classes.dir}" />
-  </path>
 
   <!-- set the build number based on environment variable, otherwise blank -->
   <property environment="env" description="System environment variables (including those set by Hudson)"/>
@@ -26,6 +18,11 @@
        </and>
   </condition>
 
+  <property name="voldemort-pom" value="${dist.dir}/${name}-${curr.release}.pom" />
+  <property name="voldemort-jar" value="${dist.dir}/${name}-${curr.release}.jar" />
+	<property name="voldemort-javadoc-jar" value="${dist.dir}/${name}-${curr.release}-javadoc.jar" />
+	<property name="voldemort-sources-jar" value="${dist.dir}/${name}-${curr.release}-sources.jar" />
+
   <path id="contrib-classpath">
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
@@ -34,12 +31,6 @@
       <include name="**/*.jar" />
     </fileset>
     <path refid="test-classpath" />
-  </path>
-
-  <path id="test-classpath">
-    <pathelement path="${env.VOLD_TEST_JARS}" />
-    <path refid="main-classpath" />
-    <pathelement path="${testclasses.dir}" />
   </path>
 
   <path id="contrib-test-classpath">
@@ -59,14 +50,85 @@
     </sequential>
   </macrodef>
 
-  <target name="all" depends="clean, jar, test, contrib-jar, srcjar" description="Build all artifacts." />
+  <target name="all" depends="clean, init, jar, test, contrib-jar, srcjar" description="Build all artifacts." />
 
   <target name="clean" description="Delete generated files.">
     <delete dir="${dist.dir}" />
     <replace-dir dir="${javadoc.dir}" />
   </target>
 
-  <target name="build" description="Compile main source tree java files">
+  <target name="clean-lib" description="Delete all libraries">
+    <delete dir="${lib.dir}" />
+    <delete dir="${lib-test.dir}" />
+  </target>
+
+  <target name="init" depends="resolve-dependencies" description="Initialize classpathes used by other tasks">
+    <path id="main-classpath">
+      <fileset dir="${lib.dir}">
+        <include name="*.jar"/>
+      </fileset>
+      <pathelement path="${classes.dir}"/>
+    </path>
+    <path id="test-classpath">
+      <pathelement path="${env.VOLD_TEST_JARS}"/>
+      <path refid="main-classpath"/>
+      <pathelement path="${testclasses.dir}"/>
+      <fileset dir="${lib-test.dir}">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+  </target>
+
+  <target name="load-ivy-tasks" description="Load Ivy Ant tasks">
+    <path id="ivy.lib.path">
+      <fileset dir="${ivy.lib.dir}" includes="ivy*.jar"/>
+    </path>
+    <taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant" classpathref="ivy.lib.path"/>
+  </target>
+
+  <target name="resolve-dependencies" depends="load-ivy-tasks" description="Retrieve dependencies">
+    <ivy:retrieve pattern="${lib.dir}/[artifact]-[revision].[ext]" type="jar,bundle" conf="compile,runtime"/>
+    <ivy:retrieve pattern="${lib-test.dir}/[artifact]-[revision].[ext]" type="jar" conf="test"/>
+  </target>
+
+  <target name="generate-pom" depends="load-ivy-tasks" description="Generate Maven pom.xml">
+      <ivy:resolve transitive="false"/>
+      <property name="ivy.pom.version" value="${curr.release}"/>
+      <ivy:makepom ivyfile="ivy.xml" pomfile="${voldemort-pom}" templatefile="pom.template" printIvyInfo="false"/>
+  </target>
+
+  <macrodef name="sign-artifact" description="Sign single artifact">
+    <attribute name="input.file"/>
+    <attribute name="output.file" default="@{input.file}.asc"/>
+    <attribute name="gpg.passphrase"/>
+    <sequential>
+      <echo>Signing @{input.file} -> @{output.file}</echo>
+      <exec executable="gpg">
+        <arg value="--armor"/>
+        <arg value="--output"/>
+        <arg value="@{output.file}"/>
+        <arg value="--passphrase"/>
+        <arg value="@{gpg.passphrase}"/>
+        <arg value="--detach-sig"/>
+        <arg value="@{input.file}"/>
+      </exec>
+    </sequential>
+  </macrodef>
+
+  <target name="sign-artifacts" description="Sign artifacts">
+    <sign-artifact input.file="${voldemort-pom}" output.file="${voldemort-pom}.asc" gpg.passphrase="${gpg.passphrase}"/>
+    <sign-artifact input.file="${voldemort-jar}" output.file="${voldemort-jar}.asc" gpg.passphrase="${gpg.passphrase}"/>
+    <sign-artifact input.file="${voldemort-sources-jar}" output.file="${voldemort-sources-jar}.asc" gpg.passphrase="${gpg.passphrase}"/>
+    <sign-artifact input.file="${voldemort-javadoc-jar}" output.file="${voldemort-javadoc-jar}.asc" gpg.passphrase="${gpg.passphrase}"/>
+  </target>
+
+  <target name="publish-artifacts" depends="generate-pom,jar,srcjar,javadocjar,sign-artifacts" description="Publish artifacts to Nexus">
+    <ivy:resolve transitive="false"/>
+    <ivy:publish resolver="nexus" artifactspattern="${dist.dir}/[artifact]-[revision](-[classifier]).[ext]"
+                 publishivy="false" pubrevision="${curr.release}" overwrite="true"/>
+  </target>
+
+  <target name="build" depends="init" description="Compile main source tree java files">
     <replace-dir dir="${classes.dir}" />
     <!-- copy non-java files to classes dir to load from classpath -->
     <copy todir="${classes.dir}">
@@ -85,7 +147,7 @@
     </javac>
   </target>
 
-  <target name="buildtest" description="Compile test classes">
+  <target name="buildtest" depends="init" description="Compile test classes">
     <replace-dir dir="${testclasses.dir}" />
     <copy todir="${testclasses.dir}">
       <fileset dir="${commontestsrc.dir}">
@@ -105,6 +167,7 @@
       <src path="${commontestsrc.dir}" />
       <src path="${longtestsrc.dir}" />
       <classpath refid="main-classpath" />
+      <classpath refid="test-classpath" />
     </javac>
   </target>
 
@@ -133,7 +196,7 @@
   </target>
 
   <target name="jar" depends="build" description="Build server jar file">
-    <jar destfile="${dist.dir}/${name}-${curr.release}.jar">
+    <jar destfile="${voldemort-jar}">
       <fileset dir="${classes.dir}">
         <include name="**/*.*" />
       </fileset>
@@ -146,7 +209,7 @@
 
   <target name="srcjar" description="Build source jar file">
     <mkdir dir="${dist.dir}" />
-    <jar destfile="${dist.dir}/${name}-${curr.release}-src.jar">
+    <jar destfile="${voldemort-sources-jar}">
       <fileset dir="${java.dir}">
         <include name="**/*.java" />
       </fileset>
@@ -169,7 +232,7 @@
   </target>
 
   <target name="war" depends="build" description="Build server war file">
-    <war destfile="${dist.dir}/${name}.war" webxml="web.xml" basedir="${classes.dir}">
+    <war destfile="${dist.dir}/${name}-${curr.release}.war" webxml="web.xml" basedir="${classes.dir}">
       <classes dir="${classes.dir}"/>
       <lib dir="${lib.dir}">
         <exclude name="${lib.dir}/servlet-api*.jar"/>
@@ -433,29 +496,32 @@
     </sequential>
   </macrodef>
 
-  <target name="docs" description="Create complete Javadoc documentation">
+  <target name="docs" description="Create complete Javadoc documentation" depends="init">
     <make-javadocs dir="${javadoc.dir}/all" packagenames="*" javadir="${java.dir}"/>
     <make-javadocs dir="${javadoc.dir}/client" packagenames="voldemort.versioning.*, voldemort.client.*,voldemort.serialization.*" javadir="${java.dir}"/>
+  </target>
+
+  <target name="javadocjar" depends="docs" description="Create JAR containing javadocs">
+    <jar basedir="${javadoc.dir}/all" jarfile="${voldemort-javadoc-jar}"/>
   </target>
 
   <target name="redeploy" depends="war, deploy">
   </target>
 
-  <taskdef file="tomcat-tasks.properties">
-    <classpath>
-      <path location="${lib.dir}/catalina-ant.jar" />
-    </classpath>
-  </taskdef>
+  <target name="load-tomcat-tasks" depends="init" description="Load Tomcat Ant tasks">
+      <ivy:cachepath organisation="tomcat" module="catalina-ant" revision="5.5.23" inline="true" pathid="tomcat.classpath"/>
+      <taskdef resource="org/apache/catalina/ant/antlib.xml" classpathref="tomcat.classpath" />
+  </target>
 
-  <target name="list" description="List Tomcat applications">
+  <target name="list" depends="load-tomcat-tasks" description="List Tomcat applications">
     <list url="${tomcat.manager.url}" username="${tomcat.manager.username}" password="${tomcat.manager.password}" />
   </target>
 
-  <target name="deploy" description="Deploy application" depends="war">
+  <target name="deploy" depends="war, load-tomcat-tasks" description="Deploy application">
     <deploy url="${tomcat.manager.url}" username="${tomcat.manager.username}" password="${tomcat.manager.password}" path="${tomcat.context}" update="true" war="file:${dist.dir}/${name}.war" />
   </target>
 
-  <target name="undeploy" description="Undeploy application">
+  <target name="undeploy" depends="load-tomcat-tasks" description="Undeploy application">
     <undeploy url="${tomcat.manager.url}"
                  username="${tomcat.manager.username}"
                  password="${tomcat.manager.password}"
