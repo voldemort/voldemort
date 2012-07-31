@@ -1,1 +1,1 @@
-from client import StoreClient, VoldemortException
+from client import StoreClient, VoldemortException, GenericClient
