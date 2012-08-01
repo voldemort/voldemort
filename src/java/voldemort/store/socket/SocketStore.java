@@ -445,7 +445,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                      + clientRequestExecutor.getSocketChannel()
                                                             .socket()
                                                             .getLocalPort() + " result: "
-                                     + o.toString());
+                                     + o);
                     }
 
                     callback.requestComplete(o, requestTime);
