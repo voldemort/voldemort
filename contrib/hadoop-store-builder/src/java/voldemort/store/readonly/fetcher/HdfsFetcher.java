@@ -291,11 +291,11 @@ public class HdfsFetcher implements FileFetcher {
                 if(read < 0) {
                     break;
                 } else {
-	                output.write(buffer, 0, read);
+	            output.write(buffer, 0, read);
                 }
                 
                 if(fileCheckSumGenerator != null)
-                    fileCheckSumGenerator.update(buffer);
+                    fileCheckSumGenerator.update(buffer, 0, read);
                 if(throttler != null)
                     throttler.maybeThrottle(read);
                 stats.recordBytes(read);
