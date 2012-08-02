@@ -58,7 +58,7 @@ public class CatBdbStore {
         DatabaseConfig databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setTransactional(config.isBdbWriteTransactionsEnabled());
-        databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
+        databaseConfig.setSortedDuplicates(false);
         Database database = environment.openDatabase(null, storeName, databaseConfig);
         StorageEngine<ByteArray, byte[], byte[]> store = new BdbStorageEngine(storeName,
                                                                               environment,

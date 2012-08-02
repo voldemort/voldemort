@@ -14,16 +14,16 @@ import voldemort.versioning.Versioned;
  * The format of the values stored on disk. The format is 
  * VERSION - 1 byte
  * ------------repeating------------------- 
- * CLOCK - variable length, self delimiting
- *     NUM_CLOCK_ENTRIES - 2 bytes (short)
- *     VERSION_SIZE      - 1 byte
- *     --------------- repeating ----------
- *     NODE_ID           - 2 bytes (short)
- *     VERSION           - VERSION_SIZE bytes 
- *     ------------------------------------
- * VALUE - variable length
- *     VALUE_SIZE  - 4 bytes 
- *     VALUE_BYTES - VALUE_SIZE bytes
+ * CLOCK - variable length, self delimiting 
+ *      NUM_CLOCK_ENTRIES - 2 bytes (short)
+ *      VERSION_SIZE - 1 byte
+ *      --------------- repeating ----------
+ *      NODE_ID - 2 bytes (short)
+ *      VERSION - VERSION_SIZE bytes
+ * ------------------------------------
+ * VALUE - variable length 
+ *      VALUE_SIZE - 4 bytes 
+ *      VALUE_BYTES - VALUE_SIZE bytes
  * ----------------------------------------
  */
 public class StoreBinaryFormat {
@@ -34,18 +34,15 @@ public class StoreBinaryFormat {
     public static byte[] toByteArray(List<Versioned<byte[]>> values) {
         int size = 1;
         for(Versioned<byte[]> v: values) {
-            size += ((VectorClock) v.getVersion()).sizeInBytes();
-            size += 4;
+            size += v.getVersion().sizeInBytes();
+            size += ByteUtils.SIZE_OF_INT;
             size += v.getValue().length;
         }
         byte[] bytes = new byte[size];
         int pos = 1;
         bytes[0] = VERSION;
         for(Versioned<byte[]> v: values) {
-            //byte[] clock = ((VectorClock) v.getVersion()).toBytes();
-            //System.arraycopy(clock, 0, bytes, pos, clock.length);
-            pos += ((VectorClock) v.getVersion()).toBytes(bytes,pos);
-            //pos += clock.length;
+            pos += v.getVersion().toBytes(bytes, pos);
             int len = v.getValue().length;
             ByteUtils.writeInt(bytes, len, pos);
             pos += ByteUtils.SIZE_OF_INT;

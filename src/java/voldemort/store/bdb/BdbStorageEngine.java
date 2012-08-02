@@ -365,7 +365,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 OperationStatus status = getBdbDatabase().get(transaction,
                                                               keyEntry,
                                                               valueEntry,
-                                                              readLockMode);
+                                                              LockMode.RMW);
                 // key does not exist to begin with.
                 if(OperationStatus.NOTFOUND == status)
                     return false;
@@ -449,7 +449,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
     private void attemptCommit(Transaction transaction) {
         try {
-            transaction.commit();
+            if(transaction != null)
+                transaction.commit();
         } catch(DatabaseException e) {
             logger.error("Transaction commit failed!", e);
             attemptAbort(transaction);

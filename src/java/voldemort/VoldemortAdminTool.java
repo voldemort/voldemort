@@ -252,7 +252,7 @@ public class VoldemortAdminTool {
               .describedAs("query-keys")
               .withValuesSeparatedBy(',')
               .ofType(String.class);
-        parser.accepts("mirror-url", "Cluster url to mirror data from")
+        parser.accepts("mirror-from-url", "Cluster url to mirror data from")
               .withRequiredArg()
               .describedAs("mirror-cluster-bootstrap-url")
               .ofType(String.class);
@@ -373,12 +373,9 @@ public class VoldemortAdminTool {
             ops += "q";
         }
 
-        if(options.has("mirror-url")) {
+        if(options.has("mirror-from-url")) {
             if(!options.has("mirror-node")) {
                 Utils.croak("Specify the mirror node to fetch from");
-            }
-            if(!options.has("stores")) {
-                Utils.croak("Specify the list of stores to mirror");
             }
             ops += "h";
         }
@@ -614,8 +611,8 @@ public class VoldemortAdminTool {
                 }
                 adminClient.mirrorData(nodeId,
                                        mirrorNodeId,
-                                       storeNames,
-                                       (String) options.valueOf("mirror-url"));
+                                       (String) options.valueOf("mirror-from-url"),
+                                       storeNames);
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -809,8 +806,10 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println("\t10) Query stores for a set of keys on a specific node.");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
-        stream.println("\t11) Mirror data from another voldemort server");
-        stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
+        stream.println("\t11) Mirror data from another voldemort server (possibly in another cluster) for specified stores");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
+        stream.println("\t12) Mirror data from another voldemort server (possibly in another cluster) for all stores in current cluster");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id]");
         stream.println();
         stream.println("READ-ONLY OPERATIONS");
         stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
