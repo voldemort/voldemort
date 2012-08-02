@@ -1,3 +1,62 @@
+Release 0.96.li3 (LinkedIn release) on 08/02/2012
+
+* Server storage conflict handling done in Voldemort code 
+* Turning off duplicates in BDB which has several sideeffects and performance penalty
+* --mirror-from-url option added to admin tool to copy data from another voldemort server
+
+Note : This is an experimental release, and will be merged back to master
+after prod verification. 
+
+Release 0.96.li2 (LinkedIn release) on 08/01/2012
+
+Changes made since 0.96.li1
+* HFTP performance issue bug fix (fix in byte buffer and copy process)
+* Added mechanism to isolate BDB cache usage among stores
+* Enhanced debug logging (for traffic analysis).
+* Python client bug fixes (from pull request)
+* Tooling improvement (generate_cluster_xml.py)
+
+Release 0.96.li1 (LinkedIn release) on 07/12/2012
+
+Changes made since 0.95.li9
+* Reuploaded the jar
+
+Changes made since 0.95.li4
+* Added configurable option to interrupt service being unscheduled
+* Added rollback capability to the Admin tool
+* Added tracking functionality for scan permit owner
+* Added zoned option for restore from replicas
+* Enabled NIO connector by default
+* Added client side MBeans for multiple socket pool metrics
+* Shortened some long tests and created new target called "junit-long" that
+* includes them
+* Finer timeouts and partial getalls
+* Refactored to share VodemortOpCode between classes
+* Fixed a donor-based rebalancing bug and added a unit test
+* Fixed a bug that will return null during concurrent read and writes
+* Added jmxId to Mbean name for failureDetector and storefactory
+* Prevent preferred reads from crossing zones
+* Added additional debug messages
+
+Release 0.95.li4 (LinkedIn release) on 04/13/2012
+
+Changes made since 0.95.li3
+* Added error count Mbeans
+* Concurrency bug fix in Donor based rebalancing
+
+Release 0.95.li3 (LinkedIn release) on 03/22/2012
+
+Changes made since 0.95.li2
+ * HOTFIX - DDS-2536: Fixed FailureDetector to handle host swap
+
+Release 0.95.li2 (LinkedIn release) on 03/21/2012
+
+Changes made since 0.95.li1
+ * Hot fix for SNA-10109. Replaced exception by log message in Histogram
+ * Replaced int by long to avoid overflow in Histogram and RequestCounter
+
+Release 0.95.li1 (LinkedIn release) on 03/07/2012
+
 Release 0.90.1 on 10/10/2011
 
 Changes made since 0.90
