@@ -143,13 +143,17 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
-        return new DefaultStoreClient<K, V>(storeName,
-                                            resolver,
-                                            this,
-                                            3,
-                                            clientContextName,
-                                            sequencer.getAndIncrement(),
-                                            config);
+        if(this.config.isDefaultClientEnabled()) {
+            return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        }
+
+        return new ZenStoreClient<K, V>(storeName,
+                                             resolver,
+                                             this,
+                                             3,
+                                             clientContextName,
+                                             sequencer.getAndIncrement(),
+                                             config);
     }
 
     @SuppressWarnings("unchecked")

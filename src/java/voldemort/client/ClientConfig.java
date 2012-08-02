@@ -68,6 +68,9 @@ public class ClientConfig {
     private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
+    // Flag to control which store client to use. Default = Enhanced
+    private volatile boolean useDefaultClient = false;
+
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
     private volatile int failureDetectorThreshold = FailureDetectorConfig.DEFAULT_THRESHOLD;
@@ -126,6 +129,7 @@ public class ClientConfig {
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
     public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
     public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval";
+    private static final String USE_DEFAULT_CLIENT = "use_default_client";
 
     /**
      * Instantiate the client config using a properties file
@@ -248,6 +252,9 @@ public class ClientConfig {
         if(props.containsKey(CLIENT_ZONE_ID))
             this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
 
+        if(props.containsKey(USE_DEFAULT_CLIENT))
+            this.enableDefaultClient(props.getBoolean(USE_DEFAULT_CLIENT));
+
         if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
             this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
 
@@ -290,7 +297,7 @@ public class ClientConfig {
         }
 
         if(props.containsKey(ASYNC_CHECK_METADATA_INTERVAL)) {
-            this.setAsyncCheckMetadataInterval(props.getLong(ASYNC_CHECK_METADATA_INTERVAL, 5000));
+            this.setAsyncMetadataRefreshInMs(props.getLong(ASYNC_CHECK_METADATA_INTERVAL, 5000));
         }
     }
 
@@ -608,6 +615,14 @@ public class ClientConfig {
         return this.clientZoneId;
     }
 
+    public void enableDefaultClient(boolean enableDefault) {
+        this.useDefaultClient = enableDefault;
+    }
+
+    public boolean isDefaultClientEnabled() {
+        return this.useDefaultClient;
+    }
+
     public boolean isPipelineRoutedStoreEnabled() {
         return enablePipelineRoutedStore;
     }
@@ -717,20 +732,20 @@ public class ClientConfig {
         return this;
     }
 
-    public long getAsyncCheckMetadataInterval() {
+    public long getAsyncMetadataRefreshInMs() {
         return asyncCheckMetadataInterval;
     }
 
-    public ClientConfig setAsyncCheckMetadataInterval(long asyncCheckMetadataInterval) {
+    public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataInterval) {
         this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
         return this;
     }
 
-    public int getClientRegistryRefreshInterval() {
+    public int getClientRegistryUpdateInSecs() {
         return this.clientRegistryRefreshInterval;
     }
 
-    public ClientConfig setClientRegistryRefreshInterval(int clientRegistryRefrshInterval) {
+    public ClientConfig setClientRegistryUpdateInSecs(int clientRegistryRefrshInterval) {
         this.clientRegistryRefreshInterval = clientRegistryRefrshInterval;
         return this;
     }

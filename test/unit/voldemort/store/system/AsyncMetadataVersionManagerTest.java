@@ -22,13 +22,11 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.SystemTime;
-import voldemort.versioning.Versioned;
 
 public class AsyncMetadataVersionManagerTest {
 
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     String[] bootStrapUrls = null;
-    private String clusterXml;
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
                                                                                   100000,
@@ -40,7 +38,7 @@ public class AsyncMetadataVersionManagerTest {
     protected final int CLIENT_ZONE_ID = 0;
     private long newVersion = 0;
 
-    private SystemStore<String, Long> sysVersionStore;
+    private SystemStore<String, String> sysVersionStore;
     private SystemStoreRepository repository;
     private SchedulerService scheduler;
     private AsyncMetadataVersionManager asyncCheckMetadata;
@@ -75,12 +73,12 @@ public class AsyncMetadataVersionManagerTest {
 
         bootStrapUrls = new String[1];
         bootStrapUrls[0] = socketUrl;
-        sysVersionStore = new SystemStore<String, Long>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name(),
-                                                        bootStrapUrls,
-                                                        this.CLIENT_ZONE_ID);
+        sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                          bootStrapUrls,
+                                                          this.CLIENT_ZONE_ID);
         repository = new SystemStoreRepository();
         repository.addSystemStore(sysVersionStore,
-                                  SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name());
+                                  SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
         this.scheduler = new SchedulerService(2, SystemTime.INSTANCE, true);
     }
 
@@ -92,6 +90,7 @@ public class AsyncMetadataVersionManagerTest {
 
     @Test
     public void testBasicAsyncBehaviour() {
+        String storeVersionKey = "stores.xml";
         try {
             Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
@@ -102,14 +101,19 @@ public class AsyncMetadataVersionManagerTest {
             };
 
             // Write a base version of 100
-            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.STORES_VERSION_KEY, 100l);
+            String existingVersions = this.sysVersionStore.getSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE)
+                                                          .getValue();
+            existingVersions += storeVersionKey + "=100";
+            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE,
+                                             existingVersions);
 
             // Giving enough time to complete the above put.
             Thread.sleep(500);
 
             // Starting the Version Metadata Manager
             this.asyncCheckMetadata = new AsyncMetadataVersionManager(this.repository,
-                                                                      rebootstrapCallback);
+                                                                      rebootstrapCallback,
+                                                                      null);
             scheduler.schedule(asyncCheckMetadata.getClass().getName(),
                                asyncCheckMetadata,
                                new Date(),
@@ -125,8 +129,13 @@ public class AsyncMetadataVersionManagerTest {
             // Updating the version metadata here for the Version Metadata
             // Manager to detect
             this.newVersion = 101;
-            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.STORES_VERSION_KEY,
-                                             this.newVersion);
+            System.err.println("Incrementing the version for : " + storeVersionKey);
+            existingVersions = this.sysVersionStore.getSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE)
+                                                   .getValue();
+            existingVersions = existingVersions.replaceAll(storeVersionKey + "=100",
+                                                           storeVersionKey + "=101");
+            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE,
+                                             existingVersions);
 
             maxRetries = 0;
             while(maxRetries < 3 && !callbackDone) {
@@ -143,9 +152,9 @@ public class AsyncMetadataVersionManagerTest {
 
     private void callback() {
         try {
-            Versioned<Long> storeVersion = this.asyncCheckMetadata.getStoreMetadataVersion();
+            Long storeVersion = this.asyncCheckMetadata.getStoreMetadataVersion();
             if(storeVersion != null) {
-                this.updatedStoresVersion = storeVersion.getValue();
+                this.updatedStoresVersion = storeVersion;
             }
         } catch(Exception e) {
             fail("Error in updating stores.xml version: " + e.getMessage());

@@ -16,36 +16,23 @@
 
 package voldemort.client;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.UUID;
-import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.concurrency.Threadsafe;
-import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.client.scheduler.AsyncMetadataVersionManager;
-import voldemort.client.scheduler.ClientRegistryRefresher;
 import voldemort.cluster.Node;
-import voldemort.common.service.SchedulerService;
 import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.Serializer;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.metadata.MetadataStore;
-import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.ManifestFileReader;
-import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.InconsistentDataException;
@@ -69,165 +56,38 @@ import com.google.common.collect.Maps;
 @JmxManaged(description = "A voldemort client")
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
-    private static final int ASYNC_THREADS_COUNT = 2;
-    private static final boolean ALLOW_INTERRUPT_ASYNC = true;
-
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
-    private final StoreClientFactory storeFactory;
-
-    private final ClientConfig config;
-    private final int metadataRefreshAttempts;
-    private final String storeName;
-    private final InconsistencyResolver<Versioned<V>> resolver;
-    private final SystemStoreRepository sysRepository;
-    private final UUID clientId;
-    private volatile Store<K, V, Object> store;
-    private final SchedulerService scheduler;
-    private ClientInfo clientInfo;
-    private String clusterXml;
-    private AsyncMetadataVersionManager asyncCheckMetadata = null;
+    protected StoreClientFactory storeFactory;
+    protected int metadataRefreshAttempts;
+    protected String storeName;
+    protected InconsistencyResolver<Versioned<V>> resolver;
+    protected volatile Store<K, V, Object> store;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
                               StoreClientFactory storeFactory,
                               int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
-    }
-
-    public DefaultStoreClient(String storeName,
-                              InconsistencyResolver<Versioned<V>> resolver,
-                              StoreClientFactory storeFactory,
-                              int maxMetadataRefreshAttempts,
-                              String clientContext,
-                              int clientSequence,
-                              ClientConfig config) {
-
         this.storeName = Utils.notNull(storeName);
         this.resolver = resolver;
         this.storeFactory = Utils.notNull(storeFactory);
         this.metadataRefreshAttempts = maxMetadataRefreshAttempts;
-        this.clientInfo = new ClientInfo(storeName,
-                                         clientContext,
-                                         clientSequence,
-                                         System.currentTimeMillis(),
-                                         ManifestFileReader.getReleaseVersion());
-        this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
-        this.config = config;
-        this.sysRepository = new SystemStoreRepository();
-        this.scheduler = new SchedulerService(ASYNC_THREADS_COUNT,
-                                              SystemTime.INSTANCE,
-                                              ALLOW_INTERRUPT_ASYNC);
+
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                          JmxUtils.getClassName(this.getClass())
-                                                                 + "." + clientContext + "."
-                                                                 + storeName + "."
-                                                                 + clientId.toString()));
+                                                                 + "." + storeName));
 
-        // Bootstrap this client
         bootStrap();
-
-        // Initialize the background thread for checking metadata version
-        if(config != null) {
-            asyncCheckMetadata = scheduleMetadataChecker(clientId.toString(),
-                                                         config.getAsyncCheckMetadataInterval());
-        }
-
-        registerClient(clientId.toString(), config.getClientRegistryRefreshInterval());
-        logger.info("Voldemort client created: " + clientId.toString() + "\n" + clientInfo);
     }
 
-    private void registerClient(String jobId, int interval) {
-        SystemStore<String, ClientInfo> clientRegistry = this.sysRepository.getClientRegistryStore();
-        if(null != clientRegistry) {
-            try {
-                Version version = clientRegistry.putSysStore(clientId.toString(), clientInfo);
-                ClientRegistryRefresher refresher = new ClientRegistryRefresher(clientRegistry,
-                                                                                clientId.toString(),
-                                                                                clientInfo,
-                                                                                version);
-                GregorianCalendar cal = new GregorianCalendar();
-                cal.add(Calendar.SECOND, interval);
-                scheduler.schedule(jobId + refresher.getClass().getName(),
-                                   refresher,
-                                   cal.getTime(),
-                                   interval * 1000);
-                logger.info("Client registry refresher thread started, refresh frequency: "
-                            + interval + " seconds");
-            } catch(Exception e) {
-                logger.warn("Unable to register with the cluster due to the following error:", e);
-            }
-        } else {
-            logger.warn(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name()
-                        + "not found. Unable to registry with voldemort cluster.");
-        }
-    }
-
-    private AsyncMetadataVersionManager scheduleMetadataChecker(String jobId, long interval) {
-        AsyncMetadataVersionManager asyncCheckMetadata = null;
-        SystemStore<String, Long> versionStore = this.sysRepository.getVersionStore();
-        if(versionStore == null)
-            logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
-        else {
-
-            // Create a callback for re-bootstrapping the client
-            Callable<Void> rebootstrapCallback = new Callable<Void>() {
-
-                public Void call() throws Exception {
-                    bootStrap();
-                    return null;
-                }
-            };
-
-            asyncCheckMetadata = new AsyncMetadataVersionManager(this.sysRepository,
-                                                                 rebootstrapCallback);
-
-            // schedule the job to run every 'checkInterval' period, starting
-            // now
-            scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
-                               asyncCheckMetadata,
-                               new Date(),
-                               interval);
-            logger.info("Metadata version check thread started. Frequency = Every " + interval
-                        + " ms");
-
-        }
-        return asyncCheckMetadata;
-    }
+    // Default constructor invoked from child class
+    public DefaultStoreClient() {}
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
         logger.info("Bootstrapping metadata for store " + this.storeName);
-
-        /*
-         * Since we need cluster.xml for bootstrapping this client as well as
-         * all the System stores, just fetch it once and pass it around.
-         * 
-         * Seems hackish since bootstrapMetadataWithRetries only exists for
-         * AbstractStoreClientFactory. TODO: Think about making this part of the
-         * generic interface ?
-         */
-        clusterXml = ((AbstractStoreClientFactory) storeFactory).bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
-
-        this.store = storeFactory.getRawStore(storeName, resolver, clientId, null, clusterXml);
-
-        // Create system stores
-        logger.info("Creating system stores for store " + this.storeName);
-        this.sysRepository.createSystemStores(this.config, this.clusterXml);
-
-        /*
-         * Update to the new metadata versions (in case we got here from Invalid
-         * Metadata exception). This will prevent another bootstrap via the
-         * Async metadata checker
-         */
-        if(asyncCheckMetadata != null) {
-            asyncCheckMetadata.updateMetadataVersions();
-        }
-    }
-
-    public void close() {
-        scheduler.stopInner();
+        this.store = storeFactory.getRawStore(storeName, resolver);
     }
 
     public boolean delete(K key) {
@@ -297,7 +157,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private List<Version> getVersions(K key) {
+    protected List<Version> getVersions(K key) {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 return store.getVersions(key);
@@ -311,7 +171,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
+    protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
         if(items.size() == 0)
             return defaultValue;
         else if(items.size() == 1)
@@ -441,7 +301,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     @SuppressWarnings("unused")
-    private Version getVersion(K key) {
+    protected Version getVersion(K key) {
         List<Version> versions = getVersions(key);
         if(versions.size() == 0)
             return null;
@@ -496,23 +356,5 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
         return put(key, versioned, transforms);
 
-    }
-
-    public UUID getClientId() {
-        return clientId;
-    }
-
-    @JmxGetter(name = "getStoreMetadataVersion")
-    public String getStoreMetadataVersion() {
-        String result = "Current Store Metadata Version : "
-                        + this.asyncCheckMetadata.getStoreMetadataVersion();
-        return result;
-    }
-
-    @JmxGetter(name = "getClusterMetadataVersion")
-    public String getClusterMetadataVersion() {
-        String result = "Current Cluster Metadata Version : "
-                        + this.asyncCheckMetadata.getClusterMetadataVersion();
-        return result;
     }
 }

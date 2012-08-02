@@ -11,12 +11,12 @@ public class ClientRegistryRefresher implements Runnable {
 
     private final Logger logger = Logger.getLogger(this.getClass());
 
-    private final SystemStore<String, ClientInfo> clientRegistry;
+    private final SystemStore<String, String> clientRegistry;
     private ClientInfo clientInfo;
     private final String clientId;
     private Version lastVersion;
 
-    public ClientRegistryRefresher(SystemStore<String, ClientInfo> clientRegistry,
+    public ClientRegistryRefresher(SystemStore<String, String> clientRegistry,
                                    String clientId,
                                    ClientInfo clientInfo,
                                    Version version) {
@@ -33,8 +33,8 @@ public class ClientRegistryRefresher implements Runnable {
                     + "\n" + clientInfo);
         try {
             lastVersion = clientRegistry.putSysStore(clientId,
-                                                     new Versioned<ClientInfo>(clientInfo,
-                                                                               lastVersion));
+                                                     new Versioned<String>(clientInfo.toString(),
+                                                                           lastVersion));
         } catch(Exception e) {
             logger.warn("encounted the following error while trying to update client registry: "
                         + e);

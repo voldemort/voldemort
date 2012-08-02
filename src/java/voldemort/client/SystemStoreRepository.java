@@ -38,9 +38,15 @@ public class SystemStoreRepository {
         return sysVersionStore;
     }
 
-    public SystemStore<String, ClientInfo> getClientRegistryStore() {
+    public SystemStore<String, String> getClientRegistryStore() {
         String name = SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name();
-        SystemStore<String, ClientInfo> sysRegistryStore = sysStoreMap.get(name);
+        SystemStore<String, String> sysRegistryStore = sysStoreMap.get(name);
         return sysRegistryStore;
+    }
+
+    public SystemStore<String, String> getMetadataVersionStore() {
+        String name = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name();
+        SystemStore<String, String> sysVersionStore = sysStoreMap.get(name);
+        return sysVersionStore;
     }
 }

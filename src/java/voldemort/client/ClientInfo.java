@@ -45,7 +45,7 @@ public class ClientInfo implements Serializable {
         }
     }
 
-    private String createDeploymentPath() {
+    private synchronized String createDeploymentPath() {
         String currentPath = null;
         try {
             currentPath = new File(".").getCanonicalPath();
@@ -56,7 +56,7 @@ public class ClientInfo implements Serializable {
         return currentPath;
     }
 
-    private String createHostName() {
+    private synchronized String createHostName() {
         String hostName = null;
         try {
             InetAddress host = InetAddress.getLocalHost();
@@ -68,67 +68,67 @@ public class ClientInfo implements Serializable {
         return hostName;
     }
 
-    public void setStoreName(String storeName) {
+    public synchronized void setStoreName(String storeName) {
         this.storeName = storeName;
     }
 
-    public String getStoreName() {
+    public synchronized String getStoreName() {
         return storeName;
     }
 
-    public void setBootstrapTime(long bootstrapTime) {
+    public synchronized void setBootstrapTime(long bootstrapTime) {
         this.bootstrapTime = bootstrapTime;
     }
 
-    public long getBootstrapTime() {
+    public synchronized long getBootstrapTime() {
         return bootstrapTime;
     }
 
-    public void setContext(String clientContext) {
+    public synchronized void setContext(String clientContext) {
         this.context = clientContext;
     }
 
-    public String getContext() {
+    public synchronized String getContext() {
         return context;
     }
 
-    public void setClientSequence(int clientSequence) {
+    public synchronized void setClientSequence(int clientSequence) {
         this.sequence = clientSequence;
     }
 
-    public int getClientSequence() {
+    public synchronized int getClientSequence() {
         return sequence;
     }
 
-    public void setDeploymentPath(String deploymentPath) {
+    public synchronized void setDeploymentPath(String deploymentPath) {
         this.deploymentPath = deploymentPath;
     }
 
-    public String getDeploymentPath() {
+    public synchronized String getDeploymentPath() {
         return deploymentPath;
     }
 
-    public void setLocalHostName(String localHostName) {
+    public synchronized void setLocalHostName(String localHostName) {
         this.localHostName = localHostName;
     }
 
-    public String getLocalHostName() {
+    public synchronized String getLocalHostName() {
         return localHostName;
     }
 
-    public void setUpdateTime(long updateTime) {
+    public synchronized void setUpdateTime(long updateTime) {
         this.updateTime = updateTime;
     }
 
-    public long getUpdateTime() {
+    public synchronized long getUpdateTime() {
         return this.updateTime;
     }
 
-    public void setReleaseVersion(String version) {
+    public synchronized void setReleaseVersion(String version) {
         this.releaseVersion = version;
     }
 
-    public String getReleaseVersion() {
+    public synchronized String getReleaseVersion() {
         return this.releaseVersion;
     }
 
@@ -152,7 +152,7 @@ public class ClientInfo implements Serializable {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append("boostrapTime[").append(bootstrapTime).append("], ");
         builder.append("context[").append(context).append("], ");

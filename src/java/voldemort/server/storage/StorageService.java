@@ -18,6 +18,7 @@ package voldemort.server.storage;
 
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 
+import java.io.ByteArrayInputStream;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -26,6 +27,7 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -63,6 +65,7 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
+import voldemort.store.configuration.FileBackedCachingStorageConfiguration;
 import voldemort.store.invalidmetadata.InvalidMetadataCheckingStore;
 import voldemort.store.logging.LoggingStore;
 import voldemort.store.memory.InMemoryStorageConfiguration;
@@ -109,6 +112,9 @@ import voldemort.versioning.Versioned;
 public class StorageService extends AbstractService {
 
     private static final Logger logger = Logger.getLogger(StorageService.class.getName());
+    public static final String VERSIONS_METADATA_STORE = "metadata-versions";
+    public static final String CLUSTER_VERSION_KEY = "cluster.xml";
+    public static final String STORES_VERSION_KEY = "stores.xml";
 
     private final VoldemortConfig voldemortConfig;
     private final StoreRepository storeRepository;
@@ -204,6 +210,10 @@ public class StorageService extends AbstractService {
         }
 
         // add FileStorage config here
+        if(!storageConfigs.containsKey(FileBackedCachingStorageConfiguration.TYPE_NAME)) {
+            storageConfigs.put(FileBackedCachingStorageConfiguration.TYPE_NAME,
+                               new FileBackedCachingStorageConfiguration(voldemortConfig));
+        }
     }
 
     private void initSystemStores() {
@@ -220,7 +230,7 @@ public class StorageService extends AbstractService {
     }
 
     private void updateRepFactor(List<StoreDefinition> storesDefs) {
-    // need impl
+        // need impl
     }
 
     @Override
@@ -300,9 +310,12 @@ public class StorageService extends AbstractService {
 
         // now that we have all our stores, we can initialize views pointing at
         // those stores
-        for(StoreDefinition def: storeDefs)
+        for(StoreDefinition def: storeDefs) {
             if(def.isView())
                 openStore(def);
+        }
+
+        initializeMetadataVersions(storeDefs);
 
         // enable aggregate jmx statistics
         if(voldemortConfig.isStatTrackingEnabled())
@@ -317,6 +330,57 @@ public class StorageService extends AbstractService {
                                                                  "aggregate-perf"));
 
         logger.info("All stores initialized.");
+    }
+
+    protected void initializeMetadataVersions(List<StoreDefinition> storeDefs) {
+        Store<ByteArray, byte[], byte[]> versionStore = storeRepository.getLocalStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+        Properties props = new Properties();
+
+        try {
+            ByteArray metadataVersionsKey = new ByteArray(VERSIONS_METADATA_STORE.getBytes());
+            List<Versioned<byte[]>> versionList = versionStore.get(metadataVersionsKey, null);
+            VectorClock newClock = null;
+
+            if(versionList != null && versionList.size() > 0) {
+                byte[] versionsByteArray = versionList.get(0).getValue();
+                if(versionsByteArray != null) {
+                    props.load(new ByteArrayInputStream(versionsByteArray));
+                }
+                newClock = (VectorClock) versionList.get(0).getVersion();
+                newClock = newClock.incremented(0, System.currentTimeMillis());
+            } else {
+                newClock = new VectorClock();
+            }
+
+            // Check if version exists for cluster.xml
+            if(!props.containsKey(CLUSTER_VERSION_KEY)) {
+                props.setProperty(CLUSTER_VERSION_KEY, "0");
+            }
+
+            // Check if version exists for stores.xml
+            if(!props.containsKey(STORES_VERSION_KEY)) {
+                props.setProperty(STORES_VERSION_KEY, "0");
+            }
+
+            // Check if version exists for each store
+            for(StoreDefinition def: storeDefs) {
+                if(!props.containsKey(def.getName())) {
+                    props.setProperty(def.getName(), "0");
+                }
+            }
+
+            StringBuilder finalVersionList = new StringBuilder();
+            for(String propName: props.stringPropertyNames()) {
+                finalVersionList.append(propName + "=" + props.getProperty(propName) + "\n");
+            }
+            System.err.println(finalVersionList);
+            versionStore.put(metadataVersionsKey,
+                             new Versioned<byte[]>(finalVersionList.toString().getBytes(), newClock),
+                             null);
+
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void openSystemStore(StoreDefinition storeDef) {

@@ -16,8 +16,8 @@ public class SystemStoreConstants {
 
     public static enum SystemStoreName {
         voldsys$_client_registry,
-        voldsys$_client_store_definition,
-        voldsys$_metadata_version;
+        voldsys$_metadata_version,
+        voldsys$_metadata_version_persistence;
     }
 
     public static final String SYSTEM_STORE_SCHEMA = "<stores>"
@@ -39,28 +39,6 @@ public class SystemStoreConstants {
                                                      + "     <schema-info version=\"0\">utf8</schema-info>"
                                                      + "    </key-serializer>"
                                                      + "    <value-serializer>"
-                                                     // +
-                                                     // "      <type>avro-specific</type>"
-                                                     // +
-                                                     // "      <schema-info version=\"0\">java=voldemort.client.ClientInfo</schema-info>"
-                                                     + "      <type>java-serialization</type>"
-                                                     + "    </value-serializer>"
-                                                     + "    <retention-days>7</retention-days>"
-                                                     + "  </store>"
-
-                                                     + "  <store>"
-                                                     + "    <name>voldsys$_client_store_definition</name>"
-                                                     + "    <routing-strategy>zone-routing</routing-strategy>"
-                                                     + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
-                                                     + "    <persistence>memory</persistence>"
-                                                     + "    <routing>client</routing>"
-                                                     + "    <replication-factor>1</replication-factor>"
-                                                     + "    <required-reads>1</required-reads>"
-                                                     + "    <required-writes>1</required-writes>"
-                                                     + "    <key-serializer>"
-                                                     + "      <type>string</type>"
-                                                     + "    </key-serializer>"
-                                                     + "    <value-serializer>"
                                                      + "      <type>string</type>"
                                                      + "    </value-serializer>"
                                                      + "    <retention-days>7</retention-days>"
@@ -79,7 +57,24 @@ public class SystemStoreConstants {
                                                      + "      <type>string</type>"
                                                      + "    </key-serializer>"
                                                      + "    <value-serializer>"
-                                                     + "      <type>java-serialization</type>"
+                                                     + "      <type>string</type>"
+                                                     + "    </value-serializer>"
+                                                     + "  </store>"
+
+                                                     + "  <store>"
+                                                     + "    <name>voldsys$_metadata_version_persistence</name>"
+                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
+                                                     + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
+                                                     + "    <persistence>file</persistence>"
+                                                     + "    <routing>client</routing>"
+                                                     + "    <replication-factor>1</replication-factor>"
+                                                     + "    <required-reads>1</required-reads>"
+                                                     + "    <required-writes>1</required-writes>"
+                                                     + "    <key-serializer>"
+                                                     + "      <type>string</type>"
+                                                     + "    </key-serializer>"
+                                                     + "    <value-serializer>"
+                                                     + "      <type>string</type>"
                                                      + "    </value-serializer>" + "  </store>"
 
                                                      + "</stores>";

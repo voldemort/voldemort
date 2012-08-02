@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import joptsimple.OptionParser;
@@ -67,6 +68,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.KeyDistributionGenerator;
+import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
@@ -90,7 +92,6 @@ public class VoldemortAdminTool {
     private static final String ALL_METADATA = "all";
     private static final String STORES_VERSION_KEY = "stores.xml";
     private static final String CLUSTER_VERSION_KEY = "cluster.xml";
-    private static SystemStore<String, Long> sysStoreVersion = null;
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
@@ -259,9 +260,9 @@ public class VoldemortAdminTool {
         // Initialize the system store for stores.xml version
         String[] bootstrapUrls = new String[1];
         bootstrapUrls[0] = url;
-        sysStoreVersion = new SystemStore<String, Long>("voldsys$_metadata_version",
-                                                        bootstrapUrls,
-                                                        0);
+        SystemStore<String, String> sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                                      bootstrapUrls,
+                                                                                      0);
 
         String ops = "";
         if(options.has("delete-partitions")) {
@@ -433,7 +434,7 @@ public class VoldemortAdminTool {
                                            mapper.writeCluster(newCluster));
 
                         // Update the cluster.xml version info
-                        updateMetadataversion(CLUSTER_VERSION_KEY);
+                        updateMetadataversion(CLUSTER_VERSION_KEY, sysStoreVersion);
                     } else if(metadataKey.compareTo(MetadataStore.SERVER_STATE_KEY) == 0) {
                         VoldemortState newState = VoldemortState.valueOf(metadataValue);
                         executeSetMetadata(nodeId,
@@ -457,7 +458,7 @@ public class VoldemortAdminTool {
                          * stores.xml When we split the stores.xml, make this
                          * more granular
                          */
-                        updateMetadataversion(STORES_VERSION_KEY);
+                        updateMetadataversion(STORES_VERSION_KEY, sysStoreVersion);
 
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
@@ -748,23 +749,25 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static void updateMetadataversion(String versionKey) {
-        Versioned<Long> metadataVersion = sysStoreVersion.getSysStore(versionKey);
-        if(metadataVersion == null) {
-            System.err.println("Current version is null. Assuming version 0.");
-            metadataVersion = new Versioned<Long>((long) 1);
+    // Get the metadata version for the given key (cluster or store)
+    public static void updateMetadataversion(String versionKey,
+                                             SystemStore<String, String> sysStoreVersion) {
+        Properties props = MetadataVersionStoreUtils.getProperties(sysStoreVersion);
+        if(props.getProperty(versionKey) != null) {
+            System.out.println("Version obtained = " + props.getProperty(versionKey));
+            long newValue = Long.parseLong(props.getProperty(versionKey)) + 1;
+            props.setProperty(versionKey, Long.toString(newValue));
         } else {
-            System.out.println("Version obtained = " + metadataVersion.getValue());
-            long newValue = metadataVersion.getValue() + 1;
-            metadataVersion.setObject(newValue);
+            System.err.println("Current version is null. Assuming version 0.");
+            props.setProperty(versionKey, "0");
         }
-        sysStoreVersion.putSysStore(versionKey, metadataVersion);
+        MetadataVersionStoreUtils.setProperties(sysStoreVersion, props);
     }
 
-    private static void executeSetMetadata(Integer nodeId,
-                                           AdminClient adminClient,
-                                           String key,
-                                           Object value) {
+    public static void executeSetMetadata(Integer nodeId,
+                                          AdminClient adminClient,
+                                          String key,
+                                          Object value) {
 
         List<Integer> nodeIds = Lists.newArrayList();
         VectorClock updatedVersion = null;
@@ -800,8 +803,9 @@ public class VoldemortAdminTool {
                                + adminClient.getAdminClientCluster()
                                             .getNodeById(currentNodeId)
                                             .getId());
-            adminClient.updateRemoteMetadata(currentNodeId, key, Versioned.value(value.toString(),
-                                                                                 updatedVersion));
+            adminClient.updateRemoteMetadata(currentNodeId,
+                                             key,
+                                             Versioned.value(value.toString(), updatedVersion));
         }
     }
 

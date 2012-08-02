@@ -105,13 +105,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c1type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c1).getClientId()
+                                                                                               .toString());
         c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c2type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c2).getClientId()
+                                                                                               .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -147,13 +147,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c1type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                      .toString());
+                                                   + ((ZenStoreClient<Object, Object>) clients[0]).getClientId()
+                                                                                                       .toString());
         c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c2type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                      .toString());
+                                                   + ((ZenStoreClient<Object, Object>) clients[1]).getClientId()
+                                                                                                       .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -187,13 +187,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c1type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c1).getClientId()
+                                                                                               .toString());
         c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c2type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c2).getClientId()
+                                                                                               .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -227,13 +227,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c1type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c1).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c1).getClientId()
+                                                                                               .toString());
         c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                            c2type
                                                    + "."
-                                                   + ((DefaultStoreClient<Object, Object>) c2).getClientId()
-                                                                                              .toString());
+                                                   + ((ZenStoreClient<Object, Object>) c2).getClientId()
+                                                                                               .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -263,13 +263,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                                       ctype
                                                               + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                                 .toString());
+                                                              + ((ZenStoreClient<Object, Object>) clients[0]).getClientId()
+                                                                                                                  .toString());
         ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                                       ctype
                                                               + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                                 .toString());
+                                                              + ((ZenStoreClient<Object, Object>) clients[1]).getClientId()
+                                                                                                                  .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         mbServer.unregisterMBean(c1Name);
@@ -297,13 +297,13 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         ObjectName c1Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                                       ctype
                                                               + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[0]).getClientId()
-                                                                                                                 .toString());
+                                                              + ((ZenStoreClient<Object, Object>) clients[0]).getClientId()
+                                                                                                                  .toString());
         ObjectName c2Name = JmxUtils.createObjectName(STATS_DOMAIN,
                                                       ctype
                                                               + "."
-                                                              + ((DefaultStoreClient<Object, Object>) clients[1]).getClientId()
-                                                                                                                 .toString());
+                                                              + ((ZenStoreClient<Object, Object>) clients[1]).getClientId()
+                                                                                                                  .toString());
         checkForMbeanFound(c1Name);
         checkForMbeanFound(c2Name);
         assertTrue(!c1Name.equals(c2Name));
