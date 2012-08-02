@@ -121,18 +121,19 @@ public class VectorClock implements Version, Serializable {
     public int toBytes(byte[] buf, int offset) {
         // write the number of versions
         ByteUtils.writeShort(buf, (short) versions.size(), offset);
+        offset += ByteUtils.SIZE_OF_SHORT;
         // write the size of each version in bytes
         byte versionSize = ByteUtils.numberOfBytesRequired(getMaxVersion());
-        buf[offset + 2] = versionSize;
+        buf[offset] = versionSize;
+        offset++;
 
         int clockEntrySize = ByteUtils.SIZE_OF_SHORT + versionSize;
-        int start = offset + 3;
         for(ClockEntry v: versions) {
-            ByteUtils.writeShort(buf, v.getNodeId(), start);
-            ByteUtils.writeBytes(buf, v.getVersion(), start + ByteUtils.SIZE_OF_SHORT, versionSize);
-            start += clockEntrySize;
+            ByteUtils.writeShort(buf, v.getNodeId(), offset);
+            ByteUtils.writeBytes(buf, v.getVersion(), offset + ByteUtils.SIZE_OF_SHORT, versionSize);
+            offset += clockEntrySize;
         }
-        ByteUtils.writeLong(buf, this.timestamp, start);
+        ByteUtils.writeLong(buf, this.timestamp, offset);
         return sizeInBytes();
     }
 
