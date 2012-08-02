@@ -65,7 +65,6 @@ public class VoldemortConfig implements Serializable {
     private long bdbCacheSize;
     private boolean bdbWriteTransactions;
     private boolean bdbFlushTransactions;
-    private boolean bdbSortedDuplicates;
     private String bdbDataDirectory;
     private long bdbMaxLogFileSize;
     private int bdbBtreeFanout;
@@ -213,7 +212,6 @@ public class VoldemortConfig implements Serializable {
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
-        this.bdbSortedDuplicates = props.getBoolean("bdb.enable.sorted.duplicates", false);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
@@ -1230,14 +1228,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbWriteTransactions(boolean bdbWriteTransactions) {
         this.bdbWriteTransactions = bdbWriteTransactions;
-    }
-
-    public boolean isBdbSortedDuplicatesEnabled() {
-        return this.bdbSortedDuplicates;
-    }
-
-    public void setBdbSortedDuplicates(boolean enable) {
-        this.bdbSortedDuplicates = enable;
     }
 
     public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {

@@ -111,7 +111,7 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
-        databaseConfig.setSortedDuplicates(config.isBdbSortedDuplicatesEnabled());
+        databaseConfig.setSortedDuplicates(false);
         databaseConfig.setNodeMaxEntries(config.getBdbBtreeFanout());
         databaseConfig.setTransactional(true);
         bdbMasterDir = config.getBdbDataDirectory();
