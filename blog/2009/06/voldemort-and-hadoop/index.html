@@ -1,0 +1,308 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en-US">
+<head profile="http://gmpg.org/xfn/11">
+	<title>SNA Projects Blog : Building Voldemort read-only stores with Hadoop</title>
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+	<link rel="stylesheet" type="text/css" media="screen,projection" href="http://sna-projects.com/blog/wp-content/themes/barthelme/style.css" title="Barthelme" />
+	<link rel="stylesheet" type="text/css" media="print" href="http://sna-projects.com/blog/wp-content/themes/barthelme/print.css" />
+	<link rel="alternate" type="application/rss+xml" href="http://sna-projects.com/blog/feed/" title="SNA Projects Blog RSS feed" />
+	<link rel="alternate" type="application/rss+xml" href="http://sna-projects.com/blog/comments/feed/" title="SNA Projects Blog comments RSS feed" />
+	<link rel="pingback" href="http://sna-projects.com/blog/xmlrpc.php" />
+
+<link rel="alternate" type="application/rss+xml" title="SNA Projects Blog &raquo; Building Voldemort read-only stores with Hadoop Comments Feed" href="http://sna-projects.com/blog/2009/06/voldemort-and-hadoop/feed/" />
+<script type='text/javascript' src='http://sna-projects.com/blog/wp-includes/js/l10n.js?ver=20101110'></script>
+<script type='text/javascript' src='http://sna-projects.com/blog/wp-includes/js/jquery/jquery.js?ver=1.6.1'></script>
+<script type='text/javascript' src='http://sna-projects.com/blog/wp-content/plugins/google-analyticator/external-tracking.min.js?ver=6.2'></script>
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="http://sna-projects.com/blog/xmlrpc.php?rsd" />
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="http://sna-projects.com/blog/wp-includes/wlwmanifest.xml" /> 
+<link rel='index' title='SNA Projects Blog' href='http://sna-projects.com/blog/' />
+<link rel='start' title='Added site documentation to Subversion' href='http://sna-projects.com/blog/2009/03/added-site-documentation-to-svn/' />
+<link rel='prev' title='Building a terabyte-scale data cycle at LinkedIn with Hadoop and Project Voldemort' href='http://sna-projects.com/blog/2009/06/building-a-1-tb-data-cycle-at-linkedin-with-hadoop-and-project-voldemort/' />
+<link rel='next' title='Introducing the NIO SocketServer Implementation' href='http://sna-projects.com/blog/2009/08/introducing-the-nio-socketserver-implementation/' />
+<meta name="generator" content="WordPress 3.2.1" />
+<link rel='canonical' href='http://sna-projects.com/blog/2009/06/voldemort-and-hadoop/' />
+<link rel='shortlink' href='http://sna-projects.com/blog/?p=79' />
+
+<style type="text/css" media="screen,projection">
+/*<![CDATA[*/
+/* CSS inserted by Barthelme theme options */
+	body{font-family:arial,helvetica,sans-serif;font-size:85%;}
+	div#content h2,div#content h3,div#content h4,div#content h5,div#content h6,body.archive div.archive-meta,body.attachment div.entry-content div.attachment-content p.attachment-name,body.home div#content div.entry-meta span,body.archive div#content div.entry-meta span,body.search div#content div.entry-meta span,body.single div.entry-date,body.single div.entry-meta,div#content blockquote,div.comments ol.commentlist li div.comment-meta,div.entry-content div.page-link,div.entry-content span.tag-links,body.page div.archive-meta,div.formcontainer form#commentform div.form-input input,div.formcontainer form#commentform div.form-textarea textarea#comment,input#s,div.entry-content div.entry-caption{font-family:arial,helvetica,sans-serif;}
+	body div#content div.hentry{text-align:left;}
+	body div#wrapper{width:auto;}
+	div#header,div#header h1#blog-title a,div#header h1#blog-title a:link,div#header h1#blog-title a:visited{color:#FEFEFE;outline:none;text-decoration:none;}
+	body div#header{background:#bbc8d9 url("http://sna-projects.com/blog/wp-content/themes/barthelme/images/header-img.php?upper=8999b0&lower=bbc8d9") repeat-x left top;}
+/*]]>*/
+</style>
+<!-- Google Analytics Tracking by Google Analyticator 6.2: http://ronaldheft.com/code/analyticator/ -->
+<script type="text/javascript">
+	var analyticsFileTypes = [''];
+	var analyticsEventTracking = 'enabled';
+</script>
+<script type="text/javascript">
+	var _gaq = _gaq || [];
+	_gaq.push(['_setAccount', 'UA-7818013-2']);
+	_gaq.push(['_trackPageview']);
+	_gaq.push(['_trackPageLoadTime']);
+
+	(function() {
+		var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+	})();
+</script>
+
+</head>
+
+<body class="wordpress y2012 m08 d07 h01 single s-y2009 s-m06 s-d17 s-h12 s-category-uncategorized s-author-elias">
+
+<div id="wrapper">
+
+	<div id="header" onclick="location.href='http://sna-projects.com/blog/';">
+		<h1 id="blog-title"><a href="http://sna-projects.com/blog/" title="SNA Projects Blog">SNA Projects Blog</a></h1>
+		<div id="blog-description">LinkedIn&#8217;s Search Network and Analytics team</div>
+	</div><!-- #header -->
+	
+	<div class="access"><span class="content-access"><a href="#content" title="Skip to content">Skip to content</a></span></div>
+
+<div id="globalnav"><ul id="menu"><li class="page_item_home home-link"><a href="http://sna-projects.com/blog/" title="SNA Projects Blog" rel="home">Home</a></li></ul></div>
+
+	<div id="container">
+		<div id="content" class="hfeed">
+
+
+			<div id="post-79" class="hentry p1 post publish author-elias category-uncategorized y2009 m06 d17 h12">
+				<div class="entry-date"><span class="meta-sep">{</span> <abbr class="published" title="2009-06-17T20:46:24+0000">2009 06 17</abbr> <span class="meta-sep">}</span></div>
+				<h2 class="entry-title">Building Voldemort read-only stores with Hadoop</h2>
+				<div class="entry-content">
+<p>A well-known lesson in scalability is that writes are 40x more expensive than reads and if your application becomes write-intensive as it is easily the case when you are dealing with sufficiently large number of users, you will be in trouble if you don&#8217;t design to scale.  For example, if you are using MySQL, you will most likely follow the conventional path of scaling by introducing one of many replication schemes such as establishing a master server with several slaves servers. All writes go to a single server, which then replicates out to the read-only slaves. This all works well, until you reach the maximum number of writes any one of your servers can handle individually and replication lag will rear its ugly face. If we ignore the specifics and brainstorm for a little bit, you might come to the conclusion that updating databases while they are online can be detrimental to the service&#8217;s performance and maybe we should find a way to batch these updates and deliver them in bulk to the slaves. And this is exactly what the team behind Project Voldemort has done in addition to the default store (read-write) available today. We have a read-only store that lets you build its index and data files in an offline system (like Hadoop) and once built, it provides a mechanism for swapping its current store for a fresher version.</p>
+<p>At <a href="http://www.lookery.com/">Lookery</a>, we have been working very hard to transform most of our data processing tasks into batch-oriented workflows in order to deal with growth. For example, we were already using Hadoop to compute our index and data files for our largest database, but the process of serving that information took place over too many network hops (load balancers, reverse proxies and Amazon S3). Therefore, as soon as I learned that Project Voldemort supported offline building of distributed stores, I decided to try it and we&#8217;re now running it in production. Please read the rest for an example walkthrough building a Voldemort read-only index and data files using Hadoop. The goal for this tutorial is to deploy a Voldemort cluster storing words and their counts calculated by the canonical Hadoop example: <a href="http://wiki.apache.org/hadoop/WordCount">WordCount.</a></p>
+<h4>Step 1: Preferably build or <a href="http://github.com/voldemort/voldemort/tree/master">download</a> Voldemort:</h4>
+</p>
+<pre>
+    &gt; git clone git://github.com/voldemort/voldemort.git
+    &gt; cd voldemort
+    &gt; ant</pre>
+<h4>Step 2: Configure Cluster</h4>
+<p>Now let&#8217;s create a single node cluster for our wordcounts store. Create a directory and place the following files inside a directory named &#8216;config&#8217; within that directory.</p>
+<p><strong>server.properties</strong></p>
+<pre>    # The ID of *this* particular cluster node
+    node.id=0
+
+    max.threads=100
+
+    http.enable=true
+    socket.enable=true
+    enable.readonly.engine=true
+
+    file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre>
+<p><strong>cluster.xml</strong></p>
+<pre>    &lt;cluster&gt;
+      &lt;name&gt;wordcounts&lt;/name&gt;
+      &lt;server&gt;
+        &lt;id&gt;0&lt;/id&gt;
+        &lt;host&gt;localhost&lt;/host&gt;
+        &lt;http-port&gt;8081&lt;/http-port&gt;
+        &lt;socket-port&gt;6666&lt;/socket-port&gt;
+        &lt;partitions&gt;0, 1&lt;/partitions&gt;
+      &lt;/server&gt;
+    &lt;/cluster&gt;</pre>
+<p><strong>stores.xml</strong></p>
+<pre>    &lt;stores&gt;
+      &lt;store&gt;
+        &lt;name&gt;wordcounts&lt;/name&gt;
+        &lt;persistence&gt;read-only&lt;/persistence&gt;
+        &lt;routing&gt;client&lt;/routing&gt;
+        &lt;replication-factor&gt;1&lt;/replication-factor&gt;
+        &lt;required-reads&gt;1&lt;/required-reads&gt;
+        &lt;required-writes&gt;1&lt;/required-writes&gt;
+        &lt;key-serializer&gt;
+          &lt;type&gt;json&lt;/type&gt;
+          &lt;schema-info&gt;"string"&lt;/schema-info&gt;
+        &lt;/key-serializer&gt;
+        &lt;value-serializer&gt;
+          &lt;type&gt;json&lt;/type&gt;
+          &lt;schema-info&gt;"int32"&lt;/schema-info&gt;
+        &lt;/value-serializer&gt;
+      &lt;/store&gt;
+    &lt;/stores&gt;</pre>
+<p>Let&#8217;s now make sure that everything is working as expected. Voldemort will automatically create a blank read-only store in a subdirectory called data if an existing is not found.</p>
+<pre>    &gt; $VOLDEMORT_HOME/bin/voldemort-server.sh . &amp;&gt; /tmp/voldemort.log &amp;
+    &gt; $VOLDEMORT_HOME/bin/voldemort-shell.sh wordcounts tcp://localhost:6666
+    Established connection to wordcounts via tcp://localhost:6666
+    &gt; get "voldemort"
+    null</pre>
+<h4>Step 3: Prepare your input data to organize into a word and count sequence.</h4>
+<p>Before you continue, you must already have Hadoop configured in either pseudo-distributed or fully-distributed mode. Unfortunately, I&#8217;m going to punt on this part of the setup because there&#8217;s plenty of good documentation on the <a href="http://wiki.apache.org/hadoop/GettingStartedWithHadoop">Hadoop</a> wiki itself. Once you have your cluster running, let&#8217;s proceed to run the wordcount example.</p>
+<pre>    &gt; bin/hadoop dfs -copyFromLocal &lt;local-dir&gt; &lt;hdfs-dir&gt;
+    &gt; bin/hadoop jar hadoop-*-examples.jar wordcount [-m &lt;#maps&gt;] [-r &lt;#reducers&gt;] &lt;in-dir&gt; &lt;out-dir&gt;</pre>
+<p>We now have a tab-separated records that contain the word and its count: &#8220;&lt;word&gt;TAB&lt;count&gt;&#8221; stored in the &lt;out-dir&gt; directory.</p>
+<h4>Step 4: Use your favorite Java IDE/Editor to implement your Hadoop mapper</h4>
+<p>Project Voldemort provides you with most of the code necessary to build the store. The only missing part is how to extract the key and value objects from your input files. Since our WordCount example outputs our data in a very simple key,value format, our mapper only needs to split the actual line on the TAB character and return a String object for the key and an Integer object for the value just as declared in our store definition inside stores.xml. You will need to update your CLASSPATH to point to the voldemort jars and their dependencies in order for this to compile. Upon completion, you should export this class into a jar called wordcount-mapper.jar and place it inside a &#8216;lib&#8217; directory right along your &#8216;config&#8217; directory.</p>
+<pre>    package com.lookery;
+
+    import org.apache.hadoop.io.LongWritable;
+    import org.apache.hadoop.io.Text;
+
+    import voldemort.store.readonly.mr.AbstractHadoopStoreBuilderMapper;
+
+    public class HadoopStoreMapper extends AbstractHadoopStoreBuilderMapper&lt;LongWritable, Text&gt; {
+
+        @Override
+        public Object makeKey(LongWritable key, Text value) {
+            return value.toString().split("\t")[0];
+        }
+
+        @Override
+        public Object makeValue(LongWritable key, Text value) {
+            return Integer.parseInt(value.toString().split("\t")[1]);
+        }
+    }</pre>
+<h4>Step 5: Build your read-only store from the command-line</h4>
+<p>The next step is for you to call Project Voldemort&#8217;s shell script as shown in the example below. Most of the parameters should be self-explanatory, if not you can always call the script with &#8216;&#8211;help&#8217; to get full details for all available parameters. However, it might be worth explaining a couple in this example. First, let&#8217;s look at chunk size. The main reason for using Hadoop to build large read-only stores is because of its ability to run tasks in parallel. But to help you take advantage of Hadoop, Project Voldemort builds the index and data files for each node in the cluster in chunks in order to let the developer maximize the number of reducers his Hadoop cluster dedicates to building the distributed store. You should play with the chunksize until it gives you a number within a small multiple of your maximum reducer availability. In this case, I set it to 1 gigabyte. The second option worth mentioning is the replication factor. This setting will let you create redundancy in your storage so your cluster can continue serving values even after some node failures. Please see the rest of the documentation to choose what is the best replication factor in your application scenario.</p>
+<pre>    &gt; $VOLDEMORT_HOME/bin/hadoop-build-readonly-store.sh --input &lt;input_dir&gt; \
+        --output wordcounts --tmpdir tmp-build --mapper com.lookery.HadoopStoreMapper \
+        --jar lib/wordcount-mapper.jar --cluster config/cluster.xml \
+        --storename wordcounts --storedefinitions config/stores.xml \
+        --chunksize 1073741824 --replication 2
+    09/06/17 20:24:38 INFO mr.HadoopStoreBuilder: Data size = 17934, ...
+    09/06/17 20:24:38 INFO mr.HadoopStoreBuilder: Number of reduces: 1
+    09/06/17 20:24:38 INFO mr.HadoopStoreBuilder: Building store...
+    09/06/17 20:24:38 INFO mapred.FileInputFormat: Total input paths to process : 1
+    09/06/17 20:24:38 INFO mapred.FileInputFormat: Total input paths to process : 1
+    09/06/17 20:24:38 INFO mapred.JobClient: Running job: job_200906171849_0002
+    09/06/17 20:24:39 INFO mapred.JobClient:  map 0% reduce 0%
+    09/06/17 20:24:44 INFO mapred.JobClient:  map 100% reduce 0%
+    ...</pre>
+<h4>Step 6: Ask the cluster to fetch the newly built read-only in Hadoop</h4>
+<p>Now the easiest part is to ask each node in the cluster to fetch its index and data chunks and only after they have succeeded, then they will all atomically swap their stores to the latest version. This has to be one of the coolest features in the read-only store. We hope you like it too. There are a couple of parameters available to the server.properties file that could help you further enhance this capability. The first is that you can specify a temporary folder for downloading the files from Hadoop HDFS (hdfs.fetcher.tmp.dir). This is important to make sure that both the read-only data store and the temporary folder are in the same device in order to avoid an extra copy of the downloaded files and make the swap truly atomic as permitted by the underlying filesystem. The second option (fetcher.max.bytes.per.sec) is to signal the HdfsFetcher to throttle its download rates in order to avoid interference with the online requests from Voldemort clients. There are also some other options for the swap-store.sh command such as timeout that could help you deal with large download periods from the cluster nodes. But other than that, it should be straight forward to update your online read-only store using this command.</p>
+<pre>    &gt; $VOLDEMORT_HOME/bin/swap-store.sh --cluster config/cluster.xml \
+        --file hdfs://localhost:54310/user/${user.name}/wordcounts --name wordcounts
+    [2009-06-17 23:35:23,946] INFO Invoking fetch for node 0 for hdfs://localhost:54310/user/elias/node-0
+    [2009-06-17 23:35:24,045] INFO Fetch succeeded on node 0 (voldemort.store.readonly.StoreSwapper)
+    [2009-06-17 23:35:24,046] INFO Attempting swap for node 0 dir = /tmp/hdfs-fetcher/hdfs-fetcher/node-0
+    [2009-06-17 23:35:24,060] INFO Swap succeeded for node 0 (voldemort.store.readonly.StoreSwapper)
+    [2009-06-17 23:35:24,060] INFO Swap succeeded on all nodes in 0 seconds.</pre>
+<h4>Step 7: Verify that your data was loaded successful</h4>
+<pre>    &gt; bin/voldemort-shell.sh wordcounts tcp://localhost:6666
+    Established connection to wordcounts via tcp://localhost:6666
+    &gt; get "voldemort"
+    version(): 2</pre>
+<p>We have been running at Lookery with this setup for almost a month now and have been very pleased the results. It allowed us to have a Voldemort cluster that is always refreshing with the new data without manual intervention. If you have any corrections or suggestions on how we can improve both the batch indexer or this tutorial, please don&#8217;t hesitate to email the <a href="http://groups.google.com/group/project-voldemort">mailing list.</a></p>
+
+
+
+				</div>
+
+				<div class="entry-meta">
+					<span class="entry-published">Posted by <span class="entry-author author vcard"><a class="url fn" href="http://sna-projects.com/blog/author/elias/" title="View all posts by elias">elias</a></span> on <abbr class="published" title="2009-06-17T20:46:24+0000">Wednesday, June 17, 2009, at 8:46 pm</abbr>.</span> <span class="cat-links">Filed under <a href="http://sna-projects.com/blog/category/uncategorized/" title="View all posts in Uncategorized" rel="category tag">Uncategorized</a>.</span> <span class="tag-links">Tagged <a href="http://sna-projects.com/blog/tag/hadoop/" rel="tag">hadoop</a>, <a href="http://sna-projects.com/blog/tag/lookery/" rel="tag">lookery</a>, <a href="http://sna-projects.com/blog/tag/read-only/" rel="tag">read-only</a>.</span> <span class="entry-rsslink">Follow any responses to this post with its <a href="http://sna-projects.com/blog/2009/06/voldemort-and-hadoop/feed/" title="Comments RSS to Building Voldemort read-only stores with Hadoop" rel="alternate" type="application/rss+xml">comments RSS</a> feed.</span>
+					<span class="entry-interact">Comments are closed, but you can <a href="http://sna-projects.com/blog/2009/06/voldemort-and-hadoop/trackback/" rel="trackback" title="Trackback URL for your post">trackback</a> from your blog.</span>
+				</div>
+			</div><!-- .post -->
+
+<div class="comments">
+
+
+	<h3 class="comment-header" id="numpingbacks"><span class="comment-count"><span class="meta-sep">{</span> 3 <span class="meta-sep">}</span></span> Trackbacks</h3>
+	<ol id="pingbacks" class="commentlist">
+		<li id="comment-6" class="pingback c-y2009 c-m06 c-d17 c-h10 alt c1">
+			<div class="comment-meta">
+				<span class="pingback-author vcard"><span class="fn n url org"><a href='http://project-voldemort.com/blog/2009/06/building-a-1-tb-data-cycle-at-linkedin-with-hadoop-and-project-voldemort/' rel='external nofollow' class='url'>Project Voldemort Blog : Building a terabyte-scale data cycle at LinkedIn with Hadoop and Project Voldemort</a></span></span>
+				<span class="meta-sep">|</span>
+				<span class="pingback-datetime"><abbr class="comment-published" title="2009-06-17T20:46:24+0000">June 18, 2009 at 6:09 am</abbr></span>
+				<span class="meta-sep">|</span>
+				<span class="comment-permalink"><a href="#comment-6" title="Permalink to this comment">Permalink</a></span>
+			</div>
+						<p>[...] building a store, and executing a swap can be found under the bin/ directory. Elias has written a blog entry on how to use these, and how he has put this system into action at [...]</p>
+		</li>
+
+		<li id="comment-8" class="pingback c-y2009 c-m06 c-d18 c-h04 c2">
+			<div class="comment-meta">
+				<span class="pingback-author vcard"><span class="fn n url org"><a href='http://fschiettecatte.wordpress.com/2009/06/18/hadoop-and-project-voldemort/' rel='external nofollow' class='url'>Hadoop and Project Voldemort &laquo; François Schiettecatte&#8217;s Blog</a></span></span>
+				<span class="meta-sep">|</span>
+				<span class="pingback-datetime"><abbr class="comment-published" title="2009-06-17T20:46:24+0000">June 18, 2009 at 12:50 pm</abbr></span>
+				<span class="meta-sep">|</span>
+				<span class="comment-permalink"><a href="#comment-8" title="Permalink to this comment">Permalink</a></span>
+			</div>
+						<p>[...] Development by François Schiettecatte on June 18, 2009   Great article in two parts (part 1, part 2) co-authored by Elias Torres (a colleague and friend) on using Hadoop and Project Voldemort for [...]</p>
+		</li>
+
+		<li id="comment-9" class="pingback c-y2009 c-m06 c-d18 c-h10 alt c3">
+			<div class="comment-meta">
+				<span class="pingback-author vcard"><span class="fn n url org"><a href='http://torrez.us/archives/2009/06/18/653/' rel='external nofollow' class='url'>Elias Torres &raquo; Blog Archive &raquo; Project Voldemort and Hadoop at Lookery</a></span></span>
+				<span class="meta-sep">|</span>
+				<span class="pingback-datetime"><abbr class="comment-published" title="2009-06-17T20:46:24+0000">June 18, 2009 at 6:10 pm</abbr></span>
+				<span class="meta-sep">|</span>
+				<span class="comment-permalink"><a href="#comment-9" title="Permalink to this comment">Permalink</a></span>
+			</div>
+						<p>[...] For now, I&#8217;m just doing my part of documenting and helping others try what&#8217;s already there: At Lookery, we have been working very hard to transform most of our data processing tasks into [...]</p>
+		</li>
+
+
+	</ol><!-- #pingbacks .commentlist -->
+
+
+</div><!-- .comments -->
+
+			<div id="nav-below" class="navigation">
+				<div class="nav-previous">&laquo; <a href="http://sna-projects.com/blog/2009/06/building-a-1-tb-data-cycle-at-linkedin-with-hadoop-and-project-voldemort/" rel="prev">Building a terabyte-scale data cycle at LinkedIn with Hadoop and Project Voldemort</a></div>
+				<div class="nav-next"><a href="http://sna-projects.com/blog/2009/08/introducing-the-nio-socketserver-implementation/" rel="next">Introducing the NIO SocketServer Implementation</a> &raquo;</div>
+			</div>
+
+		</div><!-- #content .hfeed -->
+	</div><!-- #container -->
+
+	<div id="primary" class="sidebar">
+		<ul>
+<li id="linkcat-3" class="widget widget_links"><h3 class='widgettitle'>Links</h3>
+
+	<ul class='xoxo blogroll'>
+<li><a href="http://sna-projects.com/azkaban" title="Azkaban job manager.">Azkaban</a></li>
+<li><a href="http://sna-projects.com/bobo" title="Fast faceted search">Bobo</a></li>
+<li><a href="http://sna-projects.com/decomposer" title="Massive matrix decompositions">Decomposer</a></li>
+<li><a href="http://sna-projects.com/kamikaze" title="Docset compression">Kamikaze</a></li>
+<li><a href="http://sna-projects.com/norbert" title="Distributed cluster management and RPC.">Norbert</a></li>
+<li><a href="http://project-voldemort.com" rel="me" title="The Project Voldemort Home Page">Project Voldemort</a></li>
+<li><a href="http://sna-projects.com/sensei" title="Distributed search.">Sensei</a></li>
+<li><a href="http://sna-projects.com/sna" title="LinkedIn&#8217;s SNA team">SNA Team</a></li>
+<li><a href="http://sna-projects.com/zoie" title="Real-time search indexing">Zoie</a></li>
+
+	</ul>
+</li>
+
+		<li id="rss_links" class="widget widget_rss_links">			<h3 class='widgettitle'>RSS</h3>
+			<ul>
+				<li><a href="http://sna-projects.com/blog/feed/" title="SNA Projects Blog Posts RSS feed" rel="alternate" type="application/rss+xml">All posts</a></li>
+				<li><a href="http://sna-projects.com/blog/comments/feed/" title="SNA Projects Blog Comments RSS feed" rel="alternate" type="application/rss+xml">All comments</a></li>
+			</ul>
+		</li>
+		<li id="recent-posts-2" class="widget widget_recent_entries">		<h3 class='widgettitle'>Recent Posts</h3>
+		<ul>
+				<li><a href="http://sna-projects.com/blog/2011/08/nodejs/" title="Tech Talk: Tom Hughes-Croucher (Joyent) &#8212; &#8220;Node.js at Scale&#8221;">Tech Talk: Tom Hughes-Croucher (Joyent) &#8212; &#8220;Node.js at Scale&#8221;</a></li>
+				<li><a href="http://sna-projects.com/blog/2011/08/kafka/" title="Tech Talk: Neha Narkhede (LinkedIn) &#8212; Kafka, LinkedIn&#8217;s open-source distributed pub-sub messaging system">Tech Talk: Neha Narkhede (LinkedIn) &#8212; Kafka, LinkedIn&#8217;s open-source distributed pub-sub messaging system</a></li>
+				<li><a href="http://sna-projects.com/blog/2011/07/game-dynamics/" title="Tech Talk: Rajat Paharia (Bunchball) &#8212; &#8220;Game Dynamics&#8221;">Tech Talk: Rajat Paharia (Bunchball) &#8212; &#8220;Game Dynamics&#8221;</a></li>
+				<li><a href="http://sna-projects.com/blog/2011/07/hbase/" title="Tech Talk: Michael Stack (StumbleUpon) &#8212; &#8220;State of HBase&#8221;">Tech Talk: Michael Stack (StumbleUpon) &#8212; &#8220;State of HBase&#8221;</a></li>
+				<li><a href="http://sna-projects.com/blog/2011/07/project-voldemort-090-release/" title="Project Voldemort 0.90 release">Project Voldemort 0.90 release</a></li>
+				</ul>
+		</li>
+
+		</ul>
+	</div>
+
+	<div id="footer">
+		<span id="copyright">&copy; 2012 <span class="vcard"><a class="url fn n" href="http://"><span class="given-name"></span> <span class="family-name"></span></a></span></span>
+		<span class="meta-sep">|</span>
+		<span id="generator-link">Thanks, <a href="http://wordpress.org/" title="WordPress" rel="generator">WordPress</a></span>
+		<span class="meta-sep">|</span>
+		<span id="theme-link"><a href="http://www.plaintxt.org/themes/barthelme/" title="Barthelme theme for WordPress" rel="follow designer">Barthelme</a> theme by <span class="vcard"><a class="url fn n" href="http://scottwallick.com/" title="scottwallick.com" rel="follow designer"><span class="given-name">Scott</span><span class="additional-name"> Allan</span><span class="family-name"> Wallick</span></a></span></span><!-- Theme design credit, that's all -->
+		<span class="meta-sep">|</span>
+		<span id="web-standards"> Standards Compliant <a href="http://validator.w3.org/check/referer" title="Valid XHTML">XHTML</a> &amp; <a href="http://jigsaw.w3.org/css-validator/validator?profile=css2&amp;warning=2&amp;uri=http://sna-projects.com/blog/wp-content/themes/barthelme/style.css" title="Valid CSS">CSS</a></span>
+		<span class="meta-sep">|</span>
+		<span id="footer-rss"> RSS <a href="http://sna-projects.com/blog/feed/" title="SNA Projects Blog RSS 2.0 Feed" rel="alternate" type="application/rss+xml">Posts</a> &amp; <a href="http://sna-projects.com/blog/comments/feed/" title="SNA Projects Blog Comments RSS 2.0 Feed" rel="alternate" type="application/rss+xml">Comments</a></span>
+	</div><!-- #footer -->
+
+
+</div><!-- #wrapper -->
+
+</body><!-- end trasmission -->
+</html>

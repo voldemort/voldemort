@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns:og="http://ogp.me/ns#">
+	<head>
+		<title>Project Voldemort</title>
+		<link rel='stylesheet' href='styles.css' type='text/css'>
+		<link rel="icon" type="image/png" href="images/voldemort_logo.png"><meta name="keywords" content="Project Voldemort, Voldemort, key-value storage, distributed storage, Amazon Dynamo, persistence, scalability"><meta name="description" content="A distributed database.">		<meta http-equiv='Content-Type' content='text/html;charset=utf-8' />
+		
+		<meta property="og:title" value="Project Voldemort" />
+		<meta property="og:image" value="images/voldemort_logo.png" />
+		<meta property="og:description" value="A distributed database." />
+		<meta property="og:site_name" value="sna-projects" />
+		<meta property="og:type" value="website" />
+	</head>
+	<body>
+		<div>
+			<div id="header" style="overflow: hidden">
+				<div style='float: left; margin-right: 10px'>
+					<img src='images/voldemort_logo.png'>				</div>
+				<div>
+					<div class="title">Project Voldemort</div>
+					<div class="subtitle">A distributed database.</div>
+					<div class="projects"><a href="http://sna-projects.com/zoie" title="Real-time search indexing.">zoie</a> &middot;
+<a href="http://sna-projects.com/bobo" title="Fast faceted search with Lucene.">bobo</a> &middot;
+<a href="http://sna-projects.com/cleo" title="Flexible, partial, out-of-order and real-time typeahead search.">cleo</a> &middot;
+<a href="http://sna-projects.com/decomposer" title="Massive matrix decompositions.">decomposer</a> &middot;
+<a href="http://sna-projects.com/norbert" title="Partitioned routing and cluster management.">norbert</a> &middot;
+<a href="http://project-voldemort.com" title="A distributed database.">voldemort</a> &middot;
+<a href="http://incubator.apache.org/kafka" title="A high-throughput distributed messaging system.">kafka</a> &middot;
+<a href="http://sna-projects.com/kamikaze" title="Doc set compression.">kamikaze</a> &middot;
+<a href="http://sna-projects.com/krati" title="A persistent high-performance data store.">krati</a> &middot;
+<a href="http://sna-projects.com/sensei" title="A distributed, elastic, realtime, searchable database.">sensei</a> &middot;
+<a href="http://sna-projects.com/azkaban" title="Simple hadoop workflow.">azkaban</a> &middot;
+<a href="http://sna-projects.com/datafu" title="UDFs for working with Pig">datafu</a> &middot;
+<a href="http://sna-projects.com/sna" title="Search, Network, Analytics">sna</a> &middot;
+<a href="http://sna-projects.com/blog" title="Our Blog">blog</a>
+</div>
+				</div>
+			</div>
+	<div class="lsidebar">
+		<ul>
+		<li>
+					      <a href="quickstart.html">quickstart</a>
+				      </li><li>
+					      <a href="design.html">design</a>
+				      </li><li>
+					      <a href="http://github.com/voldemort/voldemort/tree/master">source</a>
+				      </li><li>
+					      <a href="http://groups.google.com/group/project-voldemort">mailing list</a>
+				      </li><li>
+					      <a href="http://github.com/voldemort/voldemort/downloads">download</a>
+				      </li><li>
+					      <a href="http://test.project-voldemort.com:8080/job/voldemort-master">snapshot build</a>
+				      </li><li>
+					      <a href="configuration.html">configuration</a>
+				      </li><li>
+					      <a href="/javadoc/all">javadoc</a>
+				      </li><li>
+					      <a href="developer.html">developer&nbsp;info</a>
+				      </li><li>
+					      <a href="http://wiki.github.com/voldemort/voldemort/fun-projects">fun&nbsp;projects</a>
+				      </li><li>
+					      <a href="performance.html">performance</a>
+				      </li><li>
+					      <a href="http://code.google.com/p/project-voldemort/issues">bugs</a>
+				      </li><li>
+					      <a href="http://wiki.github.com/voldemort/voldemort">wiki</a>
+				      </li>		</ul>
+	
+			</div>
+	
+	<div class='content'>
+	
+<h1>Performance</h1>
+
+<p>
+Getting real applications deployed requires having simple, well understood, predictable performance. We have done a fair amount of benchmarks to understand different scenarios, but not all the results are in repeatable, scripted up form with charts and graphs. This page is meant to hold a dump of basic results until we can put together a more complete guide to understanding and tuning performance of a cluster of machines.
+</p>
+
+<p>
+Note that there are a number of tunable parameters: the cache size on a node, the number of nodes you read and write to on each operation, the amount of data on a server, etc.
+</p>
+
+<h4>Estimating network latency and data/cache ratios</h4>
+<p>Disk is far and away the slowest and lowest throughput operation. Disk seeks are 5-10ms and a lookup could involve multiple disk seeks. When the hot data is primarily in memory you are benchmarking the software, when it is primarily on disk you are benchmarking your disk system. When you are testing real software you want to release, it is important to understand the whole package, but when you are trying to isolate one variable it can be misleading.</p>
+
+<p>The calculation we do when planning a feature is to take the estimated total data size, divide by the number of nodes and multiply be the replication factor. This is the amount of data per node. Then compare this to the cache size per node. This is the fraction of the total data that can be served from memory. This fraction can be compared to some estimate of the hotness of the data. For example if the requests are completely random, then a high proportion should be in memory. If instead the requests represent data about particular members, and only some fraction of members are logged in at once, and one member session indicates many requests, then you may survive with a much lower fraction.
+
+<p>Network is the second biggest bottleneck after disk. The maximum throughput one java client can get for roundtrips through a socket to a service that does absolutely nothing seems to be about 30-40k req/sec over localhost. Adding work on the client or server side or adding network latency can only decrease this.
+</p>
+
+<h4>Some results from LinkedIn</h4>
+
+<p>
+Here is the throughput we see from a single multithreaded client talking to a single server where the "hot" data set is in memory under artificially heavy load in our performance lab:
+</p>
+
+<pre>
+	Reads: 19,384 req/sec
+	Writes: 16,559 req/sec
+</pre>
+<p>
+Note that this is to a single node cluster so the replication factor is 1. Obviously doubling the replication factor will halve the client req/sec since it is doing 2x the operations. So these numbers represent the maximum throughput from one client, by increasing the replication factor, decreasing the cache size, or increasing the data size on the node, we can make the performance arbitrarily slow. Note that in this test, the server is actually fairly lightly loaded since it has only one client so this does not measure the maximum throughput of a server, just the maximum throughput from a single client.
+</p>
+
+<h4>Your Millage May Vary</h4>
+
+If the numbers you see in your own tests do not look like what you expect please chime in on the mailing list. We have tuned and tested certain configurations and would like to gather data on other configurations and may be able to help with settings.
+<p>
+We also have a <a href="http://wiki.github.com/voldemort/voldemort/performance-tool" >performance tool</a>, heavily inspired from <a href="http://research.yahoo.com/files/ycsb.pdf">YCSB</a>, which can help potential users to run their own benchmarks and judge if Voldemort fits their requirements.  
+</p>
+			</div>
+		</div>
+		<script type="text/javascript">
+  var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+  document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+  try {
+    var pageTracker = _gat._getTracker("UA-7818013-1");
+    pageTracker._trackPageview();
+  } catch(err) {}
+</script>
+	</body>
+</html>

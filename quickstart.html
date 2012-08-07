@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns:og="http://ogp.me/ns#">
+	<head>
+		<title>Project Voldemort</title>
+		<link rel='stylesheet' href='styles.css' type='text/css'>
+		<link rel="icon" type="image/png" href="images/voldemort_logo.png"><meta name="keywords" content="Project Voldemort, Voldemort, key-value storage, distributed storage, Amazon Dynamo, persistence, scalability"><meta name="description" content="A distributed database.">		<meta http-equiv='Content-Type' content='text/html;charset=utf-8' />
+		
+		<meta property="og:title" value="Project Voldemort" />
+		<meta property="og:image" value="images/voldemort_logo.png" />
+		<meta property="og:description" value="A distributed database." />
+		<meta property="og:site_name" value="sna-projects" />
+		<meta property="og:type" value="website" />
+	</head>
+	<body>
+		<div>
+			<div id="header" style="overflow: hidden">
+				<div style='float: left; margin-right: 10px'>
+					<img src='images/voldemort_logo.png'>				</div>
+				<div>
+					<div class="title">Project Voldemort</div>
+					<div class="subtitle">A distributed database.</div>
+					<div class="projects"><a href="http://sna-projects.com/zoie" title="Real-time search indexing.">zoie</a> &middot;
+<a href="http://sna-projects.com/bobo" title="Fast faceted search with Lucene.">bobo</a> &middot;
+<a href="http://sna-projects.com/cleo" title="Flexible, partial, out-of-order and real-time typeahead search.">cleo</a> &middot;
+<a href="http://sna-projects.com/decomposer" title="Massive matrix decompositions.">decomposer</a> &middot;
+<a href="http://sna-projects.com/norbert" title="Partitioned routing and cluster management.">norbert</a> &middot;
+<a href="http://project-voldemort.com" title="A distributed database.">voldemort</a> &middot;
+<a href="http://incubator.apache.org/kafka" title="A high-throughput distributed messaging system.">kafka</a> &middot;
+<a href="http://sna-projects.com/kamikaze" title="Doc set compression.">kamikaze</a> &middot;
+<a href="http://sna-projects.com/krati" title="A persistent high-performance data store.">krati</a> &middot;
+<a href="http://sna-projects.com/sensei" title="A distributed, elastic, realtime, searchable database.">sensei</a> &middot;
+<a href="http://sna-projects.com/azkaban" title="Simple hadoop workflow.">azkaban</a> &middot;
+<a href="http://sna-projects.com/datafu" title="UDFs for working with Pig">datafu</a> &middot;
+<a href="http://sna-projects.com/sna" title="Search, Network, Analytics">sna</a> &middot;
+<a href="http://sna-projects.com/blog" title="Our Blog">blog</a>
+</div>
+				</div>
+			</div>
+	<div class="lsidebar">
+		<ul>
+		<li>
+					      <a href="quickstart.html">quickstart</a>
+				      </li><li>
+					      <a href="design.html">design</a>
+				      </li><li>
+					      <a href="http://github.com/voldemort/voldemort/tree/master">source</a>
+				      </li><li>
+					      <a href="http://groups.google.com/group/project-voldemort">mailing list</a>
+				      </li><li>
+					      <a href="http://github.com/voldemort/voldemort/downloads">download</a>
+				      </li><li>
+					      <a href="http://test.project-voldemort.com:8080/job/voldemort-master">snapshot build</a>
+				      </li><li>
+					      <a href="configuration.html">configuration</a>
+				      </li><li>
+					      <a href="/javadoc/all">javadoc</a>
+				      </li><li>
+					      <a href="developer.html">developer&nbsp;info</a>
+				      </li><li>
+					      <a href="http://wiki.github.com/voldemort/voldemort/fun-projects">fun&nbsp;projects</a>
+				      </li><li>
+					      <a href="performance.html">performance</a>
+				      </li><li>
+					      <a href="http://code.google.com/p/project-voldemort/issues">bugs</a>
+				      </li><li>
+					      <a href="http://wiki.github.com/voldemort/voldemort">wiki</a>
+				      </li>		</ul>
+	
+			</div>
+	
+	<div class='content'>
+	
+<h1>Quickstart</h1>
+
+<h4>Step 1: Download the code</h4> 
+Download either <a href="http://github.com/voldemort/voldemort/downloads">a recent stable release</a></h4> or, for those who like to live more dangerously, the up-to-the-minute build from <a href="http://test.project-voldemort.com:8080/job/voldemort-master/lastBuild">the build server</a>.
+
+<h4>Step 2: Start single node cluster</h4>
+<pre>
+	> bin/voldemort-server.sh config/single_node_cluster > /tmp/voldemort.log &
+</pre>
+
+<h4>Step 3: Start commandline test client and do some operations</h4>
+<pre>
+	> bin/voldemort-shell.sh test tcp://localhost:6666
+	Established connection to test via tcp://localhost:6666
+	> put "hello" "world"
+	> get "hello"
+	version(0:1): "world"
+	> delete "hello"
+	> get "hello"
+	null
+	> exit
+	k k thx bye.
+</pre>
+
+<h1>More details</h1>
+
+<h2>Client</h2>
+
+<p>Here is an example showing how to connect to a store as a client to do reads and writes from Java:</p>
+
+<pre>
+ String bootstrapUrl = "tcp://localhost:6666";
+ StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));
+ 
+ // create a client that executes operations on a single store
+ StoreClient<String, String> client = factory.getStoreClient("my_store_name");
+</pre>
+
+<p>After initializing the store client for every store once we can reuse it to run our queries as follows:</p>
+
+<pre> 
+ // do some random pointless operations
+ Versioned<String> value = client.get("some_key");
+ value.setObject("some_value");
+ client.put("some_key", value);
+</pre>
+
+<p>Note that StoreClient is just an interface, so for the purpose of unit testing we can completely mock the storage layer. This is something that is essentially impossible to do with a normal relational db since sql is the interface and it is vendor specific.</p>
+
+<h2>Server</h2>
+
+<p>There are three methods for using the server:</p>
+
+<h4>1. Start from the command line</h4>
+
+You must first build the jar file using ant, as described above, then do the following:
+<pre>
+$ VOLDEMORT_HOME='/path/to/voldemort'
+$ cd $VOLDEMORT_HOME
+$ ./bin/voldemort-server.sh
+[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init(). 
+[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector. 
+[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service. 
+[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server 
+[2011-07-14 18:06:25,333 voldemort.server.VoldemortServer] INFO Starting 8 services. 
+[2011-07-14 18:06:25,333 voldemort.server.VoldemortService] INFO Starting storage-service 
+[2011-07-14 18:06:25,399 voldemort.server.storage.StorageService] INFO Initializing bdb storage engine. 
+[2011-07-14 18:06:25,404 voldemort.server.storage.StorageService] INFO Initializing read-only storage engine. 
+[2011-07-14 18:06:25,406 voldemort.server.storage.StorageService] INFO Initializing the slop store using bdb 
+[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Initializing stores: 
+[2011-07-14 18:06:25,767 voldemort.server.storage.StorageService] INFO Opening store 'test' (bdb). 
+[2011-07-14 18:06:25,834 voldemort.server.storage.StorageService] INFO All stores initialized. 
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting scheduler-service 
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting async-scheduler 
+[2011-07-14 18:06:25,834 voldemort.server.VoldemortService] INFO Starting http-service 
+[2011-07-14 18:06:26,092 voldemort.server.VoldemortService] INFO Starting socket-service 
+[2011-07-14 18:06:26,101 voldemort.server.VoldemortService] INFO Starting rebalance-service 
+[2011-07-14 18:06:26,109 voldemort.server.VoldemortService] INFO Starting jmx-service 
+[2011-07-14 18:06:26,142 voldemort.server.VoldemortServer] INFO Startup completed in 809 ms. 
+</pre>
+
+<p>Alternately we can give VOLDEMORT_HOME on the command line and avoid having to set an environment variable</p>
+
+<pre>
+$ ./bin/voldemort-server.sh /path/to/voldemort
+[2011-07-14 18:06:24,921 voldemort.store.metadata.MetadataStore] INFO metadata init(). 
+[2011-07-14 18:06:25,309 voldemort.server.VoldemortServer] INFO Using NIO Connector. 
+[2011-07-14 18:06:25,331 voldemort.server.VoldemortServer] INFO Using NIO Connector for Admin Service. 
+[2011-07-14 18:06:25,332 voldemort.server.VoldemortService] INFO Starting voldemort-server 
+...
+</pre>
+
+<h4>2. Embedded Server</h4>
+
+<p>You can instantiate the server directly in your code.</p>
+
+<pre>
+VoldemortConfig config = VoldemortConfig.loadFromEnvironmentVariable();
+VoldemortServer server = new VoldemortServer(config);
+server.start();
+</pre>
+
+<h4>3. Deploy as a war</h4>
+<p>To do this build the war file using the <pre>ant war</pre> target and deploy via whatever mechanism your servlet container supports.</p>
+
+			</div>
+		</div>
+		<script type="text/javascript">
+  var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+  document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+  try {
+    var pageTracker = _gat._getTracker("UA-7818013-1");
+    pageTracker._trackPageview();
+  } catch(err) {}
+</script>
+	</body>
+</html>
