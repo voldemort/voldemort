@@ -93,9 +93,9 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
                 public void requestComplete(Object result, long requestTime) {
                     if(logger.isTraceEnabled())
-                        logger.info(pipeline.getOperation().getSimpleName()
-                                    + " response received (" + requestTime + " ms.) from node "
-                                    + node.getId());
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
 
                     Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
                                                                                            key,
