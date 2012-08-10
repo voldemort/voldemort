@@ -79,10 +79,11 @@ public class PerformSerialGetAllRequests
             boolean zoneRequirement = false;
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
-	    if(logger.isDebugEnabled())
-		logger.debug("GETALL for key " + key + " (keyRef: " + System.identityHashCode(key)
-			     + ") successes: " + successCount.intValue() + " preferred: " + preferred
-			     + " required: " + required);
+            if(logger.isDebugEnabled())
+                logger.debug("GETALL for key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                             + System.identityHashCode(key) + ") successes: "
+                             + successCount.intValue() + " preferred: " + preferred + " required: "
+                             + required);
 
             if(successCount.intValue() >= preferred) {
                 if(pipelineData.getZonesRequired() != null) {
@@ -138,11 +139,11 @@ public class PerformSerialGetAllRequests
                     failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
 
                     if(logger.isDebugEnabled())
-                        logger.debug("GET for key " + key + " (keyRef: "
-                                     + System.identityHashCode(key) + ") successes: "
-                                     + successCount.intValue() + " preferred: " + preferred
-                                     + " required: " + required + " new GET success on node "
-                                     + node.getId());
+                        logger.debug("GET for key " + ByteUtils.toHexString(key.get())
+                                     + " (keyRef: " + System.identityHashCode(key)
+                                     + ") successes: " + successCount.intValue() + " preferred: "
+                                     + preferred + " required: " + required
+                                     + " new GET success on node " + node.getId());
 
                     HashSet<Integer> zoneResponses = null;
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {

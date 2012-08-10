@@ -42,6 +42,7 @@ import voldemort.store.routed.Response;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -130,7 +131,8 @@ public class PerformParallelPutRequests extends
                     responses.put(node.getId(), response);
 
                     if(logger.isDebugEnabled())
-                        logger.debug("Finished secondary PUT for key " + key + " (keyRef: "
+                        logger.debug("Finished secondary PUT for key "
+                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
                                      + System.identityHashCode(key) + "); took " + requestTime
                                      + " ms on node " + node.getId() + "(" + node.getHost() + ")");
 
