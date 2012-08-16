@@ -100,6 +100,7 @@ public class VoldemortConfig implements Serializable {
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosProxyUser;
+    private String hadoopConfigPath;
 
     private int coreThreads;
     private int maxThreads;
@@ -238,8 +239,12 @@ public class VoldemortConfig implements Serializable {
                                                      REPORTING_INTERVAL_BYTES);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
-        this.readOnlyKeytabPath = props.getString("readonly.keytab.path", "");
+        this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
+                                                  this.metadataDirectory
+                                                          + "/voldemrt.headless.keytab");
         this.readOnlyKerberosProxyUser = props.getString("readonly.kerberos.proxyuser", "voldemrt");
+        this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
+                                                this.metadataDirectory + "/hadoop-conf"));
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -1182,6 +1187,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyKerberosProxyUser(String readOnlyKerberosProxyUser) {
         this.readOnlyKerberosProxyUser = readOnlyKerberosProxyUser;
+    }
+
+    public String getHadoopConfigPath() {
+        return hadoopConfigPath;
+    }
+
+    public void setHadoopConfigPath(String hadoopConfigPath) {
+        this.hadoopConfigPath = hadoopConfigPath;
     }
 
     public boolean isBdbWriteTransactionsEnabled() {

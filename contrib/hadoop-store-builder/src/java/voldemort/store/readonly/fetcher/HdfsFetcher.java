@@ -20,7 +20,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.security.PrivilegedExceptionAction;
 import java.text.NumberFormat;
 import java.util.Arrays;
@@ -72,11 +75,14 @@ public class HdfsFetcher implements FileFetcher {
     private DynamicThrottleLimit globalThrottleLimit = null;
     private String keytabLocation = "";
     private String proxyUser = "voldemrt";
+    private VoldemortConfig voldemortConfig = null;
 
     public HdfsFetcher(VoldemortConfig config) {
         this(config.getMaxBytesPerSecond(),
              config.getReportingIntervalBytes(),
              config.getFetcherBufferSize());
+
+        this.voldemortConfig = config;
 
         logger.info("Created hdfs fetcher with throttle rate " + maxBytesPerSecond
                     + ", buffer size " + bufferSize + ", reporting interval bytes "
@@ -91,6 +97,8 @@ public class HdfsFetcher implements FileFetcher {
              config.getMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
              config.getReadOnlyKerberosProxyUser());
+
+        this.voldemortConfig = config;
 
         logger.info("Created hdfs fetcher with throttle rate " + dynThrottleLimit.getRate()
                     + ", buffer size " + bufferSize + ", reporting interval bytes "
@@ -149,6 +157,8 @@ public class HdfsFetcher implements FileFetcher {
             config.set("hadoop.rpc.socket.factory.class.ClientProtocol",
                        ConfigurableSocketFactory.class.getName());
             FileSystem fs = null;
+
+            HdfsFetcher.addPath(this.voldemortConfig.getHadoopConfigPath());
 
             /*
              * Get the filesystem object in a secured (authenticated) block in
@@ -210,6 +220,9 @@ public class HdfsFetcher implements FileFetcher {
             } else {
                 return null;
             }
+        } catch(Exception e) {
+            logger.error("Error while getting Hadoop filesystem : " + e);
+            return null;
         } finally {
             if(this.globalThrottleLimit != null) {
                 this.globalThrottleLimit.decrementNumJobs();
@@ -484,19 +497,35 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     /*
+     * Function to add a resource to classpath at runtime In read-only case, it
+     * is used to load the Hadoop config in classpath
+     */
+    public static void addPath(String s) throws Exception {
+        File f = new File(s);
+        URL u = f.toURI().toURL();
+        URLClassLoader urlClassLoader = (URLClassLoader) ClassLoader.getSystemClassLoader();
+        Class urlClass = URLClassLoader.class;
+        Method method = urlClass.getDeclaredMethod("addURL", new Class[] { URL.class });
+        method.setAccessible(true);
+        method.invoke(urlClassLoader, new Object[] { u });
+    }
+
+    /*
      * Main method for testing fetching
      */
     public static void main(String[] args) throws Exception {
         if(args.length < 1)
             Utils.croak("USAGE: java " + HdfsFetcher.class.getName()
-                        + " url [keytab location] [kerberos username]");
+                        + " url [keytab location] [kerberos username] [hadoop-config-path]");
         String url = args[0];
 
         String keytabLocation = "";
         String proxyUser = "";
-        if(args.length >= 3) {
+        String hadoopPath = "";
+        if(args.length >= 4) {
             keytabLocation = args[1];
             proxyUser = args[2];
+            hadoopPath = args[3];
         }
 
         long maxBytesPerSec = 1024 * 1024 * 1024;
@@ -509,6 +538,9 @@ public class HdfsFetcher implements FileFetcher {
                    ConfigurableSocketFactory.class.getName());
         config.setInt("io.socket.receive.buffer", 1 * 1024 * 1024 - 10000);
         FileSystem fs = null;
+
+        // Add the Hadoop config to classpath
+        HdfsFetcher.addPath(hadoopPath);
 
         /*
          * Get the filesystem object in a secured (authenticated) block in case
