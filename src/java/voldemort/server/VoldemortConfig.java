@@ -110,6 +110,7 @@ public class VoldemortConfig implements Serializable {
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosProxyUser;
+    private String hadoopConfigPath;
 
     private OpTimeMap testingSlowQueueingDelays;
     private OpTimeMap testingSlowConcurrentDelays;
@@ -271,8 +272,12 @@ public class VoldemortConfig implements Serializable {
                                                      REPORTING_INTERVAL_BYTES);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
-        this.readOnlyKeytabPath = props.getString("readonly.keytab.path", "");
+        this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
+                                                  this.metadataDirectory
+                                                          + "/voldemrt.headless.keytab");
         this.readOnlyKerberosProxyUser = props.getString("readonly.kerberos.proxyuser", "voldemrt");
+        this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
+                                                 this.metadataDirectory + "/hadoop-conf"));
 
         // TODO probably turn to false by default?
         this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
@@ -1600,6 +1605,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyKerberosProxyUser(String readOnlyKerberosProxyUser) {
         this.readOnlyKerberosProxyUser = readOnlyKerberosProxyUser;
+    }
+
+    public String getHadoopConfigPath() {
+        return hadoopConfigPath;
+    }
+
+    public void setHadoopConfigPath(String hadoopConfigPath) {
+        this.hadoopConfigPath = hadoopConfigPath;
     }
 
     public int getSocketBufferSize() {
