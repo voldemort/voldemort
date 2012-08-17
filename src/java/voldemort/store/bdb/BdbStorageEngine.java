@@ -281,7 +281,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             for(ByteArray key: keys) {
 
                 if(logger.isTraceEnabled())
-                    keyStr += ByteUtils.toHexString(key.get()) + " ";
+                    keyStr += key + " ";
 
                 List<Versioned<byte[]>> values = get(cursor, key, readLockMode, versionedSerializer);
                 if(!values.isEmpty())
@@ -324,7 +324,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
 
         if(logger.isTraceEnabled()) {
-            logger.trace("Completed GET from key " + ByteUtils.toHexString(key.get()) + " in "
+            logger.trace("Completed GET from key " + key + " in "
                          + (System.nanoTime() - startTimeNs) + " ns at "
                          + System.currentTimeMillis());
         }
@@ -390,7 +390,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
 
         if(logger.isTraceEnabled()) {
-            logger.trace("Completed PUT to key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
+            logger.trace("Completed PUT to key " + key + " (keyRef: "
                          + System.identityHashCode(key) + " value " + value + " in "
                          + (System.nanoTime() - startTimeNs) + " ns at "
                          + System.currentTimeMillis());
@@ -431,8 +431,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         } finally {
 
             if(logger.isTraceEnabled()) {
-                logger.trace("Completed DELETE of key " + ByteUtils.toHexString(key.get())
-                             + " (keyRef: " + System.identityHashCode(key) + ") in "
+                logger.trace("Completed DELETE of key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + ") in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }

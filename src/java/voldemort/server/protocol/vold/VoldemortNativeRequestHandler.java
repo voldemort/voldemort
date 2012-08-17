@@ -135,8 +135,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
         if(logger.isDebugEnabled()) {
             logger.debug("GETVERSIONS started at: " + startTimeMs + " handlerRef: "
-                         + System.identityHashCode(inputStream) + " key: "
-                         + ByteUtils.toHexString(key.get()) + " "
+                         + System.identityHashCode(this) + " key: " + key + " "
                          + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
                          + "clocks: " + clockStr);
         }
@@ -318,7 +317,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         }
         writeResults(outputStream, results);
         if(logger.isDebugEnabled()) {
-            debugLogReturnValue(inputStream, key, results, startTimeMs, startTimeNs, "GET");
+            debugLogReturnValue(key, results, startTimeMs, startTimeNs, "GET");
         }
     }
 
@@ -375,8 +374,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             writeResults(outputStream, entry.getValue());
 
             if(logger.isDebugEnabled()) {
-                debugLogReturnValue(inputStream,
-                                    entry.getKey(),
+                debugLogReturnValue(entry.getKey(),
                                     entry.getValue(),
                                     startTimeMs,
                                     startTimeNs,
@@ -388,8 +386,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
             logger.debug("GETALL end");
     }
 
-    private void debugLogReturnValue(DataInputStream input,
-                                     ByteArray key,
+    private void debugLogReturnValue(ByteArray key,
                                      List<Versioned<byte[]>> values,
                                      long startTimeMs,
                                      long startTimeNs,
@@ -409,13 +406,12 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         valueHashStr += "]";
         versionsStr += "]";
 
-        logger.debug(getType + " handlerRef: " + System.identityHashCode(input) + " start time: "
-                     + startTimeMs + " key: " + ByteUtils.toHexString(key.get())
-                     + " elapsed time: " + (System.nanoTime() - startTimeNs) + " ns, keySize: "
-                     + key.length() + " numResults: " + values.size() + " totalResultSize: "
-                     + totalValueSize + " resultSizes: " + valueSizeStr + " resultHashes: "
-                     + valueHashStr + " versions: " + versionsStr + " current time: "
-                     + System.currentTimeMillis());
+        logger.debug(getType + " handlerRef: " + System.identityHashCode(this) + " start time: "
+                     + startTimeMs + " key: " + key + " elapsed time: "
+                     + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
+                     + " numResults: " + values.size() + " totalResultSize: " + totalValueSize
+                     + " resultSizes: " + valueSizeStr + " resultHashes: " + valueHashStr
+                     + " versions: " + versionsStr + " current time: " + System.currentTimeMillis());
     }
 
     private void handlePut(DataInputStream inputStream,
@@ -451,10 +447,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
 
         if(logger.isDebugEnabled()) {
             logger.debug("PUT started at: " + startTimeMs + " handlerRef: "
-                         + System.identityHashCode(inputStream) + " key: "
-                         + ByteUtils.toHexString(key.get()) + " "
+                         + System.identityHashCode(this) + " key: " + key + " "
                          + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
-                         + " valueHash: " + value.hashCode() + " valueSize: " + value.length
+                         + " valueHash: " + value.hashCode() + " valueSize: " + valueSize
                          + " clockSize: " + clock.sizeInBytes() + " time: "
                          + System.currentTimeMillis());
         }
@@ -485,9 +480,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         }
 
         if(logger.isDebugEnabled()) {
-            logger.debug("DELETE started at: " + startTimeMs + " key: "
-                         + ByteUtils.toHexString(key.get()) + " handlerRef: "
-                         + System.identityHashCode(inputStream) + " time: "
+            logger.debug("DELETE started at: " + startTimeMs + " key: " + key + " handlerRef: "
+                         + System.identityHashCode(this) + " time: "
                          + (System.nanoTime() - startTimeNs) + " ns, keySize: " + key.length()
                          + " clockSize: " + version.sizeInBytes());
         }

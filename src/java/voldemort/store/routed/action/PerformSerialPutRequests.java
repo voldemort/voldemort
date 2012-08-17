@@ -29,7 +29,6 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PutPipelineData;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -174,8 +173,7 @@ public class PerformSerialPutRequests extends
 
                 } else {
                     if(logger.isDebugEnabled())
-                        logger.debug("Finished master PUT for key "
-                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                        logger.debug("Finished master PUT for key " + key + " (keyRef: "
                                      + System.identityHashCode(key) + "); started at "
                                      + startMasterMs + " took "
                                      + (System.nanoTime() - startMasterNs) + " ns on node "
@@ -187,10 +185,10 @@ public class PerformSerialPutRequests extends
             }
         } else {
             if(logger.isDebugEnabled())
-                logger.debug("Finished master PUT for key " + ByteUtils.toHexString(key.get())
-                             + " (keyRef: " + System.identityHashCode(key) + "); started at "
-                             + startMasterMs + " took " + (System.nanoTime() - startMasterNs)
-                             + " ns on node " + (node == null ? "NULL" : node.getId()) + "("
+                logger.debug("Finished master PUT for key " + key + " (keyRef: "
+                             + System.identityHashCode(key) + "); started at " + startMasterMs
+                             + " took " + (System.nanoTime() - startMasterNs) + " ns on node "
+                             + (node == null ? "NULL" : node.getId()) + "("
                              + (node == null ? "NULL" : node.getHost()) + ")");
 
             pipeline.addEvent(masterDeterminedEvent);
