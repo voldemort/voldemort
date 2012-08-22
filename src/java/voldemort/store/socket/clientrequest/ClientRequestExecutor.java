@@ -71,7 +71,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
 
-    public synchronized boolean checkTimeout(SelectionKey selectionKey) {
+    public synchronized boolean checkTimeout() {
         if(expiration <= 0)
             return true;
 
@@ -162,7 +162,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         int count = 0;
@@ -211,7 +211,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void write(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         if(outputStream.getBuffer().hasRemaining()) {

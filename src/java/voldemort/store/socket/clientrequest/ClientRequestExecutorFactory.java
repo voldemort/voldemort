@@ -388,7 +388,7 @@ public class ClientRequestExecutorFactory implements
                     // its way to being canceled.
                     if(clientRequestExecutor != null) {
                         try {
-                            clientRequestExecutor.checkTimeout(selectionKey);
+                            clientRequestExecutor.checkTimeout();
                         } catch(Exception e) {
                             if(logger.isEnabledFor(Level.ERROR))
                                 logger.error(e.getMessage(), e);

@@ -143,7 +143,7 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
                                                                                          + operationName
                                                                                          + ": time out exceeded");
                             try {
-                                callback.requestComplete(ex, diff);
+                                callback.requestComplete(ex, diff / Time.NS_PER_MS);
                             } catch(Exception e) {
                                 if(logger.isEnabledFor(Level.WARN))
                                     logger.warn(e, e);
