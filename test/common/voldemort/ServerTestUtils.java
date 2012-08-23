@@ -671,6 +671,16 @@ public class ServerTestUtils {
         return server;
     }
 
+    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
+                                                       VoldemortConfig config) {
+        VoldemortServer server = new VoldemortServer(config);
+        server.start();
+
+        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
+        // wait till server start or throw exception
+        return server;
+    }
+
     public static void waitForServerStart(SocketStoreFactory socketStoreFactory, Node node) {
         boolean success = false;
         int retries = 10;
