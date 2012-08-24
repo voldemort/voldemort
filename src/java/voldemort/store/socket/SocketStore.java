@@ -16,14 +16,10 @@
 
 package voldemort.store.socket;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -33,7 +29,6 @@ import voldemort.server.RequestRoutingType;
 import voldemort.store.NoSuchCapabilityException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.StoreTimeoutException;
 import voldemort.store.StoreUtils;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.nonblockingstore.NonblockingStore;
@@ -48,7 +43,6 @@ import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -357,149 +351,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                   NonblockingStoreCallback callback,
                                   long timeoutMs,
                                   String operationName) {
-        ClientRequestExecutor clientRequestExecutor = null;
-
-        try {
-            clientRequestExecutor = pool.checkout(destination);
-
-            if(logger.isDebugEnabled()) {
-                logger.debug("Async request start; type: "
-                             + operationName
-                             + " requestRef: "
-                             + System.identityHashCode(delegate)
-                             + " time: "
-                             + System.currentTimeMillis()
-                             + " server: "
-                             + clientRequestExecutor.getSocketChannel()
-                                                    .socket()
-                                                    .getRemoteSocketAddress() + " local socket: "
-                             + clientRequestExecutor.getSocketChannel().socket().getLocalAddress()
-                             + ":"
-                             + clientRequestExecutor.getSocketChannel().socket().getLocalPort());
-            }
-
-        } catch(Exception e) {
-            // If we can't check out a socket from the pool, we'll usually get
-            // either an IOException (subclass) or an UnreachableStoreException
-            // error. However, in the case of asynchronous calls, we want the
-            // error to be reported via our callback, not returned to the caller
-            // directly.
-            if(!(e instanceof UnreachableStoreException))
-                e = new UnreachableStoreException("Failure in " + operationName + ": "
-                                                  + e.getMessage(), e);
-
-            try {
-                callback.requestComplete(e, 0);
-            } catch(Exception ex) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(ex, ex);
-            }
-
-            return;
-        }
-
-        NonblockingStoreCallbackClientRequest<T> clientRequest = new NonblockingStoreCallbackClientRequest<T>(delegate,
-                                                                                                              clientRequestExecutor,
-                                                                                                              callback);
-        clientRequestExecutor.addClientRequest(clientRequest, timeoutMs);
-    }
-
-    private class NonblockingStoreCallbackClientRequest<T> implements ClientRequest<T> {
-
-        private final ClientRequest<T> clientRequest;
-
-        private final ClientRequestExecutor clientRequestExecutor;
-
-        private final NonblockingStoreCallback callback;
-
-        private final long startNs;
-
-        private volatile boolean isComplete;
-
-        public NonblockingStoreCallbackClientRequest(ClientRequest<T> clientRequest,
-                                                     ClientRequestExecutor clientRequestExecutor,
-                                                     NonblockingStoreCallback callback) {
-            this.clientRequest = clientRequest;
-            this.clientRequestExecutor = clientRequestExecutor;
-            this.callback = callback;
-            this.startNs = System.nanoTime();
-        }
-
-        private void invokeCallback(Object o, long requestTime) {
-            if(callback != null) {
-                try {
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("Async request end; requestRef: "
-                                     + System.identityHashCode(clientRequest)
-                                     + " time: "
-                                     + System.currentTimeMillis()
-                                     + " server: "
-                                     + clientRequestExecutor.getSocketChannel()
-                                                            .socket()
-                                                            .getRemoteSocketAddress()
-                                     + " local socket: "
-                                     + clientRequestExecutor.getSocketChannel()
-                                                            .socket()
-                                                            .getLocalAddress()
-                                     + ":"
-                                     + clientRequestExecutor.getSocketChannel()
-                                                            .socket()
-                                                            .getLocalPort() + " result: "
-                                     + o);
-                    }
-
-                    callback.requestComplete(o, requestTime);
-                } catch(Exception e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn(e, e);
-                }
-            }
-        }
-
-        public void complete() {
-            try {
-                clientRequest.complete();
-                Object result = clientRequest.getResult();
-
-                invokeCallback(result, (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            } catch(Exception e) {
-                invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            } finally {
-                pool.checkin(destination, clientRequestExecutor);
-                isComplete = true;
-            }
-        }
-
-        public boolean isComplete() {
-            return isComplete;
-        }
-
-        public boolean formatRequest(DataOutputStream outputStream) {
-            return clientRequest.formatRequest(outputStream);
-        }
-
-        public T getResult() throws VoldemortException, IOException {
-            return clientRequest.getResult();
-        }
-
-        public boolean isCompleteResponse(ByteBuffer buffer) {
-            return clientRequest.isCompleteResponse(buffer);
-        }
-
-        public void parseResponse(DataInputStream inputStream) {
-            clientRequest.parseResponse(inputStream);
-        }
-
-        public void timeOut() {
-            clientRequest.timeOut();
-            invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out. Cannot complete request."),
-                           (System.nanoTime() - startNs) / Time.NS_PER_MS);
-            pool.checkin(destination, clientRequestExecutor);
-        }
-
-        public boolean isTimedOut() {
-            return clientRequest.isTimedOut();
-        }
+        pool.submitAsync(this.destination, delegate, callback, timeoutMs, operationName);
     }
 
 }

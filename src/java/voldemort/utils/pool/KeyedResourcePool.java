@@ -29,10 +29,10 @@ public class KeyedResourcePool<K, V> {
 
     private static final Logger logger = Logger.getLogger(KeyedResourcePool.class.getName());
 
-    private final ResourceFactory<K, V> objectFactory;
-    private final ConcurrentMap<K, Pool<V>> resourcesMap;
-    private final AtomicBoolean isOpen = new AtomicBoolean(true);
-    private final long timeoutNs;
+    protected final ResourceFactory<K, V> objectFactory;
+    private final ConcurrentMap<K, Pool<V>> resourcePoolMap;
+    protected final AtomicBoolean isOpen = new AtomicBoolean(true);
+    protected final long timeoutNs;
     private final int poolMaxSize;
     private final boolean isFair;
 
@@ -40,7 +40,7 @@ public class KeyedResourcePool<K, V> {
         this.objectFactory = Utils.notNull(objectFactory);
         this.timeoutNs = Utils.notNull(config).getTimeout(TimeUnit.NANOSECONDS);
         this.poolMaxSize = config.getMaxPoolSize();
-        this.resourcesMap = new ConcurrentHashMap<K, Pool<V>>();
+        this.resourcePoolMap = new ConcurrentHashMap<K, Pool<V>>();
         this.isFair = config.isFair();
     }
 
@@ -89,12 +89,12 @@ public class KeyedResourcePool<K, V> {
         checkNotClosed();
 
         long startNs = System.nanoTime();
-        Pool<V> resources = getResourcePoolForKey(key);
+        Pool<V> resourcePool = getResourcePoolForKey(key);
 
         V resource = null;
         try {
             checkNotClosed();
-            resource = attemptCheckout(key, resources);
+            resource = attemptCheckoutGrowCheckout(key, resourcePool);
 
             if(resource == null) {
                 long timeRemainingNs = this.timeoutNs - (System.nanoTime() - startNs);
@@ -102,7 +102,7 @@ public class KeyedResourcePool<K, V> {
                     throw new TimeoutException("Could not acquire resource in "
                                                + (this.timeoutNs / Time.NS_PER_MS) + " ms.");
 
-                resource = resources.blockingGet(timeoutNs);
+                resource = resourcePool.blockingGet(timeoutNs);
                 if(resource == null) {
                     throw new TimeoutException("Timed out wait for resource after "
                                                + (timeoutNs / Time.NS_PER_MS) + " ms.");
@@ -112,26 +112,25 @@ public class KeyedResourcePool<K, V> {
             if(!objectFactory.validate(key, resource))
                 throw new ExcessiveInvalidResourcesException(1);
         } catch(Exception e) {
-            destroyResource(key, resources, resource);
+            destroyResource(key, resourcePool, resource);
+            System.err.println(e.toString());
             throw e;
         }
         return resource;
     }
 
     /*
-     * Get a free resource if one exists. If not create one if there is space.
-     * If you create one, try again to get a free resource. This method does not
-     * block. It either returns null or a resource.
+     * Checkout a free resource if one exists. If not, and there is space, try
+     * and create one. If you create one, try and checkout again. Returns null
+     * or a resource.
      */
-    private V attemptCheckout(K key, Pool<V> pool) throws Exception {
-        V resource = pool.nonBlockingGet();
-        if(resource != null)
-            return resource;
-
-        // Attempt to expand the queue and retry.
-        if(pool.size.get() < this.poolMaxSize) {
-            if(attemptGrow(key, pool)) {
-                resource = pool.nonBlockingGet();
+    protected V attemptCheckoutGrowCheckout(K key, Pool<V> pool) throws Exception {
+        V resource = attemptCheckout(pool);
+        if(resource == null) {
+            if(pool.size.get() < this.poolMaxSize) {
+                if(attemptGrow(key, pool)) {
+                    resource = attemptCheckout(pool);
+                }
             }
         }
 
@@ -139,10 +138,22 @@ public class KeyedResourcePool<K, V> {
     }
 
     /*
-     * Attempt to create a new object and add it to the pool--this only happens
-     * if there is room for the new object. This method does not block.
+     * Get a free resource if one exists. This method does not block. It either
+     * returns null or a resource.
      */
-    private boolean attemptGrow(K key, Pool<V> pool) throws Exception {
+    protected V attemptCheckout(Pool<V> pool) throws Exception {
+        V resource = pool.nonBlockingGet();
+        return resource;
+    }
+
+    /*
+     * Attempt to create a new object and add it to the pool--this only happens
+     * if there is room for the new object. This method does not block. This
+     * method returns true if it adds a resource to the pool. (Returning true
+     * does not guarantee subsequent checkout will succeed because concurrent
+     * checkouts may occur.)
+     */
+    protected boolean attemptGrow(K key, Pool<V> pool) throws Exception {
         // attempt to increment, and if the incremented value is less
         // than the pool size then create a new resource
         if(pool.size.incrementAndGet() <= this.poolMaxSize) {
@@ -163,28 +174,40 @@ public class KeyedResourcePool<K, V> {
     /*
      * Get the pool for the given key. If no pool exists, create one.
      */
-    private Pool<V> getResourcePoolForKey(K key) {
-        Pool<V> pool = resourcesMap.get(key);
-        if(pool == null) {
-            pool = new Pool<V>(this.poolMaxSize, this.isFair);
-            resourcesMap.putIfAbsent(key, pool);
-            pool = resourcesMap.get(key);
+    protected Pool<V> getResourcePoolForKey(K key) {
+        Pool<V> resourcePool = resourcePoolMap.get(key);
+        if(resourcePool == null) {
+            resourcePool = new Pool<V>(this.poolMaxSize, this.isFair);
+            resourcePoolMap.putIfAbsent(key, resourcePool);
+            resourcePool = resourcePoolMap.get(key);
         }
-        return pool;
+        return resourcePool;
+    }
+
+    /*
+     * Get the pool for the given key. If no pool exists, throw an exception.
+     */
+    protected Pool<V> getResourcePoolForExistingKey(K key) {
+        Pool<V> resourcePool = resourcePoolMap.get(key);
+        if(resourcePool == null) {
+            throw new IllegalArgumentException("Invalid key '" + key
+                                               + "': no resource pool exists for that key.");
+        }
+        return resourcePool;
     }
 
     /*
      * A safe wrapper to destroy the given resource that catches any user
      * exceptions
      */
-    private void destroyResource(K key, Pool<V> resources, V resource) {
+    protected void destroyResource(K key, Pool<V> resourcePool, V resource) {
         if(resource != null) {
             try {
                 objectFactory.destroy(key, resource);
             } catch(Exception e) {
                 logger.error("Exception while destorying invalid resource:", e);
             } finally {
-                resources.size.decrementAndGet();
+                resourcePool.size.decrementAndGet();
             }
         }
     }
@@ -196,18 +219,15 @@ public class KeyedResourcePool<K, V> {
      * @param resource The resource
      */
     public void checkin(K key, V resource) throws Exception {
-        Pool<V> pool = resourcesMap.get(key);
-        if(pool == null)
-            throw new IllegalArgumentException("Invalid key '" + key
-                                               + "': no resource pool exists for that key.");
+        Pool<V> resourcePool = getResourcePoolForExistingKey(key);
         if(isOpen.get() && objectFactory.validate(key, resource)) {
-            boolean success = pool.nonBlockingPut(resource);
+            boolean success = resourcePool.nonBlockingPut(resource);
             if(!success) {
-                destroyResource(key, pool, resource);
+                destroyResource(key, resourcePool, resource);
                 throw new IllegalStateException("Checkin failed is the pool already full?");
             }
         } else {
-            destroyResource(key, pool, resource);
+            destroyResource(key, resourcePool, resource);
         }
     }
 
@@ -219,51 +239,54 @@ public class KeyedResourcePool<K, V> {
     public void close() {
         // change state to false and allow one thread.
         if(isOpen.compareAndSet(true, false)) {
-            for(Entry<K, Pool<V>> entry: resourcesMap.entrySet()) {
+            for(Entry<K, Pool<V>> entry: resourcePoolMap.entrySet()) {
                 Pool<V> pool = entry.getValue();
                 // destroy each resource in the queue
                 for(V value = pool.nonBlockingGet(); value != null; value = pool.nonBlockingGet())
                     destroyResource(entry.getKey(), entry.getValue(), value);
-                resourcesMap.remove(entry.getKey());
+                resourcePoolMap.remove(entry.getKey());
             }
         }
     }
 
+    /**
+     * "Close" a specific resource pool by destroying all the resources in the
+     * pool. This method does not affect whether any pool is "open" in the sense
+     * of permitting new resources to be added to it.
+     * 
+     * @param key The key for the pool to close.
+     */
     public void close(K key) {
-        Pool<V> pool = resourcesMap.get(key);
-
-        if(pool == null)
-            throw new IllegalArgumentException("Invalid key '" + key
-                                               + "': no resource pool exists for that key.");
-
-        List<V> list = pool.close();
-
+        Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+        List<V> list = resourcePool.close();
         // destroy each resource currently in the queue
         for(V value: list)
-            destroyResource(key, pool, value);
+            destroyResource(key, resourcePool, value);
     }
 
     /**
      * Return the total number of resources for the given key whether they are
      * currently checked in or checked out.
      * 
-     * @param k The key
+     * @param key The key
      * @return The count
      */
-    public int getTotalResourceCount(K k) {
-        Pool<V> pool = this.resourcesMap.get(k);
-        return pool.size.get();
+    public int getTotalResourceCount(K key) {
+        Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+        return resourcePool.size.get();
     }
 
     /**
-     * Get the count of all resources for all pools
+     * Get the count of all resources for all pools.
      * 
-     * @return The count of resources
+     * @return The count of resources.
      */
     public int getTotalResourceCount() {
         int count = 0;
-        for(Entry<K, Pool<V>> entry: this.resourcesMap.entrySet())
+        for(Entry<K, Pool<V>> entry: this.resourcePoolMap.entrySet())
             count += entry.getValue().size.get();
+        // count is approximate in the case of concurrency since .size.get() for
+        // various entries can change while other entries are being counted.
         return count;
     }
 
@@ -271,12 +294,12 @@ public class KeyedResourcePool<K, V> {
      * Return the number of resources for the given key that are currently
      * sitting idle in the pool waiting to be checked out.
      * 
-     * @param k The key
+     * @param key The key
      * @return The count
      */
-    public int getCheckedInResourcesCount(K k) {
-        Pool<V> pool = this.resourcesMap.get(k);
-        return pool.queue.size();
+    public int getCheckedInResourcesCount(K key) {
+        Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+        return resourcePool.queue.size();
     }
 
     /**
@@ -286,8 +309,11 @@ public class KeyedResourcePool<K, V> {
      */
     public int getCheckedInResourceCount() {
         int count = 0;
-        for(Entry<K, Pool<V>> entry: this.resourcesMap.entrySet())
+        for(Entry<K, Pool<V>> entry: this.resourcePoolMap.entrySet())
             count += entry.getValue().queue.size();
+        // count is approximate in the case of concurrency since .queue.size()
+        // for
+        // various entries can change while other entries are being counted.
         return count;
     }
 
@@ -295,7 +321,7 @@ public class KeyedResourcePool<K, V> {
      * Check that the pool is not closed, and throw an IllegalStateException if
      * it is.
      */
-    private void checkNotClosed() {
+    protected void checkNotClosed() {
         if(!isOpen.get())
             throw new IllegalStateException("Pool is closed!");
     }
@@ -303,7 +329,7 @@ public class KeyedResourcePool<K, V> {
     /**
      * A simple pool that uses an ArrayBlockingQueue
      */
-    private static class Pool<V> {
+    protected static class Pool<V> {
 
         final BlockingQueue<V> queue;
         final AtomicInteger size = new AtomicInteger(0);
