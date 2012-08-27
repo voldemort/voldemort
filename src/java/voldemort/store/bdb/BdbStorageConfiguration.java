@@ -294,6 +294,22 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         }
     }
 
+    @JmxOperation(description = "Obtain the number of k-v entries in the store")
+    public long getEntryCount(String storeName) throws Exception {
+        Environment storeEnv = environments.get(storeName);
+        if(storeEnv != null) {
+            Database storeDb = null;
+            try {
+                storeDb = storeEnv.openDatabase(null, storeName, databaseConfig);
+                return storeDb.count();
+            } finally {
+                if(storeDb != null)
+                    storeDb.close();
+            }
+        }
+        return 0;
+    }
+
     public void close() {
         synchronized(lock) {
             try {

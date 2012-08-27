@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.VoldemortException;
 import voldemort.client.TimeoutConfig;
@@ -70,8 +69,6 @@ import voldemort.versioning.Versioned;
  */
 public class PipelineRoutedStore extends RoutedStore {
 
-    private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
-
     private final Map<Integer, NonblockingStore> nonblockingStores;
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
     private final Map<Integer, NonblockingStore> nonblockingSlopStores;
@@ -79,7 +76,6 @@ public class PipelineRoutedStore extends RoutedStore {
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
     private PipelineRoutedStats stats;
-    private final int jmxId;
 
     /**
      * Create a PipelineRoutedStore
@@ -94,6 +90,8 @@ public class PipelineRoutedStore extends RoutedStore {
      * @param clientZoneId Zone the client is in
      * @param timeoutMs Routing timeout
      * @param failureDetector Failure detector object
+     * @param jmxEnabled is monitoring enabled
+     * @param jmxId unique ID for the factory instance
      */
     public PipelineRoutedStore(String name,
                                Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
@@ -106,7 +104,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                int clientZoneId,
                                TimeoutConfig timeoutConfig,
                                FailureDetector failureDetector,
-                               boolean jmxEnabled) {
+                               boolean jmxEnabled,
+                               int jmxId) {
         super(name,
               innerStores,
               cluster,
@@ -122,7 +121,6 @@ public class PipelineRoutedStore extends RoutedStore {
         } else {
             zoneRoutingEnabled = false;
         }
-        this.jmxId = jmxIdCounter.getAndIncrement();
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.hasHintedHandoffStrategyType()) {
@@ -137,7 +135,7 @@ public class PipelineRoutedStore extends RoutedStore {
             stats = new PipelineRoutedStats();
             JmxUtils.registerMbean(stats,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
-                                                             getName() + jmxId()));
+                                                             getName() + JmxUtils.getJmxId(jmxId)));
         }
     }
 
@@ -726,10 +724,5 @@ public class PipelineRoutedStore extends RoutedStore {
             throw exception;
 
         super.close();
-    }
-
-    /* Give a unique id to avoid jmx clashes */
-    private String jmxId() {
-        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 }

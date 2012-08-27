@@ -91,7 +91,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
-    private final int jmxId;
+    protected final int jmxId;
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats stats;
@@ -120,10 +120,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
-                                                                     + jmxId()));
+                                                                     + JmxUtils.getJmxId(jmxId)));
             JmxUtils.registerMbean(new StoreStatsJmx(stats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             "aggregate-perf" + jmxId()));
+                                                             "aggregate-perf"
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
     }
 
@@ -215,7 +216,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            repairReads,
                                                                            clientZoneId,
                                                                            getFailureDetector(),
-                                                                           isJmxEnabled);
+                                                                           isJmxEnabled,
+                                                                           jmxId);
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
@@ -223,7 +225,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             store.getName() + jmxId()));
+                                                             store.getName()
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -279,7 +282,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                     JmxUtils.registerMbean(failureDetector,
                                            JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
                                                                      JmxUtils.getClassName(failureDetector.getClass())
-                                                                             + jmxId()));
+                                                                             + JmxUtils.getJmxId(jmxId)));
                 }
             }
         }
@@ -403,10 +406,4 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(failureDetector != null)
             failureDetector.destroy();
     }
-
-    /* Give a unique id to avoid jmx clashes */
-    public String jmxId() {
-        return jmxId == 0 ? "" : Integer.toString(jmxId);
-    }
-
 }

@@ -30,6 +30,7 @@ public class StoreDefinitionBuilder {
     private int requiredReads = -1;
     private Integer retentionPeriodDays = null;
     private Integer retentionScanThrottleRate = null;
+    private Integer retentionFrequencyDays = null;
     private String routingStrategyType = null;
     private String viewOf = null;
     private HashMap<Integer, Integer> zoneReplicationFactor = null;
@@ -180,6 +181,15 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public Integer getRetentionFrequencyDays() {
+        return this.retentionFrequencyDays;
+    }
+
+    public StoreDefinitionBuilder setRetentionFrequencyDays(Integer retentionFreqDays) {
+        this.retentionFrequencyDays = retentionFreqDays;
+        return this;
+    }
+
     public String getRoutingStrategyType() {
         return routingStrategyType;
     }
@@ -304,6 +314,7 @@ public class StoreDefinitionBuilder {
                                                        this.getZoneCountWrites(),
                                                        this.getRetentionPeriodDays(),
                                                        this.getRetentionScanThrottleRate(),
+                                                       this.getRetentionFrequencyDays(),
                                                        this.getSerializerFactory(),
                                                        this.getHintedHandoffStrategy(),
                                                        this.getHintPrefListSize(),

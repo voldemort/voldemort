@@ -47,6 +47,8 @@ public class ClientSocketStats {
     private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
     private final AtomicInteger connectionsCheckedout = new AtomicInteger(0);
 
+    private final int jmxId;
+
     /**
      * To construct a per node stats object
      * 
@@ -57,11 +59,13 @@ public class ClientSocketStats {
      */
     public ClientSocketStats(ClientSocketStats parent,
                              SocketDestination destination,
-                             KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
+                             KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool,
+                             int jmxId) {
         this.parent = parent;
         this.statsMap = null;
         this.destination = destination;
         this.pool = pool;
+        this.jmxId = jmxId;
     }
 
     /**
@@ -69,11 +73,12 @@ public class ClientSocketStats {
      * 
      * @param pool The socket pool that will give out connection information
      */
-    public ClientSocketStats() {
+    public ClientSocketStats(int jmxId) {
         this.parent = null;
         this.statsMap = new ConcurrentHashMap<SocketDestination, ClientSocketStats>();
         this.destination = null;
         this.pool = null;
+        this.jmxId = jmxId;
     }
 
     /* get per node stats, create one if not exist */
@@ -83,14 +88,15 @@ public class ClientSocketStats {
         }
         ClientSocketStats stats = statsMap.get(destination);
         if(stats == null) {
-            stats = new ClientSocketStats(this, destination, pool);
+            stats = new ClientSocketStats(this, destination, pool, jmxId);
             statsMap.putIfAbsent(destination, stats);
             stats = statsMap.get(destination);
             JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(ClientRequestExecutor.class),
                                                              "stats_"
                                                                      + destination.toString()
-                                                                                  .replace(':', '_')));
+                                                                                  .replace(':', '_')
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
         return stats;
     }

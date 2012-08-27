@@ -146,7 +146,8 @@ public class ServerTestUtils {
                                                  bufferSize,
                                                  coreConnections,
                                                  "client-request-service",
-                                                 false);
+                                                 false,
+                                                 -1);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,

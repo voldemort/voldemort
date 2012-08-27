@@ -50,6 +50,7 @@ public class StoreDefinition implements Serializable {
     private final int requiredReads;
     private final Integer retentionPeriodDays;
     private final Integer retentionScanThrottleRate;
+    private final Integer retentionFrequencyDays;
     private final String routingStrategyType;
     private final String viewOf;
     private final HashMap<Integer, Integer> zoneReplicationFactor;
@@ -82,6 +83,7 @@ public class StoreDefinition implements Serializable {
                            Integer zoneCountWrites,
                            Integer retentionDays,
                            Integer retentionThrottleRate,
+                           Integer retentionFrequencyDays,
                            String factory,
                            HintedHandoffStrategyType hintedHandoffStrategyType,
                            Integer hintPrefListSize,
@@ -101,6 +103,7 @@ public class StoreDefinition implements Serializable {
         this.transformsSerializer = transformsSerializer;
         this.retentionPeriodDays = retentionDays;
         this.retentionScanThrottleRate = retentionThrottleRate;
+        this.retentionFrequencyDays = retentionFrequencyDays;
         this.memoryFootprintMB = memoryFootprintMB;
         this.routingStrategyType = routingStrategyType;
         this.viewOf = viewOfStore;
@@ -280,6 +283,14 @@ public class StoreDefinition implements Serializable {
 
     public Integer getRetentionScanThrottleRate() {
         return this.retentionScanThrottleRate;
+    }
+
+    public boolean hasRetentionFrequencyDays() {
+        return this.retentionFrequencyDays != null;
+    }
+
+    public Integer getRetentionFrequencyDays() {
+        return this.retentionFrequencyDays;
     }
 
     public boolean isView() {

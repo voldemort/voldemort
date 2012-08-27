@@ -56,17 +56,19 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive,
-                                     boolean enableJmx) {
+                                     boolean enableJmx,
+                                     int jmxId) {
         ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
                                                             .setMaxPoolSize(maxConnectionsPerNode)
                                                             .setMaxInvalidAttempts(maxConnectionsPerNode)
                                                             .setTimeout(connectionTimeoutMs,
                                                                         TimeUnit.MILLISECONDS);
         if(enableJmx) {
-            stats = new ClientSocketStats();
+            stats = new ClientSocketStats(jmxId);
             JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
-                                                             "aggregated"));
+                                                             "aggregated"
+                                                                     + JmxUtils.getJmxId(jmxId)));
         } else {
             stats = null;
         }
@@ -95,7 +97,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
              soTimeoutMs,
              socketBufferSize,
              socketKeepAlive,
-             false);
+             false,
+             0);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,

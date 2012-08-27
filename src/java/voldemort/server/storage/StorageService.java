@@ -239,6 +239,7 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
+                                                                      null,
                                                                       0);
             SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
                                                                  metadata.getCluster());
@@ -631,12 +632,13 @@ public class StorageService extends AbstractService {
             JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
         }
 
+        long retentionFreqHours = storeDef.hasRetentionFrequencyDays() ? (storeDef.getRetentionFrequencyDays() * Time.HOURS_PER_DAY)
+                                                                      : voldemortConfig.getRetentionCleanupScheduledPeriodInHour();
+
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,
-                                voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
-                                        * Time.MS_PER_HOUR);
-
+                                retentionFreqHours * Time.MS_PER_HOUR);
     }
 
     @Override

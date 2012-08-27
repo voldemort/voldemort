@@ -83,6 +83,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_REQUIRED_READS_ELMT = "required-reads";
     public final static String STORE_PREFERRED_READS_ELMT = "preferred-reads";
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
+    public final static String STORE_RETENTION_FREQ_ELMT = "retention-frequency";
     public final static String STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT = "retention-scan-throttle-rate";
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     public final static String STORE_ZONE_ID_ELMT = "zone-id";
@@ -221,11 +222,15 @@ public class StoreDefinitionsMapper {
         Element retention = store.getChild(STORE_RETENTION_POLICY_ELMT);
         Integer retentionPolicyDays = null;
         Integer retentionThrottleRate = null;
+        Integer retentionFreqDays = null;
         if(retention != null) {
             retentionPolicyDays = Integer.parseInt(retention.getText());
             Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
             if(throttleRate != null)
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
+            Element retentionFreqElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
+            if(retentionFreqElement != null)
+                retentionFreqDays = Integer.parseInt(retentionFreqElement.getText());
         }
 
         if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
@@ -269,6 +274,7 @@ public class StoreDefinitionsMapper {
                                            .setRequiredWrites(requiredWrites)
                                            .setRetentionPeriodDays(retentionPolicyDays)
                                            .setRetentionScanThrottleRate(retentionThrottleRate)
+                                           .setRetentionFrequencyDays(retentionFreqDays)
                                            .setZoneReplicationFactor(zoneReplicationFactor)
                                            .setZoneCountReads(zoneCountReads)
                                            .setZoneCountWrites(zoneCountWrites)

@@ -369,6 +369,7 @@ public class TestUtils {
                                    null,
                                    null,
                                    null,
+                                   null,
                                    0);
     }
 
@@ -401,7 +402,7 @@ public class TestUtils {
                                    null,
                                    null,
                                    null,
+                                   null,
                                    memFootprintMB);
     }
-
 }

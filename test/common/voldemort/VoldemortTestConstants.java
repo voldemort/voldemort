@@ -42,6 +42,10 @@ public class VoldemortTestConstants {
         return readString("config/single-store.xml");
     }
 
+    public static String getTwoStoreDefinitionsXml() {
+        return readString("config/two-stores.xml");
+    }
+
     public static String getNoVersionStoreDefinitionsXml() {
         return readString("config/no-version-store.xml");
     }
@@ -65,6 +69,7 @@ public class VoldemortTestConstants {
     public static String getTenNodeClusterXml() {
         return readString("config/ten-node-cluster.xml");
     }
+
     public static String getNineNodeClusterXml() {
         return readString("config/nine-node-cluster.xml");
     }

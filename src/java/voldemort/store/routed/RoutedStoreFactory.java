@@ -68,7 +68,8 @@ public class RoutedStoreFactory {
                       repairReads,
                       clientZoneId,
                       failureDetector,
-                      false);
+                      false,
+                      0);
     }
 
     public RoutedStore create(Cluster cluster,
@@ -80,7 +81,8 @@ public class RoutedStoreFactory {
                               boolean repairReads,
                               int clientZoneId,
                               FailureDetector failureDetector,
-                              boolean jmxEnabled) {
+                              boolean jmxEnabled,
+                              int jmxId) {
         if(isPipelineRoutedStoreEnabled) {
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
@@ -93,7 +95,8 @@ public class RoutedStoreFactory {
                                            clientZoneId,
                                            timeoutConfig,
                                            failureDetector,
-                                           jmxEnabled);
+                                           jmxEnabled,
+                                           jmxId);
         } else {
             if(storeDefinition.getRoutingStrategyType()
                               .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {

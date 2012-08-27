@@ -134,8 +134,7 @@ public class JmxUtils {
                                                                            description,
                                                                            extractParameterInfo(m),
                                                                            m.getReturnType()
-                                                                            .getName(),
-                                                                           impact);
+                                                                            .getName(), impact);
                 info.getDescriptor().setField("visibility", Integer.toString(visibility));
                 infos.add(info);
             }
@@ -348,6 +347,16 @@ public class JmxUtils {
         } catch(Exception e) {
             logger.error("Error unregistering mbean", e);
         }
+    }
+
+    /**
+     * Return the string representation of jmxId
+     * 
+     * @param jmxId
+     * @return
+     */
+    public static String getJmxId(int jmxId) {
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
 }
