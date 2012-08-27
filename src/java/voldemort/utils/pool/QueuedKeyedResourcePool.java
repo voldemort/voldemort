@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentMap;
 
 import org.apache.log4j.Logger;
 
+import voldemort.store.UnreachableStoreException;
+
 /**
  * Extends simple implementation of a per-key resource pool with a non-blocking
  * interface to enqueue requests for a resource when one becomes available. <br>
@@ -20,7 +22,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
     public interface ResourceRequest<V> {
 
-        // Invoked with checkedout resource; resource guaranteed to be not-null
+        // Invoked with checked out resource; resource guaranteed to be
+        // not-null.
         void useResource(V resource);
 
         // Invoked sometime after deadline. Will never invoke useResource.
@@ -29,7 +32,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         // Invoked upon resource pool exception. Will never invoke useResource.
         void handleException(Exception e);
 
-        // return deadline (in nanoseconds), after which timeoutCheckout()
+        // Returns deadline (in nanoseconds), after which handleTimeout()
         // should be invoked.
         long getDeadlineNs();
     }
@@ -72,51 +75,105 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
+     * This method is the asynchronous (nonblocking) version of
+     * KeyedResourcePool.checkout. This method necessarily has a different
+     * function declaration (i.e., arguments passed and return type).
+     * 
+     * This method either checks out a resource and uses that resource or
+     * enqueues a request to checkout the resource. I.e., there is a
+     * non-blocking fast-path that is tried optimistically.
      * 
      * @param key The key to checkout the resource for
      * @return The resource
+     * 
      */
     public void requestResource(K key, ResourceRequest<V> resourceRequest) {
-        try {
-            V resource = super.checkout(key);
-            resourceRequest.useResource(resource);
-        } catch(Exception e) {
-            resourceRequest.handleException(e);
-        }
-
-        /*-
         checkNotClosed();
 
-        long startNs = System.nanoTime();
-        Pool<V> resources = getResourcePoolForKey(key);
+        // Non-blocking checkout attempt iff requestQueue is empty. If
+        // requestQueue is not empty and we attempted non-blocking checkout,
+        // then FIFO at risk.
+        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+        if(requestQueue.isEmpty()) {
+            Pool<V> resourcePool = getResourcePoolForKey(key);
+            V resource = null;
 
-        V resource = null;
-        try {
-            checkNotClosed();
-            resource = attemptCheckoutGrowCheckout(key, resources);
-
-            if(resource == null) {
-                long timeRemainingNs = this.timeoutNs - (System.nanoTime() - startNs);
-                if(timeRemainingNs < 0)
-                    throw new TimeoutException("Could not acquire resource in "
-                                               + (this.timeoutNs / Time.NS_PER_MS) + " ms.");
-
-                resource = resources.blockingGet(timeoutNs);
-                if(resource == null) {
-                    throw new TimeoutException("Timed out wait for resource after "
-                                               + (timeoutNs / Time.NS_PER_MS) + " ms.");
-                }
+            try {
+                resource = attemptCheckoutGrowCheckout(key, resourcePool);
+            } catch(Exception e) {
+                super.destroyResource(key, resourcePool, resource);
+                resourceRequest.handleException(e);
             }
-
-            if(!objectFactory.validate(key, resource))
-                throw new ExcessiveInvalidResourcesException(1);
-        } catch(Exception e) {
-            destroyResource(key, resources, resource);
-            System.err.println(e.toString());
-            throw e;
+            if(resource != null) {
+                // TODO: Is another try/catch block needed anywhere to ensure
+                // resource is destroyed if/when anything bad happens in
+                // useResource method?
+                resourceRequest.useResource(resource);
+                return;
+            }
         }
-        return resource;
-         */
+
+        requestQueue.add(resourceRequest);
+    }
+
+    /**
+     * Pops resource requests off the queue until queue is empty or an unexpired
+     * resource request is found. Invokes .handleTimeout on all expired resource
+     * requests popped off the queue.
+     * 
+     * @return null or a valid ResourceRequest
+     */
+    private ResourceRequest<V> getNextUnexpiredResourceRequest(Queue<ResourceRequest<V>> requestQueue) {
+        ResourceRequest<V> resourceRequest = requestQueue.poll();
+        while(resourceRequest != null) {
+            if(resourceRequest.getDeadlineNs() < System.nanoTime()) {
+                resourceRequest.handleTimeout();
+                resourceRequest = requestQueue.poll();
+            } else {
+                break;
+            }
+        }
+        return resourceRequest;
+    }
+
+    /**
+     * Attempts to checkout a resource so that one queued request can be
+     * serviced.
+     * 
+     * @param key The key for which to process the requestQueue
+     * @return true iff an item was processed from the Queue.
+     */
+    private boolean processQueue(K key) throws Exception {
+        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+        if(requestQueue.isEmpty()) {
+            return false;
+        }
+
+        // Attempt to get a resource.
+        Pool<V> resourcePool = getResourcePoolForKey(key);
+        V resource = null;
+
+        try {
+            // Always attempt to grow to deal with destroyed resources.
+            attemptGrow(key, resourcePool);
+            resource = attemptCheckout(resourcePool);
+        } catch(Exception e) {
+            super.destroyResource(key, resourcePool, resource);
+        }
+        if(resource == null) {
+            return false;
+        }
+
+        // With resource in hand, process the resource requests
+        ResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
+        if(resourceRequest == null) {
+            // Did not use the resource!
+            super.checkin(key, resource);
+            return false;
+        }
+
+        resourceRequest.useResource(resource);
+        return true;
     }
 
     /**
@@ -127,38 +184,94 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     @Override
     public void checkin(K key, V resource) throws Exception {
+        // TODO: Unclear if invoking checkin and then invoking processQueue is
+        // "fair" or is "FIFO". In particular, is super.checkout invoked
+        // directly? If so, how should such a blocking checkout interact with
+        // non-blocking checkouts?
         super.checkin(key, resource);
-        /*-
-        Pool<V> pool = getResourcePoolForExistingKey(key);
-        if(isOpen.get() && objectFactory.validate(key, resource)) {
-            boolean success = pool.nonBlockingPut(resource);
-            if(!success) {
-                destroyResource(key, pool, resource);
-                throw new IllegalStateException("Checkin failed is the pool already full?");
-            }
-        } else {
-            destroyResource(key, pool, resource);
-        }
-         */
+        while(processQueue(key)) {}
     }
 
     /*
-     * A safe wrapper to destroy the given request that catches any user
-     * exceptions
+     * A safe wrapper to destroy the given resource request.
      */
-    protected void destroyRequest(K key,
-                                  Queue<ResourceRequest<V>> requestQueue,
-                                  ResourceRequest<V> resourceRequest) {
+    protected void destroyRequest(ResourceRequest<V> resourceRequest) {
         if(resourceRequest != null) {
             try {
-                // objectFactory.destroy(key, resource);
-                resourceRequest = null;
-            } catch(Exception e) {
-                logger.error("Exception while destorying invalid request:", e);
-            } finally {
-                // resourcePool.size.decrementAndGet();
+                Exception e = new UnreachableStoreException("Resource request destroyed before resource checked out.");
+                resourceRequest.handleException(e);
+            } catch(Exception ex) {
+                logger.error("Exception while destroying resource request:", ex);
             }
         }
+    }
+
+    /**
+     * Destroys all resource requests in requestQueue.
+     * 
+     * @param requestQueue The queue for which all resource requests are to be
+     *        destroyed.
+     */
+    private void destroyRequestQueue(Queue<ResourceRequest<V>> requestQueue) {
+        ResourceRequest<V> resourceRequest = requestQueue.poll();
+        while(resourceRequest != null) {
+            destroyRequest(resourceRequest);
+            resourceRequest = requestQueue.poll();
+        }
+    }
+
+    @Override
+    protected boolean internalClose() {
+        // wasOpen ensures only one thread destroys everything.
+        boolean wasOpen = super.internalClose();
+        if(wasOpen) {
+            for(Entry<K, Queue<ResourceRequest<V>>> entry: requestQueueMap.entrySet()) {
+                Queue<ResourceRequest<V>> requestQueue = entry.getValue();
+                destroyRequestQueue(requestQueue);
+                requestQueueMap.remove(entry.getKey());
+            }
+        }
+        return wasOpen;
+    }
+
+    /**
+     * Close the queue and the pool.
+     */
+    @Override
+    public void close() {
+        internalClose();
+    }
+
+    /**
+     * "Close" a specific resource pool and request queue by destroying all the
+     * resources in the pool and all the requests in the queue. This method does
+     * not affect whether any pool or queue is "open" in the sense of permitting
+     * new resources to be added or requests to be enqueued.
+     * 
+     * @param key The key for the pool to close.
+     */
+    @Override
+    public void close(K key) {
+        // TODO: The close method in the super class is not documented at all.
+        // super.close(key) is called by ClientRequestExecutorPool.close which
+        // is called by SocketStoreclientFactory. Given the super class does not
+        // set any closed bit, unclear what the semantics of this.close(key)
+        // ought to be.
+        //
+        // Also, super.close(key) does nothing to protect against multiple
+        // threads accessing the method at the same time. And, super.close(key)
+        // does not remove the affected pool from super.resourcePoolMap. The
+        // semantics of super.close(key) are truly unclear.
+
+        // Destroy enqueued resource requests (if any exist) first.
+        Queue<ResourceRequest<V>> requestQueue = requestQueueMap.get(key);
+        if(requestQueue != null) {
+            destroyRequestQueue(requestQueue);
+            // TODO: requestQueueMap.remove(entry.getKey()); ?
+        }
+
+        // Destroy resources in the pool second.
+        super.close(key);
     }
 
     /*
@@ -214,46 +327,4 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         return count;
     }
 
-    /**
-     * Close the pool. This will destroy all checked in resource immediately.
-     * Once closed all attempts to checkout a new resource will fail. All
-     * resources checked in after close is called will be immediately destroyed.
-     */
-    @Override
-    public void close() {
-        super.close();
-        /*-
-        // change state to false and allow one thread.
-        if(isOpen.compareAndSet(true, false)) {
-            for(Entry<K, Pool<V>> entry: resourcesMap.entrySet()) {
-                Pool<V> pool = entry.getValue();
-                // destroy each resource in the queue
-                for(V value = pool.nonBlockingGet(); value != null; value = pool.nonBlockingGet())
-                    destroyResource(entry.getKey(), entry.getValue(), value);
-                resourcesMap.remove(entry.getKey());
-            }
-        }
-         */
-    }
-
-    /**
-     * "Close" a specific resource pool and request queue by destroying all the
-     * resources in the pool and all the requests in the queue. This method does
-     * not affect whether any pool or queue is "open" in the sense of permitting
-     * new resources to be added or requests to be enqueued.
-     * 
-     * @param key The key for the pool to close.
-     */
-    @Override
-    public void close(K key) {
-        // Destroy enqueued requests first.
-        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
-        ResourceRequest<V> resourceRequest = requestQueue.poll();
-        while(resourceRequest != null) {
-            destroyRequest(key, requestQueue, resourceRequest);
-            resourceRequest = requestQueue.poll();
-        }
-        // Destroy resources in the pool second.
-        super.close(key);
-    }
 }

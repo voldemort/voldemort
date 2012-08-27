@@ -66,7 +66,6 @@ public class E2ENonblockingCheckoutTest {
     private static final int NUM_PUTS = 25;
     // Exempt some puts from performance requirements until warmed up
     private static final int NUM_EXEMPT_PUTS = 2;
-
     private static final long MAX_PUT_TIME_MS = 50;
     private static final long SLOW_PUT_MS = 250;
     /*
@@ -80,9 +79,9 @@ public class E2ENonblockingCheckoutTest {
     // Ensure that threads will contend at all servers
     private static final int CONNECTIONS_PER_NODE = 1;
 
-    private static final int CONNECTION_TIMEOUT_MS = 10 * 1000;
-    private static final int SOCKET_TIMEOUT_MS = 100 * 1000;
-    private static final int ROUTING_TIMEOUT_MS = 100 * 1000;
+    private static final int CONNECTION_TIMEOUT_MS = 500; // 10 * 1000;
+    private static final int SOCKET_TIMEOUT_MS = 2 * 1000; // 100 * 1000;
+    private static final int ROUTING_TIMEOUT_MS = 10 * 1000; // 100 * 1000;
 
     private final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(CONNECTIONS_PER_NODE,
                                                                                         CONNECTION_TIMEOUT_MS,
@@ -122,17 +121,29 @@ public class E2ENonblockingCheckoutTest {
 
     @Before
     public void setUp() throws Exception {
+        // PatternLayout patternLayout = new
+        // PatternLayout("%d{ABSOLUTE} %-5p [%t/%c]: %m%n");
+
         Logger logger;
         /*-
         // To analyze whether checkout/checkin paths are blocking add
         // log4j.trace statements to KeyedResourcePool checkout/checkin methods.
+         */
+        logger = Logger.getLogger("voldemort.store.socket.clientrequest.ClientRequestExecutorPool");
+        logger.setLevel(Level.TRACE);
+
         logger = Logger.getLogger("voldemort.utils.pool.KeyedResourcePool");
         logger.setLevel(Level.TRACE);
+
+        logger = Logger.getLogger("voldemort.utils.pool.QueuedKeyedResourcePool");
+        logger.setLevel(Level.TRACE);
+
         logger = Logger.getLogger("voldemort.store.socket.SocketStore");
         logger.setLevel(Level.DEBUG);
-         */
+
         logger = Logger.getLogger("voldemort.store.routed.action.PerformParallelPutRequests");
         logger.setLevel(Level.DEBUG);
+
         logger = Logger.getLogger("voldemort.store.routed.action.PerformSerialPutRequests");
         logger.setLevel(Level.DEBUG);
 
@@ -229,8 +240,9 @@ public class E2ENonblockingCheckoutTest {
                 sleepUntilNextPeriod();
                 String I = getString(i);
                 System.out.println("");
-                System.out.println("Starting PUT of " + I + " (Thread: "
-                                   + Thread.currentThread().getName() + ")");
+                String context = new String("PUT of " + I + " (Put #: " + i + ", Thread: "
+                                            + Thread.currentThread().getName() + ")");
+                System.out.println("START " + context);
                 long startTimeMs = System.currentTimeMillis();
                 boolean putDone = false;
                 while(!putDone) {
@@ -238,14 +250,13 @@ public class E2ENonblockingCheckoutTest {
                         storeClient.put(I, I);
                         putDone = true;
                     } catch(ObsoleteVersionException e) {
-                        System.out.println("Retrying PUT of " + I + " (Thread: "
-                                           + Thread.currentThread().getName() + ")");
+                        System.out.println("RETRY " + context);
                         // What to do here?
                     }
                 }
                 long endTimeMs = System.currentTimeMillis();
-                System.out.println("OPERATION DONE  Time (ms): " + (endTimeMs - startTimeMs)
-                                   + " (Thread: " + Thread.currentThread().getName() + ")");
+                System.out.println(" DONE " + context + " --- Time (ms): "
+                                   + (endTimeMs - startTimeMs));
                 if(i >= NUM_EXEMPT_PUTS) {
                     /*-
                     assertFalse("Operation completes without blocking on slow server:"
@@ -254,7 +265,9 @@ public class E2ENonblockingCheckoutTest {
                      */
                     assertFalse("False", false); // noop until fix
                     if((endTimeMs - startTimeMs) > this.putTimeLimitMs) {
-                        System.err.println("Operation blocked! Therefore, operation is not nonblocking... (Operation time: "
+                        System.err.println("Operation blocked! Therefore, operation is not nonblocking... "
+                                           + context
+                                           + " (Operation time: "
                                            + (endTimeMs - startTimeMs) + " ms)");
                     }
                 }

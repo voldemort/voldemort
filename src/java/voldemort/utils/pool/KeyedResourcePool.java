@@ -29,10 +29,10 @@ public class KeyedResourcePool<K, V> {
 
     private static final Logger logger = Logger.getLogger(KeyedResourcePool.class.getName());
 
-    protected final ResourceFactory<K, V> objectFactory;
+    private final ResourceFactory<K, V> objectFactory;
     private final ConcurrentMap<K, Pool<V>> resourcePoolMap;
-    protected final AtomicBoolean isOpen = new AtomicBoolean(true);
-    protected final long timeoutNs;
+    private final AtomicBoolean isOpen = new AtomicBoolean(true);
+    private final long timeoutNs;
     private final int poolMaxSize;
     private final boolean isFair;
 
@@ -127,10 +127,8 @@ public class KeyedResourcePool<K, V> {
     protected V attemptCheckoutGrowCheckout(K key, Pool<V> pool) throws Exception {
         V resource = attemptCheckout(pool);
         if(resource == null) {
-            if(pool.size.get() < this.poolMaxSize) {
-                if(attemptGrow(key, pool)) {
-                    resource = attemptCheckout(pool);
-                }
+            if(attemptGrow(key, pool)) {
+                resource = attemptCheckout(pool);
             }
         }
 
@@ -154,6 +152,10 @@ public class KeyedResourcePool<K, V> {
      * checkouts may occur.)
      */
     protected boolean attemptGrow(K key, Pool<V> pool) throws Exception {
+        if(pool.size.get() >= this.poolMaxSize) {
+            // "fail fast" if not worth trying to grow the pool.
+            return false;
+        }
         // attempt to increment, and if the incremented value is less
         // than the pool size then create a new resource
         if(pool.size.incrementAndGet() <= this.poolMaxSize) {
@@ -231,14 +233,10 @@ public class KeyedResourcePool<K, V> {
         }
     }
 
-    /**
-     * Close the pool. This will destroy all checked in resource immediately.
-     * Once closed all attempts to checkout a new resource will fail. All
-     * resources checked in after close is called will be immediately destroyed.
-     */
-    public void close() {
+    protected boolean internalClose() {
+        boolean wasOpen = isOpen.compareAndSet(true, false);
         // change state to false and allow one thread.
-        if(isOpen.compareAndSet(true, false)) {
+        if(wasOpen) {
             for(Entry<K, Pool<V>> entry: resourcePoolMap.entrySet()) {
                 Pool<V> pool = entry.getValue();
                 // destroy each resource in the queue
@@ -247,6 +245,16 @@ public class KeyedResourcePool<K, V> {
                 resourcePoolMap.remove(entry.getKey());
             }
         }
+        return wasOpen;
+    }
+
+    /**
+     * Close the pool. This will destroy all checked in resource immediately.
+     * Once closed all attempts to checkout a new resource will fail. All
+     * resources checked in after close is called will be immediately destroyed.
+     */
+    public void close() {
+        internalClose();
     }
 
     /**
@@ -259,7 +267,7 @@ public class KeyedResourcePool<K, V> {
     public void close(K key) {
         Pool<V> resourcePool = getResourcePoolForExistingKey(key);
         List<V> list = resourcePool.close();
-        // destroy each resource currently in the queue
+        // destroy each resource currently in the pool
         for(V value: list)
             destroyResource(key, resourcePool, value);
     }
