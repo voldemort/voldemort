@@ -236,7 +236,8 @@ public class ClientSocketStats {
                                                                    "stats_"
                                                                            + destination.toString()
                                                                                         .replace(':',
-                                                                                                 '_')));
+                                                                                                 '_')
+                                                                           + JmxUtils.getJmxId(jmxId)));
             } catch(Exception e) {}
         }
     }

@@ -228,9 +228,9 @@ public class StoreDefinitionsMapper {
             Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
             if(throttleRate != null)
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
-            Element retentionFreqElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
-            if(retentionFreqElement != null)
-                retentionFreqDays = Integer.parseInt(retentionFreqElement.getText());
+            Element retentionFreqDaysElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
+            if(retentionFreqDaysElement != null)
+                retentionFreqDays = Integer.parseInt(retentionFreqDaysElement.getText());
         }
 
         if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {

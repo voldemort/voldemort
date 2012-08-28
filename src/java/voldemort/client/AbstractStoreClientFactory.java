@@ -279,10 +279,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                 result = failureDetector;
                 if(result == null) {
                     failureDetector = result = initFailureDetector(config, cluster.getNodes());
-                    JmxUtils.registerMbean(failureDetector,
-                                           JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
-                                                                     JmxUtils.getClassName(failureDetector.getClass())
-                                                                             + JmxUtils.getJmxId(jmxId)));
+                    if(isJmxEnabled) {
+                        JmxUtils.registerMbean(failureDetector,
+                                               JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                         JmxUtils.getClassName(failureDetector.getClass())
+                                                                                 + JmxUtils.getJmxId(jmxId)));
+                    }
                 }
             }
         }
@@ -403,7 +405,19 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.threadPool.shutdownNow();
         }
 
-        if(failureDetector != null)
+        if(failureDetector != null) {
             failureDetector.destroy();
+            if(isJmxEnabled) {
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                   JmxUtils.getClassName(failureDetector.getClass())
+                                                                           + JmxUtils.getJmxId(jmxId)));
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                                   JmxUtils.getClassName(threadPool.getClass())
+                                                                           + JmxUtils.getJmxId(jmxId)));
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                                   "aggregate-perf"
+                                                                           + JmxUtils.getJmxId(jmxId)));
+            }
+        }
     }
 }

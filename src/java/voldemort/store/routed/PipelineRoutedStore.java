@@ -76,6 +76,8 @@ public class PipelineRoutedStore extends RoutedStore {
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
     private PipelineRoutedStats stats;
+    private boolean jmxEnabled;
+    private int jmxId;
 
     /**
      * Create a PipelineRoutedStore
@@ -131,11 +133,14 @@ public class PipelineRoutedStore extends RoutedStore {
             this.handoffStrategy = null;
         }
 
-        if(jmxEnabled) {
+        this.jmxEnabled = jmxEnabled;
+        this.jmxId = jmxId;
+        if(this.jmxEnabled) {
             stats = new PipelineRoutedStats();
             JmxUtils.registerMbean(stats,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
-                                                             getName() + JmxUtils.getJmxId(jmxId)));
+                                                             getName()
+                                                                     + JmxUtils.getJmxId(this.jmxId)));
         }
     }
 
@@ -718,6 +723,11 @@ public class PipelineRoutedStore extends RoutedStore {
             } catch(VoldemortException e) {
                 exception = e;
             }
+        }
+
+        if(this.jmxEnabled) {
+            JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
+                                                               getName() + JmxUtils.getJmxId(jmxId)));
         }
 
         if(exception != null)
