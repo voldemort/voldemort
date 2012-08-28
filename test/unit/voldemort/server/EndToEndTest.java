@@ -1,8 +1,8 @@
 package voldemort.server;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -120,8 +120,8 @@ public class EndToEndTest {
 
         assertEquals("getAll works as expected", "Moscow", capitals.get("Russia").getValue());
         assertEquals("getAll works as expected", "Kiev", capitals.get("Ukraine").getValue());
-
-        assertFalse("getAll works as expected", capitals.containsKey("Japan"));
+        assertTrue("getAll works as expected",
+                   !capitals.containsKey("Japan") || capitals.get("Japan") == null);
 
         storeClient.delete("Ukraine");
         assertNull("delete works as expected", storeClient.get("Ukraine"));
