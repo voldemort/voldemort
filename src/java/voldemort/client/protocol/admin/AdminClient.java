@@ -182,11 +182,16 @@ public class AdminClient {
         // try to bootstrap metadata from bootstrapUrl
         config.setBootstrapUrls(bootstrapURL);
         SocketStoreClientFactory factory = new SocketStoreClientFactory(config);
-        // get Cluster from bootStrapUrl
-        String clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
-                                                                 factory.validateUrls(config.getBootstrapUrls()));
-        // release all threads/sockets hold by the factory.
-        factory.close();
+        String clusterXml = null;
+
+        try {
+            // get Cluster from bootStrapUrl
+            clusterXml = factory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
+                                                              factory.validateUrls(config.getBootstrapUrls()));
+        } finally {
+            // release all threads/sockets hold by the factory.
+            factory.close();
+        }
 
         return clusterMapper.readCluster(new StringReader(clusterXml), false);
     }

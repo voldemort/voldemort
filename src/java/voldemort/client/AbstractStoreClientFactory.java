@@ -400,6 +400,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.threadPool.shutdownNow();
         }
 
+        // unregister the Mbean to avoid a memory leak
+        if(this.isJmxEnabled)
+            JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                               JmxUtils.getClassName(threadPool.getClass())
+                                                                       + jmxId()));
+
         if(failureDetector != null)
             failureDetector.destroy();
     }
