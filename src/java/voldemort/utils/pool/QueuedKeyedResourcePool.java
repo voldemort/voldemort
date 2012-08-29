@@ -96,10 +96,17 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         Queue<ResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
             Pool<V> resourcePool = getResourcePoolForKey(key);
+            try {
+                attemptGrow(key, resourcePool);
+            } catch(Exception e) {
+                resourceRequest.handleException(e);
+                return;
+            }
+
             V resource = null;
 
             try {
-                resource = attemptCheckoutGrowCheckout(key, resourcePool);
+                resource = attemptCheckout(resourcePool);
             } catch(Exception e) {
                 super.destroyResource(key, resourcePool, resource);
                 resourceRequest.handleException(e);
