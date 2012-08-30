@@ -136,7 +136,6 @@ public class VoldemortAdminTool {
         parser.accepts("store", "Store name for querying keys")
               .withRequiredArg()
               .describedAs("store-name")
-              .withValuesSeparatedBy(',')
               .ofType(String.class);
         parser.accepts("add-stores", "Add stores in this stores.xml")
               .withRequiredArg()
