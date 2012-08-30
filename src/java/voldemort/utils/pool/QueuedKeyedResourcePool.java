@@ -14,8 +14,21 @@ import voldemort.store.UnreachableStoreException;
  * Extends simple implementation of a per-key resource pool with a non-blocking
  * interface to enqueue requests for a resource when one becomes available. <br>
  * <ul>
- * <li>allocates resources in FIFO order
- * <li>Pools are per key and there is no global maximum pool limit.
+ * <li>Allocates resources in FIFOish order: blocking requests via checkout are
+ * FIFO and non-blocking enqueued requests are FIFO, however, there is no
+ * ordering between blocking (checkout) and non-blocking (requestResource).
+ * <li>Pools and Queues are per key and there is no global maximum pool or queue
+ * limit.
+ * </ul>
+ * 
+ * Beyond the expectations documented in KeyedResourcePool, the following is
+ * expected of the user of this class:
+ * <ul>
+ * <li>A resource acquired via {@link #checkout(K)) checkout} or via {@link
+ * #requestResource(K , ResourceRequest<V>) requestResource} is checked in
+ * exactly once.
+ * <li>A resource that is checked in was previously checked out or requested.
+ * <li>Also, reqeustResource is never called after close.
  * </ul>
  */
 public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
@@ -112,9 +125,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
                 resourceRequest.handleException(e);
             }
             if(resource != null) {
-                // TODO: Is another try/catch block needed anywhere to ensure
-                // resource is destroyed if/when anything bad happens in
-                // useResource method?
                 resourceRequest.useResource(resource);
                 return;
             }
@@ -191,11 +201,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     @Override
     public void checkin(K key, V resource) throws Exception {
-        // TODO: Unclear if invoking checkin and then invoking processQueue is
-        // "fair" or is "FIFO". In particular, is super.checkout invoked
-        // directly? If so, how should such a blocking checkout interact with
-        // non-blocking checkouts?
         super.checkin(key, resource);
+        // NB: Blocking checkout calls may get checked in resource before
+        // processQueue.
         while(processQueue(key)) {}
     }
 

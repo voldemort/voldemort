@@ -21,12 +21,12 @@ import voldemort.utils.Time;
 
 public class KeyedResourcePoolTest {
 
-    private static int POOL_SIZE = 5;
-    private static long TIMEOUT_MS = 100;
+    protected static int POOL_SIZE = 5;
+    protected static long TIMEOUT_MS = 100;
 
-    private TestResourceFactory factory;
-    private KeyedResourcePool<String, TestResource> pool;
-    private ResourcePoolConfig config;
+    protected TestResourceFactory factory;
+    protected KeyedResourcePool<String, TestResource> pool;
+    protected ResourcePoolConfig config;
 
     @Before
     public void setUp() {
@@ -140,6 +140,7 @@ public class KeyedResourcePoolTest {
         assertEquals(0, this.pool.getCheckedInResourceCount());
     }
 
+    // NEGATIVE Test. See comment in line.
     @Test
     public void repeatedCheckins() throws Exception {
         assertEquals(0, this.pool.getTotalResourceCount());
@@ -164,6 +165,7 @@ public class KeyedResourcePoolTest {
         // assertEquals(1, this.pool.getCheckedInResourceCount());
     }
 
+    // NEGATIVE Test. See comment in line.
     @Test
     public void testExceptionOnFullCheckin() throws Exception {
         assertEquals(0, this.pool.getTotalResourceCount());
@@ -196,6 +198,7 @@ public class KeyedResourcePoolTest {
         // assertEquals(POOL_SIZE, this.pool.getTotalResourceCount());
     }
 
+    // NEGATIVE Test. See comment in line.
     @Test
     public void testCheckinExtraneousResource() throws Exception {
         assertEquals(0, this.pool.getTotalResourceCount());
@@ -212,6 +215,7 @@ public class KeyedResourcePoolTest {
         assertEquals(2, this.pool.getCheckedInResourceCount());
     }
 
+    // NEGATIVE Test. See comment in line.
     @Test
     public void testNeverCheckin() throws Exception {
         assertEquals(0, this.pool.getTotalResourceCount());
@@ -344,7 +348,7 @@ public class KeyedResourcePoolTest {
         }
     }
 
-    private static class TestResource {
+    protected static class TestResource {
 
         private String value;
         private AtomicBoolean isValid;
@@ -379,7 +383,7 @@ public class KeyedResourcePoolTest {
 
     }
 
-    private static class TestResourceFactory implements ResourceFactory<String, TestResource> {
+    protected static class TestResourceFactory implements ResourceFactory<String, TestResource> {
 
         private final AtomicInteger created = new AtomicInteger(0);
         private final AtomicInteger destroyed = new AtomicInteger(0);
