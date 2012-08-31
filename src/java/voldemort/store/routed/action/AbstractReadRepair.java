@@ -24,10 +24,11 @@ import voldemort.cluster.Node;
 import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.PipelineData;
 import voldemort.store.routed.ReadRepairer;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -101,7 +102,8 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                 try {
                     if(logger.isDebugEnabled())
                         logger.debug("Doing read repair on node " + v.getNodeId() + " for key '"
-                                     + v.getKey() + "' with version " + v.getVersion() + ".");
+                                     + ByteUtils.toHexString(v.getKey().get()) + "' with version "
+                                     + v.getVersion() + ".");
 
                     NonblockingStore store = nonblockingStores.get(v.getNodeId());
                     store.submitPutRequest(v.getKey(), v.getVersioned(), null, null, timeoutMs);
@@ -110,8 +112,9 @@ public abstract class AbstractReadRepair<K, V, PD extends PipelineData<K, V>> ex
                         logger.debug("Read repair cancelled due to application level exception on node "
                                      + v.getNodeId()
                                      + " for key '"
-                                     + v.getKey()
-                                     + "' with version " + v.getVersion() + ": " + e.getMessage());
+                                     + ByteUtils.toHexString(v.getKey().get())
+                                     + "' with version "
+                                     + v.getVersion() + ": " + e.getMessage());
                 } catch(Exception e) {
                     logger.debug("Read repair failed: ", e);
                 }

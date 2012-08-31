@@ -127,13 +127,16 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(logger.isTraceEnabled())
             logger.trace("Starting execution for " + socketChannel.socket());
 
-        streamRequestHandler = requestHandler.handleRequest(new DataInputStream(inputStream),
-                                                            new DataOutputStream(outputStream));
+        DataInputStream dataInputStream = new DataInputStream(inputStream);
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+
+        streamRequestHandler = requestHandler.handleRequest(dataInputStream,
+							    dataOutputStream);
 
         if(logger.isDebugEnabled()) {
             logger.debug("AsyncRequestHandler:read finished request from "
                          + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
-                         + System.identityHashCode(streamRequestHandler) + " at time: "
+                         + System.identityHashCode(dataInputStream) + " at time: "
                          + System.currentTimeMillis() + " elapsed time: "
                          + (System.nanoTime() - startNs) + " ns");
         }
@@ -307,7 +310,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             if(logger.isDebugEnabled()) {
                 logger.debug("Handled request from "
                              + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
-                             + System.identityHashCode(streamRequestHandler) + " at time: "
+                             + System.identityHashCode(dataInputStream) + " at time: "
                              + System.currentTimeMillis() + " elapsed time: "
                              + (System.nanoTime() - startNs) + " ns");
             }

@@ -254,9 +254,10 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         if(logger.isDebugEnabled()) {
-            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key " + key
-                         + " keyRef: " + System.identityHashCode(key) + "; started at "
-                         + startTimeMs + " took " + (System.nanoTime() - startTimeNs) + " values: "
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
                          + formatNodeValuesFromGet(pipelineData.getResponses()));
         }
 
@@ -358,9 +359,10 @@ public class PipelineRoutedStore extends RoutedStore {
             throw pipelineData.getFatalError();
 
         if(logger.isDebugEnabled()) {
-            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + "for keys " + keys
-                         + " keyRef: " + System.identityHashCode(keys) + "; started at "
-                         + startTimeMs + " took " + (System.nanoTime() - startTimeNs) + " values: "
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + "for keys "
+                         + ByteArray.toHexStrings(keys) + " keyRef: "
+                         + System.identityHashCode(keys) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
                          + formatNodeValuesFromGetAll(pipelineData.getResponses()));
         }
 
@@ -372,8 +374,9 @@ public class PipelineRoutedStore extends RoutedStore {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
         for(Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> r: list) {
-            builder.append("(nodeId=" + r.getNode().getId() + ", key=" + r.getKey()
-                           + ", retrieved= " + r.getValue() + ")");
+            builder.append("(nodeId=" + r.getNode().getId() + ", keys="
+                           + ByteArray.toHexStrings(r.getKey()) + ", retrieved= " + r.getValue()
+                           + ")");
             builder.append(", ");
         }
         builder.append("}");
@@ -472,9 +475,10 @@ public class PipelineRoutedStore extends RoutedStore {
             results.addAll(response.getValue());
 
         if(logger.isDebugEnabled()) {
-            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key " + key
-                         + " keyRef: " + System.identityHashCode(key) + "; started at "
-                         + startTimeMs + " took " + (System.nanoTime() - startTimeNs) + " values: "
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
                          + formatNodeValuesFromGetVersions(pipelineData.getResponses()));
         }
 
@@ -486,8 +490,9 @@ public class PipelineRoutedStore extends RoutedStore {
         StringBuilder builder = new StringBuilder();
         builder.append("{");
         for(Response<ByteArray, List<Version>> r: results) {
-            builder.append("(nodeId=" + r.getNode().getId() + ", key=" + r.getKey()
-                           + ", retrieved= " + r.getValue() + "), ");
+            builder.append("(nodeId=" + r.getNode().getId() + ", key="
+                           + ByteUtils.toHexString(r.getKey().get()) + ", retrieved= "
+                           + r.getValue() + "), ");
         }
         builder.append("}");
 
@@ -578,8 +583,9 @@ public class PipelineRoutedStore extends RoutedStore {
 
         if(logger.isDebugEnabled()) {
             logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
-                         + key.get() + " keyRef: " + System.identityHashCode(key) + "; started at "
-                         + startTimeMs + " took " + (System.nanoTime() - startTimeNs));
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs));
         }
 
         if(pipelineData.getFatalError() != null)
@@ -703,10 +709,11 @@ public class PipelineRoutedStore extends RoutedStore {
         }
 
         if(logger.isDebugEnabled()) {
-            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key " + key
-                         + " keyRef: " + System.identityHashCode(key) + "; started at "
-                         + startTimeMs + " took " + (System.nanoTime() - startTimeNs) + " value: "
-                         + versioned.getValue() + " (size: " + versioned.getValue().length + ")");
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " value: " + versioned.getValue()
+                         + " (size: " + versioned.getValue().length + ")");
         }
 
         if(pipelineData.getFatalError() != null)
