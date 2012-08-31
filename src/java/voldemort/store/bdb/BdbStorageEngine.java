@@ -50,6 +50,7 @@ import voldemort.versioning.Occurred;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.sleepycat.je.CacheMode;
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
@@ -77,6 +78,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final LockMode readLockMode;
     private final BdbEnvironmentStats bdbEnvironmentStats;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
+    private final boolean minimizeScanImpact;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -90,6 +92,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
                                                            config.getStatsCacheTtlMs(),
                                                            config.getExposeSpaceUtil());
+        this.minimizeScanImpact = config.getMinimizeScanImpact();
     }
 
     public String getName() {
@@ -99,6 +102,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
             Cursor cursor = getBdbDatabase().openCursor(null, null);
+            // evict data brought in by the cursor walk right away
+            if(this.minimizeScanImpact)
+                cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbEntriesIterator(cursor);
         } catch(DatabaseException e) {
             logger.error(e);
@@ -109,6 +115,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     public ClosableIterator<ByteArray> keys() {
         try {
             Cursor cursor = getBdbDatabase().openCursor(null, null);
+            // evict data brought in by the cursor walk right away
+            if(this.minimizeScanImpact)
+                cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbKeysIterator(cursor);
         } catch(DatabaseException e) {
             logger.error(e);
