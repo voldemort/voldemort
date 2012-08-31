@@ -37,6 +37,7 @@ import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Maps;
+import com.sleepycat.je.CacheMode;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
@@ -107,8 +108,14 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbLogFaultReadSize()));
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_ITERATOR_READ_SIZE,
                                          Integer.toString(config.getBdbLogIteratorReadSize()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LAZY_MIGRATION,
+                                         Boolean.toString(config.getBdbCleanerLazyMigration()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
+        if(config.getBdbCacheModeEvictLN()) {
+            environmentConfig.setCacheMode(CacheMode.EVICT_LN);
+        }
+
         databaseConfig = new DatabaseConfig();
         databaseConfig.setAllowCreate(true);
         databaseConfig.setSortedDuplicates(false);

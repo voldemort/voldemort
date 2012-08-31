@@ -87,6 +87,9 @@ public class VoldemortConfig implements Serializable {
     private long bdbStatsCacheTtlMs;
     private boolean bdbExposeSpaceUtilization;
     private long bdbMinimumSharedCache;
+    private boolean bdbCleanerLazyMigration;
+    private boolean bdbCacheModeEvictLN;
+    private boolean bdbMinimizeScanImpact;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -233,6 +236,9 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
         this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
         this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
+        this.bdbCleanerLazyMigration = props.getBoolean("bdb.cleaner.lazy.migration", true);
+        this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", false);
+        this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", false);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -819,6 +825,62 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbBtreeFanout(int bdbBtreeFanout) {
         this.bdbBtreeFanout = bdbBtreeFanout;
+    }
+
+    /**
+     * If true, Cleaner offloads some work to application threads, to keep up
+     * with the write rate.
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.lazy.migration"</li>
+     * <li>default : true</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbCleanerLazyMigration() {
+        return bdbCleanerLazyMigration;
+    }
+
+    public final void setBdbCleanerLazyMigration(boolean bdbCleanerLazyMigration) {
+        this.bdbCleanerLazyMigration = bdbCleanerLazyMigration;
+    }
+
+    /**
+     * If true, BDB will not cache data in the JVM.
+     * 
+     * <ul>
+     * <li>Property : "bdb.cache.evictln"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbCacheModeEvictLN() {
+        return bdbCacheModeEvictLN;
+    }
+
+    public void setBdbCacheModeEvictLN(boolean bdbCacheModeEvictLN) {
+        this.bdbCacheModeEvictLN = bdbCacheModeEvictLN;
+    }
+
+    /**
+     * If true, attempts are made to minimize impact to BDB cache during scan
+     * jobs
+     * 
+     * <ul>
+     * <li>Property : "bdb.minimize.scan.impact"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbMinimizeScanImpact() {
+        return bdbMinimizeScanImpact;
+    }
+
+    public void setBdbMinimizeScanImpact(boolean bdbMinimizeScanImpact) {
+        this.bdbMinimizeScanImpact = bdbMinimizeScanImpact;
     }
 
     /**

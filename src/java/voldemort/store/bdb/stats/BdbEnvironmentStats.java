@@ -97,6 +97,60 @@ public class BdbEnvironmentStats {
         return getFastStats().getNEvictPasses();
     }
 
+    @JmxGetter(name = "BINFetches")
+    public long getBINFetches() {
+        return getFastStats().getNBINsFetch();
+    }
+
+    @JmxGetter(name = "BINFetchMisses")
+    public long getBINFetchMisses() {
+        return getFastStats().getNBINsFetchMiss();
+    }
+
+    @JmxGetter(name = "INFetches")
+    public long getINFetches() {
+        return getFastStats().getNUpperINsFetch();
+    }
+
+    @JmxGetter(name = "INFetchMisses")
+    public long getINFetchMisses() {
+        return getFastStats().getNUpperINsFetchMiss();
+    }
+
+    @JmxGetter(name = "LNFetches")
+    public long getLNFetches() {
+        return getFastStats().getNLNsFetch();
+    }
+
+    @JmxGetter(name = "LNFetchMisses")
+    public long getLNFetchMisses() {
+        return getFastStats().getNLNsFetchMiss();
+    }
+
+    @JmxGetter(name = "CachedBINs")
+    public long getCachedBINs() {
+        return getFastStats().getNCachedBINs();
+    }
+
+    @JmxGetter(name = "CachedINs")
+    public long getCachedUpperINs() {
+        return getFastStats().getNCachedUpperINs();
+    }
+
+    @JmxGetter(name = "EvictedBINs")
+    public long getEvictedBINs() {
+        EnvironmentStats stats = getFastStats();
+        return stats.getNBINsEvictedCacheMode() + stats.getNBINsEvictedCritical()
+               + stats.getNBINsEvictedDaemon() + stats.getNBINsEvictedManual();
+    }
+
+    @JmxGetter(name = "EvictedINs")
+    public long getEvictedINs() {
+        EnvironmentStats stats = getFastStats();
+        return stats.getNUpperINsEvictedCacheMode() + stats.getNUpperINsEvictedCritical()
+               + stats.getNUpperINsEvictedDaemon() + stats.getNUpperINsEvictedManual();
+    }
+
     // 2. IO
     @JmxGetter(name = "NumRandomWrites")
     public long getNumRandomWrites() {
@@ -297,6 +351,21 @@ public class BdbEnvironmentStats {
     @JmxGetter(name = "PercentageUtilization")
     public double getPercentageUtilization() {
         return safeGetPercentage(getTotalSpaceUtilized(), getTotalSpace());
+    }
+
+    @JmxGetter(name = "PercentageBINMiss")
+    public double getPercentageBINMiss() {
+        return safeGetPercentage(getBINFetchMisses(), getBINFetches());
+    }
+
+    @JmxGetter(name = "PercentageINMiss")
+    public double getPercentageINMiss() {
+        return safeGetPercentage(getINFetchMisses(), getINFetches());
+    }
+
+    @JmxGetter(name = "PercentageLNMiss")
+    public double getPercentageLNMiss() {
+        return safeGetPercentage(getLNFetchMisses(), getLNFetches());
     }
 
     public static double safeGetPercentage(long rawNum, long total) {
