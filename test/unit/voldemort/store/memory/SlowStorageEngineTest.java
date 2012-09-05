@@ -24,7 +24,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
-import org.junit.Test;
 
 import voldemort.TestUtils;
 import voldemort.common.VoldemortOpCode;
@@ -84,59 +83,42 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
         return keys;
     }
 
-    // Two modes for the runnable: give it a time to check (expectedTimeMs) or
-    // give it a concurrent queue upon which to add its run time.
+    private String getOpName(Byte opCode) {
+        switch(opCode) {
+            case VoldemortOpCode.GET_OP_CODE:
+                return "Get";
+            case VoldemortOpCode.GET_VERSION_OP_CODE:
+                return "GetVersion";
+            case VoldemortOpCode.GET_ALL_OP_CODE:
+                return "GetAll";
+            case VoldemortOpCode.DELETE_OP_CODE:
+                return "Delete";
+            case VoldemortOpCode.PUT_OP_CODE:
+                return "Put";
+            default:
+                logger.error("getOpName invoked with bad operation code: " + opCode);
+        }
+        return null;
+    }
+
     public class OpInvoker implements Runnable {
 
         private final CountDownLatch signal;
         private final byte opCode;
 
-        private long expectedTimeMs;
         private ConcurrentLinkedQueue<Long> runTimes;
 
         private final ByteArray key;
         private final byte[] value;
 
-        protected OpInvoker(CountDownLatch signal, byte opCode) {
+        OpInvoker(CountDownLatch signal, byte opCode, ConcurrentLinkedQueue<Long> runTimes) {
             this.signal = signal;
             this.opCode = opCode;
-
-            this.expectedTimeMs = -1;
-            this.runTimes = null;
-
+            this.runTimes = runTimes;
             this.key = new ByteArray(ByteUtils.getBytes("key", "UTF-8"));
             this.value = ByteUtils.getBytes("value", "UTF-8");
-            logger.debug("OpInvoker created for operation " + getOpName() + "(Thread: "
+            logger.debug("OpInvoker created for operation " + getOpName(this.opCode) + "(Thread: "
                          + Thread.currentThread().getName() + ")");
-        }
-
-        // expectedTimeMs <= 0 means not checking the runtime
-        OpInvoker(CountDownLatch signal, byte opCode, long expectedTimeMs) {
-            this(signal, opCode);
-            this.expectedTimeMs = expectedTimeMs;
-        }
-
-        OpInvoker(CountDownLatch signal, byte opCode, ConcurrentLinkedQueue<Long> runTimes) {
-            this(signal, opCode);
-            this.runTimes = runTimes;
-        }
-
-        private String getOpName() {
-            switch(this.opCode) {
-                case VoldemortOpCode.GET_OP_CODE:
-                    return "Get";
-                case VoldemortOpCode.GET_VERSION_OP_CODE:
-                    return "GetVersion";
-                case VoldemortOpCode.GET_ALL_OP_CODE:
-                    return "GetAll";
-                case VoldemortOpCode.DELETE_OP_CODE:
-                    return "Delete";
-                case VoldemortOpCode.PUT_OP_CODE:
-                    return "Put";
-                default:
-                    logger.error("getOpName invoked with bad operation code: " + opCode);
-            }
-            return null;
         }
 
         private void doGet() {
@@ -189,16 +171,8 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
             }
             long runTimeMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs);
 
-            if(this.expectedTimeMs > 0) {
-                String details = "(runTimeMs: " + runTimeMs + ", Thread: "
-                                 + Thread.currentThread().getName() + ")";
-                assertFalse("OpInvoker operation time is bad " + details,
-                            !isRunTimeBad(runTimeMs, this.expectedTimeMs));
-            }
-
-            if(this.runTimes != null)
-                runTimes.add(runTimeMs);
-            logger.debug("OpInvoker finished operation " + getOpName() + "(Thread: "
+            runTimes.add(runTimeMs);
+            logger.debug("OpInvoker finished operation " + getOpName(this.opCode) + "(Thread: "
                          + Thread.currentThread().getName() + ")");
             signal.countDown();
         }
@@ -207,39 +181,54 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
     // true if runtime is not within a "reasonable" range. Reasonable
     // defined by a 10% fudge factor.
     private boolean isRunTimeBad(long runTimeMs, long expectedTimeMs) {
-        if((runTimeMs < expectedTimeMs || runTimeMs > (expectedTimeMs * 1.1))) {
-            return false;
+        if((runTimeMs < (expectedTimeMs * 0.9) || runTimeMs > (expectedTimeMs * 1.1))) {
+            return true;
         }
-        return true;
+        return false;
     }
 
     /**
      * Test the time of each op type individually.
      */
-    @Test
     public void testEachOpTypeIndividually() {
-        for(int i = 0; i < 5; ++i) {
-            long timeoutMs = 60;
-            if(i == 0)
-                timeoutMs = 0;
+        // Magic constant 60 ms is based on operation times defined above.
+        long expectedMs = 60;
 
-            for(byte op: opList) {
+        // Magic constants 50 and 5 below allow us to make sure a tight timing
+        // test passes 90% of the time.
+        int numOps = 50;
+        int numOpsWithBadTimesOK = 5;
+        for(byte op: opList) {
+            int badTimesCounter = 0;
+            for(int i = 0; i < numOps; ++i) {
                 CountDownLatch waitForOp = new CountDownLatch(1);
-                new Thread(new OpInvoker(waitForOp, op, timeoutMs)).start();
+                ConcurrentLinkedQueue<Long> runTimes = new ConcurrentLinkedQueue<Long>();
+                new Thread(new OpInvoker(waitForOp, op, runTimes)).start();
                 try {
                     waitForOp.await();
                 } catch(InterruptedException e) {
                     e.printStackTrace();
                 }
-            }
-        }
 
+                long runTimeMs = runTimes.poll();
+                assertTrue(runTimes.isEmpty());
+
+                if(isRunTimeBad(runTimeMs, expectedMs)) {
+                    System.err.println("Bad run time (some are expected): " + getOpName(op)
+                                       + ", runTimeMs: " + runTimeMs + ", expectedMs: "
+                                       + expectedMs + ")");
+                    badTimesCounter++;
+                }
+
+            }
+            assertFalse("Too many bad times for operation " + getOpName(op),
+                        badTimesCounter > numOpsWithBadTimesOK);
+        }
     }
 
     /**
      * Test repeated operations.
      */
-    @Test
     public void testEachOpTypeRepeated() {
         // Magic number '2': Run once to warm up, run again and test asserts on
         // second pass
@@ -287,7 +276,7 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
                     }
                     String details = "(maxTimeMs: " + maxTimeMs + ", " + expectedTimeMs + ")";
                     assertFalse("OpInvoker operation time is bad " + details,
-                                !isRunTimeBad(maxTimeMs, expectedTimeMs));
+                                isRunTimeBad(maxTimeMs, expectedTimeMs));
                 }
             }
         }
