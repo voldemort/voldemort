@@ -419,11 +419,22 @@
     </junitreport>
   </target>
 
-  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
-    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
+    <replace-dir dir="${singletestreport.dir}" />
+    <replace-dir dir="${singletesthtml.dir}" />
+    <junit printsummary="on" showoutput="true" maxmemory="1024m">
       <classpath refid="contrib-test-classpath" />
-      <test name="${test.name}" />
+      <classpath path="${log4j.properties.dir}" />
+      <formatter type="plain" />
+      <formatter type="xml" />
+      <test name="${test.name}"  todir="${singletestreport.dir}"/>
     </junit>
+    <junitreport todir="${singletesthtml.dir}">
+      <fileset dir="${singletestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${singletesthtml.dir}" format="frames" />
+    </junitreport>
   </target>
 
   <target name="junit-all" depends="junit-long, contrib-junit" description="Run All junit tests including contrib.">
