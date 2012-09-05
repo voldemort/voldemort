@@ -17,10 +17,15 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
+import org.apache.avro.Schema;
+import org.apache.avro.mapred.AvroJob;
+import org.apache.avro.mapred.AvroOutputFormat;
+import org.apache.avro.mapred.Pair;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -36,6 +41,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.OutputFormat;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
 import org.apache.log4j.Logger;
@@ -48,6 +54,7 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -66,7 +73,7 @@ public class HadoopStoreBuilder {
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
     private final Configuration config;
-    private final Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass;
+    private final Class mapperClass;
     @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
@@ -99,7 +106,7 @@ public class HadoopStoreBuilder {
     @SuppressWarnings("unchecked")
     @Deprecated
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -135,7 +142,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -175,7 +182,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -218,7 +225,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -265,7 +272,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -391,14 +398,14 @@ public class HadoopStoreBuilder {
             if(saveKeys) {
                 if(reducerPerBucket) {
                     logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.NUM_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
                     logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.MAX_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
                 } else {
                     logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
                     logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
                 }
             }
 
@@ -434,6 +441,218 @@ public class HadoopStoreBuilder {
 
                     FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
 
+                        public boolean accept(Path arg0) {
+                            if(arg0.getName().endsWith("checksum")
+                               && !arg0.getName().startsWith(".")) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+
+                    if(storeFiles != null && storeFiles.length > 0) {
+                        Arrays.sort(storeFiles, new IndexFileLastComparator());
+                        FSDataInputStream input = null;
+
+                        for(FileStatus file: storeFiles) {
+                            try {
+                                input = outputFs.open(file.getPath());
+                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
+                                input.read(fileCheckSum);
+                                logger.debug("Checksum for file " + file.toString() + " - "
+                                             + new String(Hex.encodeHex(fileCheckSum)));
+                                checkSumGenerator.update(fileCheckSum);
+                            } catch(Exception e) {
+                                logger.error("Error while reading checksum file " + e.getMessage(),
+                                             e);
+                            } finally {
+                                if(input != null)
+                                    input.close();
+                            }
+                            outputFs.delete(file.getPath(), false);
+                        }
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
+                                     CheckSum.toString(checkSumType));
+
+                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
+                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
+
+                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
+                    }
+                }
+
+                // Write metadata
+                FSDataOutputStream metadataStream = outputFs.create(new Path(nodePath, ".metadata"));
+                metadataStream.write(metadata.toJsonString().getBytes());
+                metadataStream.flush();
+                metadataStream.close();
+
+            }
+
+        } catch(Exception e) {
+            logger.error("Error in Store builder", e);
+            throw new VoldemortException(e);
+        }
+
+    }
+
+    /**
+     * Run the job
+     */
+    public void buildAvro() {
+        try {
+            JobConf conf = new JobConf(config);
+            conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
+            conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
+            conf.set("stores.xml",
+                     new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
+            conf.setBoolean("save.keys", saveKeys);
+            conf.setBoolean("reducer.per.bucket", reducerPerBucket);
+            conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
+            // conf.setMapperClass(mapperClass);
+            conf.setMapOutputKeyClass(ByteBuffer.class);
+            conf.setMapOutputValueClass(ByteBuffer.class);
+
+            conf.setInputFormat(inputFormatClass);
+
+            conf.setOutputFormat((Class<? extends OutputFormat>) AvroOutputFormat.class);
+            conf.setOutputKeyClass(ByteBuffer.class);
+            conf.setOutputValueClass(ByteBuffer.class);
+            conf.setJarByClass(getClass());
+            conf.setReduceSpeculativeExecution(false);
+            FileInputFormat.setInputPaths(conf, inputPath);
+            conf.set("final.output.dir", outputDir.toString());
+            conf.set("checksum.type", CheckSum.toString(checkSumType));
+            FileOutputFormat.setOutputPath(conf, tempDir);
+
+            FileSystem outputFs = outputDir.getFileSystem(conf);
+            if(outputFs.exists(outputDir)) {
+                throw new IOException("Final output directory already exists.");
+            }
+
+            // delete output dir if it already exists
+            FileSystem tempFs = tempDir.getFileSystem(conf);
+            tempFs.delete(tempDir, true);
+
+            long size = sizeOfPath(tempFs, inputPath);
+            logger.info("Data size = " + size + ", replication factor = "
+                        + storeDef.getReplicationFactor() + ", numNodes = "
+                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
+
+            // Derive "rough" number of chunks and reducers
+            int numReducers;
+            if(saveKeys) {
+
+                if(this.numChunks == -1) {
+                    this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                                     / cluster.getNumberOfPartitions()
+                                                     / storeDef.getReplicationFactor() / chunkSizeBytes),
+                                              1);
+                } else {
+                    logger.info("Overriding chunk size byte and taking num chunks ("
+                                + this.numChunks + ") directly");
+                }
+
+                if(reducerPerBucket) {
+                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
+                } else {
+                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
+                                  * numChunks;
+                }
+            } else {
+
+                if(this.numChunks == -1) {
+                    this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
+                                                     / cluster.getNumberOfPartitions() / chunkSizeBytes),
+                                              1);
+                } else {
+                    logger.info("Overriding chunk size byte and taking num chunks ("
+                                + this.numChunks + ") directly");
+                }
+
+                if(reducerPerBucket) {
+                    numReducers = cluster.getNumberOfPartitions();
+                } else {
+                    numReducers = cluster.getNumberOfPartitions() * numChunks;
+                }
+            }
+            conf.setInt("num.chunks", numChunks);
+            conf.setNumReduceTasks(numReducers);
+
+            conf.setSpeculativeExecution(false);
+
+            System.out.println(config.get("avro.rec.schema"));
+            AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
+
+            AvroJob.setOutputSchema(conf,
+                                    Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
+                                                       Schema.create(Schema.Type.BYTES)));
+
+            AvroJob.setMapperClass(conf, mapperClass);
+
+            if(reducerPerBucket) {
+                conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
+            } else {
+                conf.setReducerClass(AvroStoreBuilderReducer.class);
+            }
+
+            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
+                        + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
+            logger.info("Building store...");
+
+            RunningJob job = JobClient.runJob(conf);
+
+            // Once the job has completed log the counter
+            Counters counters = job.getCounters();
+
+            if(saveKeys) {
+                if(reducerPerBucket) {
+                    logger.info("Number of collisions in the job - "
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
+                    logger.info("Maximum number of collisions for one entry - "
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
+                } else {
+                    logger.info("Number of collisions in the job - "
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
+                    logger.info("Maximum number of collisions for one entry - "
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
+                }
+            }
+
+            // Do a CheckSumOfCheckSum - Similar to HDFS
+            CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
+            if(!this.checkSumType.equals(CheckSumType.NONE) && checkSumGenerator == null) {
+                throw new VoldemortException("Could not generate checksum digest for type "
+                                             + this.checkSumType);
+            }
+
+            // Check if all folder exists and with format file
+            for(Node node: cluster.getNodes()) {
+
+                ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
+
+                if(saveKeys) {
+                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                                 ReadOnlyStorageFormat.READONLY_V2.getCode());
+                } else {
+                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
+                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
+                }
+
+                Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
+
+                if(!outputFs.exists(nodePath)) {
+                    logger.info("No data generated for node " + node.getId()
+                                + ". Generating empty folder");
+                    outputFs.mkdirs(nodePath); // Create empty folder
+                }
+
+                if(checkSumType != CheckSumType.NONE) {
+
+                    FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
+
+                        @Override
                         public boolean accept(Path arg0) {
                             if(arg0.getName().endsWith("checksum")
                                && !arg0.getName().startsWith(".")) {
