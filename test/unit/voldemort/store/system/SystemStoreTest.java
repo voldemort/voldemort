@@ -82,12 +82,12 @@ public class SystemStoreTest {
     @Test
     public void testBasicStore() {
         try {
-            SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name(),
-                                                                                      bootStrapUrls,
-                                                                                      this.CLIENT_ZONE_ID);
+            SystemStore<String, String> sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                                          bootStrapUrls,
+                                                                                          this.CLIENT_ZONE_ID);
             long storesVersion = 1;
-            sysVersionStore.putSysStore("stores.xml", storesVersion);
-            long version = sysVersionStore.getValueSysStore("stores.xml");
+            sysVersionStore.putSysStore("stores.xml", Long.toString(storesVersion));
+            long version = Long.parseLong(sysVersionStore.getValueSysStore("stores.xml"));
             assertEquals("Received incorrect version from the voldsys$_metadata_version system store",
                          storesVersion,
                          version);
@@ -99,13 +99,14 @@ public class SystemStoreTest {
     @Test
     public void testCustomClusterXmlStore() {
         try {
-            SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name(),
-                                                                                      bootStrapUrls,
-                                                                                      this.CLIENT_ZONE_ID,
-                                                                                      this.clusterXml);
+            SystemStore<String, String> sysVersionStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                                          bootStrapUrls,
+                                                                                          this.CLIENT_ZONE_ID,
+                                                                                          this.clusterXml,
+                                                                                          null);
             long storesVersion = 1;
-            sysVersionStore.putSysStore("stores.xml", storesVersion);
-            long version = sysVersionStore.getValueSysStore("stores.xml");
+            sysVersionStore.putSysStore("stores.xml", Long.toString(storesVersion));
+            long version = Long.parseLong(sysVersionStore.getValueSysStore("stores.xml"));
             assertEquals("Received incorrect version from the voldsys$_metadata_version system store",
                          storesVersion,
                          version);
@@ -120,7 +121,8 @@ public class SystemStoreTest {
             SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>("test-store",
                                                                                       bootStrapUrls,
                                                                                       this.CLIENT_ZONE_ID,
-                                                                                      this.clusterXml);
+                                                                                      this.clusterXml,
+                                                                                      null);
             fail("Should not execute this. We can only connect to system store with a 'voldsys$' prefix.");
         } catch(Exception e) {
             // This is fine.

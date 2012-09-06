@@ -51,4 +51,8 @@ public class BasicStoreVerifier<K, V, T> implements StoreVerifier {
         // This is our test.
         store.get(key, null);
     }
+
+    public void flushCachedStores() {
+        this.stores.clear();
+    }
 }

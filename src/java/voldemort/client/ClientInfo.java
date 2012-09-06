@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import java.io.File;
@@ -5,9 +21,15 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+/**
+ * A collection of voldemort client side information what will be populated into
+ * the voldemort cluster when a client is connected to a voldemort cluster
+ * 
+ */
 public class ClientInfo implements Serializable {
 
     /**
@@ -25,12 +47,14 @@ public class ClientInfo implements Serializable {
     private String deploymentPath;
     private long updateTime;
     private String releaseVersion;
+    private ClientConfig config;
 
     public ClientInfo(String storeName,
                       String clientContext,
                       int clientSequence,
                       long bootstrapTime,
-                      String version) {
+                      String version,
+                      ClientConfig config) {
         this.bootstrapTime = bootstrapTime;
         this.storeName = storeName;
         this.context = clientContext;
@@ -39,6 +63,7 @@ public class ClientInfo implements Serializable {
         this.deploymentPath = createDeploymentPath();
         this.updateTime = bootstrapTime;
         this.releaseVersion = version;
+        this.config = config;
 
         if(logger.isDebugEnabled()) {
             logger.debug(this.toString());
@@ -132,6 +157,14 @@ public class ClientInfo implements Serializable {
         return this.releaseVersion;
     }
 
+    public synchronized ClientConfig getClientConfig() {
+        return this.config;
+    }
+
+    /**
+     * At the moment we're not checking if the Config objects are similar. TODO:
+     * reevaluate in the future.
+     */
     @Override
     public boolean equals(Object object) {
         if(this == object)
@@ -154,14 +187,42 @@ public class ClientInfo implements Serializable {
     @Override
     public synchronized String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("boostrapTime[").append(bootstrapTime).append("], ");
-        builder.append("context[").append(context).append("], ");
-        builder.append("deploymentPath[").append(deploymentPath).append("], ");
-        builder.append("localHostName[").append(localHostName).append("], ");
-        builder.append("sequence[").append(sequence).append("], ");
-        builder.append("storeName[").append(storeName).append("], ");
-        builder.append("updateTime[").append(updateTime).append("], ");
-        builder.append("releaseVersion[").append(releaseVersion).append("]");
+        builder.append("bootstrapTime=").append(bootstrapTime).append("\n");
+        builder.append("context=").append(context).append("\n");
+        builder.append("deploymentPath=").append(deploymentPath).append("\n");
+        builder.append("localHostName=").append(localHostName).append("\n");
+        builder.append("sequence=").append(sequence).append("\n");
+        builder.append("storeName=").append(storeName).append("\n");
+        builder.append("updateTime=").append(updateTime).append("\n");
+        builder.append("releaseVersion=").append(releaseVersion).append("\n");
+
+        /**
+         * Append the Client Config information. Right now we only track the
+         * following fields max_connections, max_total_connections,
+         * connection_timeout_ms, socket_timeout_ms, routing_timeout_ms,
+         * client_zone_id, failuredetector_implementation
+         * 
+         */
+        builder.append("max_connections=")
+               .append(this.config.getMaxConnectionsPerNode())
+               .append("\n");
+        builder.append("max_total_connections=")
+               .append(this.config.getMaxTotalConnections())
+               .append("\n");
+        builder.append("connection_timeout_ms=")
+               .append(this.config.getConnectionTimeout(TimeUnit.MILLISECONDS))
+               .append("\n");
+        builder.append("socket_timeout_ms=")
+               .append(this.config.getSocketTimeout(TimeUnit.MILLISECONDS))
+               .append("\n");
+        builder.append("routing_timeout_ms=")
+               .append(this.config.getRoutingTimeout(TimeUnit.MILLISECONDS))
+               .append("\n");
+        builder.append("client_zone_id=").append(this.config.getClientZoneId()).append("\n");
+        builder.append("failuredetector_implementation=")
+               .append(this.config.getFailureDetectorImplementation())
+               .append("\n");
+
         return builder.toString();
     }
 }

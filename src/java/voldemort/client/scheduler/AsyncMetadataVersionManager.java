@@ -13,21 +13,19 @@ import voldemort.utils.MetadataVersionStoreUtils;
  * The AsyncMetadataVersionManager is used to track the Metadata version on the
  * cluster and if necessary Re-bootstrap the client.
  * 
- * During initialization, it will retrieve the current version of the store (or
- * the entire stores.xml depending upon granularity) and cluster.xml and then
- * periodically check whether this has been updated. During init if the initial
- * version turns out to be null, it means that no change has been done to that
- * store since it was created. In this case, we assume version '0'.
+ * During initialization, it will retrieve the current version of the
+ * cluster.xml and then periodically check whether this has been updated. During
+ * init if the initial version turns out to be null, it means that no change has
+ * been done to that store since it was created. In this case, we assume version
+ * '0'.
  */
 
 public class AsyncMetadataVersionManager implements Runnable {
 
-    public static String STORES_VERSION_KEY = "stores.xml";
     public static final String CLUSTER_VERSION_KEY = "cluster.xml";
     public static final String VERSIONS_METADATA_STORE = "metadata-versions";
 
     private final Logger logger = Logger.getLogger(this.getClass());
-    private Long currentStoreVersion;
     private Long currentClusterVersion;
     private final Callable<Void> storeClientThunk;
     private final SystemStoreRepository sysRepository;
@@ -39,22 +37,11 @@ public class AsyncMetadataVersionManager implements Runnable {
     public boolean isActive = false;
 
     public AsyncMetadataVersionManager(SystemStoreRepository sysRepository,
-                                       Callable<Void> storeClientThunk,
-                                       String storeName) {
+                                       Callable<Void> storeClientThunk) {
         this.sysRepository = sysRepository;
-        if(storeName != null) {
-            STORES_VERSION_KEY = storeName;
-        }
 
         // Get the properties object from the system store (containing versions)
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
-
-        try {
-            this.currentStoreVersion = getCurrentVersion(STORES_VERSION_KEY, versionProps);
-
-        } catch(Exception e) {
-            logger.error("Exception while getting currentStoreVersion : " + e);
-        }
 
         try {
             this.currentClusterVersion = getCurrentVersion(CLUSTER_VERSION_KEY, versionProps);
@@ -63,14 +50,9 @@ public class AsyncMetadataVersionManager implements Runnable {
         }
 
         // If the received version is null, assume version 0
-        if(currentStoreVersion == null) {
-            currentStoreVersion = new Long(0);
-        }
         if(currentClusterVersion == null) {
             currentClusterVersion = new Long(0);
         }
-
-        logger.debug("Initial stores.xml version = " + this.currentStoreVersion);
         logger.debug("Initial cluster.xml version = " + this.currentClusterVersion);
 
         this.storeClientThunk = storeClientThunk;
@@ -122,16 +104,12 @@ public class AsyncMetadataVersionManager implements Runnable {
 
         // Get the properties object from the system store (containing versions)
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
-
-        Long newStoresVersion = fetchNewVersion(STORES_VERSION_KEY,
-                                                currentStoreVersion,
-                                                versionProps);
         Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
                                                  currentClusterVersion,
                                                  versionProps);
 
         // If nothing has been updated, continue
-        if((newStoresVersion != null) || (newClusterVersion != null)) {
+        if(newClusterVersion != null) {
 
             logger.info("Metadata version mismatch detected.");
 
@@ -145,28 +123,24 @@ public class AsyncMetadataVersionManager implements Runnable {
                 // do nothing, continue.
             }
 
-            try {
-                if(newStoresVersion != null) {
-                    logger.info("Updating stores version");
-                    currentStoreVersion = newStoresVersion;
-                }
+            /*
+             * Do another check for mismatch here since the versions might have
+             * been updated while we were sleeping
+             */
+            if(!newClusterVersion.equals(currentClusterVersion)) {
 
-                if(newClusterVersion != null) {
+                try {
                     logger.info("Updating cluster version");
                     currentClusterVersion = newClusterVersion;
-                }
 
-                this.storeClientThunk.call();
-            } catch(Exception e) {
-                e.printStackTrace();
-                logger.info(e.getMessage());
+                    this.storeClientThunk.call();
+                } catch(Exception e) {
+                    e.printStackTrace();
+                    logger.info(e.getMessage());
+                }
             }
         }
 
-    }
-
-    public Long getStoreMetadataVersion() {
-        return this.currentStoreVersion;
     }
 
     public Long getClusterMetadataVersion() {
@@ -176,7 +150,6 @@ public class AsyncMetadataVersionManager implements Runnable {
     // Fetch the latest versions for cluster and store
     public void updateMetadataVersions() {
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
-        this.currentStoreVersion = fetchNewVersion(STORES_VERSION_KEY, null, versionProps);
         this.currentClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY, null, versionProps);
     }
 }

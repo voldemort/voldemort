@@ -96,7 +96,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
     public String getNodeThresholdStats() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes()) {
+        for(Node node: getConfig().getCluster().getNodes()) {
             NodeStatus nodeStatus = getNodeStatus(node);
             boolean isAvailabile = false;
             long percentage = 0;

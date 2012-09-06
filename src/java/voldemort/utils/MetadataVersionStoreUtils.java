@@ -9,13 +9,21 @@ import voldemort.client.SystemStore;
 
 public class MetadataVersionStoreUtils {
 
-    public static final String VERSIONS_METADATA_STORE = "metadata-versions";
+    public static final String VERSIONS_METADATA_KEY = "metadata-versions";
     private final static Logger logger = Logger.getLogger(MetadataVersionStoreUtils.class);
 
+    /**
+     * Retrieves a properties (hashmap) consisting of all the metadata versions
+     * 
+     * @param versionStore The system store client used to retrieve the metadata
+     *        versions
+     * @return Properties object containing all the
+     *         'property_name=property_value' values
+     */
     public static Properties getProperties(SystemStore<String, String> versionStore) {
         Properties props = null;
         try {
-            String versionList = versionStore.getSysStore(VERSIONS_METADATA_STORE).getValue();
+            String versionList = versionStore.getSysStore(VERSIONS_METADATA_KEY).getValue();
 
             if(versionList != null) {
                 props = new Properties();
@@ -28,6 +36,13 @@ public class MetadataVersionStoreUtils {
         return props;
     }
 
+    /**
+     * Writes the Properties object to the Version metadata system store
+     * 
+     * @param versionStore The system store client used to retrieve the metadata
+     *        versions
+     * @param props The Properties object to write to the System store
+     */
     public static void setProperties(SystemStore<String, String> versionStore, Properties props) {
         StringBuilder finalVersionList = new StringBuilder();
         for(String propName: props.stringPropertyNames()) {
@@ -37,9 +52,6 @@ public class MetadataVersionStoreUtils {
                 finalVersionList.append("\n" + propName + "=" + props.getProperty(propName));
             }
         }
-
-        System.err.println(finalVersionList);
-
-        versionStore.putSysStore(VERSIONS_METADATA_STORE, finalVersionList.toString());
+        versionStore.putSysStore(VERSIONS_METADATA_KEY, finalVersionList.toString());
     }
 }

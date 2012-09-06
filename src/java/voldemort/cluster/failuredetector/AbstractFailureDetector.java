@@ -45,7 +45,7 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     // Maintain the list of nodes and their status by IDs (in order to handle
     // host swaps)
-    protected final Map<Integer, CompositeNodeStatus> idNodeStatusMap;
+    protected final Map<Integer, NodeStatus> idNodeStatusMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
@@ -55,13 +55,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
-        idNodeStatusMap = new ConcurrentHashMap<Integer, CompositeNodeStatus>();
+        idNodeStatusMap = new ConcurrentHashMap<Integer, NodeStatus>();
 
-        for(Node node: failureDetectorConfig.getNodes()) {
+        for(Node node: failureDetectorConfig.getCluster().getNodes()) {
             idNodeStatusMap.put(node.getId(),
-                                new CompositeNodeStatus(node,
-                                                        createNodeStatus(failureDetectorConfig.getTime()
-                                                                                              .getMilliseconds())));
+                                createNodeStatus(failureDetectorConfig.getTime().getMilliseconds()));
         }
     }
 
@@ -95,9 +93,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getAvailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -106,9 +105,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getUnavailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(!isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -117,16 +117,17 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public int getAvailableNodeCount() {
         int available = 0;
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 available++;
+        }
 
         return available;
     }
 
     @JmxGetter(name = "nodeCount", description = "The number of total nodes")
     public int getNodeCount() {
-        return getConfig().getNodes().size();
+        return getConfig().getCluster().getNodes().size();
     }
 
     public void waitForAvailability(Node node) throws InterruptedException {
@@ -216,27 +217,19 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
     protected NodeStatus getNodeStatus(Node node) {
         NodeStatus nodeStatus = null;
-        CompositeNodeStatus currentNodeStatus = idNodeStatusMap.get(node.getId());
+        NodeStatus currentNodeStatus = idNodeStatusMap.get(node.getId());
 
-        if(currentNodeStatus == null || !currentNodeStatus.getNode().isEqualState(node)) {
-            if(logger.isEnabledFor(Level.WARN))
+        if(currentNodeStatus == null) {
+            if(logger.isEnabledFor(Level.WARN)) {
                 logger.warn("creating new node status for node " + node.getId()
                             + " for failure detector");
-
-            // If the host is being replaced, remove old tracking information
-            if(currentNodeStatus != null) {
-                idNodeStatusMap.remove(currentNodeStatus);
-                failureDetectorConfig.removeNode(currentNodeStatus.getNode());
             }
 
             nodeStatus = createNodeStatus(failureDetectorConfig.getTime().getMilliseconds());
-            idNodeStatusMap.put(node.getId(), new CompositeNodeStatus(node, nodeStatus));
-
-            if(!failureDetectorConfig.getNodes().contains(node)) {
-                failureDetectorConfig.addNode(node);
-            }
-        } else
-            nodeStatus = currentNodeStatus.getStatus();
+            idNodeStatusMap.put(node.getId(), nodeStatus);
+        } else {
+            nodeStatus = currentNodeStatus;
+        }
 
         return nodeStatus;
     }

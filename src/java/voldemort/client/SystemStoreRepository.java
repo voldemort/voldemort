@@ -2,6 +2,7 @@ package voldemort.client;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.system.SystemStoreConstants;
 
 /*
@@ -22,12 +23,13 @@ public class SystemStoreRepository {
         this.sysStoreMap.put(storeName, newSysStore);
     }
 
-    public void createSystemStores(ClientConfig config, String clusterXml) {
+    public void createSystemStores(ClientConfig config, String clusterXml, FailureDetector fd) {
         for(SystemStoreConstants.SystemStoreName storeName: SystemStoreConstants.SystemStoreName.values()) {
             SystemStore sysStore = new SystemStore(storeName.name(),
                                                    config.getBootstrapUrls(),
                                                    config.getClientZoneId(),
-                                                   clusterXml);
+                                                   clusterXml,
+                                                   fd);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }

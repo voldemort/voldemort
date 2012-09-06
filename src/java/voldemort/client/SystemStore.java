@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.Store;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.versioning.InconsistentDataException;
@@ -21,10 +22,14 @@ public class SystemStore<K, V> {
     private volatile Store<K, V, Object> sysStore;
 
     public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID) {
-        this(storeName, bootstrapUrls, clientZoneID, null);
+        this(storeName, bootstrapUrls, clientZoneID, null, null);
     }
 
-    public SystemStore(String storeName, String[] bootstrapUrls, int clientZoneID, String clusterXml) {
+    public SystemStore(String storeName,
+                       String[] bootstrapUrls,
+                       int clientZoneID,
+                       String clusterXml,
+                       FailureDetector fd) {
         String prefix = storeName.substring(0, SystemStoreConstants.NAME_PREFIX.length());
         if(!SystemStoreConstants.NAME_PREFIX.equals(prefix))
             throw new VoldemortException("Illegal system store : " + storeName);
@@ -39,9 +44,9 @@ public class SystemStore<K, V> {
               .setEnableJmx(false)
               .setEnablePipelineRoutedStore(true)
               .setClientZoneId(clientZoneID);
-        this.systemStoreFactory = new SocketStoreClientFactory(config);
+        this.systemStoreFactory = new SystemStoreClientFactory(config);
         this.storeName = storeName;
-        this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml);
+        this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
     }
 
     public Version putSysStore(K key, V value) {
@@ -56,8 +61,10 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, versioned, null);
             version = versioned.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during putSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return version;
     }
@@ -69,8 +76,10 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, value, null);
             version = value.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during putSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return version;
     }
@@ -91,8 +100,10 @@ public class SystemStore<K, V> {
             else
                 logger.debug("Got null value");
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during getSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return versioned;
     }
@@ -108,8 +119,10 @@ public class SystemStore<K, V> {
                 value = versioned.getValue();
             }
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore:");
-            e.printStackTrace();
+            logger.info("Exception caught during getSysStore: " + e);
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
         }
         return value;
     }

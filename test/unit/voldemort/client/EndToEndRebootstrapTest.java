@@ -1,15 +1,10 @@
 package voldemort.client;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.Iterator;
+import java.io.ByteArrayInputStream;
 import java.util.Properties;
 
 import junit.framework.TestCase;
 
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,21 +17,12 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.serialization.DefaultSerializerFactory;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.SerializerDefinition;
-import voldemort.serialization.SerializerFactory;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortServer;
-import voldemort.store.StoreDefinition;
-import voldemort.store.compress.CompressionStrategy;
-import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
-import voldemort.utils.ByteArray;
-import voldemort.utils.Pair;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
+import voldemort.utils.SystemTime;
 import voldemort.xml.ClusterMapper;
 
 public class EndToEndRebootstrapTest extends TestCase {
@@ -51,8 +37,9 @@ public class EndToEndRebootstrapTest extends TestCase {
                                                                                   32 * 1024);
 
     private VoldemortServer[] servers;
-    private StoreClient<String, String> storeClient;
+    private ZenStoreClient<String, String> storeClient;
     SystemStore<String, String> sysStoreVersion;
+    SystemStore<String, String> clientRegistryStore;
     private Cluster cluster;
     public static String socketUrl = "";
     protected final int CLIENT_ZONE_ID = 0;
@@ -91,11 +78,25 @@ public class EndToEndRebootstrapTest extends TestCase {
         clientConfig.setClientRegistryUpdateInSecs(5);
         clientConfig.setAsyncMetadataRefreshInMs(5000);
         clientConfig.setBootstrapUrls(bootstrapUrl);
-        StoreClientFactory storeClientFactory = new SocketStoreClientFactory(clientConfig);
-        storeClient = storeClientFactory.getStoreClient(STORE_NAME);
+        SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(clientConfig);
+
+        SchedulerService service = new SchedulerService(clientConfig.getAsyncJobThreadPoolSize(),
+                                                        SystemTime.INSTANCE,
+                                                        true);
+        storeClient = new ZenStoreClient<String, String>(STORE_NAME,
+                                                         null,
+                                                         storeClientFactory,
+                                                         3,
+                                                         clientConfig.getClientContextName(),
+                                                         0,
+                                                         clientConfig,
+                                                         service);
         sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
                                                           bootStrapUrls,
                                                           0);
+        clientRegistryStore = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name(),
+                                                              bootStrapUrls,
+                                                              0);
 
     }
 
@@ -106,61 +107,12 @@ public class EndToEndRebootstrapTest extends TestCase {
         servers[1].stop();
     }
 
-    private String getClientInfo(AdminClient adminClient,
-                                 String storeName,
-                                 StoreDefinition storeDefinition) throws IOException {
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = adminClient.fetchEntries(0,
-                                                                                         storeName,
-                                                                                         cluster.getNodeById(0)
-                                                                                                .getPartitionIds(),
-                                                                                         null,
-                                                                                         true);
-
-        boolean hasData = iterator.hasNext();
-        assertTrue(hasData);
-
-        String clientInfo = null;
-        CompressionStrategy valueCompressionStrategy = null;
-
-        SerializerFactory serializerFactory = new DefaultSerializerFactory();
-        StringWriter stringWriter = new StringWriter();
-        JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
-
-        SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
-        if(null != valueSerializerDef && valueSerializerDef.hasCompression()) {
-            valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
-        }
-
-        @SuppressWarnings("unchecked")
-        Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getValueSerializer());
-
-        try {
-
-            Pair<ByteArray, Versioned<byte[]>> kvPair = iterator.next();
-            VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
-            byte[] valueBytes = kvPair.getSecond().getValue();
-
-            Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
-                                                                                            : valueCompressionStrategy.inflate(valueBytes));
-
-            generator.writeObject(valueObject);
-
-            StringBuffer buf = stringWriter.getBuffer();
-            clientInfo = buf.toString();
-            buf.setLength(0);
-        } finally {
-
-        }
-        return clientInfo;
-    }
-
     @Test
     public void testEndToEndRebootstrap() {
         try {
             // Do a sample get, put to check client is correctly initialized.
             String key = "city";
             String value = "SF";
-            String storeName = SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name();
             String bootstrapTime = "";
             String newBootstrapTime = "";
             AdminClient adminClient = new AdminClient(bootStrapUrls[0], new AdminClientConfig());
@@ -173,12 +125,17 @@ public class EndToEndRebootstrapTest extends TestCase {
                 fail("Error in doing basic get, put");
             }
 
-            // Track the original bootstrap timestamp published by client
-            String originalClientInfo = getClientInfo(adminClient,
-                                                      storeName,
-                                                      SystemStoreConstants.getSystemStoreDef(storeName));
+            String originalClientInfo = null;
+
             try {
-                bootstrapTime = originalClientInfo.split("]")[0].split("\\[")[1];
+                originalClientInfo = clientRegistryStore.getSysStore(storeClient.getClientId())
+                                                        .getValue();
+
+                Properties props = new Properties();
+                props.load(new ByteArrayInputStream(originalClientInfo.getBytes()));
+
+                bootstrapTime = props.getProperty("bootstrapTime");
+                assertNotNull(bootstrapTime);
             } catch(Exception e) {
                 fail("Error in retrieving bootstrap time: " + e);
             }
@@ -191,8 +148,6 @@ public class EndToEndRebootstrapTest extends TestCase {
                                                       adminClient,
                                                       CLUSTER_KEY,
                                                       mapper.writeCluster(cluster));
-                VoldemortAdminTool.updateMetadataversion(CLUSTER_KEY, sysStoreVersion);
-
             }
 
             // Wait for about 15 seconds to be sure
@@ -202,12 +157,16 @@ public class EndToEndRebootstrapTest extends TestCase {
                 fail("Interrupted .");
             }
 
-            // Retrieve the new client bootstrap timestamp
-            String newClientInfo = getClientInfo(adminClient,
-                                                 storeName,
-                                                 SystemStoreConstants.getSystemStoreDef(storeName));
+            // // Retrieve the new client bootstrap timestamp
+            String newClientInfo = null;
+
             try {
-                newBootstrapTime = newClientInfo.split("]")[0].split("\\[")[1];
+                newClientInfo = clientRegistryStore.getSysStore(storeClient.getClientId())
+                                                   .getValue();
+                Properties newProps = new Properties();
+                newProps.load(new ByteArrayInputStream(newClientInfo.getBytes()));
+                newBootstrapTime = newProps.getProperty("bootstrapTime");
+                assertNotNull(newBootstrapTime);
             } catch(Exception e) {
                 fail("Error in retrieving bootstrap time: " + e);
             }

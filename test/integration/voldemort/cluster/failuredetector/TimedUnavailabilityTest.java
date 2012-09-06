@@ -47,7 +47,7 @@ public class TimedUnavailabilityTest extends FailureDetectorPerformanceTest {
 
     @Override
     public String test(FailureDetector failureDetector) throws Exception {
-        Node node = Iterables.get(failureDetectorConfig.getNodes(), 0);
+        Node node = Iterables.get(failureDetectorConfig.getCluster().getNodes(), 0);
         CountDownLatch countDownLatch = new CountDownLatch(1);
         Listener listener = new Listener(failureDetectorConfig.getTime());
         failureDetector.addFailureDetectorListener(listener);

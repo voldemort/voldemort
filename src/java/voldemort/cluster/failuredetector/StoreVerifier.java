@@ -48,4 +48,9 @@ public interface StoreVerifier {
 
     public void verifyStore(Node node) throws UnreachableStoreException, VoldemortException;
 
+    /**
+     * Flushes the cached stores if any
+     */
+    public void flushCachedStores();
+
 }

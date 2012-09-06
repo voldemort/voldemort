@@ -9,8 +9,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
@@ -168,11 +170,11 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
-        throw new VoldemortException("Iteration not supported in FileBackedCachingStorageEngine");
+        return new FileBackedStorageIterator(this.metadataMap, this);
     }
 
     public ClosableIterator<ByteArray> keys() {
-        throw new VoldemortException("Keys iteration not supported in FileBackedCachingStorageEngine");
+        return StoreUtils.keys(entries());
     }
 
     public void truncate() {
@@ -262,36 +264,42 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         return deleteSuccessful;
     }
 
-    // public static void main(String[] args) {
-    // FileBackedCachingStorageEngine engine = new
-    // FileBackedCachingStorageEngine("metadata-versions-stores",
-    // ".");
-    // ByteArray key = new ByteArray("property_name".getBytes());
-    // String result = new String(engine.get(key, null).get(0).getValue());
-    // System.out.println("Received: \n" + result);
-    //
-    // key = new ByteArray("versions".getBytes());
-    // result = new String(engine.get(key, null).get(0).getValue());
-    // System.out.println("Received: \n" + result);
-    //
-    // key = new ByteArray("ame".getBytes());
-    // result = "";
-    // byte[] res = engine.get(key, null).get(0).getValue();
-    // if(res != null) {
-    // result = new String(res);
-    // }
-    // System.out.println("Received: \n" + result);
-    //
-    // key = new ByteArray("client-config".getBytes());
-    // byte[] value = "selectors=10".getBytes();
-    // engine.put(key, new Versioned<byte[]>(value), null);
-    //
-    // key = new ByteArray("client-config".getBytes());
-    // result = new String(engine.get(key, null).get(0).getValue());
-    // System.out.println("Received: \n" + result);
-    //
-    // key = new ByteArray("my_awesome_store".getBytes());
-    // value = "cluster.xml=22\nmy_awesome_store=4".getBytes();
-    // engine.put(key, new Versioned<byte[]>(value), null);
-    // }
+    private static class FileBackedStorageIterator implements
+            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        private final Iterator<Entry<String, String>> iterator;
+        private final FileBackedCachingStorageEngine storageEngineRef;
+
+        public FileBackedStorageIterator(Map<String, String> metadataMap,
+                                         FileBackedCachingStorageEngine storageEngine) {
+            iterator = metadataMap.entrySet().iterator();
+            storageEngineRef = storageEngine;
+        }
+
+        public boolean hasNext() {
+            return iterator.hasNext();
+        }
+
+        public Pair<ByteArray, Versioned<byte[]>> next() {
+            Entry<String, String> entry = iterator.next();
+            Pair<ByteArray, Versioned<byte[]>> nextValue = null;
+            if(entry != null && entry.getKey() != null && entry.getValue() != null) {
+                ByteArray key = new ByteArray(entry.getKey().getBytes());
+                byte[] resultBytes = entry.getValue().getBytes();
+                Versioned<byte[]> versionedValue = new Versioned<byte[]>(resultBytes,
+                                                                         storageEngineRef.readVersion());
+                nextValue = Pair.create(key, versionedValue);
+            }
+
+            return nextValue;
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("No removal y'all.");
+        }
+
+        public void close() {}
+
+    }
+
 }

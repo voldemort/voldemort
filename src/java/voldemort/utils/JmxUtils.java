@@ -68,6 +68,8 @@ public class JmxUtils {
     private static final Object LOCK = new Object();
     private static final Logger logger = Logger.getLogger(JmxUtils.class);
 
+    public static final String MBEAN_NAME_SEPARATOR = "-";
+
     /**
      * Create a model mbean from an object using the description given in the
      * Jmx annotation if present. Only operations are supported so far, no
@@ -348,6 +350,27 @@ public class JmxUtils {
         } catch(Exception e) {
             logger.error("Error unregistering mbean", e);
         }
+    }
+
+    /**
+     * Generate a mbean display name. If originalName is an empty string or
+     * null, return an empty string. Otherwise, return SEPARATOR + originalName.
+     * 
+     * @param originalName The original name to be displayed
+     */
+    public static String getJmxDisplayNameString(String originalName) {
+        return ((null == originalName) || "".equals(originalName)) ? ""
+                                                                  : (MBEAN_NAME_SEPARATOR + originalName);
+    }
+
+    /**
+     * Generate a mbean display name. If originalName is 0, return an empty
+     * string. Otherwise, return SEPARATOR + originalName.
+     * 
+     * @param originalName The original name to be displayed
+     */
+    public static String getJmxDisplayNameString(int originalName) {
+        return (0 == originalName) ? "" : (MBEAN_NAME_SEPARATOR + originalName);
     }
 
 }

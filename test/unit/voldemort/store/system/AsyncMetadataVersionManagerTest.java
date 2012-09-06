@@ -90,7 +90,7 @@ public class AsyncMetadataVersionManagerTest {
 
     @Test
     public void testBasicAsyncBehaviour() {
-        String storeVersionKey = "stores.xml";
+        String storeVersionKey = "cluster.xml";
         try {
             Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
@@ -112,8 +112,7 @@ public class AsyncMetadataVersionManagerTest {
 
             // Starting the Version Metadata Manager
             this.asyncCheckMetadata = new AsyncMetadataVersionManager(this.repository,
-                                                                      rebootstrapCallback,
-                                                                      null);
+                                                                      rebootstrapCallback);
             scheduler.schedule(asyncCheckMetadata.getClass().getName(),
                                asyncCheckMetadata,
                                new Date(),
@@ -152,9 +151,9 @@ public class AsyncMetadataVersionManagerTest {
 
     private void callback() {
         try {
-            Long storeVersion = this.asyncCheckMetadata.getStoreMetadataVersion();
-            if(storeVersion != null) {
-                this.updatedStoresVersion = storeVersion;
+            Long clusterVersion = this.asyncCheckMetadata.getClusterMetadataVersion();
+            if(clusterVersion != null) {
+                this.updatedStoresVersion = clusterVersion;
             }
         } catch(Exception e) {
             fail("Error in updating stores.xml version: " + e.getMessage());

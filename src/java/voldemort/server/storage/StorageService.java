@@ -154,8 +154,7 @@ public class StorageService extends AbstractService {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive());
 
-        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setNodes(metadata.getCluster()
-                                                                                                                  .getNodes())
+        FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(voldemortConfig).setCluster(metadata.getCluster())
                                                                                                 .setStoreVerifier(new ServerStoreVerifier(storeFactory,
                                                                                                                                           metadata,
                                                                                                                                           config));

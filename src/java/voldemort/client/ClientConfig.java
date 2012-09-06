@@ -81,12 +81,13 @@ public class ClientConfig {
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
     private volatile int maxBootstrapRetries = 2;
-    private volatile String clientContextName = "default";
+    private volatile String clientContextName = "";
 
     /* 5 second check interval, in ms */
     private volatile long asyncCheckMetadataInterval = 5000;
     /* 12 hr refresh internval, in seconds */
     private volatile int clientRegistryRefreshInterval = 3600 * 12;
+    private volatile int asyncJobThreadPoolSize = 2;
 
     public ClientConfig() {}
 
@@ -130,6 +131,8 @@ public class ClientConfig {
     public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
     public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval";
     private static final String USE_DEFAULT_CLIENT = "use_default_client";
+    public static final String CLIENT_REGISTRY_REFRESH_INTERVAL = "client_registry_refresh_interval";
+    public static final String ASYNC_JOB_THREAD_POOL_SIZE = "async_job_thread_pool_size";
 
     /**
      * Instantiate the client config using a properties file
@@ -293,11 +296,19 @@ public class ClientConfig {
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
 
         if(props.containsKey(CLIENT_CONTEXT_NAME)) {
-            this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME, null));
+            this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME));
         }
 
         if(props.containsKey(ASYNC_CHECK_METADATA_INTERVAL)) {
-            this.setAsyncMetadataRefreshInMs(props.getLong(ASYNC_CHECK_METADATA_INTERVAL, 5000));
+            this.setAsyncMetadataRefreshInMs(props.getLong(ASYNC_CHECK_METADATA_INTERVAL));
+        }
+
+        if(props.containsKey(CLIENT_REGISTRY_REFRESH_INTERVAL)) {
+            this.setClientRegistryUpdateInSecs(props.getInt(CLIENT_REGISTRY_REFRESH_INTERVAL));
+        }
+
+        if(props.containsKey(ASYNC_JOB_THREAD_POOL_SIZE)) {
+            this.setAsyncJobThreadPoolSize(props.getInt(ASYNC_JOB_THREAD_POOL_SIZE));
         }
     }
 
@@ -727,6 +738,11 @@ public class ClientConfig {
         return clientContextName;
     }
 
+    /**
+     * Set the client context name
+     * 
+     * @param clientContextName The name of client context
+     */
     public ClientConfig setClientContextName(String clientContextName) {
         this.clientContextName = clientContextName;
         return this;
@@ -736,7 +752,13 @@ public class ClientConfig {
         return asyncCheckMetadataInterval;
     }
 
+    /**
+     * Set the interval on which client checks for metadata change on servers
+     * 
+     * @param asyncCheckMetadataInterval The metadata change interval
+     */
     public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataInterval) {
+
         this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
         return this;
     }
@@ -745,8 +767,28 @@ public class ClientConfig {
         return this.clientRegistryRefreshInterval;
     }
 
+    /**
+     * Set the interval on which client refreshes its corresponding entry of the
+     * client registry on the servers
+     * 
+     * @param clientRegistryRefreshInterval The refresh interval in seconds
+     */
     public ClientConfig setClientRegistryUpdateInSecs(int clientRegistryRefrshInterval) {
         this.clientRegistryRefreshInterval = clientRegistryRefrshInterval;
+        return this;
+    }
+
+    public int getAsyncJobThreadPoolSize() {
+        return asyncJobThreadPoolSize;
+    }
+
+    /**
+     * Set the # of threads for the async. job thread pool
+     * 
+     * @param asyncJobThreadPoolSize The max # of threads in the async job
+     */
+    public ClientConfig setAsyncJobThreadPoolSize(int asyncJobThreadPoolSize) {
+        this.asyncJobThreadPoolSize = asyncJobThreadPoolSize;
         return this;
     }
 }

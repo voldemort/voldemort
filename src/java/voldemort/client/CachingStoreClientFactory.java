@@ -17,7 +17,6 @@
 package voldemort.client;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -76,13 +75,7 @@ public class CachingStoreClientFactory implements StoreClientFactory {
 
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
-        return getRawStore(storeName, resolver, null);
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId) {
-        return inner.getRawStore(storeName, resolver, clientId);
+        return getRawStore(storeName, resolver);
     }
 
     public void close() {
@@ -122,13 +115,5 @@ public class CachingStoreClientFactory implements StoreClientFactory {
         } catch(Exception e) {
             logger.warn("Exception during bootstrapAllClients", e);
         }
-    }
-
-    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
-                                                InconsistencyResolver<Versioned<V>> resolver,
-                                                UUID clientId,
-                                                String storesXml,
-                                                String clusterXml) {
-        return inner.getRawStore(storeName, resolver, clientId, storesXml, clusterXml);
     }
 }

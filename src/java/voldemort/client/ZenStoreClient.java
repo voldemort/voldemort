@@ -19,8 +19,8 @@ package voldemort.client;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -35,7 +35,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ManifestFileReader;
-import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Version;
@@ -62,26 +61,27 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private final AbstractStoreClientFactory abstractStoreFactory;
     private final ClientConfig config;
     private final SystemStoreRepository sysRepository;
-    private final UUID clientId;
+    private final String clientId;
     private final SchedulerService scheduler;
     private ClientInfo clientInfo;
     private String clusterXml;
     private AsyncMetadataVersionManager asyncCheckMetadata = null;
 
     public ZenStoreClient(String storeName,
-                               InconsistencyResolver<Versioned<V>> resolver,
-                               AbstractStoreClientFactory storeFactory,
-                               int maxMetadataRefreshAttempts) {
-        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null);
+                          InconsistencyResolver<Versioned<V>> resolver,
+                          AbstractStoreClientFactory storeFactory,
+                          int maxMetadataRefreshAttempts) {
+        this(storeName, resolver, storeFactory, maxMetadataRefreshAttempts, null, 0, null, null);
     }
 
     public ZenStoreClient(String storeName,
-                               InconsistencyResolver<Versioned<V>> resolver,
-                               AbstractStoreClientFactory storeFactory,
-                               int maxMetadataRefreshAttempts,
-                               String clientContext,
-                               int clientSequence,
-                               ClientConfig config) {
+                          InconsistencyResolver<Versioned<V>> resolver,
+                          AbstractStoreClientFactory storeFactory,
+                          int maxMetadataRefreshAttempts,
+                          String clientContext,
+                          int clientSequence,
+                          ClientConfig config,
+                          SchedulerService scheduler) {
 
         super();
         this.storeName = Utils.notNull(storeName);
@@ -93,20 +93,18 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                          clientContext,
                                          clientSequence,
                                          System.currentTimeMillis(),
-                                         ManifestFileReader.getReleaseVersion());
-        this.clientId = AbstractStoreClientFactory.generateClientId(clientInfo);
+                                         ManifestFileReader.getReleaseVersion(),
+                                         config);
+        this.clientId = generateClientId(clientInfo);
         this.config = config;
         this.sysRepository = new SystemStoreRepository();
-        this.scheduler = new SchedulerService(ASYNC_THREADS_COUNT,
-                                              SystemTime.INSTANCE,
-                                              ALLOW_INTERRUPT_ASYNC);
+        this.scheduler = scheduler;
+
         // Registering self to be able to bootstrap client dynamically via JMX
         JmxUtils.registerMbean(this,
                                JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
                                                          JmxUtils.getClassName(this.getClass())
-                                                                 + "." + clientContext + "."
-                                                                 + storeName + "."
-                                                                 + clientId.toString()));
+                                                                 + "." + storeName));
 
         // Bootstrap this client
         bootStrap();
@@ -117,28 +115,32 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                                          config.getAsyncMetadataRefreshInMs());
         }
 
-        registerClient(clientId.toString(), config.getClientRegistryUpdateInSecs());
-        logger.info("Voldemort client created: " + clientId.toString() + "\n" + clientInfo);
+        registerClient(clientId, config.getClientRegistryUpdateInSecs());
+        logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
     private void registerClient(String jobId, int interval) {
-        SystemStore<String, String> clientRegistry = this.sysRepository.getClientRegistryStore();
-        if(null != clientRegistry) {
+        if(this.sysRepository.getClientRegistryStore() != null) {
             try {
-                Version version = clientRegistry.putSysStore(clientId.toString(),
-                                                             clientInfo.toString());
-                ClientRegistryRefresher refresher = new ClientRegistryRefresher(clientRegistry,
-                                                                                clientId.toString(),
+                Version version = this.sysRepository.getClientRegistryStore()
+                                                    .putSysStore(clientId, clientInfo.toString());
+                ClientRegistryRefresher refresher = new ClientRegistryRefresher(this.sysRepository,
+                                                                                clientId,
                                                                                 clientInfo,
                                                                                 version);
                 GregorianCalendar cal = new GregorianCalendar();
                 cal.add(Calendar.SECOND, interval);
-                scheduler.schedule(jobId + refresher.getClass().getName(),
-                                   refresher,
-                                   cal.getTime(),
-                                   interval * 1000);
-                logger.info("Client registry refresher thread started, refresh frequency: "
-                            + interval + " seconds");
+
+                if(scheduler != null) {
+                    scheduler.schedule(jobId + refresher.getClass().getName(),
+                                       refresher,
+                                       cal.getTime(),
+                                       TimeUnit.MILLISECONDS.convert(interval, TimeUnit.SECONDS));
+                    logger.info("Client registry refresher thread started, refresh interval: "
+                                + interval + " seconds");
+                } else {
+                    logger.warn("Client registry won't run because scheduler service is not configured");
+                }
             } catch(Exception e) {
                 logger.warn("Unable to register with the cluster due to the following error:", e);
             }
@@ -151,9 +153,9 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private AsyncMetadataVersionManager scheduleMetadataChecker(String jobId, long interval) {
         AsyncMetadataVersionManager asyncCheckMetadata = null;
         SystemStore<String, Long> versionStore = this.sysRepository.getVersionStore();
-        if(versionStore == null)
+        if(versionStore == null) {
             logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
-        else {
+        } else {
 
             // Create a callback for re-bootstrapping the client
             Callable<Void> rebootstrapCallback = new Callable<Void>() {
@@ -165,18 +167,20 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             };
 
             asyncCheckMetadata = new AsyncMetadataVersionManager(this.sysRepository,
-                                                                 rebootstrapCallback,
-                                                                 null);
+                                                                 rebootstrapCallback);
 
             // schedule the job to run every 'checkInterval' period, starting
             // now
-            scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
-                               asyncCheckMetadata,
-                               new Date(),
-                               interval);
-            logger.info("Metadata version check thread started. Frequency = Every " + interval
-                        + " ms");
-
+            if(scheduler != null) {
+                scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
+                                   asyncCheckMetadata,
+                                   new Date(),
+                                   interval);
+                logger.info("Metadata version check thread started. Frequency = Every " + interval
+                            + " ms");
+            } else {
+                logger.warn("Metadata version check thread won't start because the scheduler service is not configured.");
+            }
         }
         return asyncCheckMetadata;
     }
@@ -192,15 +196,13 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
          */
         clusterXml = abstractStoreFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
 
-        this.store = abstractStoreFactory.getRawStore(storeName,
-                                                      resolver,
-                                                      clientId,
-                                                      null,
-                                                      clusterXml);
+        this.store = abstractStoreFactory.getRawStore(storeName, resolver, null, clusterXml, null);
 
         // Create system stores
         logger.info("Creating system stores for store " + this.storeName);
-        this.sysRepository.createSystemStores(this.config, this.clusterXml);
+        this.sysRepository.createSystemStores(this.config,
+                                              this.clusterXml,
+                                              abstractStoreFactory.getFailureDetector());
 
         /*
          * Update to the new metadata versions (in case we got here from Invalid
@@ -211,24 +213,16 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             asyncCheckMetadata.updateMetadataVersions();
         }
 
+        /*
+         * Every time we bootstrap, update the bootstrap time
+         */
         if(this.clientInfo != null) {
             this.clientInfo.setBootstrapTime(System.currentTimeMillis());
         }
     }
 
-    public void close() {
-        scheduler.stopInner();
-    }
-
-    public UUID getClientId() {
+    public String getClientId() {
         return clientId;
-    }
-
-    @JmxGetter(name = "getStoreMetadataVersion")
-    public String getStoreMetadataVersion() {
-        String result = "Current Store Metadata Version : "
-                        + this.asyncCheckMetadata.getStoreMetadataVersion();
-        return result;
     }
 
     @JmxGetter(name = "getClusterMetadataVersion")
@@ -236,5 +230,32 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
         String result = "Current Cluster Metadata Version : "
                         + this.asyncCheckMetadata.getClusterMetadataVersion();
         return result;
+    }
+
+    /**
+     * Generate a unique client ID based on: 0. clientContext, if specified; 1.
+     * storeName; 2. deployment path; 3. client sequence
+     * 
+     * @param storeName the name of the store the client is created for
+     * @param contextName the name of the client context
+     * @param clientSequence the client sequence number
+     * @return unique client ID
+     */
+    public String generateClientId(ClientInfo clientInfo) {
+        String contextName = clientInfo.getContext();
+        int clientSequence = clientInfo.getClientSequence();
+
+        String newLine = System.getProperty("line.separator");
+        StringBuilder context = new StringBuilder(contextName == null ? "" : contextName);
+        context.append(0 == clientSequence ? "" : ("." + clientSequence));
+        context.append(".").append(clientInfo.getStoreName());
+        context.append("@").append(clientInfo.getLocalHostName()).append(":");
+        context.append(clientInfo.getDeploymentPath()).append(newLine);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug(context.toString());
+        }
+
+        return context.toString();
     }
 }
