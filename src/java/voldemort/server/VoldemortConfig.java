@@ -99,7 +99,7 @@ public class VoldemortConfig implements Serializable {
     private long reportingIntervalBytes;
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
-    private String readOnlyKerberosProxyUser;
+    private String readOnlyKerberosUser;
     private String hadoopConfigPath;
 
     private int coreThreads;
@@ -242,9 +242,9 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
                                                   this.metadataDirectory
                                                           + "/voldemrt.headless.keytab");
-        this.readOnlyKerberosProxyUser = props.getString("readonly.kerberos.proxyuser", "voldemrt");
+        this.readOnlyKerberosUser = props.getString("readonly.kerberos.user", "voldemrt");
         this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
-                                                this.metadataDirectory + "/hadoop-conf"));
+                                                 this.metadataDirectory + "/hadoop-conf"));
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -1181,12 +1181,12 @@ public class VoldemortConfig implements Serializable {
         this.readOnlyKeytabPath = readOnlyKeytabPath;
     }
 
-    public String getReadOnlyKerberosProxyUser() {
-        return readOnlyKerberosProxyUser;
+    public String getReadOnlyKerberosUser() {
+        return readOnlyKerberosUser;
     }
 
-    public void setReadOnlyKerberosProxyUser(String readOnlyKerberosProxyUser) {
-        this.readOnlyKerberosProxyUser = readOnlyKerberosProxyUser;
+    public void setReadOnlyKerberosUser(String readOnlyKerberosUser) {
+        this.readOnlyKerberosUser = readOnlyKerberosUser;
     }
 
     public String getHadoopConfigPath() {

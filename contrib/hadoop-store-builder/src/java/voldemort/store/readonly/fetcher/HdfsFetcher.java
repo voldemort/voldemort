@@ -74,7 +74,7 @@ public class HdfsFetcher implements FileFetcher {
     private long minBytesPerSecond = 0;
     private DynamicThrottleLimit globalThrottleLimit = null;
     private String keytabLocation = "";
-    private String proxyUser = "voldemrt";
+    private String kerberosUser = "voldemrt";
     private VoldemortConfig voldemortConfig = null;
 
     public HdfsFetcher(VoldemortConfig config) {
@@ -96,7 +96,7 @@ public class HdfsFetcher implements FileFetcher {
              config.getFetcherBufferSize(),
              config.getMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
-             config.getReadOnlyKerberosProxyUser());
+             config.getReadOnlyKerberosUser());
 
         this.voldemortConfig = config;
 
@@ -121,7 +121,7 @@ public class HdfsFetcher implements FileFetcher {
                        int bufferSize,
                        long minBytesPerSecond,
                        String keytabLocation,
-                       String proxyUser) {
+                       String kerberosUser) {
         if(maxBytesPerSecond != null) {
             this.maxBytesPerSecond = maxBytesPerSecond;
             this.throttler = new EventThrottler(this.maxBytesPerSecond);
@@ -138,7 +138,7 @@ public class HdfsFetcher implements FileFetcher {
         this.status = null;
         this.minBytesPerSecond = minBytesPerSecond;
         this.keytabLocation = keytabLocation;
-        this.proxyUser = proxyUser;
+        this.kerberosUser = kerberosUser;
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
@@ -168,9 +168,9 @@ public class HdfsFetcher implements FileFetcher {
              */
             synchronized(this) {
                 if(this.keytabLocation.length() > 0) {
-                    logger.info("keytab path = " + keytabLocation + " and proxy user = "
-                                + proxyUser);
-                    UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
+                    logger.info("keytab path = " + keytabLocation + " and Kerberos user = "
+                                + kerberosUser);
+                    UserGroupInformation.loginUserFromKeytab(kerberosUser, keytabLocation);
                     logger.info("I've logged in and am now Doasing as "
                                 + UserGroupInformation.getCurrentUser().getUserName());
                     try {
@@ -520,11 +520,11 @@ public class HdfsFetcher implements FileFetcher {
         String url = args[0];
 
         String keytabLocation = "";
-        String proxyUser = "";
+        String kerberosUser = "";
         String hadoopPath = "";
         if(args.length >= 4) {
             keytabLocation = args[1];
-            proxyUser = args[2];
+            kerberosUser = args[2];
             hadoopPath = args[3];
         }
 
@@ -549,8 +549,8 @@ public class HdfsFetcher implements FileFetcher {
          * Otherwise get the default filesystem object.
          */
         if(keytabLocation.length() > 0) {
-            logger.debug("keytab path = " + keytabLocation + " and proxy user = " + proxyUser);
-            UserGroupInformation.loginUserFromKeytab(proxyUser, keytabLocation);
+            logger.debug("keytab path = " + keytabLocation + " and Kerberos user = " + kerberosUser);
+            UserGroupInformation.loginUserFromKeytab(kerberosUser, keytabLocation);
             logger.debug("I've logged in and am now Doasing as "
                          + UserGroupInformation.getCurrentUser().getUserName());
             try {
