@@ -120,8 +120,7 @@ public class EndToEndTest {
 
         assertEquals("getAll works as expected", "Moscow", capitals.get("Russia").getValue());
         assertEquals("getAll works as expected", "Kiev", capitals.get("Ukraine").getValue());
-        assertTrue("getAll works as expected",
-                   !capitals.containsKey("Japan") || capitals.get("Japan") == null);
+        assertTrue("getAll works as expected", capitals.get("Japan") == null);
 
         storeClient.delete("Ukraine");
         assertNull("delete works as expected", storeClient.get("Ukraine"));

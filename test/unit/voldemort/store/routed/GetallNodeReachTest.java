@@ -249,19 +249,13 @@ public class GetallNodeReachTest {
     public void testGetall_322() throws Exception {
         cluster = getEightNodeClusterWithZones();
         HashMap<Integer, Integer> zoneReplicationFactor = new HashMap<Integer, Integer>();
-        zoneReplicationFactor.put(0, 4);
-        zoneReplicationFactor.put(1, 4);
-        /*
-         * First n nodes on the preference list will be one node from each
-         * remote n zones, where n=zoneCountReads, therefore preferred read
-         * should be set > n if want to include local zone node results in
-         * parallel request
-         */
+        zoneReplicationFactor.put(0, 3);
+        zoneReplicationFactor.put(1, 3);
         storeDef = new StoreDefinitionBuilder().setName("test")
                                                .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                .setRoutingPolicy(RoutingTier.CLIENT)
                                                .setRoutingStrategyType(RoutingStrategyType.ZONE_STRATEGY)
-                                               .setReplicationFactor(8)
+                                               .setReplicationFactor(6)
                                                .setZoneReplicationFactor(zoneReplicationFactor)
                                                .setKeySerializer(new SerializerDefinition("string"))
                                                .setValueSerializer(new SerializerDefinition("string"))
