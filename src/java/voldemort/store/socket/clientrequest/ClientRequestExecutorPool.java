@@ -43,6 +43,7 @@ import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.utils.pool.QueuedKeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;
+import voldemort.utils.pool.ResourceRequest;
 
 /**
  * A pool of {@link ClientRequestExecutor} keyed off the
@@ -231,8 +232,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      * Wrap up an asynchronous request and actually issue it once a
      * SocketDestination is checked out.
      */
-    private class AsyncRequest<T> implements
-            QueuedKeyedResourcePool.ResourceRequest<ClientRequestExecutor> {
+    private class AsyncRequest<T> implements ResourceRequest<ClientRequestExecutor> {
 
         private final SocketDestination destination;
         public final ClientRequest<T> delegate;

@@ -359,8 +359,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         }
     }
 
-    protected static class TestResourceRequest implements
-            QueuedKeyedResourcePool.ResourceRequest<TestResource> {
+    protected static class TestResourceRequest implements ResourceRequest<TestResource> {
 
         private AtomicBoolean usedResource;
         private AtomicBoolean handledTimeout;

@@ -29,8 +29,10 @@ import voldemort.TestUtils;
 import voldemort.common.VoldemortOpCode;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
+import voldemort.store.slow.SlowStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.OpTimeMap;
 import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -62,16 +64,8 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
         super.setUp();
         // Do not change the magic constants in the next two constructors! The
         // unit tests assert on specific delays occurring.
-        SlowStorageEngine.OperationDelays queued = new SlowStorageEngine.OperationDelays(10,
-                                                                                         20,
-                                                                                         30,
-                                                                                         40,
-                                                                                         50);
-        SlowStorageEngine.OperationDelays concurrent = new SlowStorageEngine.OperationDelays(50,
-                                                                                             40,
-                                                                                             30,
-                                                                                             20,
-                                                                                             10);
+        OpTimeMap queued = new OpTimeMap(10, 20, 30, 40, 50);
+        OpTimeMap concurrent = new OpTimeMap(50, 40, 30, 20, 10);
         this.store = new SlowStorageEngine<ByteArray, byte[], byte[]>("test", queued, concurrent);
     }
 
@@ -262,16 +256,16 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
                             expectedTimeMs = (5 * 10) + 50;
                             break;
                         case VoldemortOpCode.GET_VERSION_OP_CODE:
-                            expectedTimeMs = (5 * 20) + 40;
+                            expectedTimeMs = (5 * 50) + 10;
                             break;
                         case VoldemortOpCode.GET_ALL_OP_CODE:
-                            expectedTimeMs = (5 * 30) + 30;
-                            break;
-                        case VoldemortOpCode.PUT_OP_CODE:
                             expectedTimeMs = (5 * 40) + 20;
                             break;
+                        case VoldemortOpCode.PUT_OP_CODE:
+                            expectedTimeMs = (5 * 20) + 40;
+                            break;
                         case VoldemortOpCode.DELETE_OP_CODE:
-                            expectedTimeMs = (5 * 50) + 10;
+                            expectedTimeMs = (5 * 30) + 30;
                             break;
                     }
                     String details = "(maxTimeMs: " + maxTimeMs + ", " + expectedTimeMs + ")";

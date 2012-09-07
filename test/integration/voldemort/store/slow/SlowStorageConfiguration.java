@@ -13,8 +13,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
-package voldemort.store.memory;
+package voldemort.store.slow;
 
 import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
@@ -22,6 +21,7 @@ import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
+import voldemort.utils.OpTimeMap;
 
 /**
  * A storage engine that wraps InMemoryStorageEngine with delays.
@@ -41,12 +41,12 @@ public class SlowStorageConfiguration implements StorageConfiguration {
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
         if(voldemortConfig != null) {
             return new SlowStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(),
-                                                                    this.voldemortConfig.getSlowQueueingDelays(),
-                                                                    this.voldemortConfig.getSlowConcurrentDelays());
+                                                                    this.voldemortConfig.testingGetSlowQueueingDelays(),
+                                                                    this.voldemortConfig.testingGetSlowConcurrentDelays());
         }
         return new SlowStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(),
-                                                                new SlowStorageEngine.OperationDelays(),
-                                                                new SlowStorageEngine.OperationDelays());
+                                                                new OpTimeMap(0),
+                                                                new OpTimeMap(0));
     }
 
     public String getType() {

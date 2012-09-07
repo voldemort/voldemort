@@ -33,23 +33,6 @@ import voldemort.store.UnreachableStoreException;
  */
 public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
-    public interface ResourceRequest<V> {
-
-        // Invoked with checked out resource; resource guaranteed to be
-        // not-null.
-        void useResource(V resource);
-
-        // Invoked sometime after deadline. Will never invoke useResource.
-        void handleTimeout();
-
-        // Invoked upon resource pool exception. Will never invoke useResource.
-        void handleException(Exception e);
-
-        // Returns deadline (in nanoseconds), after which handleTimeout()
-        // should be invoked.
-        long getDeadlineNs();
-    }
-
     private static final Logger logger = Logger.getLogger(QueuedKeyedResourcePool.class.getName());
 
     private final ConcurrentMap<K, Queue<ResourceRequest<V>>> requestQueueMap;
@@ -121,7 +104,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
             try {
                 resource = attemptCheckout(resourcePool);
             } catch(Exception e) {
-                super.destroyResource(key, resourcePool, resource);
+                destroyResource(key, resourcePool, resource);
                 resourceRequest.handleException(e);
             }
             if(resource != null) {
@@ -175,7 +158,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
             attemptGrow(key, resourcePool);
             resource = attemptCheckout(resourcePool);
         } catch(Exception e) {
-            super.destroyResource(key, resourcePool, resource);
+            destroyResource(key, resourcePool, resource);
         }
         if(resource == null) {
             return false;
@@ -184,7 +167,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         // With resource in hand, process the resource requests
         ResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
         if(resourceRequest == null) {
-            // Did not use the resource!
+            // Did not use the resource! Directly check in via super to avoid
+            // circular call to processQueue().
             super.checkin(key, resource);
             return false;
         }
@@ -203,7 +187,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     public void checkin(K key, V resource) throws Exception {
         super.checkin(key, resource);
         // NB: Blocking checkout calls may get checked in resource before
-        // processQueue.
+        // processQueue() attempts checkout.
         while(processQueue(key)) {}
     }
 

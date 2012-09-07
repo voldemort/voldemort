@@ -30,11 +30,11 @@ import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
-import voldemort.store.memory.SlowStorageEngine;
 import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.BinarySearchStrategy;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.utils.ConfigurationException;
+import voldemort.utils.OpTimeMap;
 import voldemort.utils.Props;
 import voldemort.utils.Time;
 import voldemort.utils.UndefinedPropertyException;
@@ -104,8 +104,8 @@ public class VoldemortConfig implements Serializable {
     private long reportingIntervalBytes;
     private int fetcherBufferSize;
 
-    private SlowStorageEngine.OperationDelays slowQueueingDelays;
-    private SlowStorageEngine.OperationDelays slowConcurrentDelays;
+    private OpTimeMap testingSlowQueueingDelays;
+    private OpTimeMap testingSlowConcurrentDelays;
 
     private int coreThreads;
     private int maxThreads;
@@ -256,19 +256,33 @@ public class VoldemortConfig implements Serializable {
         this.mysqlPort = props.getInt("mysql.port", 3306);
         this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
 
-        this.slowQueueingDelays = new SlowStorageEngine.OperationDelays();
-        this.slowQueueingDelays.getMs = props.getInt("slow.queueing.get.ms", 0);
-        this.slowQueueingDelays.getVersionsMs = props.getInt("slow.queueing.getversions.ms", 0);
-        this.slowQueueingDelays.getAllMs = props.getInt("slow.queueing.getall.ms", 0);
-        this.slowQueueingDelays.putMs = props.getInt("slow.queueing.put.ms", 0);
-        this.slowQueueingDelays.deleteMs = props.getInt("slow.queueing.delete.ms", 0);
+        this.testingSlowQueueingDelays = new OpTimeMap(0);
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.get.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getall.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getversions.ms",
+                                                              0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.put.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.delete.ms", 0));
 
-        this.slowConcurrentDelays = new SlowStorageEngine.OperationDelays();
-        this.slowConcurrentDelays.getMs = props.getInt("slow.concurrent.get.ms", 0);
-        this.slowConcurrentDelays.getVersionsMs = props.getInt("slow.concurrent.getversions.ms", 0);
-        this.slowConcurrentDelays.getAllMs = props.getInt("slow.concurrent.getall.ms", 0);
-        this.slowConcurrentDelays.putMs = props.getInt("slow.concurrent.put.ms", 0);
-        this.slowConcurrentDelays.deleteMs = props.getInt("slow.concurrent.delete.ms", 0);
+        this.testingSlowConcurrentDelays = new OpTimeMap(0);
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.get.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getall.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getversions.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.put.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.delete.ms",
+                                                                0));
 
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
@@ -1565,11 +1579,11 @@ public class VoldemortConfig implements Serializable {
         this.enableJmxClusterName = enableJmxClusterName;
     }
 
-    public SlowStorageEngine.OperationDelays getSlowQueueingDelays() {
-        return this.slowQueueingDelays;
+    public OpTimeMap testingGetSlowQueueingDelays() {
+        return this.testingSlowQueueingDelays;
     }
 
-    public SlowStorageEngine.OperationDelays getSlowConcurrentDelays() {
-        return this.slowConcurrentDelays;
+    public OpTimeMap testingGetSlowConcurrentDelays() {
+        return this.testingSlowConcurrentDelays;
     }
 }

@@ -14,16 +14,19 @@
  * the License.
  */
 
-package voldemort.store.memory;
+package voldemort.store.slow;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.common.VoldemortOpCode;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ClosableIterator;
+import voldemort.utils.OpTimeMap;
 import voldemort.utils.Pair;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -47,46 +50,15 @@ import voldemort.versioning.Versioned;
  */
 public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
-    public static class OperationDelays {
-
-        public long getMs;
-        public long getVersionsMs;
-        public long getAllMs;
-        public long putMs;
-        public long deleteMs;
-
-        public OperationDelays() {
-            this.getMs = 0;
-            this.getVersionsMs = 0;
-            this.getAllMs = 0;
-            this.putMs = 0;
-            this.deleteMs = 0;
-        }
-
-        public OperationDelays(long getMs,
-                               long getVersionsMs,
-                               long getAllMs,
-                               long putMs,
-                               long deleteMs) {
-            this.getMs = getMs;
-            this.getVersionsMs = getVersionsMs;
-            this.getAllMs = getAllMs;
-            this.putMs = putMs;
-            this.deleteMs = deleteMs;
-        }
-    }
-
     private final InMemoryStorageEngine<K, V, T> imStore;
-    private final OperationDelays queueingDelays;
-    private final OperationDelays concurrentDelays;
+    private final OpTimeMap queueingDelays;
+    private final OpTimeMap concurrentDelays;
 
     public SlowStorageEngine(String name) {
-        this(name, new OperationDelays(), new OperationDelays());
+        this(name, new OpTimeMap(0), new OpTimeMap(0));
     }
 
-    public SlowStorageEngine(String name,
-                             OperationDelays queueingDelays,
-                             OperationDelays concurrentDelays) {
+    public SlowStorageEngine(String name, OpTimeMap queueingDelays, OpTimeMap concurrentDelays) {
         imStore = new InMemoryStorageEngine<K, V, T>(name);
         this.queueingDelays = queueingDelays;
         this.concurrentDelays = concurrentDelays;
@@ -108,48 +80,40 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
     }
 
+    private void delayByOp(byte opCode) {
+        if(queueingDelays.getOpTime(opCode) > 0)
+            queueingSleep(queueingDelays.getOpTime(opCode));
+        if(concurrentDelays.getOpTime(opCode) > 0)
+            concurrentSleep(concurrentDelays.getOpTime(opCode));
+    }
+
     public boolean delete(K key) {
         return delete(key, null);
     }
 
     public boolean delete(K key, Version version) {
-        if(queueingDelays.deleteMs > 0)
-            queueingSleep(queueingDelays.deleteMs);
-        if(concurrentDelays.deleteMs > 0)
-            concurrentSleep(concurrentDelays.deleteMs);
+        delayByOp(VoldemortOpCode.DELETE_OP_CODE);
         return imStore.delete(key, version);
     }
 
     public List<Version> getVersions(K key) {
-        if(queueingDelays.getVersionsMs > 0)
-            queueingSleep(queueingDelays.getVersionsMs);
-        if(concurrentDelays.getVersionsMs > 0)
-            concurrentSleep(concurrentDelays.getVersionsMs);
+        delayByOp(VoldemortOpCode.GET_VERSION_OP_CODE);
         return imStore.getVersions(key);
     }
 
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
-        if(queueingDelays.getMs > 0)
-            queueingSleep(queueingDelays.getMs);
-        if(concurrentDelays.getMs > 0)
-            concurrentSleep(concurrentDelays.getMs);
+        delayByOp(VoldemortOpCode.GET_OP_CODE);
         return imStore.get(key, transform);
     }
 
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
-        if(queueingDelays.getAllMs > 0)
-            queueingSleep(queueingDelays.getAllMs);
-        if(concurrentDelays.getAllMs > 0)
-            concurrentSleep(concurrentDelays.getAllMs);
+        delayByOp(VoldemortOpCode.GET_ALL_OP_CODE);
         return imStore.getAll(keys, transforms);
     }
 
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
-        if(queueingDelays.putMs > 0)
-            queueingSleep(queueingDelays.putMs);
-        if(concurrentDelays.putMs > 0)
-            concurrentSleep(concurrentDelays.putMs);
+        delayByOp(VoldemortOpCode.PUT_OP_CODE);
         imStore.put(key, value, transforms);
     }
 

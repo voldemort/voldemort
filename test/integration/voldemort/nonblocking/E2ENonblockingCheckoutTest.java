@@ -47,7 +47,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.InMemoryStorageConfiguration;
-import voldemort.store.memory.SlowStorageConfiguration;
+import voldemort.store.slow.SlowStorageConfiguration;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.versioning.ObsoleteVersionException;
