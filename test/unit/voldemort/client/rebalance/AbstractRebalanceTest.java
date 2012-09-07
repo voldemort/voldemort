@@ -262,7 +262,7 @@ public abstract class AbstractRebalanceTest {
         return NUM_KEYS;
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRORWRebalance() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
@@ -310,7 +310,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRORWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -354,7 +354,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRORebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -395,7 +395,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRWRebalanceWithReplication() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -437,7 +437,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceCleanPrimary() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
                 { 2 } });
@@ -538,7 +538,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceCleanSecondary() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 }, { 1 },
                 { 2 } });
@@ -640,7 +640,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRWRebalanceFourNodes() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
@@ -700,7 +700,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRWRebalanceSerial() throws Exception {
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
@@ -762,7 +762,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testProxyGetDuringRebalancing() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -823,14 +823,12 @@ public abstract class AbstractRebalanceTest {
                 try {
                     List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                    int nRequests = 0;
                     while(!rebalancingToken.get()) {
                         // should always able to get values.
                         int index = (int) (Math.random() * keys.size());
 
                         // should get a valid value
                         try {
-                            nRequests++;
                             Versioned<String> value = storeClientRW.get(keys.get(index));
                             assertNotSame("StoreClient get() should not return null.", null, value);
                             assertEquals("Value returned should be good",
@@ -898,7 +896,7 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testServerSideRouting() throws Exception {
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
@@ -956,14 +954,12 @@ public abstract class AbstractRebalanceTest {
                 try {
                     List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                    int nRequests = 0;
                     while(!rebalancingToken.get()) {
                         // should always able to get values.
                         int index = (int) (Math.random() * keys.size());
 
                         // should get a valid value
                         try {
-                            nRequests++;
                             List<Versioned<byte[]>> values = serverSideRoutingStoreRW.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
                                                                                                                            "UTF-8")),
                                                                                           null);

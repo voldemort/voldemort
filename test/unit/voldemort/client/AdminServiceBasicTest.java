@@ -16,6 +16,12 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,8 +40,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import junit.framework.TestCase;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,6 +51,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -84,7 +89,7 @@ import com.google.common.collect.Maps;
 /**
  */
 @RunWith(Parameterized.class)
-public class AdminServiceBasicTest extends TestCase {
+public class AdminServiceBasicTest {
 
     private static int NUM_RUNS = 100;
     private static int TEST_STREAM_KEYS_SIZE = 10000;
@@ -111,13 +116,15 @@ public class AdminServiceBasicTest extends TestCase {
         return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
-    @Override
     @Before
     public void setUp() throws IOException {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
 
         servers = new VoldemortServer[2];
         storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
+
+        Properties serverProperties = new Properties();
+        serverProperties.setProperty("client.max.connections.per.node", "20");
 
         servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                           ServerTestUtils.createServerConfig(useNio,
@@ -126,7 +133,7 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                                       .getAbsolutePath(),
                                                                                              null,
                                                                                              storesXmlfile,
-                                                                                             new Properties()),
+                                                                                             serverProperties),
                                                           cluster);
         servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                           ServerTestUtils.createServerConfig(useNio,
@@ -135,10 +142,12 @@ public class AdminServiceBasicTest extends TestCase {
                                                                                                       .getAbsolutePath(),
                                                                                              null,
                                                                                              storesXmlfile,
-                                                                                             new Properties()),
+                                                                                             serverProperties),
                                                           cluster);
 
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        Properties adminProperties = new Properties();
+        adminProperties.setProperty("max_connections", "20");
+        adminClient = new AdminClient(cluster, new AdminClientConfig(adminProperties));
     }
 
     /**
@@ -151,9 +160,8 @@ public class AdminServiceBasicTest extends TestCase {
         return servers[nodeId];
     }
 
-    @Override
     @After
-    public void tearDown() throws IOException, InterruptedException {
+    public void tearDown() throws IOException {
         adminClient.stop();
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
@@ -1121,6 +1129,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testGetROStorageFormat() {
+
         Map<String, String> storesToStorageFormat = getAdminClient().getROStorageFormat(0,
                                                                                         Lists.newArrayList("test-readonly-fetchfiles",
                                                                                                            "test-readonly-versions"));

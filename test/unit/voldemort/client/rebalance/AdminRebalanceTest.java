@@ -1,5 +1,12 @@
 package voldemort.client.rebalance;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,12 +18,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
-
-import junit.framework.TestCase;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
@@ -61,7 +66,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 @RunWith(Parameterized.class)
-public class AdminRebalanceTest extends TestCase {
+public class AdminRebalanceTest {
 
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
@@ -129,8 +134,7 @@ public class AdminRebalanceTest extends TestCase {
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -175,8 +179,7 @@ public class AdminRebalanceTest extends TestCase {
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -231,8 +234,7 @@ public class AdminRebalanceTest extends TestCase {
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -305,8 +307,7 @@ public class AdminRebalanceTest extends TestCase {
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -348,7 +349,7 @@ public class AdminRebalanceTest extends TestCase {
         return store;
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRW() throws IOException {
 
         try {
@@ -476,8 +477,9 @@ public class AdminRebalanceTest extends TestCase {
 
             // Primary is on Node 0 and not on Node 1
             for(Entry<ByteArray, byte[]> entry: primaryEntriesMoved.entrySet()) {
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
@@ -495,8 +497,9 @@ public class AdminRebalanceTest extends TestCase {
 
             // Secondary is on Node 2 and not on Node 0
             for(Entry<ByteArray, byte[]> entry: secondaryEntriesMoved.entrySet()) {
-                assertSame("entry should be present at store", 1, storeTest2.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest2.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest2.get(entry.getKey(), null).get(0).getValue()));
@@ -515,7 +518,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRW2() throws IOException {
 
         try {
@@ -606,22 +609,25 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 1
-                assertSame("entry should be present at store", 1, storeTest1.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest1.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest1.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -631,15 +637,17 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest00.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest00.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest00.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest30.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
@@ -654,15 +662,17 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -672,8 +682,9 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest30.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
@@ -688,8 +699,9 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -710,7 +722,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRO() throws IOException {
         try {
             startFourNodeRO();
@@ -863,7 +875,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRORW() throws IOException, InterruptedException {
 
         try {
@@ -1064,7 +1076,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceStateChange() throws IOException {
 
         try {
@@ -1163,7 +1175,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testClusterAndRebalanceStateChange() throws IOException {
 
         try {

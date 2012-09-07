@@ -381,7 +381,7 @@
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />
     <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m" timeout="1200000">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
@@ -402,7 +402,7 @@
   <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
     <replace-dir dir="${longtestreport.dir}" />
     <replace-dir dir="${longtesthtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${longtestreport.dir}">
@@ -422,7 +422,7 @@
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
     <replace-dir dir="${singletestreport.dir}" />
     <replace-dir dir="${singletesthtml.dir}" />
-    <junit printsummary="on" showoutput="true" maxmemory="1024m">
+    <junit printsummary="on" showoutput="true" maxmemory="2048m">
       <classpath refid="contrib-test-classpath" />
       <classpath path="${log4j.properties.dir}" />
       <formatter type="plain" />
