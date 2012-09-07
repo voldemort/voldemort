@@ -11,9 +11,8 @@ Changes made since 0.90.1
      * Add error/exception count and max getall count
      * BDB+ Data cleanup Monitoring changes
  * Rebalancing:
-     * Donor-based rebalancing (see https://github.com/voldemort/voldemort/wiki/Voldemort-Donor-Based-Rebalancing for more details)
+     * Donor-based rebalancing and post cleanup (see https://github.com/voldemort/voldemort/wiki/Voldemort-Donor-Based-Rebalancing for more details)
      * Rebalancing integration testing framework (under test/integration/voldemort/rebalance/)
-     * Post rebalancing data cleanup ()
      * Generate multiple cluster.xml files based on the number specified when running the tool and choose the cluster with the smallest std dev as the final-cluster.xml
      * Add status output to log for updateEntries (used by rebalancing)
  * Read-only pipeline:
