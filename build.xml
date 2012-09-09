@@ -89,7 +89,7 @@
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
-    <javac destdir="${classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
+    <javac destdir="${classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${java.dir}" />
       <classpath refid="main-classpath" />
     </javac>
@@ -109,7 +109,7 @@
         <exclude name="**/*.html" />
       </fileset>
     </copy>
-    <javac destdir="${testclasses.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
+    <javac destdir="${testclasses.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
@@ -194,7 +194,7 @@
 
   <target name="contrib-build" depends="build, buildtest" description="Compile contrib packages (java and test) ">
     <replace-dir dir="${contrib.classes.dir}" />
-    <javac destdir="${contrib.classes.dir}" target="1.5" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
+    <javac destdir="${contrib.classes.dir}" target="${javac.version}" source="${javac.version}" debug="true" deprecation="false" failonerror="true" includeantruntime="false">
       <src path="${contrib.root.dir}" />
       <src path="${contrib.root.dir}" />
       <classpath refid="main-classpath" />
@@ -335,7 +335,7 @@
     <zip destfile="${dist.dir}/${name}-@{version}.zip">
       <zipfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
       <zipfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
+        <exclude name="${dist.dir}/*classes/"/>
         <exclude name="bin/*"/>
         <exclude name=".git*/**"/>
       </zipfileset>
@@ -343,7 +343,7 @@
     <tar destfile="${dist.dir}/${name}-@{version}.tar.gz" compression="gzip" longfile="gnu">
       <tarfileset dir="." prefix="voldemort-@{version}" filemode="755" includes="bin/*"/>
       <tarfileset dir="." prefix="voldemort-@{version}" includes="**">
-        <exclude name="${dist.dir}/*classes"/>
+        <exclude name="${dist.dir}/*classes/"/>
         <exclude name="${dist.dir}/*.zip"/>
         <exclude name="bin/*"/>
         <exclude name=".git*/**"/>
@@ -449,7 +449,7 @@
     <attribute name="javadir" />
     <sequential>
       <replace-dir dir="@{dir}" />
-      <javadoc sourcepath="@{javadir}" destdir="@{dir}" windowtitle="${display.name}" source="1.5" author="true" version="true" use="true" packagenames="@{packagenames}">
+      <javadoc sourcepath="@{javadir}" destdir="@{dir}" windowtitle="${display.name}" source="${javac.version}" author="true" version="true" use="true" packagenames="@{packagenames}">
         <doctitle>${display.name}</doctitle>
         <bottom>${author}</bottom>
         <classpath refid="main-classpath" />
