@@ -23,6 +23,9 @@ import azkaban.common.utils.Utils;
 public class AvroStoreBuilderReducer implements
         Reducer<AvroKey<ByteBuffer>, AvroValue<ByteBuffer>, Text, Text>, JobConfigurable, Closeable {
 
+    // The Class implementing the keyvaluewriter
+    // this provides a pluggable mechanism for generating your own on disk
+    // format for the data and index files
     String keyValueWriterClass;
     @SuppressWarnings("rawtypes")
     KeyValueWriter writer;

@@ -582,7 +582,7 @@ public class HadoopStoreBuilder {
 
             conf.setSpeculativeExecution(false);
 
-            System.out.println(config.get("avro.rec.schema"));
+            // AvroJob confs for the avro mapper
             AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
 
             AvroJob.setOutputSchema(conf,

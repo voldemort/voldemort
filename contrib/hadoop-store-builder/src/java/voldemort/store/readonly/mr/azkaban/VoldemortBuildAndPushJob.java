@@ -64,6 +64,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private final List<String> dataDirs;
 
+    // Reads from properties to check if this takes Avro input
     private final boolean isAvroJob;
 
     private final String keyField;
@@ -112,8 +113,6 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         valueField = props.getString("avro.value.field", "value");
 
-        System.out.println("keyfield = " + keyField);
-        log.info("valueField = " + valueField);
     }
 
     @Override
@@ -495,36 +494,38 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         return HadoopUtils.getSanitizedPath(path);
     }
 
+    // Get the schema for the Avro Record from the object container file
     public String getRecordSchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
 
-        // schema.getField("key").schema();
         String recSchema = schema.toString();
 
         return recSchema;
 
     }
 
+    // Extract schema of the key field
     public String getKeySchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
 
-        // schema.getField("key").schema();
         String keySchema = schema.getField(keyField).schema().toString();
 
         return keySchema;
 
     }
 
+    // Extract schema of the value field
     public String getValueSchema() throws IOException {
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());
 
-        // schema.getField("key").schema();
         String valueSchema = schema.getField(valueField).schema().toString();
 
         return valueSchema;
 
     }
 
+    // Verify if the new avro schema being pushed is the same one as the old one
+    // Does not have logic to check for Avro schema evolution yet
     public void verifyAvroSchema(String url) throws Exception {
         // create new n store def with schema from the metadata in the input
         // path
@@ -534,9 +535,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         int requiredWrites = props.getInt("build.required.writes", 1);
         String description = props.getString("push.store.description", "");
         String owners = props.getString("push.store.owners", "");
-        // String keySchema = schema.getField("key").schema();
 
-        // schema.getField("key").schema();
         String keySchema = "\n\t\t<type>avro-generic</type>\n\t\t<schema-info version=\"0\">"
                            + schema.getField(keyField).schema() + "</schema-info>\n\t";
         String valSchema = "\n\t\t<type>avro-generic</type>\n\t\t<schema-info version=\"0\">"
@@ -595,17 +594,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                     // want to push, we need
                     // to worry
                     if(!remoteStoreDef.equals(newStoreDef)) {
-                        // it is possible that the stores actually DO match, but
-                        // the
-                        // json in the key/value serializers is out of order (eg
-                        // {'a': 'int32', 'b': 'int32'} could have a/b reversed.
-                        // this is just a reflection of the fact that voldemort
-                        // json
-                        // type defs use hashmaps that are unordered, and pig
-                        // uses
-                        // bags that are unordered as well. it's therefore
-                        // unpredictable what order the keys will come out of
-                        // pig.
+
                         // let's check to see if the key/value serializers are
                         // REALLY equal.
                         SerializerDefinition localKeySerializerDef = newStoreDef.getKeySerializer();

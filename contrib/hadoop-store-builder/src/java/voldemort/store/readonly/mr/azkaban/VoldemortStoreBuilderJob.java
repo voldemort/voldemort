@@ -148,7 +148,7 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
                  props.getInt("num.chunks", -1));
         }
 
-        // new constructor to include the key val and record schema
+        // new constructor to include the key val and record schema for Avro job
 
         public VoldemortStoreBuilderConf(int replicationFactor,
                                          int chunkSize,
@@ -340,6 +340,9 @@ public class VoldemortStoreBuilderJob extends AbstractHadoopJob {
     @Override
     public void run() throws Exception {
         JobConf configuration = this.createJobConf(VoldemortStoreBuilderMapper.class);
+
+        // Only if its a avro job we supply some additional fields
+        // for the key value schema of the avro record
         if(isAvro) {
             String recSchema = conf.getRecSchema();
             String keySchema = conf.getKeySchema();

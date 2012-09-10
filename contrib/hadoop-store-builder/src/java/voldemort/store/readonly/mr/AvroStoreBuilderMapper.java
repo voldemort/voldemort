@@ -35,6 +35,9 @@ import voldemort.xml.StoreDefinitionsMapper;
 import azkaban.common.utils.Props;
 import azkaban.common.utils.Utils;
 
+// Avro container files are not sequence input format files
+// they contain records instead of k/v pairs
+// to consume these files we use the AvroMapper
 public class AvroStoreBuilderMapper extends
         AvroMapper<GenericData.Record, Pair<ByteBuffer, ByteBuffer>> implements JobConfigurable {
 

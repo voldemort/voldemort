@@ -26,6 +26,8 @@ import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
+// The default Voldemort keyvalue writer
+// generates index and data files
 public class HadoopStoreWriter implements KeyValueWriter<BytesWritable, BytesWritable> {
 
     private static final Logger logger = Logger.getLogger(HadoopStoreWriter.class);

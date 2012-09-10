@@ -6,6 +6,7 @@ import java.util.Iterator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 
+// Interface used by reducers to layout the datqa on disk
 public interface KeyValueWriter<K, V> {
 
     public static enum CollisionCounter {
