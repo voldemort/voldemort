@@ -372,7 +372,6 @@ public class StorageService extends AbstractService {
             for(String propName: props.stringPropertyNames()) {
                 finalVersionList.append(propName + "=" + props.getProperty(propName) + "\n");
             }
-            System.err.println(finalVersionList);
             versionStore.put(metadataVersionsKey,
                              new Versioned<byte[]>(finalVersionList.toString().getBytes(), newClock),
                              null);
@@ -424,33 +423,6 @@ public class StorageService extends AbstractService {
             store = new LoggingStore<ByteArray, byte[], byte[]>(store,
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
-        /* TODO: Do we really need rebalancing for system stores? */
-        if(voldemortConfig.isEnableRebalanceService()) {
-            store = new RedirectingStore(store,
-                                         metadata,
-                                         storeRepository,
-                                         failureDetector,
-                                         storeFactory);
-            if(voldemortConfig.isJmxEnabled()) {
-                MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                ObjectName name = null;
-                if(this.voldemortConfig.isEnableJmxClusterName())
-                    name = JmxUtils.createObjectName(cluster.getName()
-                                                             + "."
-                                                             + JmxUtils.getPackageName(RedirectingStore.class),
-                                                     store.getName());
-                else
-                    name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
-                                                     store.getName());
-
-                synchronized(mbeanServer) {
-                    if(mbeanServer.isRegistered(name))
-                        JmxUtils.unregisterMbean(mbeanServer, name);
-                    JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
-                }
-
-            }
-        }
 
         if(voldemortConfig.isMetadataCheckingEnabled())
             store = new InvalidMetadataCheckingStore(metadata.getNodeId(), store, metadata);

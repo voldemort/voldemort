@@ -57,7 +57,7 @@ public class ConfigureNodesLocalHostTest {
     public void testConfigureNodesLocalHost() throws Exception {
         List<Node> nodes = getTestNodes();
         Cluster cluster = new Cluster("test-route-all-local-pref-cluster", nodes);
-        FailureDetector failureDetector = new ThresholdFailureDetector(new FailureDetectorConfig().setNodes(nodes));
+        FailureDetector failureDetector = new ThresholdFailureDetector(new FailureDetectorConfig().setCluster(cluster));
         RoutingStrategy routingStrategy = new RouteToAllLocalPrefStrategy(cluster.getNodes());
         BasicPipelineData<byte[]> pipelineData = new BasicPipelineData<byte[]>();
         ConfigureNodesLocalHost<byte[], BasicPipelineData<byte[]>> action = new ConfigureNodesLocalHost<byte[], BasicPipelineData<byte[]>>(pipelineData,

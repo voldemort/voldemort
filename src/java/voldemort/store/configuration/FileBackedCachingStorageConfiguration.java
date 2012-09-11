@@ -12,7 +12,6 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
 
     public FileBackedCachingStorageConfiguration(VoldemortConfig config) {
         this.inputPath = config.getMetadataDirectory();
-        System.err.println("Created a new File backed caching engine config ...");
     }
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {

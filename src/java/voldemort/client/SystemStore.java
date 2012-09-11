@@ -46,7 +46,11 @@ public class SystemStore<K, V> {
               .setClientZoneId(clientZoneID);
         this.systemStoreFactory = new SystemStoreClientFactory(config);
         this.storeName = storeName;
-        this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
+        try {
+            this.sysStore = this.systemStoreFactory.getSystemStore(this.storeName, clusterXml, fd);
+        } catch(Exception e) {
+            logger.debug("Error while creating a system store client for store : " + this.storeName);
+        }
     }
 
     public Version putSysStore(K key, V value) {
@@ -61,9 +65,8 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, versioned, null);
             version = versioned.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore: " + e);
             if(logger.isDebugEnabled()) {
-                e.printStackTrace();
+                logger.debug("Exception caught during putSysStore: " + e);
             }
         }
         return version;
@@ -76,9 +79,8 @@ public class SystemStore<K, V> {
             this.sysStore.put(key, value, null);
             version = value.getVersion();
         } catch(Exception e) {
-            logger.info("Exception caught during putSysStore: " + e);
             if(logger.isDebugEnabled()) {
-                e.printStackTrace();
+                logger.debug("Exception caught during putSysStore: " + e);
             }
         }
         return version;
@@ -89,6 +91,7 @@ public class SystemStore<K, V> {
         Versioned<V> versioned = null;
         try {
             List<Versioned<V>> items = this.sysStore.get(key, null);
+
             if(items.size() == 1)
                 versioned = items.get(0);
             else if(items.size() > 1)
@@ -100,9 +103,8 @@ public class SystemStore<K, V> {
             else
                 logger.debug("Got null value");
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore: " + e);
             if(logger.isDebugEnabled()) {
-                e.printStackTrace();
+                logger.debug("Exception caught during getSysStore: " + e);
             }
         }
         return versioned;
@@ -119,9 +121,8 @@ public class SystemStore<K, V> {
                 value = versioned.getValue();
             }
         } catch(Exception e) {
-            logger.info("Exception caught during getSysStore: " + e);
             if(logger.isDebugEnabled()) {
-                e.printStackTrace();
+                logger.debug("Exception caught during getSysStore: " + e);
             }
         }
         return value;

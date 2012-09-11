@@ -136,7 +136,7 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
@@ -270,7 +270,7 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
@@ -321,7 +321,7 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),
@@ -437,14 +437,14 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher0 = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                     getVoldemortServer(0).getMetadataStore(),
-                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                 .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                           metadataStore,
                                                                                                                                                                           configs[0]))),
                                                                     configs[0],
                                                                     new ScanPermitWrapper(1)), pusher1 = new StreamingSlopPusherJob(getVoldemortServer(1).getStoreRepository(),
                                                                                                                                     getVoldemortServer(1).getMetadataStore(),
-                                                                                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                                                                                    new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                                                                                 .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                                                                                           metadataStore,
                                                                                                                                                                                                                                           configs[1]))),
@@ -546,7 +546,7 @@ public class StreamingSlopPusherTest {
 
         StreamingSlopPusherJob pusher = new StreamingSlopPusherJob(getVoldemortServer(0).getStoreRepository(),
                                                                    getVoldemortServer(0).getMetadataStore(),
-                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes())
+                                                                   new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster)
                                                                                                                                .setStoreVerifier(new ServerStoreVerifier(socketStoreFactory,
                                                                                                                                                                          metadataStore,
                                                                                                                                                                          configs[0]))),

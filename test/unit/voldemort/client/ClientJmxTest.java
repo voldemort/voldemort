@@ -74,7 +74,8 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
     protected StoreClientFactory getFactory(String... bootstrapUrls) {
         return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
                                                               .setEnableLazy(false)
-                                                              .setEnableJmx(true));
+                                                              .setEnableJmx(true)
+                                                              .enableDefaultClient(true));
     }
 
     protected StoreClientFactory getFactoryWithClientContext(String clientContext,
@@ -82,7 +83,8 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
         return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
                                                               .setEnableLazy(false)
                                                               .setClientContextName(clientContext)
-                                                              .setEnableJmx(true));
+                                                              .setEnableJmx(true)
+                                                              .enableDefaultClient(true));
     }
 
     @Test
@@ -280,7 +282,8 @@ public class ClientJmxTest extends AbstractStoreClientFactoryTest {
                                                           String... bootstrapUrls) {
         return new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrls)
                                                               .setEnableLazy(false)
-                                                              .setSerializerFactory(factory));
+                                                              .setSerializerFactory(factory)
+                                                              .enableDefaultClient(true));
     }
 
     @Override

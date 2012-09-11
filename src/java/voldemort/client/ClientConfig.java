@@ -626,8 +626,9 @@ public class ClientConfig {
         return this.clientZoneId;
     }
 
-    public void enableDefaultClient(boolean enableDefault) {
+    public ClientConfig enableDefaultClient(boolean enableDefault) {
         this.useDefaultClient = enableDefault;
+        return this;
     }
 
     public boolean isDefaultClientEnabled() {

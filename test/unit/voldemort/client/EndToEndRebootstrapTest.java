@@ -115,7 +115,9 @@ public class EndToEndRebootstrapTest extends TestCase {
             String value = "SF";
             String bootstrapTime = "";
             String newBootstrapTime = "";
-            AdminClient adminClient = new AdminClient(bootStrapUrls[0], new AdminClientConfig());
+            AdminClient adminClient = new AdminClient(bootStrapUrls[0],
+                                                      new AdminClientConfig(),
+                                                      CLIENT_ZONE_ID);
 
             try {
                 storeClient.put(key, value);

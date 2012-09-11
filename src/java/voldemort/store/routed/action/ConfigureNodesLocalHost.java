@@ -47,6 +47,10 @@ public class ConfigureNodesLocalHost<V, PD extends BasicPipelineData<V>> extends
 
         try {
             nodes = super.getNodes(key);
+            if(nodes == null) {
+                return null;
+            }
+
             String currentHost = InetAddress.getLocalHost().getHostName();
             for(Node n: nodes) {
                 if(currentHost.contains(n.getHost()) || n.getHost().contains(currentHost)) {

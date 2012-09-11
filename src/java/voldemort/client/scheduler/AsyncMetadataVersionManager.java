@@ -94,7 +94,7 @@ public class AsyncMetadataVersionManager implements Runnable {
 
         // Swallow all exceptions here (we dont want to fail the client).
         catch(Exception e) {
-            logger.info("Could not retrieve Metadata Version. Exception : " + e);
+            logger.debug("Could not retrieve Metadata Version.");
         }
 
         return null;
@@ -102,43 +102,51 @@ public class AsyncMetadataVersionManager implements Runnable {
 
     public void run() {
 
-        // Get the properties object from the system store (containing versions)
-        Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
-        Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
-                                                 currentClusterVersion,
-                                                 versionProps);
+        try {
+            // Get the properties object from the system store (containing
+            // versions)
+            Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
+            Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
+                                                     currentClusterVersion,
+                                                     versionProps);
 
-        // If nothing has been updated, continue
-        if(newClusterVersion != null) {
+            // If nothing has been updated, continue
+            if(newClusterVersion != null) {
 
-            logger.info("Metadata version mismatch detected.");
+                logger.info("Metadata version mismatch detected.");
 
-            // Determine a random delta delay between 0 to DELTA_MAX to sleep
-            int delta = randomGenerator.nextInt(DELTA_MAX);
-
-            try {
-                logger.info("Sleeping for delta : " + delta + " (ms) before re-bootstrapping.");
-                Thread.sleep(delta);
-            } catch(InterruptedException e) {
-                // do nothing, continue.
-            }
-
-            /*
-             * Do another check for mismatch here since the versions might have
-             * been updated while we were sleeping
-             */
-            if(!newClusterVersion.equals(currentClusterVersion)) {
+                // Determine a random delta delay between 0 to DELTA_MAX to
+                // sleep
+                int delta = randomGenerator.nextInt(DELTA_MAX);
 
                 try {
-                    logger.info("Updating cluster version");
-                    currentClusterVersion = newClusterVersion;
+                    logger.info("Sleeping for delta : " + delta + " (ms) before re-bootstrapping.");
+                    Thread.sleep(delta);
+                } catch(InterruptedException e) {
+                    // do nothing, continue.
+                }
 
-                    this.storeClientThunk.call();
-                } catch(Exception e) {
-                    e.printStackTrace();
-                    logger.info(e.getMessage());
+                /*
+                 * Do another check for mismatch here since the versions might
+                 * have been updated while we were sleeping
+                 */
+                if(!newClusterVersion.equals(currentClusterVersion)) {
+
+                    try {
+                        logger.info("Updating cluster version");
+                        currentClusterVersion = newClusterVersion;
+
+                        this.storeClientThunk.call();
+                    } catch(Exception e) {
+                        if(logger.isDebugEnabled()) {
+                            e.printStackTrace();
+                            logger.debug(e.getMessage());
+                        }
+                    }
                 }
             }
+        } catch(Exception e) {
+            logger.debug("Could not retrieve metadata versions from the server.");
         }
 
     }

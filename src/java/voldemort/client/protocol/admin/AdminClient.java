@@ -213,9 +213,13 @@ public class AdminClient {
     private void initSystemStoreClient(String bootstrapURL, int zoneID) {
         String[] bootstrapUrls = new String[1];
         bootstrapUrls[0] = bootstrapURL;
-        this.sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                               bootstrapUrls,
-                                                               zoneID);
+        try {
+            this.sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                   bootstrapUrls,
+                                                                   zoneID);
+        } catch(Exception e) {
+            logger.debug("Error while creating a system store client for metadata version store.");
+        }
     }
 
     /**
@@ -226,12 +230,15 @@ public class AdminClient {
      */
     public void updateMetadataversion(String versionKey) {
         Properties props = MetadataVersionStoreUtils.getProperties(this.sysStoreVersion);
-        if(props.getProperty(versionKey) != null) {
+        if(props != null && props.getProperty(versionKey) != null) {
             logger.debug("Version obtained = " + props.getProperty(versionKey));
             long newValue = Long.parseLong(props.getProperty(versionKey)) + 1;
             props.setProperty(versionKey, Long.toString(newValue));
         } else {
             logger.debug("Current version is null. Assuming version 0.");
+            if(props == null) {
+                props = new Properties();
+            }
             props.setProperty(versionKey, "0");
         }
         MetadataVersionStoreUtils.setProperties(this.sysStoreVersion, props);
@@ -2403,7 +2410,11 @@ public class AdminClient {
              * metadata
              */
             if(changeClusterMetadata) {
-                updateMetadataversion(CLUSTER_VERSION_KEY);
+                try {
+                    updateMetadataversion(CLUSTER_VERSION_KEY);
+                } catch(Exception e) {
+                    logger.info("Exception occurred while setting cluster metadata version during Rebalance state change !!!");
+                }
             }
         } catch(Exception e) {
 

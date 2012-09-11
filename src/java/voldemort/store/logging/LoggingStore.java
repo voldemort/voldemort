@@ -128,9 +128,8 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     private void printTimedMessage(String operation, boolean success, long startNs) {
         if(logger.isDebugEnabled()) {
             double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
-            logger.debug(instanceName + operation + " " + getName()
-                         + " " + (success ? "successful" : "unsuccessful") + " in "
-                         + elapsedMs + " ms");
+            logger.debug(instanceName + operation + " " + getName() + " "
+                         + (success ? "successful" : "unsuccessful") + " in " + elapsedMs + " ms");
         }
     }
 

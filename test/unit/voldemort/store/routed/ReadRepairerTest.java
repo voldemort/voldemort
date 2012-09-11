@@ -148,7 +148,7 @@ public class ReadRepairerTest {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
                                                                                  .setBannagePeriod(1000)
-                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setCluster(cluster)
                                                                                  .setStoreVerifier(create(subStores))
                                                                                  .setTime(time);
 

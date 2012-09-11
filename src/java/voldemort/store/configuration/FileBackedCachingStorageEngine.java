@@ -54,7 +54,9 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         this.inputPath = inputDirectory + "/" + name;
         this.metadataMap = new HashMap<String, String>();
         this.loadData();
-        logger.debug("Created a new File backed caching engine. File location = " + inputPath);
+        if(logger.isDebugEnabled()) {
+            logger.debug("Created a new File backed caching engine. File location = " + inputPath);
+        }
     }
 
     private File getVersionFile() {

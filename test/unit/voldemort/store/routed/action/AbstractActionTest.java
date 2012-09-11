@@ -41,9 +41,9 @@ public class AbstractActionTest {
     @Before
     public void setUp() throws Exception {
         cluster = VoldemortTestConstants.getThreeNodeCluster();
-        failureDetector = new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(cluster.getNodes()));
+        failureDetector = new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(cluster));
         clusterWithZones = VoldemortTestConstants.getFourNodeClusterWithZones();
-        failureDetectorWithZones = new BannagePeriodFailureDetector(new FailureDetectorConfig().setNodes(clusterWithZones.getNodes()));
+        failureDetectorWithZones = new BannagePeriodFailureDetector(new FailureDetectorConfig().setCluster(clusterWithZones));
         storeDef = new StoreDefinitionsMapper().readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreWithZonesXml()))
                                                .get(0);
     }

@@ -548,7 +548,6 @@ public class FailureDetectorConfig {
      */
 
     public synchronized Cluster getCluster() {
-        System.err.println("Cluster = " + cluster);
         return this.cluster;
     }
 
@@ -577,6 +576,7 @@ public class FailureDetectorConfig {
      */
 
     public synchronized Collection<Node> getNodes() {
+        System.err.println("DEPRECATED !!! Please use getCluster().getNodes() method instead !");
         return ImmutableSet.copyOf(this.cluster.getNodes());
     }
 
@@ -593,6 +593,7 @@ public class FailureDetectorConfig {
      */
 
     public synchronized FailureDetectorConfig setNodes(Collection<Node> nodes) {
+        System.err.println("DEPRECATED !!! Please use setCluster method instead !");
         Utils.notNull(nodes);
         this.nodes = new HashSet<Node>(nodes);
         return this;

@@ -44,14 +44,22 @@ public class MetadataVersionStoreUtils {
      * @param props The Properties object to write to the System store
      */
     public static void setProperties(SystemStore<String, String> versionStore, Properties props) {
-        StringBuilder finalVersionList = new StringBuilder();
-        for(String propName: props.stringPropertyNames()) {
-            if(finalVersionList.length() == 0) {
-                finalVersionList.append(propName + "=" + props.getProperty(propName));
-            } else {
-                finalVersionList.append("\n" + propName + "=" + props.getProperty(propName));
-            }
+        if(props == null) {
+            return;
         }
-        versionStore.putSysStore(VERSIONS_METADATA_KEY, finalVersionList.toString());
+
+        try {
+            StringBuilder finalVersionList = new StringBuilder();
+            for(String propName: props.stringPropertyNames()) {
+                if(finalVersionList.length() == 0) {
+                    finalVersionList.append(propName + "=" + props.getProperty(propName));
+                } else {
+                    finalVersionList.append("\n" + propName + "=" + props.getProperty(propName));
+                }
+            }
+            versionStore.putSysStore(VERSIONS_METADATA_KEY, finalVersionList.toString());
+        } catch(Exception e) {
+            logger.debug("Got exception in setting properties : " + e.getMessage());
+        }
     }
 }

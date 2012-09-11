@@ -195,7 +195,7 @@ public class RoutedStoreParallelismTest {
         }
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
-                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setCluster(cluster)
                                                                                  .setStoreVerifier(MutableStoreVerifier.create(stores));
         FailureDetector failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);
 
