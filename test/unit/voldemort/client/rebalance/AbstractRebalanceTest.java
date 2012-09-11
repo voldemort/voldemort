@@ -273,10 +273,12 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         currentCluster = startServers(currentCluster,
                                       storeDefFileWithoutReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -303,6 +305,7 @@ public abstract class AbstractRebalanceTest {
                               storeDefWithoutReplication,
                               rebalanceClient,
                               Arrays.asList(1));
+
             checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
@@ -321,7 +324,13 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
-        currentCluster = startServers(currentCluster, storeDefFileWithReplication, serverList, null);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
+
+        currentCluster = startServers(currentCluster,
+                                      storeDefFileWithReplication,
+                                      serverList,
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -365,10 +374,19 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
+
+        // TODO: Why does increasing the number of admin threads make the tests
+        // run? Without this increase, the RejectedExecutionHandler in
+        // SocketServer.java fires with an error message like the following:
+        // "[18:46:32,994 voldemort.server.socket.SocketServer[admin-server]]
+        // ERROR Too many open connections, 20 of 20 threads in use, denying
+        // connection from /127.0.0.1:43756 [Thread-552]"
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         currentCluster = startServers(currentCluster,
                                       roStoreDefFileWithReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -772,10 +790,12 @@ public abstract class AbstractRebalanceTest {
                                                                           Lists.newArrayList(2, 3));
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                            storeDefFileWithReplication,
                                                            serverList,
-                                                           null);
+                                                           configProps);
         final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
         ExecutorService executors = Executors.newFixedThreadPool(2);
@@ -906,10 +926,12 @@ public abstract class AbstractRebalanceTest {
                                                                           Lists.newArrayList(2, 3));
 
         final List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                            storeDefFileWithReplication,
                                                            serverList,
-                                                           null);
+                                                           configProps);
         final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
         ExecutorService executors = Executors.newFixedThreadPool(2);
