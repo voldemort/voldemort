@@ -31,6 +31,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.AbstractSocketService;
 import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
@@ -71,6 +72,8 @@ public class NioSocketService extends AbstractSocketService {
 
     private final int socketBufferSize;
 
+    private final int acceptorBacklog;
+
     private final StatusManager statusManager;
 
     private final Thread acceptorThread;
@@ -82,10 +85,12 @@ public class NioSocketService extends AbstractSocketService {
                             int socketBufferSize,
                             int selectors,
                             String serviceName,
-                            boolean enableJmx) {
+                            boolean enableJmx,
+                            int acceptorBacklog) {
         super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        this.acceptorBacklog = acceptorBacklog;
 
         try {
             this.serverSocketChannel = ServerSocketChannel.open();
@@ -121,7 +126,7 @@ public class NioSocketService extends AbstractSocketService {
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 
-            serverSocketChannel.socket().bind(endpoint);
+            serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 
@@ -256,6 +261,24 @@ public class NioSocketService extends AbstractSocketService {
                 logger.info("Server has stopped listening for connections on port " + port);
         }
 
+    }
+
+    @JmxGetter(name = "numActiveConnections", description = "total number of active connections across selector managers")
+    public final int getNumActiveConnections() {
+        int sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getNumActiveConnections();
+        }
+        return sum;
+    }
+
+    @JmxGetter(name = "numQueuedConnections", description = "total number of connections pending for registration with selector managers")
+    public final int getNumQueuedConnections() {
+        int sum = 0;
+        for(NioSelectorManager manager: selectorManagers) {
+            sum += manager.getNumQueuedConnections();
+        }
+        return sum;
     }
 
 }

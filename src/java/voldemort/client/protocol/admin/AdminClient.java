@@ -26,6 +26,7 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -57,10 +58,12 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -72,6 +75,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
@@ -510,6 +514,67 @@ public class AdminClient {
     }
 
     /**
+     * Fetch key/value tuples belonging to a node with given key values
+     * 
+     * <p>
+     * Entries are being queried synchronously <em>as the iteration happens</em>
+     * i.e. the whole result set is <b>not</b> buffered in memory.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param keys An Iterable of keys
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> queryKeys(int nodeId,
+                                                                                         String storeName,
+                                                                                         final Iterator<ByteArray> keys) {
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        ClientConfig clientConfig = new ClientConfig();
+        final Store<ByteArray, byte[], byte[]> store;
+        final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                                                   clientConfig.getMaxConnectionsPerNode(),
+                                                                                   clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketBufferSize(),
+                                                                                   clientConfig.getSocketKeepAlive());
+        try {
+            store = clientPool.create(storeName,
+                                      node.getHost(),
+                                      node.getSocketPort(),
+                                      clientConfig.getRequestFormatType(),
+                                      RequestRoutingType.IGNORE_CHECKS);
+
+        } catch(Exception e) {
+            clientPool.close();
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>() {
+
+            @Override
+            public Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> computeNext() {
+                ByteArray key;
+                Exception exception = null;
+                List<Versioned<byte[]>> value = null;
+                if(!keys.hasNext()) {
+                    clientPool.close();
+                    return endOfData();
+                } else {
+                    key = keys.next();
+                }
+                try {
+                    value = store.get(key, null);
+                } catch(Exception e) {
+                    exception = e;
+                }
+                return Pair.create(key, Pair.create(value, exception));
+            }
+        };
+    }
+
+    /**
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchKeys(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
@@ -647,6 +712,22 @@ public class AdminClient {
      * @throws InterruptedException
      */
     public void restoreDataFromReplications(int nodeId, int parallelTransfers) {
+        restoreDataFromReplications(nodeId, parallelTransfers, -1);
+    }
+
+    /**
+     * RestoreData from copies on other machines for the given nodeId
+     * <p>
+     * Recovery mechanism to recover and restore data actively from replicated
+     * copies in the cluster.<br>
+     * 
+     * @param nodeId Id of the node to restoreData
+     * @param parallelTransfers number of transfers
+     * @param zoneId zone from which the nodes are chosen from, -1 means no zone
+     *        preference
+     * @throws InterruptedException
+     */
+    public void restoreDataFromReplications(int nodeId, int parallelTransfers, int zoneId) {
         ExecutorService executors = Executors.newFixedThreadPool(parallelTransfers,
                                                                  new ThreadFactory() {
 
@@ -676,7 +757,7 @@ public class AdminClient {
                 }
             }
             for(StoreDefinition def: writableStores) {
-                restoreStoreFromReplication(nodeId, cluster, def, executors);
+                restoreStoreFromReplication(nodeId, cluster, def, executors, zoneId);
             }
         } finally {
             executors.shutdown();
@@ -703,8 +784,26 @@ public class AdminClient {
     public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
                                                                                Cluster cluster,
                                                                                StoreDefinition storeDef) {
+        return getReplicationMapping(restoringNode, cluster, storeDef, -1);
+    }
 
-        Map<Integer, Integer> partitionToNodeId = RebalanceUtils.getCurrentPartitionMapping(cluster);
+    /**
+     * For a particular node, finds out all the [replica, partition] tuples it
+     * needs to steal in order to be brought back to normal state
+     * 
+     * @param restoringNode The id of the node which needs to be restored
+     * @param cluster The cluster definition
+     * @param storeDef The store definition to use
+     * @param zoneId zone from which nodes are chosen, -1 means no zone
+     *        preference
+     * @return Map of node id to map of replica type and corresponding partition
+     *         list
+     */
+    public Map<Integer, HashMap<Integer, List<Integer>>> getReplicationMapping(int restoringNode,
+                                                                               Cluster cluster,
+                                                                               StoreDefinition storeDef,
+                                                                               int zoneId) {
+
         Map<Integer, HashMap<Integer, List<Integer>>> returnMap = Maps.newHashMap();
 
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
@@ -731,33 +830,81 @@ public class AdminClient {
                                                      + "being left in replicating list");
                     }
 
-                    // Pick the first element and find its position in the
-                    // origin replicating list
-                    int replicaType = extraCopyReplicatingPartitions.indexOf(replicatingPartitions.get(0));
-                    int partition = extraCopyReplicatingPartitions.get(0);
-                    int nodeId = partitionToNodeId.get(replicatingPartitions.get(0));
-
-                    HashMap<Integer, List<Integer>> replicaToPartitionList = null;
-                    if(returnMap.containsKey(nodeId)) {
-                        replicaToPartitionList = returnMap.get(nodeId);
-                    } else {
-                        replicaToPartitionList = Maps.newHashMap();
-                        returnMap.put(nodeId, replicaToPartitionList);
-                    }
-
-                    List<Integer> partitions = null;
-                    if(replicaToPartitionList.containsKey(replicaType)) {
-                        partitions = replicaToPartitionList.get(replicaType);
-                    } else {
-                        partitions = Lists.newArrayList();
-                        replicaToPartitionList.put(replicaType, partitions);
-                    }
-                    partitions.add(partition);
+                    addDonorWithZonePreference(replicatingPartitions,
+                                               extraCopyReplicatingPartitions,
+                                               returnMap,
+                                               zoneId,
+                                               cluster,
+                                               storeDef);
                 }
 
             }
         }
         return returnMap;
+    }
+
+    /**
+     * For each partition that need to be restored, find a donor node that owns
+     * the partition AND has the same zone ID as requested. -1 means no zone
+     * preference required when finding a donor node needs to steal in order to
+     * 
+     * @param remainderPartitions The replicating partitions without the one
+     *        needed by the restore node
+     * @param originalPartitions The entire replicating partition list
+     *        (including the one needed by the restore node)
+     * @param donorMap All donor nodes that will be fetched from
+     * @param zondId The zone from which donor nodes will be chosen from; -1
+     *        means all zones are fine
+     * @param cluster The cluster metadata
+     * @param storeDef The store to be restored
+     * @return
+     */
+    private void addDonorWithZonePreference(List<Integer> remainderPartitions,
+                                            List<Integer> originalPartitions,
+                                            Map<Integer, HashMap<Integer, List<Integer>>> donorMap,
+                                            int zoneId,
+                                            Cluster cluster,
+                                            StoreDefinition storeDef) {
+        Map<Integer, Integer> partitionToNodeId = RebalanceUtils.getCurrentPartitionMapping(cluster);
+        int nodeId = -1;
+        int replicaType = -1;
+        int partition = -1;
+        boolean found = false;
+        int index = 0;
+
+        while(!found && index < remainderPartitions.size()) {
+            replicaType = originalPartitions.indexOf(remainderPartitions.get(index));
+            nodeId = partitionToNodeId.get(remainderPartitions.get(index));
+            if(-1 == zoneId || cluster.getNodeById(nodeId).getZoneId() == zoneId) {
+                found = true;
+            } else {
+                index++;
+            }
+        }
+
+        if(!found) {
+            throw new VoldemortException("unable to find a node to fetch partition " + partition
+                                         + " of replica type " + replicaType + " for store "
+                                         + storeDef.getName());
+        }
+
+        partition = originalPartitions.get(0);
+        HashMap<Integer, List<Integer>> replicaToPartitionList = null;
+        if(donorMap.containsKey(nodeId)) {
+            replicaToPartitionList = donorMap.get(nodeId);
+        } else {
+            replicaToPartitionList = Maps.newHashMap();
+            donorMap.put(nodeId, replicaToPartitionList);
+        }
+
+        List<Integer> partitions = null;
+        if(replicaToPartitionList.containsKey(replicaType)) {
+            partitions = replicaToPartitionList.get(replicaType);
+        } else {
+            partitions = Lists.newArrayList();
+            replicaToPartitionList.put(replicaType, partitions);
+        }
+        partitions.add(partition);
     }
 
     /**
@@ -772,13 +919,15 @@ public class AdminClient {
     private void restoreStoreFromReplication(final int restoringNodeId,
                                              final Cluster cluster,
                                              final StoreDefinition storeDef,
-                                             final ExecutorService executorService) {
+                                             final ExecutorService executorService,
+                                             final int zoneId) {
         logger.info("Restoring data for store " + storeDef.getName() + " on node "
                     + restoringNodeId);
 
         Map<Integer, HashMap<Integer, List<Integer>>> restoreMapping = getReplicationMapping(restoringNodeId,
                                                                                              cluster,
-                                                                                             storeDef);
+                                                                                             storeDef,
+                                                                                             zoneId);
         // migrate partition
         for(final Entry<Integer, HashMap<Integer, List<Integer>>> replicationEntry: restoreMapping.entrySet()) {
             final int donorNodeId = replicationEntry.getKey();
@@ -797,6 +946,7 @@ public class AdminClient {
                                                                null,
                                                                null,
                                                                false);
+
                         waitForCompletion(restoringNodeId,
                                           migrateAsyncId,
                                           adminClientConfig.getRestoreDataTimeoutSec(),
@@ -2362,5 +2512,43 @@ public class AdminClient {
 
         int asyncId = response.getRequestId();
         waitForCompletion(nodeId, asyncId, timeOut, TimeUnit.MINUTES);
+    }
+
+    /**
+     * Reserve memory for the stores
+     * 
+     * @param nodeId The node id to reserve, -1 for entire cluster
+     * @param stores list of stores for which to reserve
+     * @param sizeInMB size of reservation
+     */
+    public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
+
+        List<Integer> reserveNodes = new ArrayList<Integer>();
+        if(nodeId == -1) {
+            // if no node is specified send it to the entire cluster
+            for(Node node: currentCluster.getNodes())
+                reserveNodes.add(node.getId());
+        } else {
+            reserveNodes.add(nodeId);
+        }
+        for(String storeName: stores) {
+            for(Integer reserveNodeId: reserveNodes) {
+
+                VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
+                                                                                                  .setStoreName(storeName)
+                                                                                                  .setSizeInMb(sizeInMB)
+                                                                                                  .build();
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setReserveMemory(reserveRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
+                                                                                                  .build();
+                VAdminProto.ReserveMemoryResponse.Builder response = sendAndReceive(reserveNodeId,
+                                                                                    adminRequest,
+                                                                                    VAdminProto.ReserveMemoryResponse.newBuilder());
+                if(response.hasError())
+                    throwException(response.getError());
+            }
+            logger.info("Finished reserving memory for store : " + storeName);
+        }
     }
 }

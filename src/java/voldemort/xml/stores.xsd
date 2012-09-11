@@ -42,8 +42,11 @@
 			<xs:element name="value-serializer" type="serializer" />
 			<xs:element name="retention-days" type="xs:nonNegativeInteger"
 				minOccurs="0" maxOccurs="1" />
+		    <xs:element name="retention-frequency" type="xs:nonNegativeInteger"
+                minOccurs="0" maxOccurs="1" />
 			<xs:element name="retention-scan-throttle-rate" type="xs:nonNegativeInteger"
 				minOccurs="0" maxOccurs="1" />
+			<xs:element name="memory-footprint" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1"/>
 		</xs:all>
 	</xs:complexType>
 

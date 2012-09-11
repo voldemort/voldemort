@@ -30,6 +30,7 @@ public class StoreDefinitionBuilder {
     private int requiredReads = -1;
     private Integer retentionPeriodDays = null;
     private Integer retentionScanThrottleRate = null;
+    private Integer retentionFrequencyDays = null;
     private String routingStrategyType = null;
     private String viewOf = null;
     private HashMap<Integer, Integer> zoneReplicationFactor = null;
@@ -40,6 +41,7 @@ public class StoreDefinitionBuilder {
     private HintedHandoffStrategyType hintedHandoffStrategy = null;
     private Integer hintPrefListSize = null;
     private List<String> owners = null;
+    private long memoryFootprintMB = 0;
 
     public String getName() {
         return Utils.notNull(name);
@@ -179,6 +181,15 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public Integer getRetentionFrequencyDays() {
+        return this.retentionFrequencyDays;
+    }
+
+    public StoreDefinitionBuilder setRetentionFrequencyDays(Integer retentionFreqDays) {
+        this.retentionFrequencyDays = retentionFreqDays;
+        return this;
+    }
+
     public String getRoutingStrategyType() {
         return routingStrategyType;
     }
@@ -273,30 +284,43 @@ public class StoreDefinitionBuilder {
         return this;
     }
 
+    public long getMemoryFootprintMB() {
+        return memoryFootprintMB;
+    }
+
+    public StoreDefinitionBuilder setMemoryFootprintMB(long memoryFootprintMB) {
+        this.memoryFootprintMB = memoryFootprintMB;
+        return this;
+    }
+
     public StoreDefinition build() {
-        return new StoreDefinition(this.getName(),
-                                   this.getType(),
-                                   this.getDescription(),
-                                   this.getKeySerializer(),
-                                   this.getValueSerializer(),
-                                   this.getTransformsSerializer(),
-                                   this.getRoutingPolicy(),
-                                   this.getRoutingStrategyType(),
-                                   this.getReplicationFactor(),
-                                   this.getPreferredReads(),
-                                   this.getRequiredReads(),
-                                   this.getPreferredWrites(),
-                                   this.getRequiredWrites(),
-                                   this.getViewOf(),
-                                   this.getView(),
-                                   this.getZoneReplicationFactor(),
-                                   this.getZoneCountReads(),
-                                   this.getZoneCountWrites(),
-                                   this.getRetentionPeriodDays(),
-                                   this.getRetentionScanThrottleRate(),
-                                   this.getSerializerFactory(),
-                                   this.getHintedHandoffStrategy(),
-                                   this.getHintPrefListSize(),
-                                   this.getOwners());
+        StoreDefinition storeDef = new StoreDefinition(this.getName(),
+                                                       this.getType(),
+                                                       this.getDescription(),
+                                                       this.getKeySerializer(),
+                                                       this.getValueSerializer(),
+                                                       this.getTransformsSerializer(),
+                                                       this.getRoutingPolicy(),
+                                                       this.getRoutingStrategyType(),
+                                                       this.getReplicationFactor(),
+                                                       this.getPreferredReads(),
+                                                       this.getRequiredReads(),
+                                                       this.getPreferredWrites(),
+                                                       this.getRequiredWrites(),
+                                                       this.getViewOf(),
+                                                       this.getView(),
+                                                       this.getZoneReplicationFactor(),
+                                                       this.getZoneCountReads(),
+                                                       this.getZoneCountWrites(),
+                                                       this.getRetentionPeriodDays(),
+                                                       this.getRetentionScanThrottleRate(),
+                                                       this.getRetentionFrequencyDays(),
+                                                       this.getSerializerFactory(),
+                                                       this.getHintedHandoffStrategy(),
+                                                       this.getHintPrefListSize(),
+                                                       this.getOwners(),
+                                                       this.getMemoryFootprintMB());
+        storeDef.checkParameterLegality();
+        return storeDef;
     }
 }

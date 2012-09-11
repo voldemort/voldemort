@@ -42,6 +42,7 @@ import voldemort.versioning.Versioned;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
@@ -62,7 +63,7 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
     protected void setUp() throws Exception {
         super.setUp();
         this.envConfig = new EnvironmentConfig();
-        this.envConfig.setTxnNoSync(true);
+        this.envConfig.setDurability(Durability.COMMIT_NO_SYNC);
         this.envConfig.setAllowCreate(true);
         this.envConfig.setTransactional(true);
         this.tempDir = TestUtils.createTempDir();

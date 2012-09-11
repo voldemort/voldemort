@@ -36,15 +36,22 @@ public interface StorageConfiguration {
     /**
      * Get an initialized storage implementation
      * 
-     * @param name The name of the storage
+     * @param storeDef store definition
      * @return The storage engine
      */
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef);
 
     /**
      * Get the type of stores returned by this configuration
      */
     public String getType();
+
+    /**
+     * Update the storage configuration at runtime
+     * 
+     * @param storeDef new store definition object
+     */
+    public void update(StoreDefinition storeDef);
 
     /**
      * Close the storage configuration

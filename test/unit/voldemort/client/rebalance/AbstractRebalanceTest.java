@@ -29,8 +29,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -86,7 +86,7 @@ import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
 
-    protected static int NUM_KEYS = 10100;
+    protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -111,7 +111,7 @@ public abstract class AbstractRebalanceTest {
 
     @Before
     public void setUp() throws IOException {
-        testEntries = ServerTestUtils.createRandomKeyValueString(NUM_KEYS);
+        testEntries = ServerTestUtils.createRandomKeyValueString(getNumKeys());
         socketStoreFactory = new ClientRequestExecutorPool(2, 10000, 100000, 32 * 1024);
 
         // First without replication
@@ -256,6 +256,10 @@ public abstract class AbstractRebalanceTest {
             assertEquals(targetCluster, getCurrentCluster(nodeId));
             assertEquals(MetadataStore.VoldemortState.NORMAL_SERVER, getCurrentState(nodeId));
         }
+    }
+
+    protected int getNumKeys() {
+        return NUM_KEYS;
     }
 
     @Test
@@ -666,6 +670,69 @@ public abstract class AbstractRebalanceTest {
         config.setDeleteAfterRebalancingEnabled(true);
         config.setStealerBasedRebalancing(!useDonorBased());
         config.setPrimaryPartitionBatchSize(100);
+        config.setMaxParallelRebalancing(5);
+        RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
+                                                                                      0),
+                                                                      config);
+        try {
+            populateData(currentCluster,
+                         rwStoreDefWithReplication,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            populateData(currentCluster,
+                         rwStoreDefWithReplication2,
+                         rebalanceClient.getAdminClient(),
+                         false);
+
+            rebalanceAndCheck(currentCluster,
+                              targetCluster,
+                              Lists.newArrayList(rwStoreDefWithReplication,
+                                                 rwStoreDefWithReplication2),
+                              rebalanceClient,
+                              serverList);
+            checkConsistentMetadata(targetCluster, serverList);
+        } catch(Exception e) {
+            fail(e.getMessage());
+        } finally {
+            // stop servers
+            stopServer(serverList);
+        }
+    }
+
+    @Test
+    public void testRWRebalanceSerial() throws Exception {
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
+                { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
+
+        ArrayList<Node> nodes = Lists.newArrayList(currentCluster.getNodes());
+        int totalPortNum = nodes.size() * 3;
+        int[] ports = new int[totalPortNum];
+        for(int i = 0; i < nodes.size(); i++) {
+            ports[i * 3] = nodes.get(i).getHttpPort();
+            ports[i * 3 + 1] = nodes.get(i).getSocketPort();
+            ports[i * 3 + 2] = nodes.get(i).getAdminPort();
+        }
+
+        Cluster targetCluster = ServerTestUtils.getLocalCluster(4, ports, new int[][] {
+                { 0, 4, 7 }, { 2, 8 }, { 1, 6 }, { 3, 5, 9 } });
+
+        // start servers
+        Map<String, String> serverProps = new HashMap<String, String>();
+        serverProps.put("max.parallel.stores.rebalancing", String.valueOf(1));
+        List<Integer> serverList = Arrays.asList(0, 1, 2, 3);
+        currentCluster = startServers(currentCluster,
+                                      rwTwoStoreDefFileWithReplication,
+                                      serverList,
+                                      serverProps);
+        // Update the cluster information based on the node information
+        targetCluster = updateCluster(targetCluster);
+
+        RebalanceClientConfig config = new RebalanceClientConfig();
+        config.setDeleteAfterRebalancingEnabled(true);
+        config.setStealerBasedRebalancing(!useDonorBased());
+        config.setPrimaryPartitionBatchSize(100);
+        config.setMaxParallelRebalancing(5);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -990,9 +1057,10 @@ public abstract class AbstractRebalanceTest {
             // Create SocketStores for each Node first
             Map<Integer, Store<ByteArray, byte[], byte[]>> storeMap = new HashMap<Integer, Store<ByteArray, byte[], byte[]>>();
             for(Node node: cluster.getNodes()) {
-                storeMap.put(node.getId(), getSocketStore(storeDef.getName(),
-                                                          node.getHost(),
-                                                          node.getSocketPort()));
+                storeMap.put(node.getId(),
+                             getSocketStore(storeDef.getName(),
+                                            node.getHost(),
+                                            node.getSocketPort()));
 
             }
 

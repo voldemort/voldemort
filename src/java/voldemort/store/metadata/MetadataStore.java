@@ -191,8 +191,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public void put(String key, Object value) {
         if(METADATA_KEYS.contains(key)) {
             VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
-            put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
-                                                                      System.currentTimeMillis())));
+            put(key,
+                new Versioned<Object>(value, version.incremented(getNodeId(),
+                                                                 System.currentTimeMillis())));
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
         }
@@ -316,7 +317,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     public RebalancerState getRebalancerState() {
-        return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+        readLock.lock();
+        try {
+            return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+        } finally {
+            readLock.unlock();
+        }
     }
 
     @SuppressWarnings("unchecked")

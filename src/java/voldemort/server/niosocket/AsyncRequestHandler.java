@@ -25,6 +25,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
@@ -59,17 +60,26 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     private StreamRequestHandler streamRequestHandler;
 
+    private MutableInt serverConnectionCount;
+
     public AsyncRequestHandler(Selector selector,
                                SocketChannel socketChannel,
                                RequestHandlerFactory requestHandlerFactory,
-                               int socketBufferSize) {
+                               int socketBufferSize,
+                               MutableInt serverConnectionCount) {
         super(selector, socketChannel, socketBufferSize);
         this.requestHandlerFactory = requestHandlerFactory;
+        this.serverConnectionCount = serverConnectionCount;
     }
 
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
         int count = 0;
+
+        long startNs = -1;
+
+        if(logger.isDebugEnabled())
+            startNs = System.nanoTime();
 
         if((count = socketChannel.read(inputStream.getBuffer())) == -1)
             throw new EOFException("EOF for " + socketChannel.socket());
@@ -117,8 +127,19 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(logger.isTraceEnabled())
             logger.trace("Starting execution for " + socketChannel.socket());
 
-        streamRequestHandler = requestHandler.handleRequest(new DataInputStream(inputStream),
-                                                            new DataOutputStream(outputStream));
+        DataInputStream dataInputStream = new DataInputStream(inputStream);
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+
+        streamRequestHandler = requestHandler.handleRequest(dataInputStream,
+							    dataOutputStream);
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("AsyncRequestHandler:read finished request from "
+                         + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
+                         + System.identityHashCode(dataInputStream) + " at time: "
+                         + System.currentTimeMillis() + " elapsed time: "
+                         + (System.nanoTime() - startNs) + " ns");
+        }
 
         if(streamRequestHandler != null) {
             // In the case of a StreamRequestHandler, we handle that separately
@@ -277,7 +298,22 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
             if(logger.isTraceEnabled())
                 traceInputBufferState("Before streaming request handler");
 
+            // this is the lowest level in the NioSocketServer stack at which we
+            // still have a reference to the client IP address and port
+            long startNs = -1;
+
+            if(logger.isDebugEnabled())
+                startNs = System.nanoTime();
+
             state = streamRequestHandler.handleRequest(dataInputStream, dataOutputStream);
+
+            if(logger.isDebugEnabled()) {
+                logger.debug("Handled request from "
+                             + socketChannel.socket().getRemoteSocketAddress() + " handlerRef: "
+                             + System.identityHashCode(dataInputStream) + " at time: "
+                             + System.currentTimeMillis() + " elapsed time: "
+                             + (System.nanoTime() - startNs) + " ns");
+            }
 
             if(logger.isTraceEnabled())
                 traceInputBufferState("After streaming request handler");
@@ -345,4 +381,12 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         }
     }
 
+    @Override
+    public void close() {
+        if(!isClosed.compareAndSet(false, true))
+            return;
+
+        serverConnectionCount.decrement();
+        closeInternal();
+    }
 }

@@ -16,6 +16,7 @@
 
 package voldemort.store.routed.action;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -98,6 +99,7 @@ public class PerformParallelGetAllRequests
                     // responses below.
                     if(pipeline.isFinished() && response.getValue() instanceof Exception)
                         if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"
@@ -118,7 +120,7 @@ public class PerformParallelGetAllRequests
         }
 
         try {
-            latch.await(timeoutMs * 3, TimeUnit.MILLISECONDS);
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -136,24 +138,26 @@ public class PerformParallelGetAllRequests
                     successCount.increment();
 
                     List<Versioned<byte[]>> retrieved = values.get(key);
+                    if(retrieved == null) {
+                        retrieved = new ArrayList<Versioned<byte[]>>();
+                    }
                     /*
                      * retrieved can be null if there are no values for the key
                      * provided
                      */
-                    if(retrieved != null) {
-                        List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
+                    List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
 
-                        if(existing == null)
-                            pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
-                        else
-                            existing.addAll(retrieved);
-                    }
+                    if(existing == null)
+                        pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
+                    else
+                        existing.addAll(retrieved);
 
                     HashSet<Integer> zoneResponses = null;
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
                     } else {
                         zoneResponses = new HashSet<Integer>();
+                        pipelineData.getKeyToZoneResponse().put(key, zoneResponses);
                     }
                     zoneResponses.add(response.getNode().getZoneId());
                 }

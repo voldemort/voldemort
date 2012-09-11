@@ -125,8 +125,8 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
             // this is good
         }
         try {
-            store.getAll(Collections.<K> singleton(null), Collections.<K, T> singletonMap(null,
-                                                                                          null));
+            store.getAll(Collections.<K> singleton(null),
+                         Collections.<K, T> singletonMap(null, null));
             fail("Store should not getAll null keys!");
         } catch(IllegalArgumentException e) {
             // this is good
@@ -141,12 +141,13 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
 
     @Test
     public void testPutNullValue() {
-    // Store<K,V> store = getStore();
-    // K key = getKey();
-    // store.put(key, new Versioned<V>(null));
-    // List<Versioned<V>> found = store.get(key);
-    // assertEquals("Wrong number of values.", 1, found.size());
-    // assertEquals("Returned non-null value.", null, found.get(0).getValue());
+        // Store<K,V> store = getStore();
+        // K key = getKey();
+        // store.put(key, new Versioned<V>(null));
+        // List<Versioned<V>> found = store.get(key);
+        // assertEquals("Wrong number of values.", 1, found.size());
+        // assertEquals("Returned non-null value.", null,
+        // found.get(0).getValue());
     }
 
     @Test
@@ -155,12 +156,8 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
         Store<K, V, T> store = getStore();
         List<Versioned<V>> found = store.get(key, null);
         assertEquals("Found non-existent key: " + found, 0, found.size());
-        assertTrue("Delete of non-existent key succeeded.", !store.delete(key, getClock(1,
-                                                                                        1,
-                                                                                        2,
-                                                                                        2,
-                                                                                        3,
-                                                                                        3)));
+        assertTrue("Delete of non-existent key succeeded.",
+                   !store.delete(key, getClock(1, 1, 2, 2, 3, 3)));
     }
 
     private void testObsoletePutFails(String message,
@@ -315,7 +312,21 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
     public void testGetAllWithAbsentKeys() throws Exception {
         Store<K, V, T> store = getStore();
         Map<K, List<Versioned<V>>> result = store.getAll(getKeys(3), null);
-        assertEquals(0, result.size());
+        boolean resultZero = (result.size() == 0);
+        boolean resultEmpty = true;
+        if(!resultZero) {
+            if(result.get(result.keySet().toArray()[0]).size() != 0) {
+                resultEmpty = false;
+            }
+            if(result.get(result.keySet().toArray()[1]).size() != 0) {
+                resultEmpty = false;
+            }
+            if(result.get(result.keySet().toArray()[2]).size() != 0) {
+                resultEmpty = false;
+            }
+        }
+        assertTrue(resultZero || resultEmpty);
+
     }
 
     @Test

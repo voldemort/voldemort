@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanOperationInfo;
@@ -40,6 +39,7 @@ import javax.management.ObjectName;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.client.ClientThreadPool;
@@ -117,7 +117,7 @@ public class StorageService extends AbstractService {
     private final DynamicThrottleLimit dynThrottleLimit;
 
     // Common permit shared by all job which do a disk scan
-    private final Semaphore scanPermits;
+    private final ScanPermitWrapper scanPermitWrapper;
     private final SocketStoreFactory storeFactory;
     private final ConcurrentMap<String, StorageConfiguration> storageConfigs;
     private final ClientThreadPool clientThreadPool;
@@ -134,7 +134,7 @@ public class StorageService extends AbstractService {
         this.scheduler = scheduler;
         this.storeRepository = storeRepository;
         this.metadata = metadata;
-        this.scanPermits = new Semaphore(voldemortConfig.getNumScanPermits());
+        this.scanPermitWrapper = new ScanPermitWrapper(voldemortConfig.getNumScanPermits());
         this.storageConfigs = new ConcurrentHashMap<String, StorageConfiguration>();
         this.clientThreadPool = new ClientThreadPool(config.getClientMaxThreads(),
                                                      config.getClientThreadIdleMs(),
@@ -155,7 +155,7 @@ public class StorageService extends AbstractService {
         this.storeStats = new StoreStats();
         this.routedStoreFactory = new RoutedStoreFactory(voldemortConfig.isPipelineRoutedStoreEnabled(),
                                                          this.clientThreadPool,
-                                                         voldemortConfig.getClientRoutingTimeoutMs());
+                                                         voldemortConfig.getTimeoutConfig());
 
         /*
          * Initialize the dynamic throttle limit based on the per node limit
@@ -214,7 +214,34 @@ public class StorageService extends AbstractService {
                                                  + voldemortConfig.getSlopStoreType()
                                                  + " storage engine has not been enabled.");
 
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
+            // make a dummy store definition object
+            StoreDefinition slopStoreDefinition = new StoreDefinition(SlopStorageEngine.SLOP_STORE_NAME,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0);
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
                                                                  metadata.getCluster());
             registerEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
@@ -234,12 +261,12 @@ public class StorageService extends AbstractService {
                                                                                                                                  metadata,
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
-                                                                                                                                 scanPermits)
+                                                                                                                                 scanPermitWrapper)
                                                                                                     : new StreamingSlopPusherJob(storeRepository,
                                                                                                                                  metadata,
                                                                                                                                  failureDetector,
                                                                                                                                  voldemortConfig,
-                                                                                                                                 scanPermits),
+                                                                                                                                 scanPermitWrapper),
                                    nextRun,
                                    voldemortConfig.getSlopFrequencyMs());
             }
@@ -247,7 +274,7 @@ public class StorageService extends AbstractService {
             // Create a repair job object and register it with Store repository
             if(voldemortConfig.isRepairEnabled()) {
                 logger.info("Initializing repair job.");
-                RepairJob job = new RepairJob(storeRepository, metadata, scanPermits);
+                RepairJob job = new RepairJob(storeRepository, metadata, scanPermitWrapper);
                 JmxUtils.registerMbean(job, JmxUtils.createObjectName(job.getClass()));
                 storeRepository.registerRepairJob(job);
             }
@@ -282,6 +309,16 @@ public class StorageService extends AbstractService {
         logger.info("All stores initialized.");
     }
 
+    public void updateStore(StoreDefinition storeDef) {
+        logger.info("Updating store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine has not been enabled.");
+        config.update(storeDef);
+    }
+
     public void openStore(StoreDefinition storeDef) {
 
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
@@ -299,7 +336,7 @@ public class StorageService extends AbstractService {
             ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
         }
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
         // Update the routing strategy + add listener to metadata
         if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
@@ -586,18 +623,22 @@ public class StorageService extends AbstractService {
         EventThrottler throttler = new EventThrottler(maxReadRate);
 
         Runnable cleanupJob = new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                            scanPermits,
+                                                                            scanPermitWrapper,
                                                                             storeDef.getRetentionDays()
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
                                                                             throttler);
+        if(voldemortConfig.isJmxEnabled()) {
+            JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
+        }
+
+        long retentionFreqHours = storeDef.hasRetentionFrequencyDays() ? (storeDef.getRetentionFrequencyDays() * Time.HOURS_PER_DAY)
+                                                                      : voldemortConfig.getRetentionCleanupScheduledPeriodInHour();
 
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,
-                                voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
-                                        * Time.MS_PER_HOUR);
-
+                                retentionFreqHours * Time.MS_PER_HOUR);
     }
 
     @Override
@@ -713,10 +754,10 @@ public class StorageService extends AbstractService {
                 if(storeDef.hasRetentionPeriod()) {
                     ExecutorService executor = Executors.newFixedThreadPool(1);
                     try {
-                        if(scanPermits.availablePermits() >= 1) {
+                        if(scanPermitWrapper.availablePermits() >= 1) {
 
                             executor.execute(new DataCleanupJob<ByteArray, byte[], byte[]>(engine,
-                                                                                           scanPermits,
+                                                                                           scanPermitWrapper,
                                                                                            storeDef.getRetentionDays()
                                                                                                    * Time.MS_PER_DAY,
                                                                                            SystemTime.INSTANCE,
@@ -815,4 +856,18 @@ public class StorageService extends AbstractService {
         return dynThrottleLimit;
     }
 
+    @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
+    public List<String> getPermitOwners() {
+        return this.scanPermitWrapper.getPermitOwners();
+    }
+
+    @JmxGetter(name = "numGrantedScanPermits", description = "Returns number of scan permits granted at the moment")
+    public long getGrantedPermits() {
+        return this.scanPermitWrapper.getGrantedPermits();
+    }
+
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned since last call")
+    public long getEntriesScanned() {
+        return this.scanPermitWrapper.getEntriesScanned();
+    }
 }

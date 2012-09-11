@@ -31,6 +31,7 @@ import org.apache.commons.io.IOUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.VoldemortOpCode;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ConfigurationException;
@@ -55,6 +56,7 @@ public class ClientConfig {
     private volatile boolean socketKeepAlive = false;
     private volatile int selectors = 8;
     private volatile long routingTimeoutMs = 15000;
+    private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
@@ -91,6 +93,12 @@ public class ClientConfig {
     public static final String SOCKET_KEEPALIVE_PROPERTY = "socket_keepalive";
     public static final String SELECTORS_PROPERTY = "selectors";
     public static final String ROUTING_TIMEOUT_MS_PROPERTY = "routing_timeout_ms";
+    public static final String GETALL_ROUTING_TIMEOUT_MS_PROPERTY = "getall_routing_timeout_ms";
+    public static final String PUT_ROUTING_TIMEOUT_MS_PROPERTY = "put_routing_timeout_ms";
+    public static final String GET_ROUTING_TIMEOUT_MS_PROPERTY = "get_routing_timeout_ms";
+    public static final String GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY = "getversions_routing_timeout_ms";
+    public static final String DELETE_ROUTING_TIMEOUT_MS_PROPERTY = "delete_routing_timeout_ms";
+    public static final String ALLOW_PARTIAL_GETALLS_PROPERTY = "allow_partial_getalls";
     public static final String NODE_BANNAGE_MS_PROPERTY = "node_bannage_ms";
     public static final String SOCKET_BUFFER_SIZE_PROPERTY = "socket_buffer_size";
     public static final String SERIALIZER_FACTORY_CLASS_PROPERTY = "serializer_factory_class";
@@ -173,6 +181,36 @@ public class ClientConfig {
 
         if(props.containsKey(ROUTING_TIMEOUT_MS_PROPERTY))
             this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
+
+        // By default, make all the timeouts equal to routing timeout
+        timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
+
+        if(props.containsKey(GETALL_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
+                                              props.getInt(GETALL_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(GET_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
+                                              props.getInt(GET_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(PUT_ROUTING_TIMEOUT_MS_PROPERTY)) {
+            long putTimeoutMs = props.getInt(PUT_ROUTING_TIMEOUT_MS_PROPERTY);
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE, putTimeoutMs);
+            // By default, use the same thing for getVersions() also
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE, putTimeoutMs);
+        }
+
+        // of course, if someone overrides it, we will respect that
+        if(props.containsKey(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                              props.getInt(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(DELETE_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
+                                              props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(ALLOW_PARTIAL_GETALLS_PROPERTY))
+            timeoutConfig.setPartialGetAllAllowed(props.getBoolean(ALLOW_PARTIAL_GETALLS_PROPERTY));
 
         if(props.containsKey(SOCKET_BUFFER_SIZE_PROPERTY))
             this.setSocketBufferSize(props.getInt(SOCKET_BUFFER_SIZE_PROPERTY));
@@ -322,6 +360,26 @@ public class ClientConfig {
     public ClientConfig setRoutingTimeout(int routingTimeout, TimeUnit unit) {
         this.routingTimeoutMs = unit.toMillis(routingTimeout);
         return this;
+    }
+
+    /**
+     * Set the timeout configuration for the voldemort operations
+     * 
+     * @param tConfig
+     * @return
+     */
+    public ClientConfig setTimeoutConfig(TimeoutConfig tConfig) {
+        this.timeoutConfig = tConfig;
+        return this;
+    }
+
+    /**
+     * Get the timeouts for voldemort operations
+     * 
+     * @return
+     */
+    public TimeoutConfig getTimeoutConfig() {
+        return timeoutConfig;
     }
 
     /**
@@ -517,7 +575,7 @@ public class ClientConfig {
 
     /**
      * Enable lazy initialization of clients?
-     *
+     * 
      * @param enableLazy If true clients will be lazily initialized
      */
     public ClientConfig setEnableLazy(boolean enableLazy) {

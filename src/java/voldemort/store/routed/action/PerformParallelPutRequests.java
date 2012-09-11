@@ -42,6 +42,7 @@ import voldemort.store.routed.Response;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -129,6 +130,12 @@ public class PerformParallelPutRequests extends
                                                                                            requestTime);
                     responses.put(node.getId(), response);
 
+                    if(logger.isDebugEnabled())
+                        logger.debug("Finished secondary PUT for key "
+                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                                     + System.identityHashCode(key) + "); took " + requestTime
+                                     + " ms on node " + node.getId() + "(" + node.getHost() + ")");
+
                     if(isHintedHandoffEnabled() && pipeline.isFinished()) {
                         if(response.getValue() instanceof UnreachableStoreException) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
@@ -156,6 +163,7 @@ public class PerformParallelPutRequests extends
                     if(pipeline.isFinished() && response.getValue() instanceof Exception
                        && !(response.getValue() instanceof ObsoleteVersionException)) {
                         if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"

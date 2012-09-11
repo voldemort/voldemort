@@ -47,6 +47,7 @@ import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.JNAUtils;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
@@ -147,7 +148,8 @@ public class VoldemortServer extends AbstractService {
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
-                                                          SystemTime.INSTANCE);
+                                                          SystemTime.INSTANCE,
+                                                          voldemortConfig.canInterruptService());
         StorageService storageService = new StorageService(storeRepository,
                                                            metadata,
                                                            scheduler,
@@ -181,7 +183,8 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.getSocketBufferSize(),
                                                   voldemortConfig.getNioConnectorSelectors(),
                                                   "nio-socket-server",
-                                                  voldemortConfig.isJmxEnabled()));
+                                                  voldemortConfig.isJmxEnabled(),
+                                                  voldemortConfig.getNioAcceptorBacklog()));
             } else {
                 logger.info("Using BIO Connector.");
                 services.add(new SocketService(socketRequestHandlerFactory,
@@ -220,7 +223,8 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.getAdminSocketBufferSize(),
                                                   voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
-                                                  voldemortConfig.isJmxEnabled()));
+                                                  voldemortConfig.isJmxEnabled(),
+                                                  voldemortConfig.getNioAcceptorBacklog()));
             } else {
                 logger.info("Using BIO Connector for Admin Service.");
                 services.add(new SocketService(adminRequestHandlerFactory,
@@ -245,6 +249,8 @@ public class VoldemortServer extends AbstractService {
 
     @Override
     protected void startInner() throws VoldemortException {
+        // lock down jvm heap
+        JNAUtils.tryMlockall();
         logger.info("Starting " + services.size() + " services.");
         long start = System.currentTimeMillis();
         for(VoldemortService service: services)
@@ -277,6 +283,8 @@ public class VoldemortServer extends AbstractService {
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);
+        // release lock of jvm heap
+        JNAUtils.tryMunlockall();
     }
 
     public static void main(String[] args) throws Exception {

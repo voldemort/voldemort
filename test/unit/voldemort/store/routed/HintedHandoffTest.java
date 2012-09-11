@@ -17,7 +17,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 
 import org.apache.log4j.Logger;
 import org.junit.After;
@@ -27,11 +26,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.RoutingTier;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -39,12 +38,14 @@ import voldemort.cluster.failuredetector.BannagePeriodFailureDetector;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.FailureDetectorUtils;
+import voldemort.cluster.failuredetector.MutableStoreVerifier;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.StoreRepository;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
+import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.ForceFailStore;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
@@ -168,7 +169,9 @@ public class HintedHandoffTest {
         setFailureDetector(subStores);
 
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
-        routedStoreFactory = new RoutedStoreFactory(true, routedStoreThreadPool, 1500L);
+        routedStoreFactory = new RoutedStoreFactory(true,
+                                                    routedStoreThreadPool,
+                                                    new TimeoutConfig(1500L, false));
         strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();
@@ -200,7 +203,7 @@ public class HintedHandoffTest {
                                                                                                                   cluster,
                                                                                                                   Lists.newArrayList(storeDef),
                                                                                                                   new Properties()),
-                                                                       new Semaphore(1));
+                                                                       new ScanPermitWrapper(1));
             slopPusherJobs.add(pusher);
         }
 

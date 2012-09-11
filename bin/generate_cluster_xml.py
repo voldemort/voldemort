@@ -1,42 +1,90 @@
+#!/usr/bin/python
+
 import sys
 import random
+import argparse
 
-if len(sys.argv) != 3:
-    print >> sys.stderr, "USAGE: python generate_partitions.py <nodes_file> <partitions_per_node>"
-    sys.exit()
+# Get a random seed
+rseed = int(random.randint(00000000001,99999999999))
 
-FORMAT_WIDTH = 10
+# Setup and argument parser
+parser = argparse.ArgumentParser(description='Build a voldemort cluster.xml.')
+# Add supported arguments
+parser.add_argument('-N', '--name', type=str, default='voldemort', dest='name',
+                    help='the name you want to give the cluster')
+parser.add_argument('-n', '--nodes', type=int, default=2, dest='nodes',
+                    help='the number of nodes in the cluster')
+parser.add_argument('-p', '--partitions', type=int, default=300,
+                    dest='partitions', help='number of partitions per node')
+parser.add_argument('-s', '--socket-port', type=int, default=6666,
+                    dest='sock_port', help='socket port number')
+parser.add_argument('-a', '--admin-port', type=int, default=6667,
+                    dest='admin_port', help='admin port number')
+parser.add_argument('-H', '--http-port', type=int, default=6665,
+                    dest='http_port', help='http port number')
+genType = parser.add_mutually_exclusive_group()
+genType.add_argument('-S', '--seed', type=int, default=rseed, dest='seed',
+                    help='seed for randomizing partition distribution')
+genType.add_argument('-l', '--loops', type=int, default=1000, dest='loops',
+                    help='loop n times, using a different random seed every \
+                          time (Note: not currently supported)')
+parser.add_argument('-z', '--zones', type=int, dest='zones',
+                    help='if using zones, the number of zones you will have\
+                          (Note: you must add your own <zone> fields \
+                          manually)')
 
-nodes = 0
-for line in open(sys.argv[1],'r'):
-	nodes+=1
+# Parse arguments
+args = parser.parse_args()
 
-partitions = int(sys.argv[2])
+# Check args
+if args.zones:
+  zones = args.zones
+  if (args.nodes % zones) != 0:
+    print "Number of nodes must be evenly divisible by number of zones"
+    sys.exit(1)
 
-ids = range(nodes * partitions)
+# Store arguments
+nodes = args.nodes
+partitions = args.partitions
+name = args.name
+http_port = args.http_port
+sock_port = args.sock_port
+admin_port = args.admin_port
+seed = args.seed
 
-# use known seed so this is repeatable
-random.seed(92873498274)
-random.shuffle(ids)
+# Generate the full list of partition IDs
+part_ids = range(nodes * partitions)
+# Generate full list of zone IDs
+if args.zones:
+  zone_ids = range(zones)
+  zone_id = 0
 
-print '<cluster>'
-print '<name>prodcluster</name>'
-id = 0
-for host in open(sys.argv[1],'r'):
-    print '<server>'
-    print "  <id>%d</id>" % id
-    print "  <host>%s</host>" % host.strip()
-    print '  <http-port>8081</http-port>'
-    print '  <socket-port>6666</socket-port>'
-    print '  <partitions>',
-    node_ids = sorted(ids[id*partitions:(id+1)*partitions])
-    for j in xrange(len(node_ids)):
-        print str(node_ids[j]) + ',',
-        if j % FORMAT_WIDTH == FORMAT_WIDTH - 1:
-            print '    ',
-    print '  </partitions>'
-    print '</server>'
-    id += 1
-print '</cluster>'
+# Shuffle up the partitions
+random.seed(seed)
+random.shuffle(part_ids)
 
-        
+# Printing cluster.xml
+print "<!-- Partition distribution generated using seed [%d] -->" % seed
+print "<cluster>"
+print "  <name>%s</name>" % name
+
+for i in xrange(nodes):
+  node_partitions = ", ".join(str(p) for p in sorted(part_ids[i*partitions:(i+1)*partitions]))
+
+  print "  <server>"
+  print "    <id>%d</id>" % i
+  print "    <host>host%d</host>" % i
+  print "    <http-port>%d</http-port>" % http_port
+  print "    <socket-port>%d</socket-port>" % sock_port
+  print "    <admin-port>%d</admin-port>" % admin_port
+  print "    <partitions>%s</partitions>" % node_partitions
+  # If zones are being used, assign a zone-id
+  if args.zones:
+    print "    <zone-id>%d</zone-id>" % zone_id
+    if zone_id == (zones - 1):
+      zone_id = 0
+    else:
+      zone_id += 1
+  print "  </server>"
+
+print "</cluster>"

@@ -239,6 +239,9 @@ class StoreClient:
     ## read a response from the connection
     def _receive_response(self, connection):
         size_bytes = connection.recv(4)
+        if not size_bytes:
+            raise VoldemortException('Connection closed')
+
         size = struct.unpack('>i', size_bytes)[0]
 
         bytes_read = 0
@@ -250,6 +253,7 @@ class StoreClient:
             data.append(chunk)
 
         return ''.join(data)
+
 
 
     ## Bootstrap cluster metadata from a list of urls of nodes in the cluster.

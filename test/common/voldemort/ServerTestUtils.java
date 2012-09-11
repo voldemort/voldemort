@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -33,7 +33,6 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -82,8 +81,8 @@ import com.google.common.collect.Lists;
 
 /**
  * Helper functions for testing with real server implementations
- *
- *
+ * 
+ * 
  */
 public class ServerTestUtils {
 
@@ -147,7 +146,8 @@ public class ServerTestUtils {
                                                  bufferSize,
                                                  coreConnections,
                                                  "client-request-service",
-                                                 false);
+                                                 false,
+                                                 -1);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,
@@ -211,7 +211,9 @@ public class ServerTestUtils {
         return context;
     }
 
-    public static HttpStore getHttpStore(String storeName, RequestFormatType format, int port,
+    public static HttpStore getHttpStore(String storeName,
+                                         RequestFormatType format,
+                                         int port,
                                          final HttpClient httpClient) {
         return new HttpStore(storeName,
                              "localhost",
@@ -288,7 +290,7 @@ public class ServerTestUtils {
     /**
      * Update a cluster by replacing the specified server with a new host, i.e.
      * new ports since they are all localhost
-     *
+     * 
      * @param original The original cluster to be updated
      * @param serverIds The ids of the server to be replaced with new hosts
      * @return updated cluster
@@ -328,7 +330,7 @@ public class ServerTestUtils {
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
-     *
+     * 
      * @param numberOfZones The number of zones to return
      * @return List of zones
      */
@@ -352,7 +354,7 @@ public class ServerTestUtils {
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>
-     *
+     * 
      * @param numberOfNodes Number of nodes in the cluster
      * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
@@ -595,7 +597,7 @@ public class ServerTestUtils {
                                                      String clusterFile,
                                                      String storeFile,
                                                      Properties properties) throws IOException {
-        Props props = new Props(properties);
+        Props props = new Props();
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
@@ -603,6 +605,7 @@ public class ServerTestUtils {
         props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
+        props.loadProperties(properties);
 
         VoldemortConfig config = new VoldemortConfig(props);
         config.setMysqlDatabaseName("voldemort");

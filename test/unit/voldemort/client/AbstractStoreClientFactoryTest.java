@@ -46,7 +46,7 @@ public abstract class AbstractStoreClientFactoryTest extends TestCase {
     @Override
     @Before
     public void setUp() throws Exception {
-        this.storeDefinitionXml = VoldemortTestConstants.getSingleStoreDefinitionsXml();
+        this.storeDefinitionXml = VoldemortTestConstants.getTwoStoreDefinitionsXml();
         this.cluster = ServerTestUtils.getLocalCluster(1);
         this.node = cluster.getNodes().iterator().next();
     }

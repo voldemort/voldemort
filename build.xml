@@ -27,6 +27,7 @@
   </condition>
 
   <path id="contrib-classpath">
+    <pathelement path="${resources.dir}" />
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
     </fileset>
@@ -37,6 +38,7 @@
   </path>
 
   <path id="test-classpath">
+    <pathelement path="${resources.dir}" />
     <pathelement path="${env.VOLD_TEST_JARS}" />
     <path refid="main-classpath" />
     <pathelement path="${testclasses.dir}" />
@@ -103,6 +105,7 @@
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
+      <src path="${longtestsrc.dir}" />
       <classpath refid="main-classpath" />
     </javac>
   </target>
@@ -387,6 +390,26 @@
     </junitreport>
   </target>
  
+  <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
+    <replace-dir dir="${longtestreport.dir}" />
+    <replace-dir dir="${longtesthtml.dir}" />
+    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+      <classpath refid="test-classpath" />
+      <formatter type="xml" />
+      <batchtest fork="yes" todir="${longtestreport.dir}">
+        <fileset dir="${longtestsrc.dir}">
+          <include name="**/*Test.java" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${longtesthtml.dir}">
+      <fileset dir="${longtestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${longtesthtml.dir}" format="frames" />
+    </junitreport>
+  </target>
+
   <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
     <junit printsummary="yes" showoutput="true" maxmemory="1024m">
       <classpath refid="contrib-test-classpath" />
@@ -394,7 +417,7 @@
     </junit>
   </target>
 
-  <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
+  <target name="junit-all" depends="junit-long, contrib-junit" description="Run All junit tests including contrib.">
   </target>
 
   <macrodef name="make-javadocs">

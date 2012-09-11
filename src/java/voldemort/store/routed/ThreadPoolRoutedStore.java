@@ -36,9 +36,11 @@ import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.VoldemortApplicationException;
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.VoldemortOpCode;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -102,7 +104,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                  StoreDefinition storeDef,
                                  int numberOfThreads,
                                  boolean repairReads,
-                                 long timeoutMs,
+                                 TimeoutConfig timeoutConfig,
                                  FailureDetector failureDetector) {
         this(name,
              innerStores,
@@ -110,7 +112,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
              storeDef,
              repairReads,
              Executors.newFixedThreadPool(numberOfThreads),
-             timeoutMs,
+             timeoutConfig,
              failureDetector,
              SystemTime.INSTANCE);
     }
@@ -134,10 +136,17 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                  StoreDefinition storeDef,
                                  boolean repairReads,
                                  ExecutorService threadPool,
-                                 long timeoutMs,
+                                 TimeoutConfig timeoutConfig,
                                  FailureDetector failureDetector,
                                  Time time) {
-        super(name, innerStores, cluster, storeDef, repairReads, timeoutMs, failureDetector, time);
+        super(name,
+              innerStores,
+              cluster,
+              storeDef,
+              repairReads,
+              timeoutConfig,
+              failureDetector,
+              time);
         this.executor = threadPool;
     }
 
@@ -184,7 +193,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                     } catch(Exception e) {
                         failures.add(e);
                         logger.warn("Error in DELETE on node " + node.getId() + "("
-                                    + node.getHost() + ")", e);
+                                            + node.getHost() + ")",
+                                    e);
                     } finally {
                         // signal that the operation is complete
                         semaphore.release();
@@ -199,6 +209,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         } else {
             for(int i = 0; i < numNodes; i++) {
                 try {
+                    long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOpCode.DELETE_OP_CODE);
                     boolean acquired = semaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
                     if(!acquired)
                         logger.warn("Delete operation timed out waiting for operation " + i
@@ -292,6 +303,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
             keyToSuccessCount.put(key, new MutableInt(0));
 
         List<Future<GetAllResult>> futures;
+        long timeoutMs = timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE);
         try {
             // TODO What to do about timeouts? They should be longer as getAll
             // is likely to
@@ -377,7 +389,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                             throw e;
                         } catch(Exception e) {
                             logger.warn("Error in GET_ALL on node " + node.getId() + "("
-                                        + node.getHost() + ")", e);
+                                                + node.getHost() + ")",
+                                        e);
                             failures.add(e);
                         }
                     }
@@ -453,6 +466,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         }
 
         List<Future<GetResult<R>>> futures;
+        long timeoutMs = (fetcher == VERSION_OP) ? timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE)
+                                                : timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_OP_CODE);
         try {
             futures = executor.invokeAll(callables, timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
@@ -498,8 +513,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
                                                key,
                                                fetcher.execute(innerStores.get(node.getId()),
                                                                key,
-                                                               transforms),
-                                               null));
+                                                               transforms), null));
                 ++successes;
                 recordSuccess(node, startNs);
             } catch(UnreachableStoreException e) {
@@ -760,7 +774,8 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         for(int i = startingIndex; i < blockCount; i++) {
             try {
                 long ellapsedNs = System.nanoTime() - startNs;
-                long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+                long remainingNs = (timeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE) * Time.NS_PER_MS)
+                                   - ellapsedNs;
                 boolean acquiredPermit = semaphore.tryAcquire(Math.max(remainingNs, 0),
                                                               TimeUnit.NANOSECONDS);
                 if(!acquiredPermit) {

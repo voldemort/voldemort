@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -38,7 +38,6 @@ import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
-import voldemort.utils.JmxUtils;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -62,15 +61,14 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         super(config);
         this.requestRoutingType = RequestRoutingType.getRequestRoutingType(RoutingTier.SERVER.equals(config.getRoutingTier()),
                                                                            false);
-
         this.storeFactory = new ClientRequestExecutorPool(config.getSelectors(),
                                                           config.getMaxConnectionsPerNode(),
                                                           config.getConnectionTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketBufferSize(),
-                                                          config.getSocketKeepAlive());
-        if(config.isJmxEnabled())
-            JmxUtils.registerMbean(storeFactory, JmxUtils.createObjectName(storeFactory.getClass()));
+                                                          config.getSocketKeepAlive(),
+                                                          config.isJmxEnabled(),
+                                                          jmxId);
     }
 
     @Override
@@ -87,7 +85,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         return getParentStoreClient(storeName, resolver);
     }
 
-    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName, InconsistencyResolver<Versioned<V>> resolver) {
+    private <K, V> StoreClient<K, V> getParentStoreClient(String storeName,
+                                                          InconsistencyResolver<Versioned<V>> resolver) {
         return super.getStoreClient(storeName, resolver);
     }
 
@@ -96,7 +95,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         try {
             return super.getRemoteMetadata(key, url);
         } catch(VoldemortException e) {
-            // Fix SNA-4227: When an error occurs during bootstrap, close the socket
+            // Fix SNA-4227: When an error occurs during bootstrap, close the
+            // socket
             SocketDestination destination = new SocketDestination(url.getHost(),
                                                                   url.getPort(),
                                                                   getRequestFormatType());
@@ -150,7 +150,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setNodes(nodes)
                                                                                        .setStoreVerifier(storeVerifier);
 
-        return create(failureDetectorConfig, true, failureDetectorListener);
+        return create(failureDetectorConfig, false, failureDetectorListener);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -17,19 +17,17 @@
 package voldemort.store.socket.clientrequest;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import voldemort.VoldemortException;
-import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxManaged;
-import voldemort.annotations.jmx.JmxSetter;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.SocketStoreFactory;
+import voldemort.store.stats.ClientSocketStats;
+import voldemort.store.stats.ClientSocketStatsJmx;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.utils.pool.KeyedResourcePool;
@@ -46,15 +44,49 @@ import voldemort.utils.pool.ResourcePoolConfig;
  * terminated upon calling {@link #close()}.
  */
 
-@JmxManaged(description = "Voldemort socket pool.")
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
-    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
-    private final AtomicInteger checkouts;
-    private final AtomicLong waitNs;
-    private final AtomicLong avgWaitNs;
     private final KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
     private final ClientRequestExecutorFactory factory;
+    private final ClientSocketStats stats;
+    private final boolean jmxEnabled;
+    private final int jmxId;
+
+    public ClientRequestExecutorPool(int selectors,
+                                     int maxConnectionsPerNode,
+                                     int connectionTimeoutMs,
+                                     int soTimeoutMs,
+                                     int socketBufferSize,
+                                     boolean socketKeepAlive,
+                                     boolean jmxEnabled,
+                                     int jmxId) {
+        ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
+                                                            .setMaxPoolSize(maxConnectionsPerNode)
+                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
+                                                            .setTimeout(connectionTimeoutMs,
+                                                                        TimeUnit.MILLISECONDS);
+        this.jmxEnabled = jmxEnabled;
+        this.jmxId = jmxId;
+        if(this.jmxEnabled) {
+            stats = new ClientSocketStats(jmxId);
+            JmxUtils.registerMbean(new ClientSocketStatsJmx(stats),
+                                   JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                             "aggregated"
+                                                                     + JmxUtils.getJmxId(this.jmxId)));
+        } else {
+            stats = null;
+        }
+        this.factory = new ClientRequestExecutorFactory(selectors,
+                                                        connectionTimeoutMs,
+                                                        soTimeoutMs,
+                                                        socketBufferSize,
+                                                        socketKeepAlive,
+                                                        stats);
+        this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
+        if(stats != null) {
+            this.stats.setPool(pool);
+        }
+    }
 
     public ClientRequestExecutorPool(int selectors,
                                      int maxConnectionsPerNode,
@@ -62,20 +94,15 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                      int soTimeoutMs,
                                      int socketBufferSize,
                                      boolean socketKeepAlive) {
-        ResourcePoolConfig config = new ResourcePoolConfig().setIsFair(true)
-                                                            .setMaxPoolSize(maxConnectionsPerNode)
-                                                            .setMaxInvalidAttempts(maxConnectionsPerNode)
-                                                            .setTimeout(connectionTimeoutMs,
-                                                                        TimeUnit.MILLISECONDS);
-        this.factory = new ClientRequestExecutorFactory(selectors,
-                                                        connectionTimeoutMs,
-                                                        soTimeoutMs,
-                                                        socketBufferSize,
-                                                        socketKeepAlive);
-        this.pool = new KeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory, config);
-        this.checkouts = new AtomicInteger(0);
-        this.waitNs = new AtomicLong(0);
-        this.avgWaitNs = new AtomicLong(0);
+        // JMX bean is disabled by default
+        this(selectors,
+             maxConnectionsPerNode,
+             connectionTimeoutMs,
+             soTimeoutMs,
+             socketBufferSize,
+             socketKeepAlive,
+             false,
+             0);
     }
 
     public ClientRequestExecutorPool(int maxConnectionsPerNode,
@@ -113,31 +140,21 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
 
     public ClientRequestExecutor checkout(SocketDestination destination) {
+        // time checkout
+        long start = System.nanoTime();
+        ClientRequestExecutor clientRequestExecutor;
         try {
-            // time checkout
-            long start = System.nanoTime();
-            ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-            updateStats(System.nanoTime() - start);
-
-            return clientRequestExecutor;
+            clientRequestExecutor = pool.checkout(destination);
         } catch(Exception e) {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
+        } finally {
+            long end = System.nanoTime();
+            if(stats != null) {
+                stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
+            }
         }
-    }
-
-    private void updateStats(long checkoutTimeNs) {
-        long wait = waitNs.getAndAdd(checkoutTimeNs);
-        int count = checkouts.getAndIncrement();
-
-        // reset reporting inverval if we have used up the current interval
-        int interval = this.monitoringInterval.get();
-        if(count % interval == interval - 1) {
-            // harmless race condition:
-            waitNs.set(0);
-            checkouts.set(0);
-            avgWaitNs.set(wait / count);
-        }
+        return clientRequestExecutor;
     }
 
     /**
@@ -164,40 +181,22 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      * Close the socket pool
      */
     public void close() {
+        // unregister MBeans
+        if(stats != null) {
+            try {
+                if(this.jmxEnabled)
+                    JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                                       "aggregated"
+                                                                               + JmxUtils.getJmxId(this.jmxId)));
+            } catch(Exception e) {}
+            stats.close();
+        }
         factory.close();
         pool.close();
     }
 
-    @JmxGetter(name = "socketsCreated", description = "The total number of sockets created by this pool.")
-    public int getNumberSocketsCreated() {
-        return this.factory.getNumberCreated();
-    }
-
-    @JmxGetter(name = "socketsDestroyed", description = "The total number of sockets destroyed by this pool.")
-    public int getNumberSocketsDestroyed() {
-        return this.factory.getNumberDestroyed();
-    }
-
-    @JmxGetter(name = "numberOfConnections", description = "The number of active connections.")
-    public int getNumberOfActiveConnections() {
-        return this.pool.getTotalResourceCount();
-    }
-
-    @JmxGetter(name = "numberOfIdleConnections", description = "The number of idle connections.")
-    public int getNumberOfCheckedInConnections() {
-        return this.pool.getCheckedInResourceCount();
-    }
-
-    @JmxGetter(name = "avgWaitTimeMs", description = "The avg. ms of wait time to acquire a connection.")
-    public double getAvgWaitTimeMs() {
-        return this.avgWaitNs.doubleValue() / Time.NS_PER_MS;
-    }
-
-    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
-    public void setMonitoringInterval(int count) {
-        if(count <= 0)
-            throw new IllegalArgumentException("Monitoring interval must be a positive number.");
-        this.monitoringInterval.set(count);
+    public ClientSocketStats getStats() {
+        return stats;
     }
 
 }
