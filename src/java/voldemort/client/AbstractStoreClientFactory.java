@@ -157,6 +157,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         StoreClient<K, V> client = null;
         if(this.config.isDefaultClientEnabled()) {
             client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        } else if(this.bootstrapUrls.length > 0
+                  && this.bootstrapUrls[0].getScheme().equals(HttpStoreClientFactory.URL_SCHEME)) {
+            client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
         } else {
 
             SchedulerService service = new SchedulerService(config.getAsyncJobThreadPoolSize(),

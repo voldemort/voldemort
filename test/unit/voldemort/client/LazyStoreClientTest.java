@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2011 LinkedIn, Inc
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,15 +16,18 @@
 
 package voldemort.client;
 
-import org.junit.Before;
-import org.junit.Test;
-import voldemort.serialization.Serializer;
-import voldemort.serialization.StringSerializer;
-import voldemort.utils.SystemTime;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.Callable;
 
-import static org.mockito.Mockito.*;
+import org.junit.Before;
+import org.junit.Test;
+
+import voldemort.serialization.Serializer;
+import voldemort.serialization.StringSerializer;
+import voldemort.utils.SystemTime;
 
 /**
  */
@@ -69,6 +72,6 @@ public class LazyStoreClientTest extends DefaultStoreClientTest {
             public StoreClient<String, String> call() throws Exception {
                 return factory.getStoreClient("test");
             }
-        });
+        }, false);
     }
 }

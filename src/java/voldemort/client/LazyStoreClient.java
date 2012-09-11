@@ -41,19 +41,29 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     private StoreClient<K, V> storeClient;
 
     public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk) {
+        this(storeClientThunk, true);
+    }
+
+    /**
+     * A Hybrid store client which tries to do immediate bootstrap. In case of
+     * an exception, we fallback to the lazy way of doing initialization.
+     * 
+     * @param storeClientThunk The callback invoked for doing the actual
+     *        bootstrap
+     * @param instantInit A boolean flag when set indicates that we should try
+     *        to immediately bootstrap
+     */
+    public LazyStoreClient(Callable<StoreClient<K, V>> storeClientThunk, boolean instantInit) {
         this.storeClientThunk = storeClientThunk;
 
-        /*
-         * Although it says Lazy Store Client, we try to bootstrap during
-         * initialization if we can. If the server isn't up at this time, it
-         * will be done lazily during the next client API call.
-         */
-        try {
-            storeClient = initStoreClient();
-        } catch(Exception e) {
-            storeClient = null;
-            e.printStackTrace();
-            logger.info("Could not bootstrap right away. Trying on the next call ... ");
+        if(instantInit) {
+            try {
+                storeClient = initStoreClient();
+            } catch(Exception e) {
+                storeClient = null;
+                e.printStackTrace();
+                logger.info("Could not bootstrap right away. Trying on the next call ... ");
+            }
         }
     }
 
