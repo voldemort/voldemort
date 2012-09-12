@@ -109,9 +109,18 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         isAvroJob = props.getBoolean("build.type.avro", false);
 
-        keyField = props.getString("avro.key.field", "key");
+        keyField = props.getString("avro.key.field", null);
 
-        valueField = props.getString("avro.value.field", "value");
+        valueField = props.getString("avro.value.field", null);
+
+        if(isAvroJob) {
+            if(keyField == null)
+                throw new RuntimeException("The key field must be specified in the properties for the Avro build and push job!");
+
+            if(valueField == null)
+                throw new RuntimeException("The value field must be specified in the properties for the Avro build and push job!");
+
+        }
 
     }
 

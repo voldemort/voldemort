@@ -87,6 +87,8 @@ public class HadoopStoreBuilder {
     private boolean reducerPerBucket = false;
     private int numChunks = -1;
 
+    private boolean isAvro;
+
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
      * more since it is derived from the store definition
@@ -160,6 +162,7 @@ public class HadoopStoreBuilder {
         this.chunkSizeBytes = chunkSizeBytes;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
+        isAvro = false;
         if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
             throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
                                          + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
@@ -297,6 +300,7 @@ public class HadoopStoreBuilder {
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
         this.numChunks = numChunks;
+        isAvro = false;
         if(numChunks <= 0)
             throw new VoldemortException("Number of chunks should be greater than zero");
     }
@@ -313,14 +317,16 @@ public class HadoopStoreBuilder {
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
             conf.setBoolean("save.keys", saveKeys);
             conf.setBoolean("reducer.per.bucket", reducerPerBucket);
-            conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-            conf.setMapperClass(mapperClass);
-            conf.setMapOutputKeyClass(BytesWritable.class);
-            conf.setMapOutputValueClass(BytesWritable.class);
-            if(reducerPerBucket) {
-                conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
-            } else {
-                conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            if(!isAvro) {
+                conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+                conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(BytesWritable.class);
+                conf.setMapOutputValueClass(BytesWritable.class);
+                if(reducerPerBucket) {
+                    conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(HadoopStoreBuilderReducer.class);
+                }
             }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
@@ -386,6 +392,35 @@ public class HadoopStoreBuilder {
             }
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
+
+            if(isAvro) {
+                conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
+                // conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(ByteBuffer.class);
+                conf.setMapOutputValueClass(ByteBuffer.class);
+
+                conf.setInputFormat(inputFormatClass);
+
+                conf.setOutputFormat((Class<? extends OutputFormat>) AvroOutputFormat.class);
+                conf.setOutputKeyClass(ByteBuffer.class);
+                conf.setOutputValueClass(ByteBuffer.class);
+
+                // AvroJob confs for the avro mapper
+                AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
+
+                AvroJob.setOutputSchema(conf,
+                                        Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
+                                                           Schema.create(Schema.Type.BYTES)));
+
+                AvroJob.setMapperClass(conf, mapperClass);
+
+                if(reducerPerBucket) {
+                    conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(AvroStoreBuilderReducer.class);
+                }
+
+            }
 
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
@@ -501,211 +536,10 @@ public class HadoopStoreBuilder {
      * Run the job
      */
     public void buildAvro() {
-        try {
-            JobConf conf = new JobConf(config);
-            conf.setInt("io.file.buffer.size", DEFAULT_BUFFER_SIZE);
-            conf.set("cluster.xml", new ClusterMapper().writeCluster(cluster));
-            conf.set("stores.xml",
-                     new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
-            conf.setBoolean("save.keys", saveKeys);
-            conf.setBoolean("reducer.per.bucket", reducerPerBucket);
-            conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
-            // conf.setMapperClass(mapperClass);
-            conf.setMapOutputKeyClass(ByteBuffer.class);
-            conf.setMapOutputValueClass(ByteBuffer.class);
 
-            conf.setInputFormat(inputFormatClass);
-
-            conf.setOutputFormat((Class<? extends OutputFormat>) AvroOutputFormat.class);
-            conf.setOutputKeyClass(ByteBuffer.class);
-            conf.setOutputValueClass(ByteBuffer.class);
-            conf.setJarByClass(getClass());
-            conf.setReduceSpeculativeExecution(false);
-            FileInputFormat.setInputPaths(conf, inputPath);
-            conf.set("final.output.dir", outputDir.toString());
-            conf.set("checksum.type", CheckSum.toString(checkSumType));
-            FileOutputFormat.setOutputPath(conf, tempDir);
-
-            FileSystem outputFs = outputDir.getFileSystem(conf);
-            if(outputFs.exists(outputDir)) {
-                throw new IOException("Final output directory already exists.");
-            }
-
-            // delete output dir if it already exists
-            FileSystem tempFs = tempDir.getFileSystem(conf);
-            tempFs.delete(tempDir, true);
-
-            long size = sizeOfPath(tempFs, inputPath);
-            logger.info("Data size = " + size + ", replication factor = "
-                        + storeDef.getReplicationFactor() + ", numNodes = "
-                        + cluster.getNumberOfNodes() + ", chunk size = " + chunkSizeBytes);
-
-            // Derive "rough" number of chunks and reducers
-            int numReducers;
-            if(saveKeys) {
-
-                if(this.numChunks == -1) {
-                    this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                     / cluster.getNumberOfPartitions()
-                                                     / storeDef.getReplicationFactor() / chunkSizeBytes),
-                                              1);
-                } else {
-                    logger.info("Overriding chunk size byte and taking num chunks ("
-                                + this.numChunks + ") directly");
-                }
-
-                if(reducerPerBucket) {
-                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor();
-                } else {
-                    numReducers = cluster.getNumberOfPartitions() * storeDef.getReplicationFactor()
-                                  * numChunks;
-                }
-            } else {
-
-                if(this.numChunks == -1) {
-                    this.numChunks = Math.max((int) (storeDef.getReplicationFactor() * size
-                                                     / cluster.getNumberOfPartitions() / chunkSizeBytes),
-                                              1);
-                } else {
-                    logger.info("Overriding chunk size byte and taking num chunks ("
-                                + this.numChunks + ") directly");
-                }
-
-                if(reducerPerBucket) {
-                    numReducers = cluster.getNumberOfPartitions();
-                } else {
-                    numReducers = cluster.getNumberOfPartitions() * numChunks;
-                }
-            }
-            conf.setInt("num.chunks", numChunks);
-            conf.setNumReduceTasks(numReducers);
-
-            conf.setSpeculativeExecution(false);
-
-            // AvroJob confs for the avro mapper
-            AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
-
-            AvroJob.setOutputSchema(conf,
-                                    Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
-                                                       Schema.create(Schema.Type.BYTES)));
-
-            AvroJob.setMapperClass(conf, mapperClass);
-
-            if(reducerPerBucket) {
-                conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
-            } else {
-                conf.setReducerClass(AvroStoreBuilderReducer.class);
-            }
-
-            logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
-                        + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
-            logger.info("Building store...");
-
-            RunningJob job = JobClient.runJob(conf);
-
-            // Once the job has completed log the counter
-            Counters counters = job.getCounters();
-
-            if(saveKeys) {
-                if(reducerPerBucket) {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
-                } else {
-                    logger.info("Number of collisions in the job - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
-                    logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
-                }
-            }
-
-            // Do a CheckSumOfCheckSum - Similar to HDFS
-            CheckSum checkSumGenerator = CheckSum.getInstance(this.checkSumType);
-            if(!this.checkSumType.equals(CheckSumType.NONE) && checkSumGenerator == null) {
-                throw new VoldemortException("Could not generate checksum digest for type "
-                                             + this.checkSumType);
-            }
-
-            // Check if all folder exists and with format file
-            for(Node node: cluster.getNodes()) {
-
-                ReadOnlyStorageMetadata metadata = new ReadOnlyStorageMetadata();
-
-                if(saveKeys) {
-                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                                 ReadOnlyStorageFormat.READONLY_V2.getCode());
-                } else {
-                    metadata.add(ReadOnlyStorageMetadata.FORMAT,
-                                 ReadOnlyStorageFormat.READONLY_V1.getCode());
-                }
-
-                Path nodePath = new Path(outputDir.toString(), "node-" + node.getId());
-
-                if(!outputFs.exists(nodePath)) {
-                    logger.info("No data generated for node " + node.getId()
-                                + ". Generating empty folder");
-                    outputFs.mkdirs(nodePath); // Create empty folder
-                }
-
-                if(checkSumType != CheckSumType.NONE) {
-
-                    FileStatus[] storeFiles = outputFs.listStatus(nodePath, new PathFilter() {
-
-                        @Override
-                        public boolean accept(Path arg0) {
-                            if(arg0.getName().endsWith("checksum")
-                               && !arg0.getName().startsWith(".")) {
-                                return true;
-                            }
-                            return false;
-                        }
-                    });
-
-                    if(storeFiles != null && storeFiles.length > 0) {
-                        Arrays.sort(storeFiles, new IndexFileLastComparator());
-                        FSDataInputStream input = null;
-
-                        for(FileStatus file: storeFiles) {
-                            try {
-                                input = outputFs.open(file.getPath());
-                                byte fileCheckSum[] = new byte[CheckSum.checkSumLength(this.checkSumType)];
-                                input.read(fileCheckSum);
-                                logger.debug("Checksum for file " + file.toString() + " - "
-                                             + new String(Hex.encodeHex(fileCheckSum)));
-                                checkSumGenerator.update(fileCheckSum);
-                            } catch(Exception e) {
-                                logger.error("Error while reading checksum file " + e.getMessage(),
-                                             e);
-                            } finally {
-                                if(input != null)
-                                    input.close();
-                            }
-                            outputFs.delete(file.getPath(), false);
-                        }
-
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM_TYPE,
-                                     CheckSum.toString(checkSumType));
-
-                        String checkSum = new String(Hex.encodeHex(checkSumGenerator.getCheckSum()));
-                        logger.info("Checksum for node " + node.getId() + " - " + checkSum);
-
-                        metadata.add(ReadOnlyStorageMetadata.CHECKSUM, checkSum);
-                    }
-                }
-
-                // Write metadata
-                FSDataOutputStream metadataStream = outputFs.create(new Path(nodePath, ".metadata"));
-                metadataStream.write(metadata.toJsonString().getBytes());
-                metadataStream.flush();
-                metadataStream.close();
-
-            }
-
-        } catch(Exception e) {
-            logger.error("Error in Store builder", e);
-            throw new VoldemortException(e);
-        }
+        isAvro = true;
+        build();
+        return;
 
     }
 
