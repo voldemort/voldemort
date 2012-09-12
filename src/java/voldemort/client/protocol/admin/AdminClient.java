@@ -138,6 +138,8 @@ public class AdminClient {
     private Cluster currentCluster;
 
     private SystemStore<String, String> sysStoreVersion = null;
+    private String[] cachedBootstrapURLs = null;
+    private int cachedZoneID = -1;
 
     /**
      * Create an instance of AdminClient given a URL of a node in the cluster.
@@ -160,7 +162,7 @@ public class AdminClient {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.adminClientConfig = adminClientConfig;
-        initSystemStoreClient(bootstrapURL, DEFAULT_ZONE_ID);
+        cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
     }
 
     /**
@@ -187,7 +189,7 @@ public class AdminClient {
 
         Node node = cluster.getNodeById(0);
         String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
-        initSystemStoreClient(bootstrapURL, DEFAULT_ZONE_ID);
+        cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
     }
 
     /**
@@ -207,18 +209,38 @@ public class AdminClient {
      */
     public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig, int zoneID) {
         this(bootstrapURL, adminClientConfig);
-        initSystemStoreClient(bootstrapURL, zoneID);
+        cacheSystemStoreParams(bootstrapURL, zoneID);
     }
 
-    private void initSystemStoreClient(String bootstrapURL, int zoneID) {
+    /**
+     * Cache the paramater values for the internal system store client. These
+     * cached values are used every time the system store client needs to be
+     * initialized (useful when the cluster.xml changes).
+     * 
+     * @param bootstrapURL The URL to bootstrap from
+     * @param zoneID Indicates the primary zone of the sytem store client
+     */
+    private void cacheSystemStoreParams(String bootstrapURL, int zoneID) {
         String[] bootstrapUrls = new String[1];
         bootstrapUrls[0] = bootstrapURL;
-        try {
-            this.sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                   bootstrapUrls,
-                                                                   zoneID);
-        } catch(Exception e) {
-            logger.debug("Error while creating a system store client for metadata version store.");
+        this.cachedBootstrapURLs = bootstrapUrls;
+        this.cachedZoneID = zoneID;
+    }
+
+    /**
+     * Create a system store client based on the cached bootstrap URLs and Zone
+     * ID
+     */
+    public void initSystemStoreClient() {
+        if(this.cachedBootstrapURLs != null && this.cachedZoneID >= 0) {
+            try {
+                this.sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                       this.cachedBootstrapURLs,
+                                                                       this.cachedZoneID);
+            } catch(Exception e) {
+                logger.debug("Error while creating a system store client for metadata version store.");
+            }
+
         }
     }
 
@@ -229,6 +251,7 @@ public class AdminClient {
      *        incremented
      */
     public void updateMetadataversion(String versionKey) {
+        initSystemStoreClient();
         Properties props = MetadataVersionStoreUtils.getProperties(this.sysStoreVersion);
         if(props != null && props.getProperty(versionKey) != null) {
             logger.debug("Version obtained = " + props.getProperty(versionKey));
@@ -251,6 +274,7 @@ public class AdminClient {
      *        nodes in the cluster
      */
     public void setMetadataversion(Properties newProperties) {
+        initSystemStoreClient();
         MetadataVersionStoreUtils.setProperties(this.sysStoreVersion, newProperties);
     }
 
