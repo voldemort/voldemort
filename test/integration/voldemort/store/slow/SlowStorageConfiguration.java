@@ -16,12 +16,12 @@
 package voldemort.store.slow;
 
 import voldemort.VoldemortException;
+import voldemort.common.OpTimeMap;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
-import voldemort.utils.OpTimeMap;
 
 /**
  * A storage engine that wraps InMemoryStorageEngine with delays.

@@ -40,15 +40,15 @@ import voldemort.store.stats.ClientSocketStatsJmx;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.Time;
 import voldemort.utils.Utils;
-import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.AsyncResourceRequest;
 import voldemort.utils.pool.QueuedKeyedResourcePool;
 import voldemort.utils.pool.ResourcePoolConfig;
-import voldemort.utils.pool.ResourceRequest;
 
 /**
  * A pool of {@link ClientRequestExecutor} keyed off the
- * {@link SocketDestination}. This is a wrapper around {@link KeyedResourcePool}
- * that translates exceptions as well as providing some JMX access.
+ * {@link SocketDestination}. This is a wrapper around
+ * {@link QueuedKeyedResourcePool} that translates exceptions, provides some JMX
+ * access, and handles asynchronous requests for SocketDestinations.
  * 
  * <p/>
  * 
@@ -58,7 +58,7 @@ import voldemort.utils.pool.ResourceRequest;
 
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
-    private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
     private final ClientRequestExecutorFactory factory;
     private final ClientSocketStats stats;
     private final boolean jmxEnabled;
@@ -96,10 +96,10 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                         socketBufferSize,
                                                         socketKeepAlive,
                                                         stats);
-        this.pool = new QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory,
-                                                                                          config);
+        this.queuedPool = new QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor>(factory,
+                                                                                                config);
         if(stats != null) {
-            this.stats.setPool(pool);
+            this.stats.setPool(queuedPool);
         }
     }
 
@@ -159,7 +159,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         long start = System.nanoTime();
         ClientRequestExecutor clientRequestExecutor;
         try {
-            clientRequestExecutor = pool.checkout(destination);
+            clientRequestExecutor = queuedPool.checkout(destination);
         } catch(Exception e) {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
@@ -180,7 +180,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
     public void checkin(SocketDestination destination, ClientRequestExecutor clientRequestExecutor) {
         try {
-            pool.checkin(destination, clientRequestExecutor);
+            queuedPool.checkin(destination, clientRequestExecutor);
         } catch(Exception e) {
             throw new VoldemortException("Failure while checking in socket for " + destination
                                          + ": ", e);
@@ -189,7 +189,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
-        pool.close(destination);
+        queuedPool.reset(destination);
     }
 
     /**
@@ -207,7 +207,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             stats.close();
         }
         factory.close();
-        pool.close();
+        queuedPool.close();
     }
 
     public ClientSocketStats getStats() {
@@ -219,12 +219,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                 NonblockingStoreCallback callback,
                                 long timeoutMs,
                                 String operationName) {
-        AsyncRequest<T> asyncRequest = new AsyncRequest<T>(destination,
-                                                           delegate,
-                                                           callback,
-                                                           timeoutMs,
-                                                           operationName);
-        pool.requestResource(destination, asyncRequest);
+        AsyncSocketDestinationRequest<T> asyncSocketDestinationRequest = new AsyncSocketDestinationRequest<T>(destination,
+                                                                                                              delegate,
+                                                                                                              callback,
+                                                                                                              timeoutMs,
+                                                                                                              operationName);
+        queuedPool.registerResourceRequest(destination, asyncSocketDestinationRequest);
         return;
     }
 
@@ -232,7 +232,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      * Wrap up an asynchronous request and actually issue it once a
      * SocketDestination is checked out.
      */
-    private class AsyncRequest<T> implements ResourceRequest<ClientRequestExecutor> {
+    private class AsyncSocketDestinationRequest<T> implements
+            AsyncResourceRequest<ClientRequestExecutor> {
 
         private final SocketDestination destination;
         public final ClientRequest<T> delegate;
@@ -242,11 +243,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
         private final long startTimeNs;
 
-        public AsyncRequest(SocketDestination destination,
-                            ClientRequest<T> delegate,
-                            NonblockingStoreCallback callback,
-                            long timeoutMs,
-                            String operationName) {
+        public AsyncSocketDestinationRequest(SocketDestination destination,
+                                             ClientRequest<T> delegate,
+                                             NonblockingStoreCallback callback,
+                                             long timeoutMs,
+                                             String operationName) {
             this.destination = destination;
             this.delegate = delegate;
             this.callback = callback;
@@ -263,8 +264,10 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                              + " requestRef: "
                              + System.identityHashCode(delegate)
                              + " time: "
-                             // TODO: output startTimeNs instead?
-                             + System.currentTimeMillis()
+                             // Output time (ms) includes queueing delay (i.e.,
+                             // time between when registerResourceRequest is
+                             // called and time when useResource is invoked).
+                             + (this.startTimeNs / Time.NS_PER_MS)
                              + " server: "
                              + clientRequestExecutor.getSocketChannel()
                                                     .socket()

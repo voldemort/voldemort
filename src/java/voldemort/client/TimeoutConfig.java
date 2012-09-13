@@ -1,6 +1,6 @@
 package voldemort.client;
 
-import voldemort.utils.OpTimeMap;
+import voldemort.common.OpTimeMap;
 
 /**
  * Encapsulates the timeouts, in ms, for various Voldemort operations

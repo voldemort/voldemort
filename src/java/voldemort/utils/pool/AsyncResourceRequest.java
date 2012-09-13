@@ -5,7 +5,7 @@ package voldemort.utils.pool;
  * useResource, handleTimeout, or handleException expected to be invoked within
  * deadline specified by getDeadlineNs.
  */
-public interface ResourceRequest<V> {
+public interface AsyncResourceRequest<V> {
 
     /**
      * To be invoked with resource to use.

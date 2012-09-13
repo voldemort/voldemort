@@ -21,12 +21,12 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import voldemort.VoldemortException;
+import voldemort.common.OpTimeMap;
 import voldemort.common.VoldemortOpCode;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ClosableIterator;
-import voldemort.utils.OpTimeMap;
 import voldemort.utils.Pair;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;

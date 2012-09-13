@@ -47,31 +47,31 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         assertEquals(0, this.factory.getCreated());
         assertEquals(0, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
         // Submit initial POOL_SIZE requests
         for(int i = 0; i < POOL_SIZE; i++) {
-            this.queuedPool.requestResource("a", resourceRequests.poll());
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
         }
 
         // Confirm initial requests were handled in nonblocking manner
         assertEquals(POOL_SIZE, this.factory.getCreated());
         assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(POOL_SIZE, resources.size());
 
         // Submit additional POOL_SIZE requests
         for(int i = 0; i < POOL_SIZE; i++) {
-            this.queuedPool.requestResource("a", resourceRequests.poll());
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
         }
 
         // Confirm additional requests are queued
         assertEquals(POOL_SIZE, this.factory.getCreated());
         assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(POOL_SIZE, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(POOL_SIZE, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(POOL_SIZE, resources.size());
 
         // Check in initial resources and confirm that this consumes queued
@@ -82,7 +82,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
             assertEquals(POOL_SIZE, this.factory.getCreated());
             assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
             assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-            assertEquals(POOL_SIZE - i - 1, this.queuedPool.getQueuedResourceRequestCount());
+            assertEquals(POOL_SIZE - i - 1, this.queuedPool.getRegisteredResourceRequestCount());
             assertEquals(POOL_SIZE, resources.size());
         }
 
@@ -93,19 +93,66 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
             assertEquals(POOL_SIZE, this.factory.getCreated());
             assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
             assertEquals(i + 1, this.queuedPool.getCheckedInResourceCount());
-            assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+            assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
             assertEquals(POOL_SIZE - i - 1, resources.size());
         }
 
         assertEquals(POOL_SIZE, this.factory.getCreated());
         assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
         assertEquals(POOL_SIZE, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
         assertEquals(POOL_SIZE * 2, TestResourceRequest.usedResourceCount.get());
         assertEquals(0, TestResourceRequest.handledTimeoutCount.get());
         assertEquals(0, TestResourceRequest.handledExceptionCount.get());
+    }
+
+    @Test
+    public void testQueuingStats() throws Exception {
+        Queue<TestResource> resources = new LinkedList<TestResource>();
+        Queue<TestResourceRequest> resourceRequests = new LinkedList<TestResourceRequest>();
+
+        long deadlineNs = System.nanoTime()
+                          + TimeUnit.MILLISECONDS.toNanos(KeyedResourcePoolTest.TIMEOUT_MS);
+        for(int i = 0; i < POOL_SIZE * 10001; i++) {
+            resourceRequests.add(new TestResourceRequest(deadlineNs, resources));
+        }
+
+        assertEquals(0, this.factory.getCreated());
+        assertEquals(0, this.queuedPool.getTotalResourceCount());
+        assertEquals(0, this.queuedPool.getCheckedInResourceCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
+        assertEquals(0, resources.size());
+
+        // Submit initial POOL_SIZE requests
+        for(int i = 0; i < POOL_SIZE; i++) {
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
+        }
+
+        // Confirm initial requests were handled in nonblocking manner
+        assertEquals(POOL_SIZE, this.factory.getCreated());
+        assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
+        assertEquals(0, this.queuedPool.getCheckedInResourceCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
+        assertEquals(POOL_SIZE, resources.size());
+
+        // Register five order of magnitude more resource requests.
+        for(int i = 0; i < POOL_SIZE * 10000; i++) {
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
+        }
+
+        long startNs = System.nanoTime();
+        assertEquals(POOL_SIZE * 10000, this.queuedPool.getRegisteredResourceRequestCount());
+        assertTrue("O(n) count of queue is too slow",
+                   System.nanoTime() - startNs < TimeUnit.MILLISECONDS.toNanos(10));
+
+        // Confirm additional requests are queued
+        assertEquals(POOL_SIZE, this.factory.getCreated());
+        assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
+        assertEquals(0, this.queuedPool.getCheckedInResourceCount());
+        assertEquals(POOL_SIZE, resources.size());
+
     }
 
     @Test
@@ -122,17 +169,17 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         assertEquals(0, this.factory.getCreated());
         assertEquals(0, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
         // Submit initial POOL_SIZE requests
         for(int i = 0; i < POOL_SIZE; i++) {
-            this.queuedPool.requestResource("a", resourceRequests.poll());
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
         }
 
         // Submit additional POOL_SIZE requests that queue up.
         for(int i = 0; i < POOL_SIZE; i++) {
-            this.queuedPool.requestResource("a", resourceRequests.poll());
+            this.queuedPool.registerResourceRequest("a", resourceRequests.poll());
         }
 
         // Force deadline (timeout) to expire
@@ -144,7 +191,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         assertEquals(POOL_SIZE, this.factory.getCreated());
         assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
         assertEquals(1, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(POOL_SIZE - 1, resources.size());
 
         assertEquals(POOL_SIZE, TestResourceRequest.usedResourceCount.get());
@@ -160,7 +207,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         assertEquals(POOL_SIZE, this.factory.getCreated());
         assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
         assertEquals(POOL_SIZE, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
         assertEquals(POOL_SIZE, TestResourceRequest.usedResourceCount.get());
@@ -182,15 +229,15 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         assertEquals(0, this.factory.getCreated());
         assertEquals(0, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
-        this.queuedPool.requestResource("a", trr);
+        this.queuedPool.registerResourceRequest("a", trr);
 
         assertEquals(0, this.factory.getCreated());
         assertEquals(0, this.queuedPool.getTotalResourceCount());
         assertEquals(0, this.queuedPool.getCheckedInResourceCount());
-        assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+        assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
         assertEquals(0, resources.size());
 
         assertEquals(0, TestResourceRequest.usedResourceCount.get());
@@ -224,7 +271,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
             waitForEnqueuers.await();
             assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
             assertEquals(POOL_SIZE, this.queuedPool.getCheckedInResourceCount());
-            assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+            assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
 
             assertEquals(numEnqueuers * numEnqueues, TestResourceRequest.usedResourceCount.get());
             assertEquals(0, TestResourceRequest.handledTimeoutCount.get());
@@ -270,7 +317,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
             waitForThreadsEnd.await();
             assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
             assertEquals(POOL_SIZE, this.queuedPool.getCheckedInResourceCount());
-            assertEquals(0, this.queuedPool.getQueuedResourceRequestCount());
+            assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
 
             assertEquals(numEnqueuers * numEnqueues, TestResourceRequest.usedResourceCount.get());
             assertEquals(0, TestResourceRequest.handledTimeoutCount.get());
@@ -343,7 +390,8 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
                     long deadlineNs = System.nanoTime()
                                       + TimeUnit.MILLISECONDS.toNanos(config.getTimeout(TimeUnit.NANOSECONDS));
 
-                    queuedPool.requestResource(key, new TestResourceRequest(deadlineNs, resources));
+                    queuedPool.registerResourceRequest(key, new TestResourceRequest(deadlineNs,
+                                                                                    resources));
                     Thread.yield();
 
                     processAtMostOneEnqueuedResource();
@@ -359,7 +407,7 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         }
     }
 
-    protected static class TestResourceRequest implements ResourceRequest<TestResource> {
+    protected static class TestResourceRequest implements AsyncResourceRequest<TestResource> {
 
         private AtomicBoolean usedResource;
         private AtomicBoolean handledTimeout;

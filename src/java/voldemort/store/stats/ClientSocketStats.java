@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.JmxUtils;
-import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.QueuedKeyedResourcePool;
 
 /**
  * Some convenient statistics to track about the client requests
@@ -37,7 +37,7 @@ public class ClientSocketStats {
     private final ClientSocketStats parent;
     private final ConcurrentMap<SocketDestination, ClientSocketStats> statsMap;
     private final SocketDestination destination;
-    private KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
     private final Histogram checkoutTimeUsHistogram = new Histogram(20000, 100);
@@ -59,8 +59,7 @@ public class ClientSocketStats {
      */
     public ClientSocketStats(ClientSocketStats parent,
                              SocketDestination destination,
-                             KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool,
-                             int jmxId) {
+                             QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool, int jmxId) {
         this.parent = parent;
         this.statsMap = null;
         this.destination = destination;
@@ -212,7 +211,7 @@ public class ClientSocketStats {
         return this.monitoringInterval.get();
     }
 
-    public void setPool(KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
+    public void setPool(QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool) {
         this.pool = pool;
     }
 

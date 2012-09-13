@@ -1,11 +1,10 @@
-package voldemort.utils;
+package voldemort.common;
 
 import java.util.HashMap;
 
-import voldemort.common.VoldemortOpCode;
 
 /**
- * Encapsulates time to operation mapping
+ * Encapsulates time to Voldemort operation mapping
  * 
  */
 public class OpTimeMap {

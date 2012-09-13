@@ -26,13 +26,13 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 
 import voldemort.TestUtils;
+import voldemort.common.OpTimeMap;
 import voldemort.common.VoldemortOpCode;
 import voldemort.store.AbstractStorageEngineTest;
 import voldemort.store.StorageEngine;
 import voldemort.store.slow.SlowStorageEngine;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.OpTimeMap;
 import voldemort.utils.pool.KeyedResourcePool;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;

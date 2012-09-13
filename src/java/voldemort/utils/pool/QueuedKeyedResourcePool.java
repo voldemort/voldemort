@@ -35,11 +35,11 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
     private static final Logger logger = Logger.getLogger(QueuedKeyedResourcePool.class.getName());
 
-    private final ConcurrentMap<K, Queue<ResourceRequest<V>>> requestQueueMap;
+    private final ConcurrentMap<K, Queue<AsyncResourceRequest<V>>> requestQueueMap;
 
     public QueuedKeyedResourcePool(ResourceFactory<K, V> objectFactory, ResourcePoolConfig config) {
         super(objectFactory, config);
-        requestQueueMap = new ConcurrentHashMap<K, Queue<ResourceRequest<V>>>();
+        requestQueueMap = new ConcurrentHashMap<K, Queue<AsyncResourceRequest<V>>>();
     }
 
     /**
@@ -83,14 +83,12 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @return The resource
      * 
      */
-    public void requestResource(K key, ResourceRequest<V> resourceRequest) {
+    public void registerResourceRequest(K key, AsyncResourceRequest<V> resourceRequest) {
         checkNotClosed();
 
-        // Non-blocking checkout attempt iff requestQueue is empty. If
-        // requestQueue is not empty and we attempted non-blocking checkout,
-        // then FIFO at risk.
-        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
+            // Attempt non-blocking checkout iff requestQueue is empty.
             Pool<V> resourcePool = getResourcePoolForKey(key);
             try {
                 attemptGrow(key, resourcePool);
@@ -123,8 +121,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * 
      * @return null or a valid ResourceRequest
      */
-    private ResourceRequest<V> getNextUnexpiredResourceRequest(Queue<ResourceRequest<V>> requestQueue) {
-        ResourceRequest<V> resourceRequest = requestQueue.poll();
+    private AsyncResourceRequest<V> getNextUnexpiredResourceRequest(Queue<AsyncResourceRequest<V>> requestQueue) {
+        AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
         while(resourceRequest != null) {
             if(resourceRequest.getDeadlineNs() < System.nanoTime()) {
                 resourceRequest.handleTimeout();
@@ -144,7 +142,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @return true iff an item was processed from the Queue.
      */
     private boolean processQueue(K key) throws Exception {
-        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
             return false;
         }
@@ -165,7 +163,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         }
 
         // With resource in hand, process the resource requests
-        ResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
+        AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
         if(resourceRequest == null) {
             // Did not use the resource! Directly check in via super to avoid
             // circular call to processQueue().
@@ -194,7 +192,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     /*
      * A safe wrapper to destroy the given resource request.
      */
-    protected void destroyRequest(ResourceRequest<V> resourceRequest) {
+    protected void destroyRequest(AsyncResourceRequest<V> resourceRequest) {
         if(resourceRequest != null) {
             try {
                 Exception e = new UnreachableStoreException("Resource request destroyed before resource checked out.");
@@ -211,8 +209,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param requestQueue The queue for which all resource requests are to be
      *        destroyed.
      */
-    private void destroyRequestQueue(Queue<ResourceRequest<V>> requestQueue) {
-        ResourceRequest<V> resourceRequest = requestQueue.poll();
+    private void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
+        AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
         while(resourceRequest != null) {
             destroyRequest(resourceRequest);
             resourceRequest = requestQueue.poll();
@@ -224,8 +222,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         // wasOpen ensures only one thread destroys everything.
         boolean wasOpen = super.internalClose();
         if(wasOpen) {
-            for(Entry<K, Queue<ResourceRequest<V>>> entry: requestQueueMap.entrySet()) {
-                Queue<ResourceRequest<V>> requestQueue = entry.getValue();
+            for(Entry<K, Queue<AsyncResourceRequest<V>>> entry: requestQueueMap.entrySet()) {
+                Queue<AsyncResourceRequest<V>> requestQueue = entry.getValue();
                 destroyRequestQueue(requestQueue);
                 requestQueueMap.remove(entry.getKey());
             }
@@ -242,46 +240,35 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * "Close" a specific resource pool and request queue by destroying all the
-     * resources in the pool and all the requests in the queue. This method does
-     * not affect whether any pool or queue is "open" in the sense of permitting
-     * new resources to be added or requests to be enqueued.
+     * Reset a specific resource pool and resource request queue. First,
+     * "destroy" all registered resource requests. Second, destroy all resources
+     * in the pool.
      * 
-     * @param key The key for the pool to close.
+     * @param key The key for the pool to reset.
      */
     @Override
-    public void close(K key) {
-        // TODO: The close method in the super class is not documented at all.
-        // super.close(key) is called by ClientRequestExecutorPool.close which
-        // is called by SocketStoreclientFactory. Given the super class does not
-        // set any closed bit, unclear what the semantics of this.close(key)
-        // ought to be.
-        //
-        // Also, super.close(key) does nothing to protect against multiple
-        // threads accessing the method at the same time. And, super.close(key)
-        // does not remove the affected pool from super.resourcePoolMap. The
-        // semantics of super.close(key) are truly unclear.
-
-        // Destroy enqueued resource requests (if any exist) first.
-        Queue<ResourceRequest<V>> requestQueue = requestQueueMap.get(key);
+    public void reset(K key) {
+        // First, destroy enqueued resource requests (if any exist).
+        Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
         if(requestQueue != null) {
             destroyRequestQueue(requestQueue);
-            // TODO: requestQueueMap.remove(entry.getKey()); ?
         }
 
-        // Destroy resources in the pool second.
-        super.close(key);
+        // Second, destroy resources in the pool.
+        super.reset(key);
     }
 
     /*
      * Get the queue of work for the given key. If no queue exists, create one.
      */
-    protected Queue<ResourceRequest<V>> getRequestQueueForKey(K key) {
-        Queue<ResourceRequest<V>> requestQueue = requestQueueMap.get(key);
+    protected Queue<AsyncResourceRequest<V>> getRequestQueueForKey(K key) {
+        Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
         if(requestQueue == null) {
-            requestQueue = new ConcurrentLinkedQueue<ResourceRequest<V>>();
-            requestQueueMap.putIfAbsent(key, requestQueue);
-            requestQueue = requestQueueMap.get(key);
+            Queue<AsyncResourceRequest<V>> newRequestQueue = new ConcurrentLinkedQueue<AsyncResourceRequest<V>>();
+            requestQueue = requestQueueMap.putIfAbsent(key, newRequestQueue);
+            if(requestQueue == null) {
+                requestQueue = newRequestQueue;
+            }
         }
         return requestQueue;
     }
@@ -289,8 +276,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     /*
      * Get the pool for the given key. If no pool exists, throw an exception.
      */
-    protected Queue<ResourceRequest<V>> getRequestQueueForExistingKey(K key) {
-        Queue<ResourceRequest<V>> requestQueue = requestQueueMap.get(key);
+    protected Queue<AsyncResourceRequest<V>> getRequestQueueForExistingKey(K key) {
+        Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
         if(requestQueue == null) {
             throw new IllegalArgumentException("Invalid key '" + key
                                                + "': no request queue exists for that key.");
@@ -304,8 +291,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param key The key
      * @return The count
      */
-    public int getQueuedResourceRequestCount(K key) {
-        Queue<ResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
+    public int getRegisteredResourceRequestCount(K key) {
+        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
         // FYI: .size() is not constant time in the next call. ;)
         return requestQueue.size();
     }
@@ -315,9 +302,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * 
      * @return The count of resources
      */
-    public int getQueuedResourceRequestCount() {
+    public int getRegisteredResourceRequestCount() {
         int count = 0;
-        for(Entry<K, Queue<ResourceRequest<V>>> entry: this.requestQueueMap.entrySet()) {
+        for(Entry<K, Queue<AsyncResourceRequest<V>>> entry: this.requestQueueMap.entrySet()) {
             // FYI: .size() is not constant time in the next call. ;)
             count += entry.getValue().size();
         }

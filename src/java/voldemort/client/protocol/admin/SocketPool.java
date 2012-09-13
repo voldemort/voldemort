@@ -126,7 +126,7 @@ public class SocketPool {
 
     public void close(SocketDestination destination) {
         socketFactory.setLastClosedTimestamp(destination);
-        pool.close(destination);
+        pool.reset(destination);
     }
 
     /**

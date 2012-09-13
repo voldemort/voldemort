@@ -26,7 +26,7 @@ import voldemort.ServerTestUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
-import voldemort.utils.pool.KeyedResourcePool;
+import voldemort.utils.pool.QueuedKeyedResourcePool;
 
 public class ClientSocketStatsTest {
 
@@ -34,7 +34,7 @@ public class ClientSocketStatsTest {
     private int port;
     private SocketDestination dest1;
     private SocketDestination dest2;
-    private KeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
+    private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     @Before
     public void setUp() throws Exception {

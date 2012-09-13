@@ -164,9 +164,11 @@ public class KeyedResourcePool<K, V> {
     protected Pool<V> getResourcePoolForKey(K key) {
         Pool<V> resourcePool = resourcePoolMap.get(key);
         if(resourcePool == null) {
-            resourcePool = new Pool<V>(this.resourcePoolConfig);
-            resourcePoolMap.putIfAbsent(key, resourcePool);
-            resourcePool = resourcePoolMap.get(key);
+            Pool<V> newResourcePool = new Pool<V>(this.resourcePoolConfig);
+            resourcePool = resourcePoolMap.putIfAbsent(key, newResourcePool);
+            if(resourcePool == null) {
+                resourcePool = newResourcePool;
+            }
         }
         return resourcePool;
     }
@@ -245,16 +247,15 @@ public class KeyedResourcePool<K, V> {
     }
 
     /**
-     * "Close" a specific resource pool by destroying all the resources in the
-     * pool. This method does not affect whether any pool is "open" in the sense
-     * of permitting new resources to be added to it.
+     * Reset a specific resource pool. Destroys all the resources in the pool.
+     * This method does not affect whether the pool is "open" in the sense of
+     * permitting new resources to be added to it.
      * 
-     * @param key The key for the pool to close.
+     * @param key The key for the pool to reset.
      */
-    public void close(K key) {
+    public void reset(K key) {
         Pool<V> resourcePool = getResourcePoolForExistingKey(key);
         List<V> list = resourcePool.close();
-        // destroy each resource currently in the pool
         for(V value: list)
             destroyResource(key, resourcePool, value);
     }
@@ -362,8 +363,6 @@ public class KeyedResourcePool<K, V> {
                     if(resource != null) {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
-                            // TODO: Do we need to destroy the non-null,
-                            // non-enqueued resource?
                             objectFactory.destroy(key, resource);
                             return false;
                         }
