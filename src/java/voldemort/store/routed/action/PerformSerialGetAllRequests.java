@@ -121,10 +121,12 @@ public class PerformSerialGetAllRequests
                     else
                         values = store.get(key, transforms.get(key));
 
-                    if(result.get(key) == null)
-                        result.put(key, Lists.newArrayList(values));
-                    else
-                        result.get(key).addAll(values);
+                    if(values.size() != 0) {
+                        if(result.get(key) == null)
+                            result.put(key, Lists.newArrayList(values));
+                        else
+                            result.get(key).addAll(values);
+                    }
 
                     Map<ByteArray, List<Versioned<byte[]>>> map = new HashMap<ByteArray, List<Versioned<byte[]>>>();
                     map.put(key, values);

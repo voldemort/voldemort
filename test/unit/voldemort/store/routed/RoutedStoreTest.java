@@ -457,8 +457,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                   new ByteArray("test2".getBytes()));
 
         Map<ByteArray, List<Versioned<byte[]>>> values = s1.getAll(keys, null);
-        List<Versioned<byte[]>> results = values.get(new ByteArray("test".getBytes()));
-        assertEquals("\'test\' did not get deleted.", 0, results.size());
+        assertFalse("'test' did not get deleted.",
+                    values.containsKey(new ByteArray("test".getBytes())));
         ByteUtils.compare(values.get(new ByteArray("test2".getBytes())).get(0).getValue(),
                           new byte[] { 1 });
 
@@ -517,8 +517,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
 
         values = s2.getAll(keys, null);
-        results = values.get(new ByteArray("test".getBytes()));
-        assertEquals("\'test\' did not get deleted.", 0, results.size());
+        assertFalse("'test' did not get deleted.",
+                    values.containsKey(new ByteArray("test".getBytes())));
         ByteUtils.compare(values.get(new ByteArray("test2".getBytes())).get(0).getValue(),
                           new byte[] { 1 });
 
