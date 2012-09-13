@@ -16,7 +16,9 @@ REM  See the License for the specific language governing permissions and
 REM  limitations under the License.
 REM
 
-if "%2" == "" goto :continue
+set Count=0
+for %%a in (%*) do set /a Count+=1
+if %Count% geq 2 goto :continue
 echo USAGE: bin/voldemort-server.bat [voldemort_home] [voldemort_config_dir]
 goto :eof
 :continue
