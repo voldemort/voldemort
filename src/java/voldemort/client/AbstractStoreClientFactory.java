@@ -193,10 +193,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                 String clusterXmlString,
                                                 FailureDetector fd) {
 
-        if(logger.isDebugEnabled()) {
-            logger.debug("Client zone-id [" + clientZoneId
-                         + "] Attempting to obtain metadata for store [" + storeName + "] ");
+        logger.info("Client zone-id [" + clientZoneId
+                    + "] Attempting to obtain metadata for store [" + storeName + "] ");
 
+        if(logger.isDebugEnabled()) {
             for(URI uri: bootstrapUrls) {
                 logger.debug("Client Bootstrap url [" + uri + "]");
             }

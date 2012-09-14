@@ -89,6 +89,14 @@ public class ClientConfig {
     private volatile int clientRegistryRefreshInterval = 3600 * 12;
     private volatile int asyncJobThreadPoolSize = 2;
 
+    /* SystemStore client config */
+    private volatile int sysMaxConnectionsPerNode = 2;
+    private volatile int sysRoutingTimeout = 5000;
+    private volatile int sysSocketTimeout = 5000;
+    private volatile int sysConnectionTimeout = 1500;
+    private volatile boolean sysEnableJmx = false;
+    private volatile boolean sysEnablePipelineRoutedStore = true;
+
     public ClientConfig() {}
 
     /* Propery names for propery-based configuration */
@@ -130,9 +138,15 @@ public class ClientConfig {
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
     public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
     public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval";
-    private static final String USE_DEFAULT_CLIENT = "use_default_client";
+    public static final String USE_DEFAULT_CLIENT = "use_default_client";
     public static final String CLIENT_REGISTRY_REFRESH_INTERVAL = "client_registry_refresh_interval";
     public static final String ASYNC_JOB_THREAD_POOL_SIZE = "async_job_thread_pool_size";
+    public static final String SYS_MAX_CONNECTIONS_PER_NODE = "sys_max_connections_per_node";
+    public static final String SYS_ROUTING_TIMEOUT_MS = "sys_routing_timeout_ms";
+    public static final String SYS_CONNECTION_TIMEOUT_MS = "sys_connection_timeout_ms";
+    public static final String SYS_SOCKET_TIMEOUT_MS = "sys_socket_timeout_ms";
+    public static final String SYS_ENABLE_JMX = "sys_enable_jmx";
+    public static final String SYS_ENABLE_PIPELINE_ROUTED_STORE = "sys_enable_pipeline_routed_store";
 
     /**
      * Instantiate the client config using a properties file
@@ -310,6 +324,94 @@ public class ClientConfig {
         if(props.containsKey(ASYNC_JOB_THREAD_POOL_SIZE)) {
             this.setAsyncJobThreadPoolSize(props.getInt(ASYNC_JOB_THREAD_POOL_SIZE));
         }
+
+        /* Check for system store paramaters if any */
+        if(props.containsKey(SYS_MAX_CONNECTIONS_PER_NODE)) {
+            this.setSysMaxConnectionsPerNode(props.getInt(SYS_MAX_CONNECTIONS_PER_NODE));
+        }
+
+        if(props.containsKey(SYS_ROUTING_TIMEOUT_MS)) {
+            this.setSysRoutingTimeout(props.getInt(SYS_ROUTING_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_SOCKET_TIMEOUT_MS)) {
+            this.setSysSocketTimeout(props.getInt(SYS_SOCKET_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_CONNECTION_TIMEOUT_MS)) {
+            this.setSysConnectionTimeout(props.getInt(SYS_CONNECTION_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_ENABLE_JMX)) {
+            this.setSysEnableJmx(props.getBoolean(SYS_ENABLE_JMX));
+        }
+
+        if(props.containsKey(SYS_ENABLE_PIPELINE_ROUTED_STORE)) {
+            this.setSysEnablePipelineRoutedStore(props.getBoolean(SYS_ENABLE_PIPELINE_ROUTED_STORE));
+        }
+
+    }
+
+    private ClientConfig setSysMaxConnectionsPerNode(int maxConnectionsPerNode) {
+        if(maxConnectionsPerNode <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysMaxConnectionsPerNode = maxConnectionsPerNode;
+        return this;
+    }
+
+    public int getSysMaxConnectionsPerNode() {
+        return this.sysMaxConnectionsPerNode;
+    }
+
+    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeout) {
+        if(sysRoutingTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysRoutingTimeout = sysRoutingTimeout;
+        return this;
+    }
+
+    public int getSysRoutingTimeout() {
+        return this.sysRoutingTimeout;
+    }
+
+    private ClientConfig setSysSocketTimeout(int sysSocketTimeout) {
+        if(sysSocketTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysSocketTimeout = sysSocketTimeout;
+        return this;
+    }
+
+    public int getSysSocketTimeout() {
+        return this.sysSocketTimeout;
+    }
+
+    private ClientConfig setSysConnectionTimeout(int sysConnectionTimeout) {
+        if(sysConnectionTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysConnectionTimeout = sysConnectionTimeout;
+        return this;
+    }
+
+    public int getSysConnectionTimeout() {
+        return this.sysConnectionTimeout;
+    }
+
+    public boolean getSysEnableJmx() {
+        return this.sysEnableJmx;
+    }
+
+    public ClientConfig setSysEnableJmx(boolean sysEnableJmx) {
+        this.sysEnableJmx = sysEnableJmx;
+        return this;
+    }
+
+    public boolean getSysEnablePipelineRoutedStore() {
+        return this.sysEnablePipelineRoutedStore;
+    }
+
+    public ClientConfig setSysEnablePipelineRoutedStore(boolean sysEnablePipelineRoutedStore) {
+        this.sysEnablePipelineRoutedStore = sysEnablePipelineRoutedStore;
+        return this;
     }
 
     public int getMaxConnectionsPerNode() {

@@ -583,6 +583,10 @@ public class VoldemortAdminTool {
         Properties props = new Properties();
         try {
             props.load(new ByteArrayInputStream(valueObject.getBytes()));
+            if(props.size() == 0) {
+                System.err.println("The specified node does not have any versions metadata ! Exiting ...");
+                System.exit(-1);
+            }
             adminClient.setMetadataversion(props);
             System.out.println("Metadata versions synchronized successfully.");
         } catch(IOException e) {

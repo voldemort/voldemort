@@ -29,7 +29,8 @@ public class SystemStoreRepository {
                                                    config.getBootstrapUrls(),
                                                    config.getClientZoneId(),
                                                    clusterXml,
-                                                   fd);
+                                                   fd,
+                                                   config);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
     }

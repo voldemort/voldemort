@@ -51,22 +51,26 @@ public class ClientRegistryRefresher implements Runnable {
         logger.info("Initial version obtained from client registry: " + version);
     }
 
-    public void run() {
-
-        if(hadConflict) {
-            // if we previously had a conflict during update, we will try to get
-            // a newer version before update this time. This case shall not
-            // happen under regular circumstances. But it is just avoid update
-            // keeping failing when strange situations occur.
-            lastVersion = this.systemStoreRepository.getClientRegistryStore()
-                                                    .getSysStore(clientId)
-                                                    .getVersion();
-            hadConflict = false;
-        }
-        clientInfo.setUpdateTime(System.currentTimeMillis());
-        logger.info("updating client registry with the following info for client: " + clientId
-                    + "\n" + clientInfo);
+    /*
+     * Procedure to publish client registry info in the system store.
+     */
+    public synchronized void publishRegistry() {
         try {
+            if(hadConflict) {
+                /*
+                 * if we previously had a conflict during update, we will try to
+                 * get a newer version before update this time. This case shall
+                 * not happen under regular circumstances. But it is just avoid
+                 * update keeping failing when strange situations occur.
+                 */
+                lastVersion = this.systemStoreRepository.getClientRegistryStore()
+                                                        .getSysStore(clientId)
+                                                        .getVersion();
+                hadConflict = false;
+            }
+            clientInfo.setUpdateTime(System.currentTimeMillis());
+            logger.info("updating client registry with the following info for client: " + clientId
+                        + "\n" + clientInfo);
             lastVersion = this.systemStoreRepository.getClientRegistryStore()
                                                     .putSysStore(clientId,
                                                                  new Versioned<String>(clientInfo.toString(),
@@ -83,5 +87,9 @@ public class ClientRegistryRefresher implements Runnable {
             logger.warn("encountered the following error while trying to update client registry: "
                         + e);
         }
+    }
+
+    public void run() {
+        publishRegistry();
     }
 }

@@ -118,6 +118,7 @@ public class SystemStoreTest {
     @Test
     public void testIllegalSystemStore() {
         try {
+            @SuppressWarnings("unused")
             SystemStore<String, Long> sysVersionStore = new SystemStore<String, Long>("test-store",
                                                                                       bootStrapUrls,
                                                                                       this.CLIENT_ZONE_ID,

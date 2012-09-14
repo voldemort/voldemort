@@ -48,6 +48,7 @@ public class ClientInfo implements Serializable {
     private long updateTime;
     private String releaseVersion;
     private ClientConfig config;
+    private long clusterMetadataVersion;
 
     public ClientInfo(String storeName,
                       String clientContext,
@@ -64,6 +65,7 @@ public class ClientInfo implements Serializable {
         this.updateTime = bootstrapTime;
         this.releaseVersion = version;
         this.config = config;
+        this.clusterMetadataVersion = 0;
 
         if(logger.isDebugEnabled()) {
             logger.debug(this.toString());
@@ -161,6 +163,10 @@ public class ClientInfo implements Serializable {
         return this.config;
     }
 
+    public synchronized void setClusterMetadataVersion(long newVersion) {
+        this.clusterMetadataVersion = newVersion;
+    }
+
     /**
      * At the moment we're not checking if the Config objects are similar. TODO:
      * reevaluate in the future.
@@ -195,6 +201,7 @@ public class ClientInfo implements Serializable {
         builder.append("storeName=").append(storeName).append("\n");
         builder.append("updateTime=").append(updateTime).append("\n");
         builder.append("releaseVersion=").append(releaseVersion).append("\n");
+        builder.append("clusterMetadataVersion=").append(clusterMetadataVersion).append("\n");
 
         /**
          * Append the Client Config information. Right now we only track the
@@ -221,6 +228,18 @@ public class ClientInfo implements Serializable {
         builder.append("client_zone_id=").append(this.config.getClientZoneId()).append("\n");
         builder.append("failuredetector_implementation=")
                .append(this.config.getFailureDetectorImplementation())
+               .append("\n");
+        builder.append("failuredetector_threshold=")
+               .append(this.config.getFailureDetectorThreshold())
+               .append("\n");
+        builder.append("failuredetector_threshold_count_minimum=")
+               .append(this.config.getFailureDetectorThresholdCountMinimum())
+               .append("\n");
+        builder.append("failuredetector_threshold_interval=")
+               .append(this.config.getFailureDetectorThresholdInterval())
+               .append("\n");
+        builder.append("failuredetector_threshold_async_recovery_interval=")
+               .append(this.config.getFailureDetectorAsyncRecoveryInterval())
                .append("\n");
 
         return builder.toString();

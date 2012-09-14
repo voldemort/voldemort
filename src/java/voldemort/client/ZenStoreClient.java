@@ -65,7 +65,8 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private final SchedulerService scheduler;
     private ClientInfo clientInfo;
     private String clusterXml;
-    private AsyncMetadataVersionManager asyncCheckMetadata = null;
+    private AsyncMetadataVersionManager asyncMetadataManager = null;
+    private ClientRegistryRefresher clientRegistryRefresher = null;
 
     public ZenStoreClient(String storeName,
                           InconsistencyResolver<Versioned<V>> resolver,
@@ -111,23 +112,24 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
         // Initialize the background thread for checking metadata version
         if(config != null) {
-            asyncCheckMetadata = scheduleMetadataChecker(clientId.toString(),
-                                                         config.getAsyncMetadataRefreshInMs());
+            asyncMetadataManager = scheduleAsyncMetadataVersionManager(clientId.toString(),
+                                                                       config.getAsyncMetadataRefreshInMs());
         }
 
-        registerClient(clientId, config.getClientRegistryUpdateInSecs());
+        clientRegistryRefresher = registerClient(clientId, config.getClientRegistryUpdateInSecs());
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
-    private void registerClient(String jobId, int interval) {
+    private ClientRegistryRefresher registerClient(String jobId, int interval) {
+        ClientRegistryRefresher refresher = null;
         if(this.sysRepository.getClientRegistryStore() != null) {
             try {
                 Version version = this.sysRepository.getClientRegistryStore()
                                                     .putSysStore(clientId, clientInfo.toString());
-                ClientRegistryRefresher refresher = new ClientRegistryRefresher(this.sysRepository,
-                                                                                clientId,
-                                                                                clientInfo,
-                                                                                version);
+                refresher = new ClientRegistryRefresher(this.sysRepository,
+                                                        clientId,
+                                                        clientInfo,
+                                                        version);
                 GregorianCalendar cal = new GregorianCalendar();
                 cal.add(Calendar.SECOND, interval);
 
@@ -148,10 +150,12 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             logger.warn(SystemStoreConstants.SystemStoreName.voldsys$_client_registry.name()
                         + "not found. Unable to registry with voldemort cluster.");
         }
+        return refresher;
     }
 
-    private AsyncMetadataVersionManager scheduleMetadataChecker(String jobId, long interval) {
-        AsyncMetadataVersionManager asyncCheckMetadata = null;
+    private AsyncMetadataVersionManager scheduleAsyncMetadataVersionManager(String jobId,
+                                                                            long interval) {
+        AsyncMetadataVersionManager asyncMetadataManager = null;
         SystemStore<String, Long> versionStore = this.sysRepository.getVersionStore();
         if(versionStore == null) {
             logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
@@ -166,14 +170,14 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                 }
             };
 
-            asyncCheckMetadata = new AsyncMetadataVersionManager(this.sysRepository,
-                                                                 rebootstrapCallback);
+            asyncMetadataManager = new AsyncMetadataVersionManager(this.sysRepository,
+                                                                   rebootstrapCallback);
 
             // schedule the job to run every 'checkInterval' period, starting
             // now
             if(scheduler != null) {
-                scheduler.schedule(jobId + asyncCheckMetadata.getClass().getName(),
-                                   asyncCheckMetadata,
+                scheduler.schedule(jobId + asyncMetadataManager.getClass().getName(),
+                                   asyncMetadataManager,
                                    new Date(),
                                    interval);
                 logger.info("Metadata version check thread started. Frequency = Every " + interval
@@ -182,7 +186,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                 logger.warn("Metadata version check thread won't start because the scheduler service is not configured.");
             }
         }
-        return asyncCheckMetadata;
+        return asyncMetadataManager;
     }
 
     @Override
@@ -209,15 +213,25 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
          * Metadata exception). This will prevent another bootstrap via the
          * Async metadata checker
          */
-        if(asyncCheckMetadata != null) {
-            asyncCheckMetadata.updateMetadataVersions();
+        if(asyncMetadataManager != null) {
+            asyncMetadataManager.updateMetadataVersions();
         }
 
         /*
          * Every time we bootstrap, update the bootstrap time
          */
         if(this.clientInfo != null) {
+            if(this.asyncMetadataManager != null) {
+                this.clientInfo.setClusterMetadataVersion(this.asyncMetadataManager.getClusterMetadataVersion());
+            }
             this.clientInfo.setBootstrapTime(System.currentTimeMillis());
+        }
+
+        if(this.clientRegistryRefresher == null) {
+            logger.error("Unable to publish the client registry after bootstrap. Client Registry Refresher is NULL.");
+        } else {
+            logger.info("Publishing client registry after Bootstrap.");
+            this.clientRegistryRefresher.publishRegistry();
         }
     }
 
@@ -228,7 +242,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     @JmxGetter(name = "getClusterMetadataVersion")
     public String getClusterMetadataVersion() {
         String result = "Current Cluster Metadata Version : "
-                        + this.asyncCheckMetadata.getClusterMetadataVersion();
+                        + this.asyncMetadataManager.getClusterMetadataVersion();
         return result;
     }
 

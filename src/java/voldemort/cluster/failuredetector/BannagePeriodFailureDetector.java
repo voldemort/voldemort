@@ -49,6 +49,7 @@ import voldemort.store.UnreachableStoreException;
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
+@Deprecated
 public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
     public BannagePeriodFailureDetector(FailureDetectorConfig failureDetectorConfig) {

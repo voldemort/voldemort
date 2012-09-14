@@ -31,6 +31,15 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+/*
+ * A Storage Engine used to persist the keys and values in a human readable
+ * format on disk. The data is primarily served off of the cache. After each
+ * put, the entire cache state is flushed to the backing file. The data is UTF-8
+ * serialized when writing to the file in order to make it human readable.
+ * 
+ * The primary purpose of this storage engine is for maintaining the cluster
+ * metadata which is characterized by low QPS and not latency sensitive.
+ */
 public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private final static Logger logger = Logger.getLogger(FileBackedCachingStorageEngine.class);

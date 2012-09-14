@@ -18,6 +18,9 @@ import voldemort.utils.MetadataVersionStoreUtils;
  * init if the initial version turns out to be null, it means that no change has
  * been done to that store since it was created. In this case, we assume version
  * '0'.
+ * 
+ * At the moment, this only tracks the cluster.xml changes. TODO: Extend this to
+ * track other stuff (like stores.xml)
  */
 
 public class AsyncMetadataVersionManager implements Runnable {
@@ -84,7 +87,11 @@ public class AsyncMetadataVersionManager implements Runnable {
                 logger.debug("MetadataVersion check => Obtained " + versionKey + " version : "
                              + newVersion);
 
-                if(!newVersion.equals(curVersion)) {
+                /*
+                 * Check if the new version is greater than the current one. We
+                 * should not re-bootstrap on a stale version.
+                 */
+                if(newVersion > curVersion) {
                     return newVersion;
                 }
             } else {
@@ -103,8 +110,10 @@ public class AsyncMetadataVersionManager implements Runnable {
     public void run() {
 
         try {
-            // Get the properties object from the system store (containing
-            // versions)
+            /*
+             * Get the properties object from the system store (containing
+             * versions)
+             */
             Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
             Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
                                                      currentClusterVersion,
@@ -112,39 +121,20 @@ public class AsyncMetadataVersionManager implements Runnable {
 
             // If nothing has been updated, continue
             if(newClusterVersion != null) {
-
-                logger.info("Metadata version mismatch detected.");
-
-                // Determine a random delta delay between 0 to DELTA_MAX to
-                // sleep
-                int delta = randomGenerator.nextInt(DELTA_MAX);
-
+                logger.info("Metadata version mismatch detected. Re-bootstrapping !!!");
                 try {
-                    logger.info("Sleeping for delta : " + delta + " (ms) before re-bootstrapping.");
-                    Thread.sleep(delta);
-                } catch(InterruptedException e) {
-                    // do nothing, continue.
-                }
+                    logger.info("Updating cluster version");
+                    currentClusterVersion = newClusterVersion;
 
-                /*
-                 * Do another check for mismatch here since the versions might
-                 * have been updated while we were sleeping
-                 */
-                if(!newClusterVersion.equals(currentClusterVersion)) {
-
-                    try {
-                        logger.info("Updating cluster version");
-                        currentClusterVersion = newClusterVersion;
-
-                        this.storeClientThunk.call();
-                    } catch(Exception e) {
-                        if(logger.isDebugEnabled()) {
-                            e.printStackTrace();
-                            logger.debug(e.getMessage());
-                        }
+                    this.storeClientThunk.call();
+                } catch(Exception e) {
+                    if(logger.isDebugEnabled()) {
+                        e.printStackTrace();
+                        logger.debug(e.getMessage());
                     }
                 }
             }
+
         } catch(Exception e) {
             logger.debug("Could not retrieve metadata versions from the server.");
         }
@@ -155,9 +145,12 @@ public class AsyncMetadataVersionManager implements Runnable {
         return this.currentClusterVersion;
     }
 
-    // Fetch the latest versions for cluster and store
+    // Fetch the latest versions for cluster metadata
     public void updateMetadataVersions() {
         Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
-        this.currentClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY, null, versionProps);
+        Long newVersion = fetchNewVersion(CLUSTER_VERSION_KEY, null, versionProps);
+        if(newVersion != null) {
+            this.currentClusterVersion = newVersion;
+        }
     }
 }

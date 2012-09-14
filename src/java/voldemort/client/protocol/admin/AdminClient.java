@@ -245,7 +245,8 @@ public class AdminClient {
     }
 
     /**
-     * Increment the metadata version for the given key (cluster or store)
+     * Update the metadata version for the given key (cluster or store). The new
+     * value set is the current timestamp.
      * 
      * @param versionKey The metadata key for which Version should be
      *        incremented
@@ -253,17 +254,17 @@ public class AdminClient {
     public void updateMetadataversion(String versionKey) {
         initSystemStoreClient();
         Properties props = MetadataVersionStoreUtils.getProperties(this.sysStoreVersion);
+        long newValue = 0;
         if(props != null && props.getProperty(versionKey) != null) {
             logger.debug("Version obtained = " + props.getProperty(versionKey));
-            long newValue = Long.parseLong(props.getProperty(versionKey)) + 1;
-            props.setProperty(versionKey, Long.toString(newValue));
+            newValue = System.currentTimeMillis();
         } else {
             logger.debug("Current version is null. Assuming version 0.");
             if(props == null) {
                 props = new Properties();
             }
-            props.setProperty(versionKey, "0");
         }
+        props.setProperty(versionKey, Long.toString(newValue));
         MetadataVersionStoreUtils.setProperties(this.sysStoreVersion, props);
     }
 
