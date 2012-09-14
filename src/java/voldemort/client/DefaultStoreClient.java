@@ -16,6 +16,7 @@
 
 package voldemort.client;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -355,4 +356,28 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         return put(key, versioned, transforms);
 
     }
+
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        // Pre-populate with all false
+        Map<K, Boolean> returnMap = new HashMap<K, Boolean>();
+        for(K key: keys) {
+            returnMap.put(key, false);
+        }
+        for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
+            try {
+                Map<K, Boolean> items = store.hasKeys(keys);
+                for(Map.Entry<K, Boolean> value: items.entrySet()) {
+                    returnMap.put(value.getKey(), value.getValue());
+                }
+                return returnMap;
+            } catch(InvalidMetadataException e) {
+                logger.info("Received invalid metadata exception during hasKeys [  "
+                            + e.getMessage() + " ] on store '" + storeName + "'. Rebootstrapping");
+                bootStrap();
+            }
+        }
+        throw new VoldemortException(this.metadataRefreshAttempts
+                                     + " metadata refresh attempts failed.");
+    }
+
 }

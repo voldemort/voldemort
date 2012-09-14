@@ -7,6 +7,7 @@ from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 
+
 DESCRIPTOR = descriptor.FileDescriptor(
   name='slop.proto',
   package='voldemort',
@@ -77,7 +78,7 @@ _SLOP = descriptor.Descriptor(
   serialized_end=127,
 )
 
-
+DESCRIPTOR.message_types_by_name['Slop'] = _SLOP
 
 class Slop(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

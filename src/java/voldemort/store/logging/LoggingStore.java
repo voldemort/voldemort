@@ -17,6 +17,7 @@
 package voldemort.store.logging;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
@@ -81,6 +82,21 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     @Override
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        long startTimeNs = 0;
+        boolean succeeded = false;
+        if(logger.isDebugEnabled())
+            startTimeNs = time.getNanoseconds();
+        try {
+            Map<K, Boolean> l = getInnerStore().hasKeys(keys);
+            succeeded = true;
+            return l;
+        } finally {
+            printTimedMessage("HASKEYS", succeeded, startTimeNs);
+        }
+    }
+
+    @Override
     public boolean delete(K key, Version version) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
@@ -128,9 +144,8 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     private void printTimedMessage(String operation, boolean success, long startNs) {
         if(logger.isDebugEnabled()) {
             double elapsedMs = (time.getNanoseconds() - startNs) / (double) Time.NS_PER_MS;
-            logger.debug(instanceName + operation + " " + getName()
-                         + " " + (success ? "successful" : "unsuccessful") + " in "
-                         + elapsedMs + " ms");
+            logger.debug(instanceName + operation + " " + getName() + " "
+                         + (success ? "successful" : "unsuccessful") + " in " + elapsedMs + " ms");
         }
     }
 

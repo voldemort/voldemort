@@ -212,13 +212,17 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             Pair<ByteArray, Versioned<byte[]>> p = inner.next();
             Versioned<byte[]> newVal = Versioned.value(valueToViewSchema(p.getFirst(),
                                                                          p.getSecond().getValue(),
-                                                                         null), p.getSecond()
-                                                                                 .getVersion());
+                                                                         null),
+                                                       p.getSecond().getVersion());
             return Pair.create(p.getFirst(), newVal);
         }
     }
 
     public boolean isPartitionAware() {
         return target.isPartitionAware();
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+        return target.hasKeys(keys);
     }
 }

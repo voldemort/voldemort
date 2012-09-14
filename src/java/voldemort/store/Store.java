@@ -53,6 +53,7 @@ public interface Store<K, V, T> {
      * them.
      * 
      * @param keys The keys to check for.
+     * @param transforms Transforms per key
      * @return A Map of keys to a list of versioned values.
      * @throws VoldemortException
      */
@@ -95,11 +96,25 @@ public interface Store<K, V, T> {
      * layering.
      * 
      * @param capability The capability type to retrieve
-     * @return The given capaiblity
-     * @throws NoSuchCapabilityException if the capaibility is not present
+     * @return The given capability
+     * @throws NoSuchCapabilityException if the capability is not present
      */
     public Object getCapability(StoreCapabilityType capability);
 
+    /**
+     * Get all the versions for a key
+     * 
+     * @param key The key
+     * @return List of versions
+     */
     public List<Version> getVersions(K key);
+
+    /**
+     * Given a set of keys, check if it exists
+     * 
+     * @param keys Set of keys to check
+     * @return Map of key to boolean
+     */
+    public Map<K, Boolean> hasKeys(Iterable<K> keys);
 
 }

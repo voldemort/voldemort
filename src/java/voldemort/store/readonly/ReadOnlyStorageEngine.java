@@ -21,6 +21,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -496,6 +497,26 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             } else {
                 return Collections.emptyList();
             }
+        } finally {
+            fileModificationLock.readLock().unlock();
+        }
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, Boolean> results = new HashMap<ByteArray, Boolean>();
+        try {
+            fileModificationLock.readLock().lock();
+            for(ByteArray key: keys) {
+                int chunk = fileSet.getChunkForKey(key.get());
+                int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
+                                                           fileSet.keyToStorageFormat(key.get()),
+                                                           fileSet.getIndexFileSize(chunk));
+                if(valueLocation >= 0) {
+                    results.put(key, true);
+                }
+            }
+            return results;
         } finally {
             fileModificationLock.readLock().unlock();
         }

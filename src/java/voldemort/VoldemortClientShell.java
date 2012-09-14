@@ -29,6 +29,7 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -173,6 +174,25 @@ public class VoldemortClientShell {
                     } else {
                         System.out.println("null");
                     }
+                } else if(line.toLowerCase().startsWith("haskeys")) {
+                    JsonReader jsonReader = new JsonReader(new StringReader(line.substring("haskeys".length())));
+                    Set<Object> keys = new HashSet<Object>();
+                    try {
+                        while(true)
+                            keys.add(jsonReader.read());
+                    } catch(EndOfFileException e) {
+                        // this is okay, just means we are done reading
+                    }
+                    Map<Object, Boolean> vals = client.hasKeys(keys);
+                    if(vals.size() > 0) {
+                        for(Map.Entry<Object, Boolean> entry: vals.entrySet()) {
+                            System.out.print(entry.getKey());
+                            System.out.print(" => ");
+                            System.out.println(entry.getValue());
+                        }
+                    } else {
+                        System.out.println("null");
+                    }
                 } else if(line.toLowerCase().startsWith("getmetadata")) {
                     String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
                     int remoteNodeId = Integer.valueOf(args[0]);
@@ -270,21 +290,29 @@ public class VoldemortClientShell {
                 } else if(line.startsWith("help")) {
                     System.out.println();
                     System.out.println("Commands:");
-                    System.out.println(PROMPT + "put key value --- Associate the given value with the key.");
-                    System.out.println(PROMPT + "get key --- Retrieve the value associated with the key.");
-                    System.out.println(PROMPT + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
-                    System.out.println(PROMPT + "delete key --- Remove all values associated with the key.");
-                    System.out.println(PROMPT + "preflist key --- Get node preference list for given key.");
+                    System.out.println(PROMPT
+                                       + "put key value --- Associate the given value with the key.");
+                    System.out.println(PROMPT
+                                       + "get key --- Retrieve the value associated with the key.");
+                    System.out.println(PROMPT
+                                       + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                    System.out.println(PROMPT
+                                       + "delete key --- Remove all values associated with the key.");
+                    System.out.println(PROMPT
+                                       + "preflist key --- Get node preference list for given key.");
                     String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
-                    System.out.println(PROMPT + "getmetadata node_id meta_key --- Get store metadata associated "
+                    System.out.println(PROMPT
+                                       + "getmetadata node_id meta_key --- Get store metadata associated "
                                        + "with meta_key from node_id. meta_key may be one of "
                                        + metaKeyValues.substring(1, metaKeyValues.length() - 1)
                                        + ".");
-                    System.out.println(PROMPT + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
+                    System.out.println(PROMPT
+                                       + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
                                        + "from given partitions (a comma separated list) of store_name on "
                                        + "node_id. Optionally, write to file_name. "
                                        + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    System.out.println(PROMPT + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
+                    System.out.println(PROMPT
+                                       + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
                                        + "from given partitions (a comma separated list) of store_name on "
                                        + "node_id. Optionally, write to file_name. "
                                        + "Use getmetadata to determine appropriate values for store_name and partitions");
@@ -341,7 +369,7 @@ public class VoldemortClientShell {
         }
     }
 
-    private static void printVersioned(Versioned<Object> v) {
+    private static <T> void printVersioned(Versioned<T> v) {
         if(v == null) {
             System.out.println("null");
         } else {

@@ -85,4 +85,9 @@ public class DelegatingStore<K, V, T> implements Store<K, V, T> {
     public List<Version> getVersions(K key) {
         return innerStore.getVersions(key);
     }
+
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        StoreUtils.assertValidKeys(keys);
+        return innerStore.hasKeys(keys);
+    }
 }

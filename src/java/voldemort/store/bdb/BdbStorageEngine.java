@@ -261,6 +261,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return bdbDatabase;
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+        StoreUtils.assertValidKeys(keys);
+        return StoreUtils.hasKeys(this, keys);
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {

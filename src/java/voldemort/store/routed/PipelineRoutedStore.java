@@ -19,6 +19,7 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -39,14 +40,17 @@ import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.routed.action.ConfigureNodes;
 import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
+import voldemort.store.routed.action.HasKeysConfigureNodes;
 import voldemort.store.routed.action.IncrementClock;
 import voldemort.store.routed.action.PerformDeleteHintedHandoff;
 import voldemort.store.routed.action.PerformParallelDeleteRequests;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
+import voldemort.store.routed.action.PerformParallelHasKeysRequests;
 import voldemort.store.routed.action.PerformParallelPutRequests;
 import voldemort.store.routed.action.PerformParallelRequests;
 import voldemort.store.routed.action.PerformPutHintedHandoff;
 import voldemort.store.routed.action.PerformSerialGetAllRequests;
+import voldemort.store.routed.action.PerformSerialHasKeysRequests;
 import voldemort.store.routed.action.PerformSerialPutRequests;
 import voldemort.store.routed.action.PerformSerialRequests;
 import voldemort.store.routed.action.PerformZoneSerialRequests;
@@ -277,6 +281,10 @@ public class PipelineRoutedStore extends RoutedStore {
         return builder.toString();
     }
 
+    public Map<ByteArray, List<Versioned<Boolean>>> hasKeys(Set<ByteArray> keys) {
+        return null;
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -364,6 +372,81 @@ public class PipelineRoutedStore extends RoutedStore {
                          + System.identityHashCode(keys) + "; started at " + startTimeMs + " took "
                          + (System.nanoTime() - startTimeNs) + " values: "
                          + formatNodeValuesFromGetAll(pipelineData.getResponses()));
+        }
+
+        return pipelineData.getResult();
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) throws VoldemortException {
+        StoreUtils.assertValidKeys(keys);
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
+        HasKeysPipelineData pipelineData = new HasKeysPipelineData();
+        if(zoneRoutingEnabled)
+            pipelineData.setZonesRequired(storeDef.getZoneCountReads());
+        else
+            pipelineData.setZonesRequired(null);
+        pipelineData.setStats(stats);
+
+        Pipeline pipeline = new Pipeline(Operation.HAS_KEYS,
+                                         timeoutConfig.getOperationTimeout(VoldemortOpCode.HAS_KEYS_OP_CODE),
+                                         TimeUnit.MILLISECONDS);
+        pipeline.addEventAction(Event.STARTED,
+                                new HasKeysConfigureNodes(pipelineData,
+                                                          Event.CONFIGURED,
+                                                          failureDetector,
+                                                          storeDef.getPreferredReads(),
+                                                          storeDef.getRequiredReads(),
+                                                          routingStrategy,
+                                                          keys,
+                                                          clientZone));
+        pipeline.addEventAction(Event.CONFIGURED,
+                                new PerformParallelHasKeysRequests(pipelineData,
+                                                                   Event.INSUFFICIENT_SUCCESSES,
+                                                                   failureDetector,
+                                                                   timeoutConfig.getOperationTimeout(VoldemortOpCode.HAS_KEYS_OP_CODE),
+                                                                   nonblockingStores));
+        pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
+                                new PerformSerialHasKeysRequests(pipelineData,
+                                                                 Event.COMPLETED,
+                                                                 keys,
+                                                                 failureDetector,
+                                                                 innerStores,
+                                                                 storeDef.getPreferredReads(),
+                                                                 storeDef.getRequiredReads()));
+
+        pipeline.addEvent(Event.STARTED);
+
+        if(logger.isDebugEnabled()) {
+            StringBuilder keyStr = new StringBuilder();
+            for(ByteArray key: keys) {
+                keyStr.append(ByteUtils.toHexString(key.get()) + ",");
+            }
+            logger.debug("Operation " + pipeline.getOperation().getSimpleName() + " Keys "
+                         + keyStr.toString());
+        }
+        try {
+            pipeline.execute();
+        } catch(VoldemortException e) {
+            stats.reportException(e);
+            throw e;
+        }
+
+        if(pipelineData.getFatalError() != null)
+            throw pipelineData.getFatalError();
+
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + "for keys "
+                         + ByteArray.toHexStrings(keys) + " keyRef: "
+                         + System.identityHashCode(keys) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs));
         }
 
         return pipelineData.getResult();
@@ -742,4 +825,5 @@ public class PipelineRoutedStore extends RoutedStore {
 
         super.close();
     }
+
 }

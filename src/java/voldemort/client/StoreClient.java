@@ -206,4 +206,14 @@ public interface StoreClient<K, V> {
      * @return a list of Nodes which should hold this key
      */
     public List<Node> getResponsibleNodes(K key);
+
+    /**
+     * Given a set of keys, check if it exists
+     * 
+     * @param keys Set of keys to check
+     * @return Map of key to boolean. The guarantee is number of keys = number
+     *         of input keys
+     */
+    public Map<K, Boolean> hasKeys(Iterable<K> keys);
+
 }

@@ -75,6 +75,10 @@ public class NoopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return dataMap;
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+        return StoreUtils.hasKeys(this, keys);
+    }
+
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }

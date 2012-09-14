@@ -74,6 +74,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                 case VoldemortOpCode.GET_VERSION_OP_CODE:
                     handleGetVersion(inputStream, outputStream, store);
                     break;
+                case VoldemortOpCode.HAS_KEYS_OP_CODE:
+                    handleHasKeys(inputStream, outputStream, store);
+                    break;
                 default:
                     throw new IOException("Unknown op code: " + opCode);
             }
@@ -146,7 +149,6 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
      * This is pretty ugly. We end up mimicking the request logic here, so this
      * needs to stay in sync with handleRequest.
      */
-
     public boolean isCompleteRequest(final ByteBuffer buffer) {
         DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
 
@@ -177,7 +179,7 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                     // Read the key just to skip the bytes.
                     readKey(inputStream);
                     break;
-                case VoldemortOpCode.GET_OP_CODE:
+                case VoldemortOpCode.GET_OP_CODE: {
                     // Read the key just to skip the bytes.
                     readKey(inputStream);
                     if(protocolVersion > 2) {
@@ -187,7 +189,8 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                         }
                     }
                     break;
-                case VoldemortOpCode.GET_ALL_OP_CODE:
+                }
+                case VoldemortOpCode.GET_ALL_OP_CODE: {
                     int numKeys = inputStream.readInt();
 
                     // Read the keys to skip the bytes.
@@ -204,6 +207,15 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                         }
                     }
                     break;
+                }
+                case VoldemortOpCode.HAS_KEYS_OP_CODE: {
+                    int numKeys = inputStream.readInt();
+
+                    // Read the keys to skip the bytes.
+                    for(int i = 0; i < numKeys; i++)
+                        readKey(inputStream);
+                    break;
+                }
                 case VoldemortOpCode.PUT_OP_CODE: {
                     readKey(inputStream);
 
@@ -320,6 +332,44 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         if(logger.isDebugEnabled()) {
             debugLogReturnValue(inputStream, key, results, startTimeMs, startTimeNs, "GET");
         }
+    }
+
+    private void handleHasKeys(DataInputStream inputStream,
+                               DataOutputStream outputStream,
+                               Store<ByteArray, byte[], byte[]> store) throws IOException {
+        // read keys
+        int numKeys = inputStream.readInt();
+        List<ByteArray> keys = new ArrayList<ByteArray>(numKeys);
+        for(int i = 0; i < numKeys; i++)
+            keys.add(readKey(inputStream));
+
+        // execute the operation
+        Map<ByteArray, Boolean> results = null;
+        try {
+            results = store.hasKeys(keys);
+            outputStream.writeShort(0);
+        } catch(VoldemortException e) {
+            logger.error(e.getMessage());
+            writeException(outputStream, e);
+            return;
+        }
+
+        // write back the results
+        outputStream.writeInt(results.size());
+
+        if(logger.isDebugEnabled())
+            logger.debug("HASKEYS start");
+
+        for(Map.Entry<ByteArray, Boolean> entry: results.entrySet()) {
+            // write the key
+            outputStream.writeInt(entry.getKey().length());
+            outputStream.write(entry.getKey().get());
+            // write the values
+            outputStream.writeBoolean(entry.getValue());
+        }
+
+        if(logger.isDebugEnabled())
+            logger.debug("HASKEYS end");
     }
 
     private void handleGetAll(DataInputStream inputStream,

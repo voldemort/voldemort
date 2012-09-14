@@ -7,6 +7,8 @@ from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 
+import voldemort_client_pb2
+
 DESCRIPTOR = descriptor.FileDescriptor(
   name='voldemort-admin.proto',
   package='voldemort',
@@ -2415,8 +2417,6 @@ _VOLDEMORTADMINREQUEST = descriptor.Descriptor(
   serialized_end=6968,
 )
 
-import voldemort_client_pb2
-
 _GETMETADATARESPONSE.fields_by_name['version'].message_type = voldemort_client_pb2._VERSIONED
 _GETMETADATARESPONSE.fields_by_name['error'].message_type = voldemort_client_pb2._ERROR
 _UPDATEMETADATAREQUEST.fields_by_name['versioned'].message_type = voldemort_client_pb2._VERSIONED
@@ -2492,6 +2492,64 @@ _VOLDEMORTADMINREQUEST.fields_by_name['initiate_rebalance_node_on_donor'].messag
 _VOLDEMORTADMINREQUEST.fields_by_name['delete_store_rebalance_state'].message_type = _DELETESTOREREBALANCESTATEREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['native_backup'].message_type = _NATIVEBACKUPREQUEST
 _VOLDEMORTADMINREQUEST.fields_by_name['reserve_memory'].message_type = _RESERVEMEMORYREQUEST
+DESCRIPTOR.message_types_by_name['GetMetadataRequest'] = _GETMETADATAREQUEST
+DESCRIPTOR.message_types_by_name['GetMetadataResponse'] = _GETMETADATARESPONSE
+DESCRIPTOR.message_types_by_name['UpdateMetadataRequest'] = _UPDATEMETADATAREQUEST
+DESCRIPTOR.message_types_by_name['UpdateMetadataResponse'] = _UPDATEMETADATARESPONSE
+DESCRIPTOR.message_types_by_name['FileEntry'] = _FILEENTRY
+DESCRIPTOR.message_types_by_name['PartitionEntry'] = _PARTITIONENTRY
+DESCRIPTOR.message_types_by_name['UpdatePartitionEntriesRequest'] = _UPDATEPARTITIONENTRIESREQUEST
+DESCRIPTOR.message_types_by_name['UpdatePartitionEntriesResponse'] = _UPDATEPARTITIONENTRIESRESPONSE
+DESCRIPTOR.message_types_by_name['VoldemortFilter'] = _VOLDEMORTFILTER
+DESCRIPTOR.message_types_by_name['UpdateSlopEntriesRequest'] = _UPDATESLOPENTRIESREQUEST
+DESCRIPTOR.message_types_by_name['UpdateSlopEntriesResponse'] = _UPDATESLOPENTRIESRESPONSE
+DESCRIPTOR.message_types_by_name['FetchPartitionFilesRequest'] = _FETCHPARTITIONFILESREQUEST
+DESCRIPTOR.message_types_by_name['FetchPartitionEntriesRequest'] = _FETCHPARTITIONENTRIESREQUEST
+DESCRIPTOR.message_types_by_name['FetchPartitionEntriesResponse'] = _FETCHPARTITIONENTRIESRESPONSE
+DESCRIPTOR.message_types_by_name['DeletePartitionEntriesRequest'] = _DELETEPARTITIONENTRIESREQUEST
+DESCRIPTOR.message_types_by_name['DeletePartitionEntriesResponse'] = _DELETEPARTITIONENTRIESRESPONSE
+DESCRIPTOR.message_types_by_name['InitiateFetchAndUpdateRequest'] = _INITIATEFETCHANDUPDATEREQUEST
+DESCRIPTOR.message_types_by_name['AsyncOperationStatusRequest'] = _ASYNCOPERATIONSTATUSREQUEST
+DESCRIPTOR.message_types_by_name['AsyncOperationStopRequest'] = _ASYNCOPERATIONSTOPREQUEST
+DESCRIPTOR.message_types_by_name['AsyncOperationStopResponse'] = _ASYNCOPERATIONSTOPRESPONSE
+DESCRIPTOR.message_types_by_name['AsyncOperationListRequest'] = _ASYNCOPERATIONLISTREQUEST
+DESCRIPTOR.message_types_by_name['AsyncOperationListResponse'] = _ASYNCOPERATIONLISTRESPONSE
+DESCRIPTOR.message_types_by_name['PartitionTuple'] = _PARTITIONTUPLE
+DESCRIPTOR.message_types_by_name['PerStorePartitionTuple'] = _PERSTOREPARTITIONTUPLE
+DESCRIPTOR.message_types_by_name['RebalancePartitionInfoMap'] = _REBALANCEPARTITIONINFOMAP
+DESCRIPTOR.message_types_by_name['InitiateRebalanceNodeRequest'] = _INITIATEREBALANCENODEREQUEST
+DESCRIPTOR.message_types_by_name['InitiateRebalanceNodeOnDonorRequest'] = _INITIATEREBALANCENODEONDONORREQUEST
+DESCRIPTOR.message_types_by_name['AsyncOperationStatusResponse'] = _ASYNCOPERATIONSTATUSRESPONSE
+DESCRIPTOR.message_types_by_name['TruncateEntriesRequest'] = _TRUNCATEENTRIESREQUEST
+DESCRIPTOR.message_types_by_name['TruncateEntriesResponse'] = _TRUNCATEENTRIESRESPONSE
+DESCRIPTOR.message_types_by_name['AddStoreRequest'] = _ADDSTOREREQUEST
+DESCRIPTOR.message_types_by_name['AddStoreResponse'] = _ADDSTORERESPONSE
+DESCRIPTOR.message_types_by_name['DeleteStoreRequest'] = _DELETESTOREREQUEST
+DESCRIPTOR.message_types_by_name['DeleteStoreResponse'] = _DELETESTORERESPONSE
+DESCRIPTOR.message_types_by_name['FetchStoreRequest'] = _FETCHSTOREREQUEST
+DESCRIPTOR.message_types_by_name['SwapStoreRequest'] = _SWAPSTOREREQUEST
+DESCRIPTOR.message_types_by_name['SwapStoreResponse'] = _SWAPSTORERESPONSE
+DESCRIPTOR.message_types_by_name['RollbackStoreRequest'] = _ROLLBACKSTOREREQUEST
+DESCRIPTOR.message_types_by_name['RollbackStoreResponse'] = _ROLLBACKSTORERESPONSE
+DESCRIPTOR.message_types_by_name['RepairJobRequest'] = _REPAIRJOBREQUEST
+DESCRIPTOR.message_types_by_name['RepairJobResponse'] = _REPAIRJOBRESPONSE
+DESCRIPTOR.message_types_by_name['ROStoreVersionDirMap'] = _ROSTOREVERSIONDIRMAP
+DESCRIPTOR.message_types_by_name['GetROMaxVersionDirRequest'] = _GETROMAXVERSIONDIRREQUEST
+DESCRIPTOR.message_types_by_name['GetROMaxVersionDirResponse'] = _GETROMAXVERSIONDIRRESPONSE
+DESCRIPTOR.message_types_by_name['GetROCurrentVersionDirRequest'] = _GETROCURRENTVERSIONDIRREQUEST
+DESCRIPTOR.message_types_by_name['GetROCurrentVersionDirResponse'] = _GETROCURRENTVERSIONDIRRESPONSE
+DESCRIPTOR.message_types_by_name['GetROStorageFormatRequest'] = _GETROSTORAGEFORMATREQUEST
+DESCRIPTOR.message_types_by_name['GetROStorageFormatResponse'] = _GETROSTORAGEFORMATRESPONSE
+DESCRIPTOR.message_types_by_name['FailedFetchStoreRequest'] = _FAILEDFETCHSTOREREQUEST
+DESCRIPTOR.message_types_by_name['FailedFetchStoreResponse'] = _FAILEDFETCHSTORERESPONSE
+DESCRIPTOR.message_types_by_name['RebalanceStateChangeRequest'] = _REBALANCESTATECHANGEREQUEST
+DESCRIPTOR.message_types_by_name['RebalanceStateChangeResponse'] = _REBALANCESTATECHANGERESPONSE
+DESCRIPTOR.message_types_by_name['DeleteStoreRebalanceStateRequest'] = _DELETESTOREREBALANCESTATEREQUEST
+DESCRIPTOR.message_types_by_name['DeleteStoreRebalanceStateResponse'] = _DELETESTOREREBALANCESTATERESPONSE
+DESCRIPTOR.message_types_by_name['NativeBackupRequest'] = _NATIVEBACKUPREQUEST
+DESCRIPTOR.message_types_by_name['ReserveMemoryRequest'] = _RESERVEMEMORYREQUEST
+DESCRIPTOR.message_types_by_name['ReserveMemoryResponse'] = _RESERVEMEMORYRESPONSE
+DESCRIPTOR.message_types_by_name['VoldemortAdminRequest'] = _VOLDEMORTADMINREQUEST
 
 class GetMetadataRequest(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType

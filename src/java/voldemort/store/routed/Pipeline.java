@@ -67,7 +67,8 @@ public class Pipeline {
         GET_ALL,
         GET_VERSIONS,
         PUT,
-        DELETE;
+        DELETE,
+        HAS_KEYS;
 
         public String getSimpleName() {
             return toString().toLowerCase().replace("_", " ");

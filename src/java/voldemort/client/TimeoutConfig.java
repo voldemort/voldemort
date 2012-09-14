@@ -20,6 +20,7 @@ public class TimeoutConfig {
              globalTimeout,
              globalTimeout,
              globalTimeout,
+             globalTimeout,
              allowPartialGetAlls);
     }
 
@@ -28,6 +29,7 @@ public class TimeoutConfig {
                          long deleteTimeout,
                          long getAllTimeout,
                          long getVersionsTimeout,
+                         long hasKeysTimeout,
                          boolean allowPartialGetAlls) {
         timeoutMap = new HashMap<Byte, Long>();
         timeoutMap.put(VoldemortOpCode.GET_OP_CODE, getTimeout);
@@ -35,6 +37,7 @@ public class TimeoutConfig {
         timeoutMap.put(VoldemortOpCode.DELETE_OP_CODE, deleteTimeout);
         timeoutMap.put(VoldemortOpCode.GET_ALL_OP_CODE, getAllTimeout);
         timeoutMap.put(VoldemortOpCode.GET_VERSION_OP_CODE, getVersionsTimeout);
+        timeoutMap.put(VoldemortOpCode.HAS_KEYS_OP_CODE, hasKeysTimeout);
         setPartialGetAllAllowed(allowPartialGetAlls);
     }
 

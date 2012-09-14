@@ -68,6 +68,15 @@ public interface RequestFormat {
     public Map<ByteArray, List<Versioned<byte[]>>> readGetAllResponse(DataInputStream stream)
             throws IOException;
 
+    public void writeHasKeysRequest(DataOutputStream output,
+                                    String storeName,
+                                    Iterable<ByteArray> keys,
+                                    RequestRoutingType routingType) throws IOException;
+
+    public boolean isCompleteHasKeysResponse(ByteBuffer buffer);
+
+    public Map<ByteArray, Boolean> readHasKeysResponse(DataInputStream stream) throws IOException;
+
     public void writePutRequest(DataOutputStream output,
                                 String storeName,
                                 ByteArray key,
@@ -89,4 +98,5 @@ public interface RequestFormat {
     public boolean isCompleteDeleteResponse(ByteBuffer buffer);
 
     public boolean readDeleteResponse(DataInputStream input) throws IOException;
+
 }

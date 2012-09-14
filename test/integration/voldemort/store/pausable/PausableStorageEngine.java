@@ -69,6 +69,11 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return inner.getAll(keys, transforms);
     }
 
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        blockIfNecessary();
+        return inner.hasKeys(keys);
+    }
+
     public void put(K key, Versioned<V> value, T transforms) {
         blockIfNecessary();
         inner.put(key, value, transforms);

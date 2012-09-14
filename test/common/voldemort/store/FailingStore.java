@@ -68,6 +68,10 @@ public class FailingStore<K, V, T> implements Store<K, V, T> {
         throw exception;
     }
 
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        throw exception;
+    }
+
     public java.util.List<Version> getVersions(K key) {
         throw exception;
     }
@@ -75,4 +79,5 @@ public class FailingStore<K, V, T> implements Store<K, V, T> {
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
     }
+
 }

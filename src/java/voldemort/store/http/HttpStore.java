@@ -209,4 +209,24 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             IOUtils.closeQuietly(input);
         }
     }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+        StoreUtils.assertValidKey(keys);
+        DataInputStream input = null;
+        try {
+            HttpPost method = new HttpPost(this.storeUrl);
+            ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
+            requestFormat.writeHasKeysRequest(new DataOutputStream(outputBytes),
+                                              storeName,
+                                              keys,
+                                              reroute);
+            input = executeRequest(method, outputBytes);
+            return requestFormat.readHasKeysResponse(input);
+        } catch(IOException e) {
+            throw new UnreachableStoreException("Could not connect to " + storeUrl + " for "
+                                                + storeName, e);
+        } finally {
+            IOUtils.closeQuietly(input);
+        }
+    }
 }

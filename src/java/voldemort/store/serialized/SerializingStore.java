@@ -129,6 +129,17 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return result;
     }
 
+    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, K> byteKeyToKey = keysToBytes(keys);
+        Map<ByteArray, Boolean> storeResult = store.hasKeys(byteKeyToKey.keySet());
+        Map<K, Boolean> result = Maps.newHashMapWithExpectedSize(storeResult.size());
+        for(Map.Entry<ByteArray, Boolean> mapEntry: storeResult.entrySet()) {
+            result.put(byteKeyToKey.get(mapEntry.getKey()), mapEntry.getValue());
+        }
+        return result;
+    }
+
     public String getName() {
         return store.getName();
     }
