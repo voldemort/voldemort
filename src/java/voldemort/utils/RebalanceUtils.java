@@ -28,10 +28,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -564,6 +564,31 @@ public class RebalanceUtils {
         return nodesToPush;
     }
 
+    /***
+     * 
+     * @return true if the partition belongs to the node with given replicatype
+     */
+    public static boolean checkPartitionBelongsToNode(int partition,
+                                                      int replicaType,
+                                                      int nodeId,
+                                                      Cluster cluster,
+                                                      StoreDefinition storeDef) {
+        boolean belongs = false;
+        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
+        List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                 cluster)
+                                                                          .getReplicatingPartitionList(partition);
+        // validate replicaType
+        if(replicaType < replicatingPartitions.size()) {
+            // check if the replicaType'th partition in the replicating list,
+            // belongs to the given node
+            if(nodePartitions.contains(replicatingPartitions.get(replicaType)))
+                belongs = true;
+        }
+
+        return belongs;
+    }
+
     /**
      * Check the execution state of the server by checking the state of
      * {@link VoldemortState} <br>
@@ -708,8 +733,8 @@ public class RebalanceUtils {
             stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
 
             // Sort the nodes
-            updatedCluster = updateCluster(updatedCluster, Lists.newArrayList(donorNode,
-                                                                              stealerNode));
+            updatedCluster = updateCluster(updatedCluster,
+                                           Lists.newArrayList(donorNode, stealerNode));
 
         }
 

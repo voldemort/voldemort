@@ -79,7 +79,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final LockMode readLockMode;
     private final BdbEnvironmentStats bdbEnvironmentStats;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
-    private final boolean minimizeScanImpact;
+    protected final boolean minimizeScanImpact;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -106,7 +106,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             // evict data brought in by the cursor walk right away
             if(this.minimizeScanImpact)
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
-            return new BdbEntriesIterator(cursor);
+            return new BdbEntriesIterator(cursor, this);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
@@ -119,11 +119,19 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             // evict data brought in by the cursor walk right away
             if(this.minimizeScanImpact)
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
-            return new BdbKeysIterator(cursor);
+            return new BdbKeysIterator(cursor, this);
         } catch(DatabaseException e) {
             logger.error(e);
             throw new PersistenceFailureException(e);
         }
+    }
+
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
     public void truncate() {
@@ -198,7 +206,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
      * 
      * @return
      */
-    private Database getBdbDatabase() {
+    protected Database getBdbDatabase() {
         if(isTruncating.get()) {
             throw new VoldemortException("Bdb Store " + getName()
                                          + " is currently truncating cannot serve any request.");
@@ -494,46 +502,16 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return bdbEnvironmentStats;
     }
 
-    private static abstract class BdbIterator<T> implements ClosableIterator<T> {
-
-        private volatile boolean isOpen;
-        final Cursor cursor;
-
-        BdbIterator(Cursor cursor) {
-            this.cursor = cursor;
-            isOpen = true;
-        }
-
-        public final void close() {
-            try {
-                if(isOpen) {
-                    cursor.close();
-                    isOpen = false;
-                }
-            } catch(DatabaseException e) {
-                logger.error(e);
-            }
-        }
-
-        public final void remove() {
-            throw new UnsupportedOperationException("No removal");
-        }
-
-        @Override
-        protected final void finalize() {
-            if(isOpen) {
-                logger.error("Failure to close cursor, will be forcibly closed.");
-                close();
-            }
-        }
+    protected Logger getLogger() {
+        return logger;
     }
 
     private static class BdbEntriesIterator extends BdbIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
         private List<Pair<ByteArray, Versioned<byte[]>>> cache;
 
-        public BdbEntriesIterator(Cursor cursor) {
-            super(cursor);
+        public BdbEntriesIterator(Cursor cursor, BdbStorageEngine bdbEngine) {
+            super(cursor, bdbEngine);
             this.cache = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
         }
 
@@ -564,8 +542,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                     // we have reached the end of the cursor
                     return false;
                 }
+                ByteArray key = null;
+                if(bdbEngine.isPartitionScanSupported())
+                    key = new ByteArray(StoreBinaryFormat.extractKey(keyEntry.getData()));
+                else
+                    key = new ByteArray(keyEntry.getData());
 
-                ByteArray key = new ByteArray(keyEntry.getData());
                 for(Versioned<byte[]> val: StoreBinaryFormat.fromByteArray(valueEntry.getData()))
                     this.cache.add(Pair.create(key, val));
                 return true;
@@ -580,8 +562,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
         ByteArray current = null;
 
-        public BdbKeysIterator(Cursor cursor) {
-            super(cursor);
+        public BdbKeysIterator(Cursor cursor, BdbStorageEngine bdbEngine) {
+            super(cursor, bdbEngine);
         }
 
         public boolean hasNext() {
@@ -611,7 +593,11 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                     // we have reached the end of the cursor
                     return false;
                 }
-                current = new ByteArray(keyEntry.getData());
+
+                if(bdbEngine.isPartitionScanSupported())
+                    current = new ByteArray(StoreBinaryFormat.extractKey(keyEntry.getData()));
+                else
+                    current = new ByteArray(keyEntry.getData());
                 return true;
             } catch(DatabaseException e) {
                 logger.error(e);
@@ -621,6 +607,10 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 

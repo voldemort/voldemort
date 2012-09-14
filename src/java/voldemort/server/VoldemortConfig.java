@@ -90,6 +90,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCleanerLazyMigration;
     private boolean bdbCacheModeEvictLN;
     private boolean bdbMinimizeScanImpact;
+    private boolean bdbPrefixKeysWithPartitionId;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -239,6 +240,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerLazyMigration = props.getBoolean("bdb.cleaner.lazy.migration", true);
         this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", false);
         this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", false);
+        this.bdbPrefixKeysWithPartitionId = props.getBoolean("bdb.prefix.keys.with.partitionid",
+                                                             true);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -883,6 +886,74 @@ public class VoldemortConfig implements Serializable {
         this.bdbMinimizeScanImpact = bdbMinimizeScanImpact;
     }
 
+    public boolean isBdbWriteTransactionsEnabled() {
+        return bdbWriteTransactions;
+    }
+
+    public void setBdbWriteTransactions(boolean bdbWriteTransactions) {
+        this.bdbWriteTransactions = bdbWriteTransactions;
+    }
+
+    public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {
+        this.bdbOneEnvPerStore = bdbOneEnvPerStore;
+    }
+
+    public boolean isBdbOneEnvPerStore() {
+        return bdbOneEnvPerStore;
+    }
+
+    /**
+     * If true, keys will be prefixed by the partition Id on disk. This can
+     * dramatically speed up rebalancing, restore operations, at the cost of 2
+     * bytes of extra storage per key
+     * 
+     * <ul>
+     * <li>Property : "bdb.prefix.keys.with.partitionid"</li>
+     * <li>Default : true</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbPrefixKeysWithPartitionId() {
+        return bdbPrefixKeysWithPartitionId;
+    }
+
+    public void setBdbPrefixKeysWithPartitionId(boolean bdbPrefixKeysWithPartitionId) {
+        this.bdbPrefixKeysWithPartitionId = bdbPrefixKeysWithPartitionId;
+    }
+
+    public long getBdbCheckpointBytes() {
+        return this.bdbCheckpointBytes;
+    }
+
+    public void setBdbCheckpointBytes(long bdbCheckpointBytes) {
+        this.bdbCheckpointBytes = bdbCheckpointBytes;
+    }
+
+    public long getBdbCheckpointMs() {
+        return this.bdbCheckpointMs;
+    }
+
+    public void setBdbCheckpointMs(long bdbCheckpointMs) {
+        this.bdbCheckpointMs = bdbCheckpointMs;
+    }
+
+    public long getBdbStatsCacheTtlMs() {
+        return this.bdbStatsCacheTtlMs;
+    }
+
+    public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
+        this.bdbStatsCacheTtlMs = statsCacheTtlMs;
+    }
+
+    public long getBdbMinimumSharedCache() {
+        return this.bdbMinimumSharedCache;
+    }
+
+    public void setBdbMinimumSharedCache(long minimumSharedCache) {
+        this.bdbMinimumSharedCache = minimumSharedCache;
+    }
+
     /**
      * The comfortable number of threads the threadpool will attempt to
      * maintain. Specified by "core.threads" default: max(1, floor(0.5 *
@@ -1240,38 +1311,6 @@ public class VoldemortConfig implements Serializable {
         this.enableMetadataChecking = enableMetadataChecking;
     }
 
-    public long getBdbCheckpointBytes() {
-        return this.bdbCheckpointBytes;
-    }
-
-    public void setBdbCheckpointBytes(long bdbCheckpointBytes) {
-        this.bdbCheckpointBytes = bdbCheckpointBytes;
-    }
-
-    public long getBdbCheckpointMs() {
-        return this.bdbCheckpointMs;
-    }
-
-    public void setBdbCheckpointMs(long bdbCheckpointMs) {
-        this.bdbCheckpointMs = bdbCheckpointMs;
-    }
-
-    public long getBdbStatsCacheTtlMs() {
-        return this.bdbStatsCacheTtlMs;
-    }
-
-    public void setBdbStatsCacheTtlMs(long statsCacheTtlMs) {
-        this.bdbStatsCacheTtlMs = statsCacheTtlMs;
-    }
-
-    public long getBdbMinimumSharedCache() {
-        return this.bdbMinimumSharedCache;
-    }
-
-    public void setBdbMinimumSharedCache(long minimumSharedCache) {
-        this.bdbMinimumSharedCache = minimumSharedCache;
-    }
-
     public int getSchedulerThreads() {
         return schedulerThreads;
     }
@@ -1317,22 +1356,6 @@ public class VoldemortConfig implements Serializable {
 
     public void setReadOnlyDeleteBackupMs(int readOnlyDeleteBackupTimeMs) {
         this.readOnlyDeleteBackupTimeMs = readOnlyDeleteBackupTimeMs;
-    }
-
-    public boolean isBdbWriteTransactionsEnabled() {
-        return bdbWriteTransactions;
-    }
-
-    public void setBdbWriteTransactions(boolean bdbWriteTransactions) {
-        this.bdbWriteTransactions = bdbWriteTransactions;
-    }
-
-    public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {
-        this.bdbOneEnvPerStore = bdbOneEnvPerStore;
-    }
-
-    public boolean isBdbOneEnvPerStore() {
-        return bdbOneEnvPerStore;
     }
 
     public int getSocketBufferSize() {

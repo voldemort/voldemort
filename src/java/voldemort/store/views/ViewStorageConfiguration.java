@@ -3,6 +3,7 @@ package voldemort.store.views;
 import java.util.List;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.StoreRepository;
@@ -34,7 +35,8 @@ public class ViewStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         String name = storeDef.getName();
         StoreDefinition def = StoreUtils.getStoreDef(storeDefs, name);
         String targetName = def.getViewTargetStoreName();

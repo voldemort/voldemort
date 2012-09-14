@@ -147,8 +147,16 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void close() throws PersistenceFailureException {
-    // don't close datasource cause others could be using it
+        // don't close datasource cause others could be using it
     }
 
     public Object getCapability(StoreCapabilityType capability) {
@@ -394,6 +402,11 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
+        // no reason why we cannot do this on MySQL. Will be added later
         return false;
     }
 }

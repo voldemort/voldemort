@@ -467,6 +467,14 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         return new ChunkedFileSet.ROEntriesIterator(fileSet, fileModificationLock);
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void truncate() {
         if(isOpen)
             close();
@@ -599,5 +607,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
 
     public boolean isPartitionAware() {
         return true;
+    }
+
+    public boolean isPartitionScanSupported() {
+        // this should be easy to support, will be added later
+        return false;
     }
 }

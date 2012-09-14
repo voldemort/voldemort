@@ -463,6 +463,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         throw new VoldemortException("You cannot iterate over all keys in Metadata");
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void truncate() {
         throw new VoldemortException("You cannot truncate entries in Metadata");
     }
@@ -626,6 +634,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 }

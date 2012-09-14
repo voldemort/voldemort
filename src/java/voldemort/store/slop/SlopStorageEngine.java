@@ -89,6 +89,14 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return slopEngine.keys();
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        return slopEngine.entries(partition);
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        return slopEngine.keys(partition);
+    }
+
     public void truncate() {
         slopEngine.truncate();
     }
@@ -130,5 +138,9 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
 
     public boolean isPartitionAware() {
         return slopEngine.isPartitionAware();
+    }
+
+    public boolean isPartitionScanSupported() {
+        return slopEngine.isPartitionScanSupported();
     }
 }

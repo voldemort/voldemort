@@ -8,6 +8,7 @@ import krati.core.segment.SegmentFactory;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -45,7 +46,8 @@ public class KratiStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         synchronized(lock) {
             File storeDir = new File(dataDirectory, storeDef.getName());
             if(!storeDir.exists()) {

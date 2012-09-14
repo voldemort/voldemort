@@ -31,6 +31,8 @@ public class StoreBinaryFormat {
     /* In the future we can use this to handle format changes */
     private static final byte VERSION = 0;
 
+    private static final int PARTITIONID_PREFIX_SIZE = 2;
+
     public static byte[] toByteArray(List<Versioned<byte[]>> values) {
         int size = 1;
         for(Versioned<byte[]> v: values) {
@@ -76,5 +78,28 @@ public class StoreBinaryFormat {
             throw new VoldemortException((bytes.length - pos)
                                          + " straggling bytes found in value (this should not be possible)!");
         return vals;
+    }
+
+    public static byte[] makePrefixedKey(byte[] key, int partitionId) {
+        byte[] prefixedKey = new byte[PARTITIONID_PREFIX_SIZE + key.length];
+        ByteUtils.writeUnsignedShort(prefixedKey, partitionId, 0);
+        System.arraycopy(key, 0, prefixedKey, PARTITIONID_PREFIX_SIZE, key.length);
+        return prefixedKey;
+    }
+
+    public static byte[] makePartitionKey(int partitionId) {
+        byte[] partitionKey = new byte[PARTITIONID_PREFIX_SIZE];
+        ByteUtils.writeUnsignedShort(partitionKey, partitionId, 0);
+        return partitionKey;
+    }
+
+    public static int extractPartition(byte[] prefixedKeyArray) {
+        return ByteUtils.readUnsignedShort(prefixedKeyArray, 0);
+    }
+
+    public static byte[] extractKey(byte[] prefixedKeyArray) {
+        byte[] key = new byte[prefixedKeyArray.length - PARTITIONID_PREFIX_SIZE];
+        System.arraycopy(prefixedKeyArray, PARTITIONID_PREFIX_SIZE, key, 0, key.length);
+        return key;
     }
 }
