@@ -61,6 +61,14 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
         return new KeysIterator(storageEngine.keys());
     }
 
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        return new EntriesIterator(storageEngine.entries(partition));
+    }
+
+    public ClosableIterator<K> keys(int partition) {
+        return new KeysIterator(storageEngine.keys(partition));
+    }
+
     public void truncate() {
         storageEngine.truncate();
     }
@@ -129,5 +137,9 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
 
     public boolean isPartitionAware() {
         return storageEngine.isPartitionAware();
+    }
+
+    public boolean isPartitionScanSupported() {
+        return storageEngine.isPartitionScanSupported();
     }
 }

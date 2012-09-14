@@ -161,6 +161,14 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return StoreUtils.keys(entries());
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        return new ViewIterator(target.entries(partition));
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        return StoreUtils.keys(entries(partition));
+    }
+
     public void truncate() {
         ViewIterator iterator = new ViewIterator(target.entries());
         while(iterator.hasNext()) {
@@ -212,13 +220,17 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
             Pair<ByteArray, Versioned<byte[]>> p = inner.next();
             Versioned<byte[]> newVal = Versioned.value(valueToViewSchema(p.getFirst(),
                                                                          p.getSecond().getValue(),
-                                                                         null), p.getSecond()
-                                                                                 .getVersion());
+                                                                         null),
+                                                       p.getSecond().getVersion());
             return Pair.create(p.getFirst(), newVal);
         }
     }
 
     public boolean isPartitionAware() {
         return target.isPartitionAware();
+    }
+
+    public boolean isPartitionScanSupported() {
+        return target.isPartitionScanSupported();
     }
 }

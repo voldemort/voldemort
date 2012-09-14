@@ -147,6 +147,14 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         return StoreUtils.keys(entries());
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public boolean delete(ByteArray key, Version maxVersion) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
@@ -310,6 +318,10 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 }

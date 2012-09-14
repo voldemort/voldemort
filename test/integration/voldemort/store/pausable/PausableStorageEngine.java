@@ -84,6 +84,16 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return inner.keys();
     }
 
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        blockIfNecessary();
+        return inner.entries(partition);
+    }
+
+    public ClosableIterator<K> keys(int partition) {
+        blockIfNecessary();
+        return inner.keys(partition);
+    }
+
     public void truncate() {
         blockIfNecessary();
         inner.deleteAll();
@@ -119,5 +129,9 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
     public boolean isPartitionAware() {
         return inner.isPartitionAware();
+    }
+
+    public boolean isPartitionScanSupported() {
+        return inner.isPartitionScanSupported();
     }
 }

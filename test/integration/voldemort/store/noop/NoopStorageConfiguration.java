@@ -17,6 +17,7 @@
 package voldemort.store.noop;
 
 import voldemort.VoldemortException;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -51,7 +52,8 @@ public class NoopStorageConfiguration implements StorageConfiguration {
         reflect = config.getAllProps().getBoolean(REFLECT_PROPERTY, false);
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         return new NoopStorageEngine(storeDef.getName(), reflect);
     }
 

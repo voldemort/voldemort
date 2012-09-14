@@ -217,10 +217,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 ProtoUtils.writeMessage(outputStream, handleDeleteStore(request.getDeleteStore()));
                 break;
             case FETCH_STORE:
-                ProtoUtils.writeMessage(outputStream, handleFetchStore(request.getFetchStore()));
+                ProtoUtils.writeMessage(outputStream, handleFetchROStore(request.getFetchStore()));
                 break;
             case SWAP_STORE:
-                ProtoUtils.writeMessage(outputStream, handleSwapStore(request.getSwapStore()));
+                ProtoUtils.writeMessage(outputStream, handleSwapROStore(request.getSwapStore()));
                 break;
             case ROLLBACK_STORE:
                 ProtoUtils.writeMessage(outputStream,
@@ -239,12 +239,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                         handleGetROStorageFormat(request.getGetRoStorageFormat()));
                 break;
             case FETCH_PARTITION_FILES:
-                return handleFetchPartitionFiles(request.getFetchPartitionFiles());
+                return handleFetchROPartitionFiles(request.getFetchPartitionFiles());
             case UPDATE_SLOP_ENTRIES:
                 return handleUpdateSlopEntries(request.getUpdateSlopEntries());
             case FAILED_FETCH_STORE:
                 ProtoUtils.writeMessage(outputStream,
-                                        handleFailedFetch(request.getFailedFetchStore()));
+                                        handleFailedROFetch(request.getFailedFetchStore()));
                 break;
             case REBALANCE_STATE_CHANGE:
                 ProtoUtils.writeMessage(outputStream,
@@ -493,7 +493,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public VAdminProto.FailedFetchStoreResponse handleFailedFetch(VAdminProto.FailedFetchStoreRequest request) {
+    public VAdminProto.FailedFetchStoreResponse handleFailedROFetch(VAdminProto.FailedFetchStoreRequest request) {
         final String storeDir = request.getStoreDir();
         final String storeName = request.getStoreName();
         VAdminProto.FailedFetchStoreResponse.Builder response = VAdminProto.FailedFetchStoreResponse.newBuilder();
@@ -528,7 +528,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return response.build();
     }
 
-    public StreamRequestHandler handleFetchPartitionFiles(VAdminProto.FetchPartitionFilesRequest request) {
+    public StreamRequestHandler handleFetchROPartitionFiles(VAdminProto.FetchPartitionFilesRequest request) {
         return new FetchPartitionFileStreamRequestHandler(request,
                                                           metadataStore,
                                                           voldemortConfig,
@@ -542,23 +542,44 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
         boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
+        StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
+                                                                                                             request.getStore());
 
         if(fetchValues) {
-            return new FetchEntriesStreamRequestHandler(request,
-                                                        metadataStore,
-                                                        errorCodeMapper,
-                                                        voldemortConfig,
-                                                        storeRepository,
-                                                        networkClassLoader,
-                                                        stats);
-        } else
-            return new FetchKeysStreamRequestHandler(request,
-                                                     metadataStore,
-                                                     errorCodeMapper,
-                                                     voldemortConfig,
-                                                     storeRepository,
-                                                     networkClassLoader,
-                                                     stats);
+            if(storageEngine.isPartitionScanSupported())
+                return new FetchPartitionEntriesStreamRequestHandler(request,
+                                                                     metadataStore,
+                                                                     errorCodeMapper,
+                                                                     voldemortConfig,
+                                                                     storeRepository,
+                                                                     networkClassLoader,
+                                                                     stats);
+            else
+                return new FetchEntriesStreamRequestHandler(request,
+                                                            metadataStore,
+                                                            errorCodeMapper,
+                                                            voldemortConfig,
+                                                            storeRepository,
+                                                            networkClassLoader,
+                                                            stats);
+        } else {
+            if(storageEngine.isPartitionScanSupported())
+                return new FetchPartitionKeysStreamRequestHandler(request,
+                                                                  metadataStore,
+                                                                  errorCodeMapper,
+                                                                  voldemortConfig,
+                                                                  storeRepository,
+                                                                  networkClassLoader,
+                                                                  stats);
+            else
+                return new FetchKeysStreamRequestHandler(request,
+                                                         metadataStore,
+                                                         errorCodeMapper,
+                                                         voldemortConfig,
+                                                         storeRepository,
+                                                         networkClassLoader,
+                                                         stats);
+        }
     }
 
     public StreamRequestHandler handleUpdatePartitionEntries(VAdminProto.UpdatePartitionEntriesRequest request) {
@@ -687,7 +708,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         return currentDirPath;
     }
 
-    public VAdminProto.SwapStoreResponse handleSwapStore(VAdminProto.SwapStoreRequest request) {
+    public VAdminProto.SwapStoreResponse handleSwapROStore(VAdminProto.SwapStoreRequest request) {
         final String dir = request.getStoreDir();
         final String storeName = request.getStoreName();
         VAdminProto.SwapStoreResponse.Builder response = VAdminProto.SwapStoreResponse.newBuilder();
@@ -713,7 +734,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
         }
     }
 
-    public VAdminProto.AsyncOperationStatusResponse handleFetchStore(VAdminProto.FetchStoreRequest request) {
+    public VAdminProto.AsyncOperationStatusResponse handleFetchROStore(VAdminProto.FetchStoreRequest request) {
         final String fetchUrl = request.getStoreDir();
         final String storeName = request.getStoreName();
 

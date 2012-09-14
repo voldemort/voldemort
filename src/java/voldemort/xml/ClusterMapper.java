@@ -66,6 +66,8 @@ public class ClusterMapper {
     private static final String SOCKET_PORT_ELMT = "socket-port";
     private static final String ADMIN_PORT_ELMT = "admin-port";
 
+    public static final Integer MAX_PARTITIONID = 65535;
+
     private final Schema schema;
 
     public ClusterMapper() {
@@ -135,7 +137,7 @@ public class ClusterMapper {
         return new Zone(zoneId, proximityList);
     }
 
-    public Node readServer(Element server) {
+    public Node readServer(Element server) throws SAXException {
         int id = Integer.parseInt(server.getChildText(SERVER_ID_ELMT));
         String host = server.getChildText(HOST_ELMT);
         int httpPort = Integer.parseInt(server.getChildText(HTTP_PORT_ELMT));
@@ -149,8 +151,13 @@ public class ClusterMapper {
         String partitionsText = server.getChildText(SERVER_PARTITIONS_ELMT).trim();
         List<Integer> partitions = new ArrayList<Integer>();
         for(String aPartition: Utils.COMMA_SEP.split(partitionsText))
-            if(aPartition.trim().length() > 0)
-                partitions.add(Integer.parseInt(aPartition.trim()));
+            if(aPartition.trim().length() > 0) {
+                Integer partition = Integer.parseInt(aPartition.trim());
+                if(partition > MAX_PARTITIONID) {
+                    throw new SAXException("Partition id cannot be greater than " + MAX_PARTITIONID);
+                }
+                partitions.add(partition);
+            }
 
         return new Node(id, host, httpPort, socketPort, adminPort, zoneId, partitions);
     }

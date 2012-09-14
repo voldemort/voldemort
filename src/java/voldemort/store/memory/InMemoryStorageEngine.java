@@ -172,6 +172,14 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return StoreUtils.keys(entries());
     }
 
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<K> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void truncate() {
         map.clear();
     }
@@ -258,12 +266,16 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         }
 
         public void close() {
-        // nothing to do here
+            // nothing to do here
         }
 
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 }

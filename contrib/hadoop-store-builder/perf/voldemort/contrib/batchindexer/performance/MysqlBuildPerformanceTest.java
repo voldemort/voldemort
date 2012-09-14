@@ -52,7 +52,7 @@ public class MysqlBuildPerformanceTest {
         String storeName = args[1];
         String jsonDataFile = args[2];
 
-        final Store<ByteArray, byte[], byte[]> store = new MysqlStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(TestUtils.makeStoreDefinition(storeName));
+        final Store<ByteArray, byte[], byte[]> store = new MysqlStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(TestUtils.makeStoreDefinition(storeName), TestUtils.makeSingleNodeRoutingStrategy());
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
 

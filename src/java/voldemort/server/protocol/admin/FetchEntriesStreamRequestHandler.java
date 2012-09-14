@@ -15,6 +15,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
@@ -31,6 +32,8 @@ import com.google.protobuf.Message;
 
 public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler {
 
+    protected final ClosableIterator<ByteArray> keyIterator;
+
     public FetchEntriesStreamRequestHandler(FetchPartitionEntriesRequest request,
                                             MetadataStore metadataStore,
                                             ErrorCodeMapper errorCodeMapper,
@@ -46,6 +49,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
               networkClassLoader,
               stats,
               Operation.FETCH_ENTRIES);
+        this.keyIterator = storageEngine.keys();
         logger.info("Starting fetch entries for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
     }
@@ -65,7 +69,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                                                      initialCluster,
                                                      storeDef)
 
-           && counter % skipRecords == 0) {
+        && counter % skipRecords == 0) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             stats.recordDiskTime(handle, System.nanoTime() - startNs);
             for(Versioned<byte[]> value: values) {
@@ -114,4 +118,10 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         }
     }
 
+    @Override
+    public final void close(DataOutputStream outputStream) throws IOException {
+        if(null != keyIterator)
+            keyIterator.close();
+        super.close(outputStream);
+    }
 }

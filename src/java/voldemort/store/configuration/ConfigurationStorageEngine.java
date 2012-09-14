@@ -63,6 +63,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         throw new VoldemortException("Iteration  not supported in ConfigurationStorageEngine");
     }
 
+    public ClosableIterator<Pair<String, Versioned<String>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<String> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void close() throws VoldemortException {
 
     }
@@ -241,6 +249,10 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 }
