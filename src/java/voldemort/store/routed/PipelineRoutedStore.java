@@ -19,7 +19,6 @@ package voldemort.store.routed;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -279,10 +278,6 @@ public class PipelineRoutedStore extends RoutedStore {
         builder.append("}");
 
         return builder.toString();
-    }
-
-    public Map<ByteArray, List<Versioned<Boolean>>> hasKeys(Set<ByteArray> keys) {
-        return null;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
