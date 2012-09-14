@@ -7,7 +7,6 @@ from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 
-
 DESCRIPTOR = descriptor.FileDescriptor(
   name='voldemort-client.proto',
   package='voldemort',
@@ -765,6 +764,7 @@ _VOLDEMORTREQUEST = descriptor.Descriptor(
   serialized_end=1594,
 )
 
+
 _VECTORCLOCK.fields_by_name['entries'].message_type = _CLOCKENTRY
 _VERSIONED.fields_by_name['version'].message_type = _VECTORCLOCK
 _KEYEDVERSIONS.fields_by_name['versions'].message_type = _VERSIONED
@@ -788,24 +788,6 @@ _VOLDEMORTREQUEST.fields_by_name['getAll'].message_type = _GETALLREQUEST
 _VOLDEMORTREQUEST.fields_by_name['put'].message_type = _PUTREQUEST
 _VOLDEMORTREQUEST.fields_by_name['delete'].message_type = _DELETEREQUEST
 _VOLDEMORTREQUEST.fields_by_name['hasKeys'].message_type = _HASKEYSREQUEST
-DESCRIPTOR.message_types_by_name['ClockEntry'] = _CLOCKENTRY
-DESCRIPTOR.message_types_by_name['VectorClock'] = _VECTORCLOCK
-DESCRIPTOR.message_types_by_name['Versioned'] = _VERSIONED
-DESCRIPTOR.message_types_by_name['Error'] = _ERROR
-DESCRIPTOR.message_types_by_name['KeyedVersions'] = _KEYEDVERSIONS
-DESCRIPTOR.message_types_by_name['KeyedBoolean'] = _KEYEDBOOLEAN
-DESCRIPTOR.message_types_by_name['GetRequest'] = _GETREQUEST
-DESCRIPTOR.message_types_by_name['GetResponse'] = _GETRESPONSE
-DESCRIPTOR.message_types_by_name['GetVersionResponse'] = _GETVERSIONRESPONSE
-DESCRIPTOR.message_types_by_name['GetAllRequest'] = _GETALLREQUEST
-DESCRIPTOR.message_types_by_name['GetAllResponse'] = _GETALLRESPONSE
-DESCRIPTOR.message_types_by_name['HasKeysRequest'] = _HASKEYSREQUEST
-DESCRIPTOR.message_types_by_name['HasKeysResponse'] = _HASKEYSRESPONSE
-DESCRIPTOR.message_types_by_name['PutRequest'] = _PUTREQUEST
-DESCRIPTOR.message_types_by_name['PutResponse'] = _PUTRESPONSE
-DESCRIPTOR.message_types_by_name['DeleteRequest'] = _DELETEREQUEST
-DESCRIPTOR.message_types_by_name['DeleteResponse'] = _DELETERESPONSE
-DESCRIPTOR.message_types_by_name['VoldemortRequest'] = _VOLDEMORTREQUEST
 
 class ClockEntry(message.Message):
   __metaclass__ = reflection.GeneratedProtocolMessageType
