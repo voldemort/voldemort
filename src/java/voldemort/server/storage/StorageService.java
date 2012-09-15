@@ -50,6 +50,7 @@ import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
@@ -222,7 +223,7 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      null,
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY,
                                                                       0,
                                                                       null,
                                                                       0,

@@ -119,7 +119,6 @@ public class AdminFetchTest {
                 partitionToKeysMap.put(partition, new HashSet<String>());
             partitionToKeysMap.get(partition).add(key);
             voldClient.put(key, "value" + i);
-            System.out.println(key);
         }
     }
 

@@ -4,8 +4,10 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.fail;
 
 import java.io.File;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.io.FileDeleteStrategy;
@@ -13,8 +15,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.VoldemortTestConstants;
+import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StoreBinaryFormat;
 import voldemort.store.StoreDefinition;
@@ -25,6 +31,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.Props;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Tests for the BDB storage engine prefixing the partition id to the keys, to
@@ -79,6 +86,52 @@ public class PartitionPrefixedBdbStorageEngineTest {
         int partition = StoreBinaryFormat.extractPartition(prefixedkey);
         assertEquals(partition, 20);
         assertEquals(0, ByteUtils.compare(key, StoreBinaryFormat.extractKey(prefixedkey)));
+    }
+
+    @Test
+    public void testHashConsistencyAcrossRoutingStrategies() {
+        // check that as long as the cluster.xml is the same, a key will hash to
+        // the same partition, immaterial of whether it is zone or consistent
+        // routing strategy
+
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getTwoStoresWithZonesXml()));
+
+        StoreDefinition consistentStore = storeDefs.get(0);
+        StoreDefinition zoneStore = storeDefs.get(1);
+
+        assertEquals(consistentStore.getName(), "cstore");
+        assertEquals(zoneStore.getName(), "zstore");
+
+        Cluster cluster = VoldemortTestConstants.getEightNodeClusterWithZones();
+        RoutingStrategy cStrategy = new RoutingStrategyFactory().updateRoutingStrategy(consistentStore,
+                                                                                       cluster);
+        RoutingStrategy zStrategy = new RoutingStrategyFactory().updateRoutingStrategy(zoneStore,
+                                                                                       cluster);
+
+        BdbStorageEngine cPrefixedBdbStore = (BdbStorageEngine) bdbStorage.getStore(consistentStore,
+                                                                                    cStrategy);
+
+        BdbStorageEngine zPrefixedBdbStore = (BdbStorageEngine) bdbStorage.getStore(zoneStore,
+                                                                                    zStrategy);
+
+        HashMap<ByteArray, byte[]> kvpairs = ServerTestUtils.createRandomKeyValuePairs(10000);
+        for(ByteArray key: kvpairs.keySet()) {
+            assertEquals(cStrategy.getPartitionList(key.get()).get(0),
+                         zStrategy.getPartitionList(key.get()).get(0));
+
+            cPrefixedBdbStore.put(key, new Versioned<byte[]>(kvpairs.get(key)), null);
+            zPrefixedBdbStore.put(key, new Versioned<byte[]>(kvpairs.get(key)), null);
+        }
+
+        for(ByteArray key: kvpairs.keySet()) {
+            assertEquals("Values read back does not match up",
+                         0,
+                         ByteUtils.compare(cPrefixedBdbStore.get(key, null).get(0).getValue(),
+                                           zPrefixedBdbStore.get(key, null).get(0).getValue()));
+        }
+        cPrefixedBdbStore.close();
+        zPrefixedBdbStore.close();
     }
 
     private Set<String> getKeys(ClosableIterator<ByteArray> itr) {
@@ -139,7 +192,7 @@ public class PartitionPrefixedBdbStorageEngineTest {
                 assertEquals(partitionToKeysMap.get(p).size(), keys.size());
                 assertEquals(partitionToKeysMap.get(p), keys);
 
-                // verfiy values
+                // verify values
                 keys = getEntries(prefixedBdbStore.entries(p));
                 assertEquals(partitionToKeysMap.get(p).size(), keys.size());
                 assertEquals(partitionToKeysMap.get(p), keys);

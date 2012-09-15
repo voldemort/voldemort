@@ -92,7 +92,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
-        short partition = routingStrategy.getPartitionList(key.get()).get(0).shortValue();
+        int partition = routingStrategy.getPartitionList(key.get()).get(0);
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         return super.get(prefixedKey, transforms);
@@ -103,7 +103,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);
-        short partition = routingStrategy.getPartitionList(key.get()).get(0).shortValue();
+        int partition = routingStrategy.getPartitionList(key.get()).get(0);
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         super.put(prefixedKey, value, transforms);
@@ -113,7 +113,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);
-        short partition = routingStrategy.getPartitionList(key.get()).get(0).shortValue();
+        int partition = routingStrategy.getPartitionList(key.get()).get(0);
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         return super.delete(prefixedKey, version);
