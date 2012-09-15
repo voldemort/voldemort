@@ -176,6 +176,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
     public void writeHasKeysRequest(DataOutputStream output,
                                     String storeName,
                                     Iterable<ByteArray> keys,
+                                    boolean exact,
                                     RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKeys(keys);
         output.writeByte(VoldemortOpCode.HAS_KEYS_OP_CODE);
@@ -193,6 +194,7 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
             output.writeInt(key.length());
             output.write(key.get());
         }
+        output.writeBoolean(exact);
     }
 
     public Map<ByteArray, Boolean> readHasKeysResponse(DataInputStream stream) throws IOException {

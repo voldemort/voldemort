@@ -66,6 +66,7 @@ message GetAllResponse {
 
 message HasKeysRequest {
   repeated bytes keys = 1;
+  required bool exact = 2;
 }
 
 message HasKeysResponse {

@@ -123,8 +123,8 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
         return getStoreClient().getResponsibleNodes(key);
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
-        return getStoreClient().hasKeys(keys);
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
+        return getStoreClient().hasKeys(keys, exact);
     }
 
 }

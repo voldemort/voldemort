@@ -104,7 +104,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         return StoreUtils.hasKeys(this, keys);
     }
 

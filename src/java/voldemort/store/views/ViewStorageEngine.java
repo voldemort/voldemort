@@ -222,7 +222,7 @@ public class ViewStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return target.isPartitionAware();
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
-        return target.hasKeys(keys);
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        return target.hasKeys(keys, exact);
     }
 }

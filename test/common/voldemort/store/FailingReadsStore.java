@@ -37,7 +37,7 @@ public class FailingReadsStore<K, V, T> implements Store<K, V, T> {
         throw new VoldemortException("Operation failed");
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         throw new VoldemortException("Operation failed");
     }
 

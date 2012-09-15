@@ -47,15 +47,19 @@ public class PerformParallelHasKeysRequests extends
 
     private final FailureDetector failureDetector;
 
+    private final boolean exact;
+
     public PerformParallelHasKeysRequests(HasKeysPipelineData pipelineData,
                                           Event completeEvent,
                                           FailureDetector failureDetector,
                                           long timeoutMs,
-                                          Map<Integer, NonblockingStore> nonblockingStores) {
+                                          Map<Integer, NonblockingStore> nonblockingStores,
+                                          boolean exact) {
         super(pipelineData, completeEvent);
         this.failureDetector = failureDetector;
         this.timeoutMs = timeoutMs;
         this.nonblockingStores = nonblockingStores;
+        this.exact = exact;
     }
 
     @SuppressWarnings("unchecked")
@@ -109,7 +113,7 @@ public class PerformParallelHasKeysRequests extends
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-            store.submitHasKeysRequest(keys, callback, timeoutMs);
+            store.submitHasKeysRequest(keys, exact, callback, timeoutMs);
         }
 
         try {

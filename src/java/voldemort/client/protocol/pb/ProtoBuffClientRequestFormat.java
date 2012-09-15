@@ -246,12 +246,14 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     public void writeHasKeysRequest(DataOutputStream output,
                                     String storeName,
                                     Iterable<ByteArray> keys,
+                                    boolean exact,
                                     RequestRoutingType routingType) throws IOException {
         StoreUtils.assertValidKeys(keys);
 
         VProto.HasKeysRequest.Builder req = VProto.HasKeysRequest.newBuilder();
         for(ByteArray key: keys)
             req.addKeys(ByteString.copyFrom(key.get()));
+        req.setExact(exact);
 
         ProtoUtils.writeMessage(output,
                                 VProto.VoldemortRequest.newBuilder()

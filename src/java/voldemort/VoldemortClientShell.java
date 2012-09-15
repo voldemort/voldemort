@@ -183,7 +183,7 @@ public class VoldemortClientShell {
                     } catch(EndOfFileException e) {
                         // this is okay, just means we are done reading
                     }
-                    Map<Object, Boolean> vals = client.hasKeys(keys);
+                    Map<Object, Boolean> vals = client.hasKeys(keys, true);
                     if(vals.size() > 0) {
                         for(Map.Entry<Object, Boolean> entry: vals.entrySet()) {
                             System.out.print(entry.getKey());
@@ -296,6 +296,8 @@ public class VoldemortClientShell {
                                        + "get key --- Retrieve the value associated with the key.");
                     System.out.println(PROMPT
                                        + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                    System.out.println(PROMPT
+                                       + "haskeys key1 [key2...] --- Boolean to signify if the key exists");
                     System.out.println(PROMPT
                                        + "delete key --- Remove all values associated with the key.");
                     System.out.println(PROMPT

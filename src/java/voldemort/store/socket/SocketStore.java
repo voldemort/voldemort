@@ -140,13 +140,15 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
     }
 
     public void submitHasKeysRequest(Iterable<ByteArray> keys,
+                                     boolean exact,
                                      NonblockingStoreCallback callback,
                                      long timeoutMs) {
         StoreUtils.assertValidKeys(keys);
         HasKeysClientRequest clientRequest = new HasKeysClientRequest(storeName,
                                                                       requestFormat,
                                                                       requestRoutingType,
-                                                                      keys);
+                                                                      keys,
+                                                                      exact);
         if(logger.isDebugEnabled())
             logger.debug("HASKEYS keyRef: " + System.identityHashCode(keys) + " requestRef: "
                          + System.identityHashCode(clientRequest));
@@ -226,12 +228,13 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         return request(clientRequest, "getAll");
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         StoreUtils.assertValidKeys(keys);
         HasKeysClientRequest clientRequest = new HasKeysClientRequest(storeName,
                                                                       requestFormat,
                                                                       requestRoutingType,
-                                                                      keys);
+                                                                      keys,
+                                                                      exact);
         if(logger.isDebugEnabled())
             logger.debug("HASKEYS keyRef: " + System.identityHashCode(keys) + " requestRef: "
                          + System.identityHashCode(clientRequest));

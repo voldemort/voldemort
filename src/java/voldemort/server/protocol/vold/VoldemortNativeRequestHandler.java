@@ -214,6 +214,9 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
                     // Read the keys to skip the bytes.
                     for(int i = 0; i < numKeys; i++)
                         readKey(inputStream);
+
+                    // Read a boolean for 'exact'
+                    inputStream.readBoolean();
                     break;
                 }
                 case VoldemortOpCode.PUT_OP_CODE: {
@@ -342,11 +345,12 @@ public class VoldemortNativeRequestHandler extends AbstractRequestHandler implem
         List<ByteArray> keys = new ArrayList<ByteArray>(numKeys);
         for(int i = 0; i < numKeys; i++)
             keys.add(readKey(inputStream));
+        boolean exact = inputStream.readBoolean();
 
         // execute the operation
         Map<ByteArray, Boolean> results = null;
         try {
-            results = store.hasKeys(keys);
+            results = store.hasKeys(keys, exact);
             outputStream.writeShort(0);
         } catch(VoldemortException e) {
             logger.error(e.getMessage());

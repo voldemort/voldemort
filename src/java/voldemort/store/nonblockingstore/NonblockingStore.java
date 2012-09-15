@@ -74,6 +74,7 @@ public interface NonblockingStore {
                                     long timeoutMs);
 
     public void submitHasKeysRequest(Iterable<ByteArray> keys,
+                                     boolean exact,
                                      NonblockingStoreCallback callback,
                                      long timeoutMs);
 

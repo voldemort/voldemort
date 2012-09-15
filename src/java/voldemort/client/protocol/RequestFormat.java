@@ -71,6 +71,7 @@ public interface RequestFormat {
     public void writeHasKeysRequest(DataOutputStream output,
                                     String storeName,
                                     Iterable<ByteArray> keys,
+                                    boolean exact,
                                     RequestRoutingType routingType) throws IOException;
 
     public boolean isCompleteHasKeysResponse(ByteBuffer buffer);

@@ -174,8 +174,8 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         return innerStore.delete(deflateKey(key), version);
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         StoreUtils.assertValidKeys(keys);
-        return innerStore.hasKeys(deflateKeys(keys));
+        return innerStore.hasKeys(deflateKeys(keys), exact);
     }
 }

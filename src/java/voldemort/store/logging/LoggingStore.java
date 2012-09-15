@@ -82,13 +82,13 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     @Override
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         long startTimeNs = 0;
         boolean succeeded = false;
         if(logger.isDebugEnabled())
             startTimeNs = time.getNanoseconds();
         try {
-            Map<K, Boolean> l = getInnerStore().hasKeys(keys);
+            Map<K, Boolean> l = getInnerStore().hasKeys(keys, exact);
             succeeded = true;
             return l;
         } finally {

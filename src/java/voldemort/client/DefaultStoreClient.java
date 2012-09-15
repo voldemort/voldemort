@@ -357,7 +357,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         // Pre-populate with all false
         Map<K, Boolean> returnMap = new HashMap<K, Boolean>();
         for(K key: keys) {
@@ -365,7 +365,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
         }
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
-                Map<K, Boolean> items = store.hasKeys(keys);
+                Map<K, Boolean> items = store.hasKeys(keys, exact);
                 for(Map.Entry<K, Boolean> value: items.entrySet()) {
                     returnMap.put(value.getKey(), value.getValue());
                 }

@@ -113,8 +113,9 @@ public interface Store<K, V, T> {
      * Given a set of keys, check if it exists
      * 
      * @param keys Set of keys to check
+     * @param exact Do we want an exact answer?
      * @return Map of key to boolean
      */
-    public Map<K, Boolean> hasKeys(Iterable<K> keys);
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact);
 
 }

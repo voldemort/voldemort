@@ -51,9 +51,12 @@ public class PerformSerialHasKeysRequests extends
 
     private final int required;
 
+    private final boolean exact;
+
     public PerformSerialHasKeysRequests(HasKeysPipelineData pipelineData,
                                         Event completeEvent,
                                         Iterable<ByteArray> keys,
+                                        boolean exact,
                                         FailureDetector failureDetector,
                                         Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                         int preferred,
@@ -64,6 +67,7 @@ public class PerformSerialHasKeysRequests extends
         this.stores = stores;
         this.preferred = preferred;
         this.required = required;
+        this.exact = exact;
     }
 
     public void execute(Pipeline pipeline) {
@@ -108,7 +112,7 @@ public class PerformSerialHasKeysRequests extends
 
                 try {
                     Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
-                    Map<ByteArray, Boolean> values = store.hasKeys(Lists.newArrayList(key));
+                    Map<ByteArray, Boolean> values = store.hasKeys(Lists.newArrayList(key), exact);
 
                     Boolean retrieved = values.get(key);
                     if(retrieved == null)

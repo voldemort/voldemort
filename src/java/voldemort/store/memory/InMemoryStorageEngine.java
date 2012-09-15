@@ -103,7 +103,7 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return StoreUtils.getVersions(get(key, null));
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.hasKeys(this, keys);
     }

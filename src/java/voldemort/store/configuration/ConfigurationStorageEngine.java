@@ -244,7 +244,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return false;
     }
 
-    public Map<String, Boolean> hasKeys(Iterable<String> keys) {
+    public Map<String, Boolean> hasKeys(Iterable<String> keys, boolean exact) {
         throw new VoldemortException("Has keys operation not supported in ConfigurationStorageEngine");
     }
 }

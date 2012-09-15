@@ -210,7 +210,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
         }
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         StoreUtils.assertValidKey(keys);
         DataInputStream input = null;
         try {
@@ -219,6 +219,7 @@ public class HttpStore implements Store<ByteArray, byte[], byte[]> {
             requestFormat.writeHasKeysRequest(new DataOutputStream(outputBytes),
                                               storeName,
                                               keys,
+                                              exact,
                                               reroute);
             input = executeRequest(method, outputBytes);
             return requestFormat.readHasKeysResponse(input);

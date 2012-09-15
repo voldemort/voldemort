@@ -29,13 +29,16 @@ import voldemort.utils.ByteArray;
 public class HasKeysClientRequest extends AbstractStoreClientRequest<Map<ByteArray, Boolean>> {
 
     private final Iterable<ByteArray> keys;
+    private final boolean exact;
 
     public HasKeysClientRequest(String storeName,
                                 RequestFormat requestFormat,
                                 RequestRoutingType requestRoutingType,
-                                Iterable<ByteArray> keys) {
+                                Iterable<ByteArray> keys,
+                                boolean exact) {
         super(storeName, requestFormat, requestRoutingType);
         this.keys = keys;
+        this.exact = exact;
     }
 
     public boolean isCompleteResponse(ByteBuffer buffer) {
@@ -44,7 +47,7 @@ public class HasKeysClientRequest extends AbstractStoreClientRequest<Map<ByteArr
 
     @Override
     protected void formatRequestInternal(DataOutputStream outputStream) throws IOException {
-        requestFormat.writeHasKeysRequest(outputStream, storeName, keys, requestRoutingType);
+        requestFormat.writeHasKeysRequest(outputStream, storeName, keys, exact, requestRoutingType);
     }
 
     @Override

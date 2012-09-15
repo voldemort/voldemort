@@ -448,7 +448,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return StoreUtils.getAll(this, keys, transforms);
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         StoreUtils.assertValidKeys(keys);
         return StoreUtils.hasKeys(this, keys);
     }

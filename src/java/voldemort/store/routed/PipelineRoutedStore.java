@@ -372,7 +372,8 @@ public class PipelineRoutedStore extends RoutedStore {
         return pipelineData.getResult();
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) throws VoldemortException {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact)
+            throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
 
         long startTimeMs = -1;
@@ -407,11 +408,13 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                    Event.INSUFFICIENT_SUCCESSES,
                                                                    failureDetector,
                                                                    timeoutConfig.getOperationTimeout(VoldemortOpCode.HAS_KEYS_OP_CODE),
-                                                                   nonblockingStores));
+                                                                   nonblockingStores,
+                                                                   exact));
         pipeline.addEventAction(Event.INSUFFICIENT_SUCCESSES,
                                 new PerformSerialHasKeysRequests(pipelineData,
                                                                  Event.COMPLETED,
                                                                  keys,
+                                                                 exact,
                                                                  failureDetector,
                                                                  innerStores,
                                                                  storeDef.getPreferredReads(),

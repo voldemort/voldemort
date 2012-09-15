@@ -73,7 +73,7 @@ public class DoNothingStore<K, V, T> implements Store<K, V, T> {
         return null;
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         // Do nothing
         return null;
     }

@@ -68,7 +68,7 @@ public class FailingStore<K, V, T> implements Store<K, V, T> {
         throw exception;
     }
 
-    public Map<K, Boolean> hasKeys(Iterable<K> keys) {
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         throw exception;
     }
 

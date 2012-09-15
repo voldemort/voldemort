@@ -502,18 +502,34 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         StoreUtils.assertValidKeys(keys);
         Map<ByteArray, Boolean> results = new HashMap<ByteArray, Boolean>();
         try {
             fileModificationLock.readLock().lock();
+            List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
             for(ByteArray key: keys) {
                 int chunk = fileSet.getChunkForKey(key.get());
                 int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
                                                            fileSet.keyToStorageFormat(key.get()),
                                                            fileSet.getIndexFileSize(chunk));
                 if(valueLocation >= 0) {
-                    results.put(key, true);
+                    if(exact)
+                        keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
+                    else
+                        results.put(key, true);
+                }
+            }
+
+            if(exact) {
+                Collections.sort(keysAndValueLocations);
+
+                for(KeyValueLocation keyVal: keysAndValueLocations) {
+                    byte[] value = fileSet.readValue(keyVal.getKey().get(),
+                                                     keyVal.getChunk(),
+                                                     keyVal.getValueLocation());
+                    if(value.length > 0)
+                        results.put(keyVal.getKey(), true);
                 }
             }
             return results;

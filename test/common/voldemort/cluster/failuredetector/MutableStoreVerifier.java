@@ -98,7 +98,7 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
             public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
                     throws VoldemortException {}
 
-            public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+            public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
                 return null;
             }
 

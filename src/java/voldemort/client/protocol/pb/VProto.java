@@ -4482,9 +4482,17 @@ public final class VProto {
       return keys_.get(index);
     }
     
+    // required bool exact = 2;
+    public static final int EXACT_FIELD_NUMBER = 2;
+    private boolean hasExact;
+    private boolean exact_ = false;
+    public boolean hasExact() { return hasExact; }
+    public boolean getExact() { return exact_; }
+    
     private void initFields() {
     }
     public final boolean isInitialized() {
+      if (!hasExact) return false;
       return true;
     }
     
@@ -4493,6 +4501,9 @@ public final class VProto {
       getSerializedSize();
       for (com.google.protobuf.ByteString element : getKeysList()) {
         output.writeBytes(1, element);
+      }
+      if (hasExact()) {
+        output.writeBool(2, getExact());
       }
       getUnknownFields().writeTo(output);
     }
@@ -4511,6 +4522,10 @@ public final class VProto {
         }
         size += dataSize;
         size += 1 * getKeysList().size();
+      }
+      if (hasExact()) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(2, getExact());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -4680,6 +4695,9 @@ public final class VProto {
           }
           result.keys_.addAll(other.keys_);
         }
+        if (other.hasExact()) {
+          setExact(other.getExact());
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
       }
@@ -4707,6 +4725,10 @@ public final class VProto {
             }
             case 10: {
               addKeys(input.readBytes());
+              break;
+            }
+            case 16: {
+              setExact(input.readBool());
               break;
             }
           }
@@ -4751,6 +4773,24 @@ public final class VProto {
       }
       public Builder clearKeys() {
         result.keys_ = java.util.Collections.emptyList();
+        return this;
+      }
+      
+      // required bool exact = 2;
+      public boolean hasExact() {
+        return result.hasExact();
+      }
+      public boolean getExact() {
+        return result.getExact();
+      }
+      public Builder setExact(boolean value) {
+        result.hasExact = true;
+        result.exact_ = value;
+        return this;
+      }
+      public Builder clearExact() {
+        result.hasExact = false;
+        result.exact_ = false;
         return this;
       }
       
@@ -6692,6 +6732,9 @@ public final class VProto {
       if (hasDelete()) {
         if (!getDelete().isInitialized()) return false;
       }
+      if (hasHasKeys()) {
+        if (!getHasKeys().isInitialized()) return false;
+      }
       return true;
     }
     
@@ -7452,29 +7495,29 @@ public final class VProto {
       "m\0321\n\017GetAllTransform\022\013\n\003key\030\001 \002(\014\022\021\n\ttra" +
       "nsform\030\002 \002(\014\"[\n\016GetAllResponse\022(\n\006values",
       "\030\001 \003(\0132\030.voldemort.KeyedVersions\022\037\n\005erro" +
-      "r\030\002 \001(\0132\020.voldemort.Error\"\036\n\016HasKeysRequ" +
-      "est\022\014\n\004keys\030\001 \003(\014\"[\n\017HasKeysResponse\022\'\n\006" +
-      "values\030\001 \003(\0132\027.voldemort.KeyedBoolean\022\037\n" +
-      "\005error\030\002 \001(\0132\020.voldemort.Error\"V\n\nPutReq" +
-      "uest\022\013\n\003key\030\001 \002(\014\022\'\n\tversioned\030\002 \002(\0132\024.v" +
-      "oldemort.Versioned\022\022\n\ntransforms\030\003 \001(\014\"." +
-      "\n\013PutResponse\022\037\n\005error\030\001 \001(\0132\020.voldemort" +
-      ".Error\"E\n\rDeleteRequest\022\013\n\003key\030\001 \002(\014\022\'\n\007" +
-      "version\030\002 \002(\0132\026.voldemort.VectorClock\"B\n",
-      "\016DeleteResponse\022\017\n\007success\030\001 \002(\010\022\037\n\005erro" +
-      "r\030\002 \001(\0132\020.voldemort.Error\"\306\002\n\020VoldemortR" +
-      "equest\022$\n\004type\030\001 \002(\0162\026.voldemort.Request" +
-      "Type\022\033\n\014should_route\030\002 \002(\010:\005false\022\r\n\005sto" +
-      "re\030\003 \002(\t\022\"\n\003get\030\004 \001(\0132\025.voldemort.GetReq" +
-      "uest\022(\n\006getAll\030\005 \001(\0132\030.voldemort.GetAllR" +
-      "equest\022\"\n\003put\030\006 \001(\0132\025.voldemort.PutReque" +
-      "st\022(\n\006delete\030\007 \001(\0132\030.voldemort.DeleteReq" +
-      "uest\022\030\n\020requestRouteType\030\010 \001(\005\022*\n\007hasKey" +
-      "s\030\t \001(\0132\031.voldemort.HasKeysRequest*W\n\013Re",
-      "questType\022\007\n\003GET\020\000\022\013\n\007GET_ALL\020\001\022\007\n\003PUT\020\002" +
-      "\022\n\n\006DELETE\020\003\022\017\n\013GET_VERSION\020\004\022\014\n\010HAS_KEY" +
-      "S\020\005B(\n\034voldemort.client.protocol.pbB\006VPr" +
-      "otoH\001"
+      "r\030\002 \001(\0132\020.voldemort.Error\"-\n\016HasKeysRequ" +
+      "est\022\014\n\004keys\030\001 \003(\014\022\r\n\005exact\030\002 \002(\010\"[\n\017HasK" +
+      "eysResponse\022\'\n\006values\030\001 \003(\0132\027.voldemort." +
+      "KeyedBoolean\022\037\n\005error\030\002 \001(\0132\020.voldemort." +
+      "Error\"V\n\nPutRequest\022\013\n\003key\030\001 \002(\014\022\'\n\tvers" +
+      "ioned\030\002 \002(\0132\024.voldemort.Versioned\022\022\n\ntra" +
+      "nsforms\030\003 \001(\014\".\n\013PutResponse\022\037\n\005error\030\001 " +
+      "\001(\0132\020.voldemort.Error\"E\n\rDeleteRequest\022\013" +
+      "\n\003key\030\001 \002(\014\022\'\n\007version\030\002 \002(\0132\026.voldemort",
+      ".VectorClock\"B\n\016DeleteResponse\022\017\n\007succes" +
+      "s\030\001 \002(\010\022\037\n\005error\030\002 \001(\0132\020.voldemort.Error" +
+      "\"\306\002\n\020VoldemortRequest\022$\n\004type\030\001 \002(\0162\026.vo" +
+      "ldemort.RequestType\022\033\n\014should_route\030\002 \002(" +
+      "\010:\005false\022\r\n\005store\030\003 \002(\t\022\"\n\003get\030\004 \001(\0132\025.v" +
+      "oldemort.GetRequest\022(\n\006getAll\030\005 \001(\0132\030.vo" +
+      "ldemort.GetAllRequest\022\"\n\003put\030\006 \001(\0132\025.vol" +
+      "demort.PutRequest\022(\n\006delete\030\007 \001(\0132\030.vold" +
+      "emort.DeleteRequest\022\030\n\020requestRouteType\030" +
+      "\010 \001(\005\022*\n\007hasKeys\030\t \001(\0132\031.voldemort.HasKe",
+      "ysRequest*W\n\013RequestType\022\007\n\003GET\020\000\022\013\n\007GET" +
+      "_ALL\020\001\022\007\n\003PUT\020\002\022\n\n\006DELETE\020\003\022\017\n\013GET_VERSI" +
+      "ON\020\004\022\014\n\010HAS_KEYS\020\005B(\n\034voldemort.client.p" +
+      "rotocol.pbB\006VProtoH\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -7582,7 +7625,7 @@ public final class VProto {
           internal_static_voldemort_HasKeysRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_voldemort_HasKeysRequest_descriptor,
-              new java.lang.String[] { "Keys", },
+              new java.lang.String[] { "Keys", "Exact", },
               voldemort.client.protocol.pb.VProto.HasKeysRequest.class,
               voldemort.client.protocol.pb.VProto.HasKeysRequest.Builder.class);
           internal_static_voldemort_HasKeysResponse_descriptor =

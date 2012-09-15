@@ -941,7 +941,7 @@ public class ThreadPoolRoutedStore extends RoutedStore {
         List<R> execute(Store<ByteArray, byte[], byte[]> store, ByteArray key, byte[] transforms);
     }
 
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys) {
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
         throw new VoldemortException("Unsupported operation hasKeys using thread pool routed store");
     }
 }
