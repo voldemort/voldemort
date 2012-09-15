@@ -55,6 +55,7 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.RequestRoutingType;
@@ -270,7 +271,7 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      null,
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY,
                                                                       0,
                                                                       null,
                                                                       0,
