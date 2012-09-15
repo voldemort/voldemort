@@ -59,11 +59,18 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         this.innerStore = Utils.notNull(innerStore);
     }
 
-    private List<ByteArray> deflateKeys(Iterable<ByteArray> keys) {
-        List<ByteArray> deflatedKeys = Lists.newArrayList();
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, ByteArray> deflatedToOriginalKeys = Maps.newHashMap();
         for(ByteArray key: keys)
-            deflatedKeys.add(deflateKey(key));
-        return deflatedKeys;
+            deflatedToOriginalKeys.put(deflateKey(key), key);
+        Map<ByteArray, Boolean> deflatedToBoolean = innerStore.hasKeys(deflatedToOriginalKeys.keySet(),
+                                                                       exact);
+        Map<ByteArray, Boolean> originalToBoolean = Maps.newHashMapWithExpectedSize(deflatedToBoolean.size());
+        for(Map.Entry<ByteArray, Boolean> entry: deflatedToBoolean.entrySet()) {
+            originalToBoolean.put(deflatedToOriginalKeys.get(entry.getKey()), entry.getValue());
+        }
+        return originalToBoolean;
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
@@ -71,7 +78,10 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
         Iterable<ByteArray> processedKeys = keys;
-        processedKeys = deflateKeys(keys);
+        List<ByteArray> deflatedKeys = Lists.newArrayList();
+        for(ByteArray key: keys)
+            deflatedKeys.add(deflateKey(key));
+        processedKeys = deflatedKeys;
         Map<ByteArray, byte[]> newTransforms = Maps.newHashMap();
         if(transforms != null) {
             for(Map.Entry<ByteArray, byte[]> transform: transforms.entrySet()) {
@@ -172,10 +182,5 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return innerStore.delete(deflateKey(key), version);
-    }
-
-    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
-        StoreUtils.assertValidKeys(keys);
-        return innerStore.hasKeys(deflateKeys(keys), exact);
     }
 }

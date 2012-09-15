@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import org.junit.After;
@@ -52,6 +53,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 @RunWith(Parameterized.class)
 public class ReadOnlyStorageEngineTest {
@@ -145,6 +147,9 @@ public class ReadOnlyStorageEngineTest {
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
                     assertEquals(entry.getValue(), obj.getValue());
+                    assertEquals(store.hasKeys(Lists.newArrayList(entry.getKey()), true)
+                                      .get(entry.getKey()),
+                                 true);
                 }
             }
         }
@@ -173,6 +178,9 @@ public class ReadOnlyStorageEngineTest {
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
                     assertEquals(entry.getValue(), obj.getValue());
+                    assertEquals(store.hasKeys(Lists.newArrayList(entry.getKey()), true)
+                                      .get(entry.getKey()),
+                                 true);
                 }
             }
         }
@@ -201,6 +209,9 @@ public class ReadOnlyStorageEngineTest {
                                  + " for node " + node.getId() + ".", 1, found.size());
                     Versioned<String> obj = found.get(0);
                     assertEquals(entry.getValue(), obj.getValue());
+                    assertEquals(store.hasKeys(Lists.newArrayList(entry.getKey()), true)
+                                      .get(entry.getKey()),
+                                 true);
                 }
             }
         }
@@ -264,6 +275,24 @@ public class ReadOnlyStorageEngineTest {
                 assertEquals(testData.getData().get(returned.getKey()), val.getValue());
                 gotten.add(returned.getKey());
             }
+            // hasKeys all good keys
+            Map<String, Boolean> found = entry.getValue().hasKeys(queryKeys, true);
+            for(String key: queryKeys) {
+                assertEquals(found.get(key), true);
+            }
+            // hasKeys some bad keys
+            Random r = new Random();
+            Set<String> badKeys = Sets.newHashSet(r.nextInt() + "", r.nextInt() + "");
+            Set<String> both = Sets.newHashSet(queryKeys);
+            both.addAll(badKeys);
+            found = entry.getValue().hasKeys(both, true);
+            for(String key: queryKeys) {
+                assertEquals(found.get(key), true);
+            }
+            for(String key: badKeys) {
+                assertEquals(!found.containsKey(key), true);
+            }
+
         }
         assertEquals(keys, gotten);
         testData.delete();
@@ -613,10 +642,12 @@ public class ReadOnlyStorageEngineTest {
             case READONLY_V1: {
                 for(Integer partitionId: node.getPartitionIds()) {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
-                        File index = createFile(dir, Integer.toString(partitionId) + "_"
-                                                     + Integer.toString(chunkId) + ".index");
-                        File data = createFile(dir, Integer.toString(partitionId) + "_"
-                                                    + Integer.toString(chunkId) + ".data");
+                        File index = createFile(dir,
+                                                Integer.toString(partitionId) + "_"
+                                                        + Integer.toString(chunkId) + ".index");
+                        File data = createFile(dir,
+                                               Integer.toString(partitionId) + "_"
+                                                       + Integer.toString(chunkId) + ".data");
                         // write some random crap for index and data
                         FileOutputStream dataOs = new FileOutputStream(data);
                         for(int i = 0; i < dataBytes; i++)
@@ -637,8 +668,9 @@ public class ReadOnlyStorageEngineTest {
                     for(int chunkId = 0; chunkId < numChunks; chunkId++) {
                         File index = createFile(dir, Integer.toString(partitionId) + "_0_"
                                                      + Integer.toString(chunkId) + ".index");
-                        File data = createFile(dir, Integer.toString(partitionId) + "_0_"
-                                                    + Integer.toString(chunkId) + ".data");
+                        File data = createFile(dir,
+                                               Integer.toString(partitionId) + "_0_"
+                                                       + Integer.toString(chunkId) + ".data");
                         // write some random crap for index and data
                         FileOutputStream dataOs = new FileOutputStream(data);
                         for(int i = 0; i < dataBytes; i++)
