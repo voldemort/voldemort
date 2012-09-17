@@ -1,7 +1,6 @@
 package voldemort.client.scheduler;
 
 import java.util.Properties;
-import java.util.Random;
 import java.util.concurrent.Callable;
 
 import org.apache.log4j.Logger;
@@ -32,11 +31,6 @@ public class AsyncMetadataVersionManager implements Runnable {
     private Long currentClusterVersion;
     private final Callable<Void> storeClientThunk;
     private final SystemStoreRepository sysRepository;
-
-    // Random delta generator
-    private final int DELTA_MAX = 2000;
-    private final Random randomGenerator = new Random(System.currentTimeMillis());
-
     public boolean isActive = false;
 
     public AsyncMetadataVersionManager(SystemStoreRepository sysRepository,
