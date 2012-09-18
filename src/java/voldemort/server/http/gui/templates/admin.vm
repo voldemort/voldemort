@@ -60,17 +60,18 @@
 		    <th>ID</th>
 	        <th>Host</th>
 	        <th>HTTP Port</th>
-	        <th>Mina Port</th>
 	        <th>Available</th>
-	        <th>Last Check (ms)</th>
+	        <th>Last Check</th>
+	        <th>Failures</th>
 	      </tr>
 	    #foreach($node in $cluster.nodes)
 	   	  <tr>
 	   	    <td>$node.id</td>
 	   	    <td>$node.host</td>
 	   	    <td>$node.httpPort</td>
-	   	    <td>$node.status.isAvailable()</td>
-	   	    <td>$node.status.msSinceLastCheck</td>
+	   	    <td>$failureDetector.isAvailable($node)</td>
+	   	    <td>$failureDetector.getLastCheckedFormatted($node)</td>
+	   	    <td>$failureDetector.getFailures($node)</td>  
 	   	  </tr>
 	    #end
 		</table>
@@ -83,7 +84,7 @@
           </tr>
         #foreach($service in $services)
           <tr>
-            <td>$service.type.displayName</td>
+            <td>$service.displayName</td>
             <td>$service.isStarted()</td>
           </tr>
         #end

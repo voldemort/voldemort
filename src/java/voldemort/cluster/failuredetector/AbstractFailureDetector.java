@@ -16,7 +16,9 @@
 
 package voldemort.cluster.failuredetector;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -145,6 +147,21 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         synchronized(nodeStatus) {
             return nodeStatus.getLastChecked();
+        }
+    }
+
+    public String getLastCheckedFormatted(Node node) {
+        long ms = getLastChecked(node);
+        DateFormat format = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+        return format.format(new Date(ms));
+    }
+
+    public long getFailures(Node node) {
+        checkNodeArg(node);
+        NodeStatus nodeStatus = getNodeStatus(node);
+
+        synchronized(nodeStatus) {
+            return nodeStatus.getFailure();
         }
     }
 
