@@ -15,8 +15,8 @@
       <type>string</type>
     </value-serializer>
   </store>
-   <store>
-    <name>avro-test</name>
+  <store>
+    <name>test-evolution</name>
     <persistence>bdb</persistence>
     <description>Test store</description>
     <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
@@ -25,23 +25,13 @@
     <required-reads>1</required-reads>
     <required-writes>1</required-writes>
     <key-serializer>
-      <type>avro-generic</type>
-      <schema-info version="0">"int"</schema-info>
+      <type>string</type>
     </key-serializer>
     <value-serializer>
-      <type>avro-generic</type>
-      <schema-info version="0">
-      {
-  		"type": "record",
-  		"name": "myrec",
-
-  		"fields": [
-    		{ "name": "original", "type": "string" },
-    		 { "name": "new-field", "type": [ "string" , "null"], "default":"null" }
-     		
-  		]
-	}
-	</schema-info>
+      <type>avro-generic-versioned</type>
+       <schema-info version="0">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }]}</schema-info>
+        <schema-info version="1">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }, { "name": "new-field", "type": "string", "default":"" }]}
+       </schema-info>
     </value-serializer>
   </store>
 </stores>
