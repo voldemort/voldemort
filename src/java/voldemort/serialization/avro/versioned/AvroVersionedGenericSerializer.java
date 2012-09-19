@@ -84,8 +84,6 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
             SerializationUtils.close(output);
         }
 
-        byte version = newestVersion.byteValue();
-
         return output.toByteArray();
     }
 
