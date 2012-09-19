@@ -12,7 +12,7 @@ import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.util.Utf8;
 
 /**
- * A test that the json serialization remains compatible with older serialized
+ * A test that the avro serialization remains compatible with older serialized
  * data
  * 
  * 
