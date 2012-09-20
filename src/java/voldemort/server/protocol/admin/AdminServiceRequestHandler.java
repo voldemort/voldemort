@@ -50,6 +50,7 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
@@ -259,6 +260,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case NATIVE_BACKUP:
                 ProtoUtils.writeMessage(outputStream, handleNativeBackup(request.getNativeBackup()));
                 break;
+            case RESERVE_MEMORY:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleReserveMemory(request.getReserveMemory()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -299,7 +304,8 @@ public class AdminServiceRequestHandler implements RequestHandler {
             } catch(VoldemortException e) {
                 response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
                 logger.error("handleDeleteStoreRebalanceState failed for request("
-                             + request.toString() + ")", e);
+                                     + request.toString() + ")",
+                             e);
             }
         }
         return response.build();
@@ -1456,6 +1462,76 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);
         }
 
+        return response.build();
+    }
+
+    public VAdminProto.ReserveMemoryResponse handleReserveMemory(VAdminProto.ReserveMemoryRequest request) {
+        VAdminProto.ReserveMemoryResponse.Builder response = VAdminProto.ReserveMemoryResponse.newBuilder();
+
+        try {
+            String storeName = request.getStoreName();
+            long reserveMB = request.getSizeInMb();
+
+            synchronized(lock) {
+                if(storeRepository.hasLocalStore(storeName)) {
+
+                    logger.info("Setting memory foot print of store '" + storeName + "' to "
+                                + reserveMB + " MB");
+
+                    // update store's metadata (this also has the effect of
+                    // updating the stores.xml file)
+                    List<StoreDefinition> storeDefList = metadataStore.getStoreDefList();
+
+                    for(int i = 0; i < storeDefList.size(); i++) {
+                        StoreDefinition storeDef = storeDefList.get(i);
+                        if(!storeDef.isView() && storeDef.getName().equals(storeName)) {
+                            StoreDefinition newStoreDef = new StoreDefinitionBuilder().setName(storeDef.getName())
+                                                                                      .setType(storeDef.getType())
+                                                                                      .setDescription(storeDef.getDescription())
+                                                                                      .setOwners(storeDef.getOwners())
+                                                                                      .setKeySerializer(storeDef.getKeySerializer())
+                                                                                      .setValueSerializer(storeDef.getValueSerializer())
+                                                                                      .setRoutingPolicy(storeDef.getRoutingPolicy())
+                                                                                      .setRoutingStrategyType(storeDef.getRoutingStrategyType())
+                                                                                      .setReplicationFactor(storeDef.getReplicationFactor())
+                                                                                      .setPreferredReads(storeDef.getPreferredReads())
+                                                                                      .setRequiredReads(storeDef.getRequiredReads())
+                                                                                      .setPreferredWrites(storeDef.getPreferredWrites())
+                                                                                      .setRequiredWrites(storeDef.getRequiredWrites())
+                                                                                      .setRetentionPeriodDays(storeDef.getRetentionDays())
+                                                                                      .setRetentionScanThrottleRate(storeDef.getRetentionScanThrottleRate())
+                                                                                      .setZoneReplicationFactor(storeDef.getZoneReplicationFactor())
+                                                                                      .setZoneCountReads(storeDef.getZoneCountReads())
+                                                                                      .setZoneCountWrites(storeDef.getZoneCountWrites())
+                                                                                      .setHintedHandoffStrategy(storeDef.getHintedHandoffStrategyType())
+                                                                                      .setHintPrefListSize(storeDef.getHintPrefListSize())
+                                                                                      .setMemoryFootprintMB(reserveMB)
+                                                                                      .build();
+
+                            storeDefList.set(i, newStoreDef);
+                            storageService.updateStore(newStoreDef);
+                            break;
+                        }
+                    }
+
+                    // save the changes
+                    try {
+                        metadataStore.put(MetadataStore.STORES_KEY, storeDefList);
+                    } catch(Exception e) {
+                        throw new VoldemortException(e);
+                    }
+
+                } else {
+                    logger.error("Failure to reserve memory. Store '" + storeName
+                                 + "' does not exist");
+                    throw new StoreOperationFailureException(String.format("Store '%s' does not exist on this server",
+                                                                           storeName));
+                }
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleReserveMemory failed for request(" + request.toString() + ")", e);
+        }
         return response.build();
     }
 }

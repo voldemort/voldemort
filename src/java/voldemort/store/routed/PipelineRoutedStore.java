@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import voldemort.VoldemortException;
 import voldemort.client.TimeoutConfig;
@@ -75,8 +74,6 @@ import voldemort.versioning.Versioned;
  */
 public class PipelineRoutedStore extends RoutedStore {
 
-    private static AtomicInteger jmxIdCounter = new AtomicInteger(0);
-
     private final Map<Integer, NonblockingStore> nonblockingStores;
     private final Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores;
     private final Map<Integer, NonblockingStore> nonblockingSlopStores;
@@ -84,7 +81,8 @@ public class PipelineRoutedStore extends RoutedStore {
     private Zone clientZone;
     private boolean zoneRoutingEnabled;
     private PipelineRoutedStats stats;
-    private final int jmxId;
+    private boolean jmxEnabled;
+    private int jmxId;
 
     private enum ConfigureNodesType {
         DEFAULT,
@@ -106,6 +104,8 @@ public class PipelineRoutedStore extends RoutedStore {
      * @param clientZoneId Zone the client is in
      * @param timeoutMs Routing timeout
      * @param failureDetector Failure detector object
+     * @param jmxEnabled is monitoring enabled
+     * @param jmxId unique ID for the factory instance
      */
     public PipelineRoutedStore(String name,
                                Map<Integer, Store<ByteArray, byte[], byte[]>> innerStores,
@@ -118,7 +118,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                int clientZoneId,
                                TimeoutConfig timeoutConfig,
                                FailureDetector failureDetector,
-                               boolean jmxEnabled) {
+                               boolean jmxEnabled,
+                               int jmxId) {
         super(name,
               innerStores,
               cluster,
@@ -134,7 +135,6 @@ public class PipelineRoutedStore extends RoutedStore {
         } else {
             zoneRoutingEnabled = false;
         }
-        this.jmxId = jmxIdCounter.getAndIncrement();
         this.nonblockingStores = new ConcurrentHashMap<Integer, NonblockingStore>(nonblockingStores);
         this.slopStores = slopStores;
         if(storeDef.hasHintedHandoffStrategyType()) {
@@ -145,11 +145,14 @@ public class PipelineRoutedStore extends RoutedStore {
             this.handoffStrategy = null;
         }
 
-        if(jmxEnabled) {
+        this.jmxEnabled = jmxEnabled;
+        this.jmxId = jmxId;
+        if(this.jmxEnabled) {
             stats = new PipelineRoutedStats();
             JmxUtils.registerMbean(stats,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
-                                                             getName() + jmxId()));
+                                                             getName()
+                                                                     + JmxUtils.getJmxId(this.jmxId)));
         }
     }
 
@@ -216,6 +219,14 @@ public class PipelineRoutedStore extends RoutedStore {
 
     public List<Versioned<byte[]>> get(final ByteArray key, final byte[] transforms) {
         StoreUtils.assertValidKey(key);
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
 
         BasicPipelineData<List<Versioned<byte[]>>> pipelineData = new BasicPipelineData<List<Versioned<byte[]>>>();
         if(zoneRoutingEnabled)
@@ -314,13 +325,42 @@ public class PipelineRoutedStore extends RoutedStore {
                 results.addAll(value);
         }
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
+                         + formatNodeValuesFromGet(pipelineData.getResponses()));
+        }
+
         return results;
+    }
+
+    private String formatNodeValuesFromGet(List<Response<ByteArray, List<Versioned<byte[]>>>> results) {
+        // log all retrieved values
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+        for(Response<ByteArray, List<Versioned<byte[]>>> r: results) {
+            builder.append("(nodeId=" + r.getNode().getId() + ", key=" + r.getKey()
+                           + ", retrieved= " + r.getValue() + "), ");
+        }
+        builder.append("}");
+
+        return builder.toString();
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
 
         boolean allowReadRepair = repairReads && (transforms == null || transforms.size() == 0);
 
@@ -390,11 +430,42 @@ public class PipelineRoutedStore extends RoutedStore {
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + "for keys "
+                         + ByteArray.toHexStrings(keys) + " keyRef: "
+                         + System.identityHashCode(keys) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
+                         + formatNodeValuesFromGetAll(pipelineData.getResponses()));
+        }
+
         return pipelineData.getResult();
+    }
+
+    private String formatNodeValuesFromGetAll(List<Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>>> list) {
+        // log all retrieved values
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+        for(Response<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> r: list) {
+            builder.append("(nodeId=" + r.getNode().getId() + ", keys="
+                           + ByteArray.toHexStrings(r.getKey()) + ", retrieved= " + r.getValue()
+                           + ")");
+            builder.append(", ");
+        }
+        builder.append("}");
+
+        return builder.toString();
     }
 
     public List<Version> getVersions(final ByteArray key) {
         StoreUtils.assertValidKey(key);
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
 
         BasicPipelineData<List<Version>> pipelineData = new BasicPipelineData<List<Version>>();
         if(zoneRoutingEnabled)
@@ -457,7 +528,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         pipeline.addEvent(Event.STARTED);
         if(logger.isDebugEnabled()) {
-            logger.debug("Operation  " + pipeline.getOperation().getSimpleName() + "Key "
+            logger.debug("Operation  " + pipeline.getOperation().getSimpleName() + " Key "
                          + ByteUtils.toHexString(key.get()));
         }
         try {
@@ -475,11 +546,41 @@ public class PipelineRoutedStore extends RoutedStore {
         for(Response<ByteArray, List<Version>> response: pipelineData.getResponses())
             results.addAll(response.getValue());
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " values: "
+                         + formatNodeValuesFromGetVersions(pipelineData.getResponses()));
+        }
+
         return results;
+    }
+
+    private <R> String formatNodeValuesFromGetVersions(List<Response<ByteArray, List<Version>>> results) {
+        // log all retrieved values
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+        for(Response<ByteArray, List<Version>> r: results) {
+            builder.append("(nodeId=" + r.getNode().getId() + ", key="
+                           + ByteUtils.toHexString(r.getKey().get()) + ", retrieved= "
+                           + r.getValue() + "), ");
+        }
+        builder.append("}");
+
+        return builder.toString();
     }
 
     public boolean delete(final ByteArray key, final Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
 
         BasicPipelineData<Boolean> pipelineData = new BasicPipelineData<Boolean>();
         if(zoneRoutingEnabled)
@@ -552,6 +653,13 @@ public class PipelineRoutedStore extends RoutedStore {
             throw e;
         }
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs));
+        }
+
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
 
@@ -608,6 +716,15 @@ public class PipelineRoutedStore extends RoutedStore {
 
     public void put(ByteArray key, Versioned<byte[]> versioned, byte[] transforms)
             throws VoldemortException {
+
+        long startTimeMs = -1;
+        long startTimeNs = -1;
+
+        if(logger.isDebugEnabled()) {
+            startTimeMs = System.currentTimeMillis();
+            startTimeNs = System.nanoTime();
+        }
+
         StoreUtils.assertValidKey(key);
         PutPipelineData pipelineData = new PutPipelineData();
         if(zoneRoutingEnabled)
@@ -701,6 +818,14 @@ public class PipelineRoutedStore extends RoutedStore {
             throw e;
         }
 
+        if(logger.isDebugEnabled()) {
+            logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                         + ByteUtils.toHexString(key.get()) + " keyRef: "
+                         + System.identityHashCode(key) + "; started at " + startTimeMs + " took "
+                         + (System.nanoTime() - startTimeNs) + " value: " + versioned.getValue()
+                         + " (size: " + versioned.getValue().length + ")");
+        }
+
         if(pipelineData.getFatalError() != null)
             throw pipelineData.getFatalError();
     }
@@ -717,14 +842,14 @@ public class PipelineRoutedStore extends RoutedStore {
             }
         }
 
+        if(this.jmxEnabled) {
+            JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(stats.getClass()),
+                                                               getName() + JmxUtils.getJmxId(jmxId)));
+        }
+
         if(exception != null)
             throw exception;
 
         super.close();
-    }
-
-    /* Give a unique id to avoid jmx clashes */
-    private String jmxId() {
-        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 }

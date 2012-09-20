@@ -260,7 +260,34 @@ public class StorageService extends AbstractService {
                                                  + voldemortConfig.getSlopStoreType()
                                                  + " storage engine has not been enabled.");
 
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(SlopStorageEngine.SLOP_STORE_NAME),
+            // make a dummy store definition object
+            StoreDefinition slopStoreDefinition = new StoreDefinition(SlopStorageEngine.SLOP_STORE_NAME,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      0,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      null,
+                                                                      0);
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
                                                                  metadata.getCluster());
             registerEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
@@ -392,7 +419,7 @@ public class StorageService extends AbstractService {
                                              + " but " + storeDef.getType()
                                              + " storage engine has not been enabled.");
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
 
         // Noted that there is no read-only processing as for user stores.
 
@@ -515,6 +542,16 @@ public class StorageService extends AbstractService {
         engine.close();
     }
 
+    public void updateStore(StoreDefinition storeDef) {
+        logger.info("Updating store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
+        StorageConfiguration config = storageConfigs.get(storeDef.getType());
+        if(config == null)
+            throw new ConfigurationException("Attempt to open store " + storeDef.getName()
+                                             + " but " + storeDef.getType()
+                                             + " storage engine has not been enabled.");
+        config.update(storeDef);
+    }
+
     public void openStore(StoreDefinition storeDef) {
 
         logger.info("Opening store '" + storeDef.getName() + "' (" + storeDef.getType() + ").");
@@ -532,7 +569,7 @@ public class StorageService extends AbstractService {
             ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
         }
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef.getName());
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
         // Update the routing strategy + add listener to metadata
         if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {
@@ -824,13 +861,17 @@ public class StorageService extends AbstractService {
                                                                                     * Time.MS_PER_DAY,
                                                                             SystemTime.INSTANCE,
                                                                             throttler);
+        if(voldemortConfig.isJmxEnabled()) {
+            JmxUtils.registerMbean("DataCleanupJob-" + engine.getName(), cleanupJob);
+        }
+
+        long retentionFreqHours = storeDef.hasRetentionFrequencyDays() ? (storeDef.getRetentionFrequencyDays() * Time.HOURS_PER_DAY)
+                                                                      : voldemortConfig.getRetentionCleanupScheduledPeriodInHour();
 
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,
-                                voldemortConfig.getRetentionCleanupScheduledPeriodInHour()
-                                        * Time.MS_PER_HOUR);
-
+                                retentionFreqHours * Time.MS_PER_HOUR);
     }
 
     @Override
@@ -1051,5 +1092,15 @@ public class StorageService extends AbstractService {
     @JmxGetter(name = "getScanPermitOwners", description = "Returns class names of services holding the scan permit")
     public List<String> getPermitOwners() {
         return this.scanPermitWrapper.getPermitOwners();
+    }
+
+    @JmxGetter(name = "numGrantedScanPermits", description = "Returns number of scan permits granted at the moment")
+    public long getGrantedPermits() {
+        return this.scanPermitWrapper.getGrantedPermits();
+    }
+
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned since last call")
+    public long getEntriesScanned() {
+        return this.scanPermitWrapper.getEntriesScanned();
     }
 }

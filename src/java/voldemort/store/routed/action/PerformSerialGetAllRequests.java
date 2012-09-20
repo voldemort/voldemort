@@ -79,8 +79,14 @@ public class PerformSerialGetAllRequests
             boolean zoneRequirement = false;
             MutableInt successCount = pipelineData.getSuccessCount(key);
 
+            if(logger.isDebugEnabled())
+                logger.debug("GETALL for key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                             + System.identityHashCode(key) + ") successes: "
+                             + successCount.intValue() + " preferred: " + preferred + " required: "
+                             + required);
+
             if(successCount.intValue() >= preferred) {
-                if(pipelineData.getZonesRequired() != null) {
+                if(pipelineData.getZonesRequired() != null && pipelineData.getZonesRequired() > 0) {
 
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         int zonesSatisfied = pipelineData.getKeyToZoneResponse().get(key).size();
@@ -132,11 +138,19 @@ public class PerformSerialGetAllRequests
                     pipelineData.getResponses().add(response);
                     failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
 
+                    if(logger.isDebugEnabled())
+                        logger.debug("GET for key " + ByteUtils.toHexString(key.get())
+                                     + " (keyRef: " + System.identityHashCode(key)
+                                     + ") successes: " + successCount.intValue() + " preferred: "
+                                     + preferred + " required: " + required
+                                     + " new GET success on node " + node.getId());
+
                     HashSet<Integer> zoneResponses = null;
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
                         zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
                     } else {
                         zoneResponses = new HashSet<Integer>();
+                        pipelineData.getKeyToZoneResponse().put(key, zoneResponses);
                     }
                     zoneResponses.add(response.getNode().getZoneId());
 

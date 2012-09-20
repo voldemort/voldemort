@@ -28,6 +28,7 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.SequenceFileRecordReader;
 
+import voldemort.TestUtils;
 import voldemort.performance.PerformanceTest;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.Store;
@@ -51,7 +52,7 @@ public class BdbBuildPerformanceTest {
         String storeName = args[1];
         String jsonDataFile = args[2];
 
-        final Store<ByteArray, byte[], byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(storeName);
+        final Store<ByteArray, byte[], byte[]> store = new BdbStorageConfiguration(new VoldemortConfig(new Props(new File(serverPropsFile)))).getStore(TestUtils.makeStoreDefinition(storeName));
 
         final AtomicInteger obsoletes = new AtomicInteger(0);
 

@@ -3,6 +3,7 @@ package voldemort.store.configuration;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
 public class FileBackedCachingStorageConfiguration implements StorageConfiguration {
@@ -14,8 +15,8 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
         this.inputPath = config.getMetadataDirectory();
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new FileBackedCachingStorageEngine(name, inputPath);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        return new FileBackedCachingStorageEngine(storeDef.getName(), inputPath);
     }
 
     public String getType() {
@@ -23,5 +24,9 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
     }
 
     public void close() {}
+
+    public void update(StoreDefinition storeDef) {
+
+    }
 
 }

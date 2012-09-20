@@ -85,6 +85,8 @@ public class VoldemortConfig implements Serializable {
     private int bdbLogIteratorReadSize;
     private boolean bdbFairLatches;
     private long bdbStatsCacheTtlMs;
+    private boolean bdbExposeSpaceUtilization;
+    private long bdbMinimumSharedCache;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -111,6 +113,7 @@ public class VoldemortConfig implements Serializable {
     private boolean useNioConnector;
     private int nioConnectorSelectors;
     private int nioAdminConnectorSelectors;
+    private int nioAcceptorBacklog;
 
     private int clientSelectors;
     private int clientRoutingTimeoutMs;
@@ -226,6 +229,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
+        this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
+        this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -273,6 +278,8 @@ public class VoldemortConfig implements Serializable {
         this.nioAdminConnectorSelectors = props.getInt("nio.admin.connector.selectors",
                                                        Math.max(8, Runtime.getRuntime()
                                                                           .availableProcessors()));
+        // a value <= 0 forces the default to be used
+        this.nioAcceptorBacklog = props.getInt("nio.acceptor.backlog", -1);
 
         this.clientSelectors = props.getInt("client.selectors", 4);
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
@@ -544,6 +551,19 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbCacheSize(int bdbCacheSize) {
         this.bdbCacheSize = bdbCacheSize;
+    }
+
+    /**
+     * This parameter controls whether we expose space utilization via MBean. If
+     * set to false, stat will always return 0;
+     * 
+     */
+    public boolean getBdbExposeSpaceUtilization() {
+        return bdbExposeSpaceUtilization;
+    }
+
+    public void setBdbExposeSpaceUtilization(boolean bdbExposeSpaceUtilization) {
+        this.bdbExposeSpaceUtilization = bdbExposeSpaceUtilization;
     }
 
     /**
@@ -1152,6 +1172,14 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = statsCacheTtlMs;
     }
 
+    public long getBdbMinimumSharedCache() {
+        return this.bdbMinimumSharedCache;
+    }
+
+    public void setBdbMinimumSharedCache(long minimumSharedCache) {
+        this.bdbMinimumSharedCache = minimumSharedCache;
+    }
+
     public int getSchedulerThreads() {
         return schedulerThreads;
     }
@@ -1261,6 +1289,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setNioAdminConnectorSelectors(int nioAdminConnectorSelectors) {
         this.nioAdminConnectorSelectors = nioAdminConnectorSelectors;
+    }
+
+    public int getNioAcceptorBacklog() {
+        return nioAcceptorBacklog;
+    }
+
+    public void setNioAcceptorBacklog(int nioAcceptorBacklog) {
+        this.nioAcceptorBacklog = nioAcceptorBacklog;
     }
 
     public int getAdminSocketBufferSize() {

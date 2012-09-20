@@ -41,13 +41,13 @@ public class ClientSocketStatsTest {
         this.port = ServerTestUtils.findFreePort();
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         this.dest2 = new SocketDestination("localhost", port + 1, RequestFormatType.VOLDEMORT_V1);
-        this.masterStats = new ClientSocketStats();
+        this.masterStats = new ClientSocketStats(0);
         pool = null;
     }
 
     @Test
     public void testNewNodeStatsObject() {
-        ClientSocketStats stats = new ClientSocketStats(masterStats, dest1, pool);
+        ClientSocketStats stats = new ClientSocketStats(masterStats, dest1, pool, 0);
         assertNotNull(stats);
     }
 

@@ -34,7 +34,8 @@ public class ViewStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        String name = storeDef.getName();
         StoreDefinition def = StoreUtils.getStoreDef(storeDefs, name);
         String targetName = def.getViewTargetStoreName();
         StoreDefinition targetDef = StoreUtils.getStoreDef(storeDefs, targetName);
@@ -86,4 +87,8 @@ public class ViewStorageConfiguration implements StorageConfiguration {
         return (View<?, ?, ?, ?>) ReflectUtils.callConstructor(viewClass, new Object[] {});
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new UnsupportedViewOperationException("Storage config updates not permitted for "
+                                                    + this.getClass().getCanonicalName());
+    }
 }

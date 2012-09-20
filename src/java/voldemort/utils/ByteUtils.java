@@ -53,6 +53,9 @@ public class ByteUtils {
     public static final int MASK_00111111 = Integer.parseInt("00111111", 2);
     public static final int MASK_00011111 = Integer.parseInt("00011111", 2);
 
+    public static final int BYTES_PER_MB = 1048576;
+    public static final long BYTES_PER_GB = 1073741824;
+
     public static MessageDigest getDigest(String algorithm) {
         try {
             return MessageDigest.getInstance(algorithm);

@@ -326,7 +326,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     public RebalancerState getRebalancerState() {
-        return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+        readLock.lock();
+        try {
+            return (RebalancerState) metadataCache.get(REBALANCING_STEAL_INFO).getValue();
+        } finally {
+            readLock.unlock();
+        }
     }
 
     /*

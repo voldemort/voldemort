@@ -68,7 +68,8 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
-                                                          config.isJmxEnabled());
+                                                          config.isJmxEnabled(),
+                                                          jmxId);
     }
 
     @Override
@@ -150,7 +151,7 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig(config).setCluster(cluster)
                                                                                        .setStoreVerifier(storeVerifier);
 
-        return create(failureDetectorConfig, true, failureDetectorListener);
+        return create(failureDetectorConfig, false, failureDetectorListener);
     }
 
     @Override

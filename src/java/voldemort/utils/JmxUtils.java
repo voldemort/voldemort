@@ -136,8 +136,7 @@ public class JmxUtils {
                                                                            description,
                                                                            extractParameterInfo(m),
                                                                            m.getReturnType()
-                                                                            .getName(),
-                                                                           impact);
+                                                                            .getName(), impact);
                 info.getDescriptor().setField("visibility", Integer.toString(visibility));
                 infos.add(info);
             }
@@ -353,24 +352,13 @@ public class JmxUtils {
     }
 
     /**
-     * Generate a mbean display name. If originalName is an empty string or
-     * null, return an empty string. Otherwise, return SEPARATOR + originalName.
+     * Return the string representation of jmxId
      * 
-     * @param originalName The original name to be displayed
+     * @param jmxId
+     * @return
      */
-    public static String getJmxDisplayNameString(String originalName) {
-        return ((null == originalName) || "".equals(originalName)) ? ""
-                                                                  : (MBEAN_NAME_SEPARATOR + originalName);
-    }
-
-    /**
-     * Generate a mbean display name. If originalName is 0, return an empty
-     * string. Otherwise, return SEPARATOR + originalName.
-     * 
-     * @param originalName The original name to be displayed
-     */
-    public static String getJmxDisplayNameString(int originalName) {
-        return (0 == originalName) ? "" : (MBEAN_NAME_SEPARATOR + originalName);
+    public static String getJmxId(int jmxId) {
+        return jmxId == 0 ? "" : Integer.toString(jmxId);
     }
 
 }

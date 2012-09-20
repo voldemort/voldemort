@@ -76,7 +76,8 @@ public class ClientRequestExecutorPoolTest extends TestCase {
                                                   1000,
                                                   32 * 1024,
                                                   false,
-                                                  true);
+                                                  true,
+                                                  0);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,

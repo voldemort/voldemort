@@ -72,6 +72,8 @@ public class NioSocketService extends AbstractSocketService {
 
     private final int socketBufferSize;
 
+    private final int acceptorBacklog;
+
     private final StatusManager statusManager;
 
     private final Thread acceptorThread;
@@ -83,10 +85,12 @@ public class NioSocketService extends AbstractSocketService {
                             int socketBufferSize,
                             int selectors,
                             String serviceName,
-                            boolean enableJmx) {
+                            boolean enableJmx,
+                            int acceptorBacklog) {
         super(ServiceType.SOCKET, port, serviceName, enableJmx);
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
+        this.acceptorBacklog = acceptorBacklog;
 
         try {
             this.serverSocketChannel = ServerSocketChannel.open();
@@ -122,7 +126,7 @@ public class NioSocketService extends AbstractSocketService {
                 selectorManagerThreadPool.execute(selectorManagers[i]);
             }
 
-            serverSocketChannel.socket().bind(endpoint);
+            serverSocketChannel.socket().bind(endpoint, acceptorBacklog);
             serverSocketChannel.socket().setReceiveBufferSize(socketBufferSize);
             serverSocketChannel.socket().setReuseAddress(true);
 

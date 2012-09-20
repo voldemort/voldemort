@@ -25,10 +25,12 @@ import java.util.Set;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import voldemort.VoldemortException;
 import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
 import voldemort.utils.ReflectUtils;
@@ -65,16 +67,17 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.routingStrategy = routingStrategy;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(name,
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(storeDef.getName(),
                                                                 this.searcher,
                                                                 this.routingStrategy,
                                                                 this.nodeId,
-                                                                new File(storageDir, name),
+                                                                new File(storageDir,
+                                                                         storeDef.getName()),
                                                                 numBackups,
                                                                 deleteBackupMs);
         ObjectName objName = JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                       name + nodeId);
+                                                       storeDef.getName() + nodeId);
         JmxUtils.registerMbean(ManagementFactory.getPlatformMBeanServer(),
                                JmxUtils.createModelMBean(store),
                                objName);
@@ -87,4 +90,8 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         return TYPE_NAME;
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
 }

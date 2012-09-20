@@ -285,6 +285,15 @@ message NativeBackupRequest {
   required bool   incremental = 4;
 }
 
+message ReserveMemoryRequest {
+  required string store_name = 1;
+  required int64  size_in_mb = 2;
+}
+
+message ReserveMemoryResponse {
+  optional Error error = 1;
+}
+
 enum AdminRequestType {
   GET_METADATA = 0;
   UPDATE_METADATA = 1;
@@ -313,6 +322,7 @@ enum AdminRequestType {
   INITIATE_REBALANCE_NODE_ON_DONOR = 26;
   DELETE_STORE_REBALANCE_STATE = 27;
   NATIVE_BACKUP = 28;
+  RESERVE_MEMORY = 29;
 }
 
 message VoldemortAdminRequest {
@@ -344,4 +354,5 @@ message VoldemortAdminRequest {
   optional InitiateRebalanceNodeOnDonorRequest initiate_rebalance_node_on_donor = 28;
   optional DeleteStoreRebalanceStateRequest delete_store_rebalance_state = 29;
   optional NativeBackupRequest native_backup = 30;
+  optional ReserveMemoryRequest reserve_memory = 31;
 }

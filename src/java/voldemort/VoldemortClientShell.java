@@ -268,26 +268,35 @@ public class VoldemortClientShell {
                         writer.flush();
                     }
                 } else if(line.startsWith("help")) {
+                    System.out.println();
                     System.out.println("Commands:");
-                    System.out.println("put key value -- Associate the given value with the key.");
-                    System.out.println("get key -- Retrieve the value associated with the key.");
-                    System.out.println("getall key -- Retrieve the value(s) associated with the key.");
-                    System.out.println("delete key -- Remove all values associated with the key.");
-                    System.out.println("preflist key -- Get node preference list for given key.");
-                    System.out.println("getmetadata node_id key -- Get metadata associated with key from node_id.");
-                    System.out.println("fetchkeys node_id store_name partitions <file_name> -- Fetch all keys from given partitions"
-                                       + " (a comma separated list) of store_name on node_id. Optionally, write to file_name.");
-                    System.out.println("fetch node_id store_name partitions <file_name> -- Fetch all entries from given partitions"
-                                       + " (a comma separated list) of store_name on node_id. Optionally, write to file_name.");
-                    System.out.println("help -- Print this message.");
-                    System.out.println("exit -- Exit from this shell.");
+                    System.out.println(PROMPT + "put key value --- Associate the given value with the key.");
+                    System.out.println(PROMPT + "get key --- Retrieve the value associated with the key.");
+                    System.out.println(PROMPT + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                    System.out.println(PROMPT + "delete key --- Remove all values associated with the key.");
+                    System.out.println(PROMPT + "preflist key --- Get node preference list for given key.");
+                    String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
+                    System.out.println(PROMPT + "getmetadata node_id meta_key --- Get store metadata associated "
+                                       + "with meta_key from node_id. meta_key may be one of "
+                                       + metaKeyValues.substring(1, metaKeyValues.length() - 1)
+                                       + ".");
+                    System.out.println(PROMPT + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
+                                       + "from given partitions (a comma separated list) of store_name on "
+                                       + "node_id. Optionally, write to file_name. "
+                                       + "Use getmetadata to determine appropriate values for store_name and partitions");
+                    System.out.println(PROMPT + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
+                                       + "from given partitions (a comma separated list) of store_name on "
+                                       + "node_id. Optionally, write to file_name. "
+                                       + "Use getmetadata to determine appropriate values for store_name and partitions");
+                    System.out.println(PROMPT + "help --- Print this message.");
+                    System.out.println(PROMPT + "exit --- Exit from this shell.");
                     System.out.println();
 
                 } else if(line.startsWith("quit") || line.startsWith("exit")) {
                     System.out.println("k k thx bye.");
                     System.exit(0);
                 } else {
-                    System.err.println("Invalid command.");
+                    System.err.println("Invalid command. (Try 'help' for usage.)");
                 }
             } catch(EndOfFileException e) {
                 System.err.println("Expected additional token.");
@@ -298,7 +307,7 @@ public class VoldemortClientShell {
                 System.err.println("Exception thrown during operation.");
                 e.printStackTrace(System.err);
             } catch(ArrayIndexOutOfBoundsException e) {
-                System.err.println("Invalid command.");
+                System.err.println("Invalid command. (Try 'help' for usage.)");
             } catch(Exception e) {
                 System.err.println("Unexpected error:");
                 e.printStackTrace(System.err);

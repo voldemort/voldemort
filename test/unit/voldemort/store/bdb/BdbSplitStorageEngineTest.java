@@ -30,10 +30,10 @@ import voldemort.versioning.Versioned;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.EnvironmentStats;
-import com.sleepycat.je.LockMode;
 import com.sleepycat.je.StatsConfig;
 
 /**
@@ -79,8 +79,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbOneEnvPerStore(false);
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"));
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"));
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),
@@ -124,8 +124,8 @@ public class BdbSplitStorageEngineTest extends TestCase {
         voldemortConfig.setBdbDataDirectory(bdbMasterDir.toURI().getPath());
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore("storeA");
-        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore("storeB");
+        BdbStorageEngine storeA = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeA"));
+        BdbStorageEngine storeB = (BdbStorageEngine) bdbStorage.getStore(TestUtils.makeStoreDefinition("storeB"));
 
         storeA.put(TestUtils.toByteArray("testKey1"),
                    new Versioned<byte[]>("value".getBytes()),
@@ -159,7 +159,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
     public void testUnsharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
         environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
         environmentConfig.setSharedCache(false);
@@ -178,7 +178,7 @@ public class BdbSplitStorageEngineTest extends TestCase {
 
     public void testSharedCache() throws DatabaseException {
         EnvironmentConfig environmentConfig = new EnvironmentConfig();
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setAllowCreate(true);
         environmentConfig.setTransactional(true);
         environmentConfig.setSharedCache(true);
@@ -201,7 +201,10 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentA = new Environment(dirA, environmentConfig);
         Database databaseA = environmentA.openDatabase(null, "storeA", databaseConfig);
-        BdbStorageEngine storeA = new BdbStorageEngine("storeA", environmentA, databaseA, new BdbRuntimeConfig());
+        BdbStorageEngine storeA = new BdbStorageEngine("storeA",
+                                                       environmentA,
+                                                       databaseA,
+                                                       new BdbRuntimeConfig());
 
         File dirB = new File(bdbMasterDir + "/" + "storeB");
         if(!dirB.exists()) {
@@ -209,7 +212,10 @@ public class BdbSplitStorageEngineTest extends TestCase {
         }
         Environment environmentB = new Environment(dirB, environmentConfig);
         Database databaseB = environmentB.openDatabase(null, "storeB", databaseConfig);
-        BdbStorageEngine storeB = new BdbStorageEngine("storeB", environmentB, databaseB, new BdbRuntimeConfig());
+        BdbStorageEngine storeB = new BdbStorageEngine("storeB",
+                                                       environmentB,
+                                                       databaseB,
+                                                       new BdbRuntimeConfig());
 
         long maxCacheUsage = 0;
         for(int i = 0; i <= 4; i++) {

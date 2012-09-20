@@ -38,6 +38,7 @@ import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Utils;
 
 public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
@@ -95,6 +96,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             final Node node = nodes.get(i);
             pipelineData.incrementNodeIndex();
 
+            final long startMs = logger.isDebugEnabled() ? System.currentTimeMillis() : -1;
+
             NonblockingStoreCallback callback = new NonblockingStoreCallback() {
 
                 public void requestComplete(Object result, long requestTime) {
@@ -107,6 +110,13 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                            key,
                                                                                            result,
                                                                                            requestTime);
+                    if(logger.isDebugEnabled())
+                        logger.debug("Finished " + pipeline.getOperation().getSimpleName()
+                                     + " for key " + ByteUtils.toHexString(key.get())
+                                     + " (keyRef: " + System.identityHashCode(key)
+                                     + "); started at " + startMs + " took " + requestTime
+                                     + " ms on node " + node.getId() + "(" + node.getHost() + ")");
+
                     responses.put(node.getId(), response);
                     latch.countDown();
 
@@ -163,6 +173,12 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
             }
         }
+
+        if(logger.isDebugEnabled())
+            logger.debug("GET for key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                         + System.identityHashCode(key) + "); successes: "
+                         + pipelineData.getSuccesses() + " preferred: " + preferred + " required: "
+                         + required);
 
         if(pipelineData.getSuccesses() < required) {
             if(insufficientSuccessesEvent != null) {

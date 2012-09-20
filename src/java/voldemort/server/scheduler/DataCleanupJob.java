@@ -16,8 +16,11 @@
 
 package voldemort.server.scheduler;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.log4j.Logger;
 
+import voldemort.annotations.jmx.JmxGetter;
 import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.utils.ClosableIterator;
@@ -42,6 +45,8 @@ public class DataCleanupJob<K, V, T> implements Runnable {
     private final long maxAgeMs;
     private final Time time;
     private final EventThrottler throttler;
+    private long totalEntriesScanned = 0;
+    private AtomicLong progressThisRun;
 
     public DataCleanupJob(StorageEngine<K, V, T> store,
                           ScanPermitWrapper cleanupPermits,
@@ -53,10 +58,12 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         this.maxAgeMs = maxAgeMs;
         this.time = time;
         this.throttler = throttler;
+        this.progressThisRun = new AtomicLong(0);
     }
 
     public void run() {
-        acquireCleanupPermit();
+        acquireCleanupPermit(progressThisRun);
+
         ClosableIterator<Pair<K, Versioned<V>>> iterator = null;
         try {
             logger.info("Starting data cleanup on store \"" + store.getName() + "\"...");
@@ -70,7 +77,7 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                     logger.info("Datacleanup job halted.");
                     return;
                 }
-
+                progressThisRun.incrementAndGet();
                 Pair<K, Versioned<V>> keyAndVal = iterator.next();
                 VectorClock clock = (VectorClock) keyAndVal.getSecond().getVersion();
                 if(now - clock.getTimestamp() > maxAgeMs) {
@@ -83,14 +90,21 @@ public class DataCleanupJob<K, V, T> implements Runnable {
                 // throttle on number of entries.
                 throttler.maybeThrottle(1);
             }
+            // log the total items scanned, so we will get an idea of data
+            // growth in a cheap, periodic way
             logger.info("Data cleanup on store \"" + store.getName() + "\" is complete; " + deleted
-                        + " items deleted.");
+                        + " items deleted. " + progressThisRun.get() + " items scanned");
+
         } catch(Exception e) {
             logger.error("Error in data cleanup job for store " + store.getName() + ": ", e);
         } finally {
             closeIterator(iterator);
             logger.info("Releasing lock  after data cleanup on \"" + store.getName() + "\".");
             this.cleanupPermits.release();
+            synchronized(this) {
+                totalEntriesScanned += progressThisRun.get();
+                progressThisRun.set(0);
+            }
         }
     }
 
@@ -103,14 +117,18 @@ public class DataCleanupJob<K, V, T> implements Runnable {
         }
     }
 
-    private void acquireCleanupPermit() {
+    private void acquireCleanupPermit(AtomicLong progress) {
         logger.info("Acquiring lock to perform data cleanup on \"" + store.getName() + "\".");
         try {
-            this.cleanupPermits.acquire();
+            this.cleanupPermits.acquire(progress);
         } catch(InterruptedException e) {
             throw new IllegalStateException("Datacleanup interrupted while waiting for cleanup permit.",
                                             e);
         }
     }
 
+    @JmxGetter(name = "numEntriesScanned", description = "Returns number of entries scanned")
+    public synchronized long getEntriesScanned() {
+        return totalEntriesScanned + progressThisRun.get();
+    }
 }

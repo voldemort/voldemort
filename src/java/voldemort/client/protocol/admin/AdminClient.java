@@ -26,6 +26,7 @@ import java.net.Socket;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -59,10 +60,12 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.server.RequestRoutingType;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.ErrorCodeMapper;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
@@ -74,6 +77,7 @@ import voldemort.store.readonly.ReadOnlyUtils;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
@@ -610,6 +614,67 @@ public class AdminClient {
             }
         };
 
+    }
+
+    /**
+     * Fetch key/value tuples belonging to a node with given key values
+     * 
+     * <p>
+     * Entries are being queried synchronously <em>as the iteration happens</em>
+     * i.e. the whole result set is <b>not</b> buffered in memory.
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @param keys An Iterable of keys
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> queryKeys(int nodeId,
+                                                                                         String storeName,
+                                                                                         final Iterator<ByteArray> keys) {
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        ClientConfig clientConfig = new ClientConfig();
+        final Store<ByteArray, byte[], byte[]> store;
+        final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                                                   clientConfig.getMaxConnectionsPerNode(),
+                                                                                   clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketBufferSize(),
+                                                                                   clientConfig.getSocketKeepAlive());
+        try {
+            store = clientPool.create(storeName,
+                                      node.getHost(),
+                                      node.getSocketPort(),
+                                      clientConfig.getRequestFormatType(),
+                                      RequestRoutingType.IGNORE_CHECKS);
+
+        } catch(Exception e) {
+            clientPool.close();
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>() {
+
+            @Override
+            public Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> computeNext() {
+                ByteArray key;
+                Exception exception = null;
+                List<Versioned<byte[]>> value = null;
+                if(!keys.hasNext()) {
+                    clientPool.close();
+                    return endOfData();
+                } else {
+                    key = keys.next();
+                }
+                try {
+                    value = store.get(key, null);
+                } catch(Exception e) {
+                    exception = e;
+                }
+                return Pair.create(key, Pair.create(value, exception));
+            }
+        };
     }
 
     /**
@@ -2600,5 +2665,43 @@ public class AdminClient {
 
         int asyncId = response.getRequestId();
         waitForCompletion(nodeId, asyncId, timeOut, TimeUnit.MINUTES);
+    }
+
+    /**
+     * Reserve memory for the stores
+     * 
+     * @param nodeId The node id to reserve, -1 for entire cluster
+     * @param stores list of stores for which to reserve
+     * @param sizeInMB size of reservation
+     */
+    public void reserveMemory(int nodeId, List<String> stores, long sizeInMB) {
+
+        List<Integer> reserveNodes = new ArrayList<Integer>();
+        if(nodeId == -1) {
+            // if no node is specified send it to the entire cluster
+            for(Node node: currentCluster.getNodes())
+                reserveNodes.add(node.getId());
+        } else {
+            reserveNodes.add(nodeId);
+        }
+        for(String storeName: stores) {
+            for(Integer reserveNodeId: reserveNodes) {
+
+                VAdminProto.ReserveMemoryRequest reserveRequest = VAdminProto.ReserveMemoryRequest.newBuilder()
+                                                                                                  .setStoreName(storeName)
+                                                                                                  .setSizeInMb(sizeInMB)
+                                                                                                  .build();
+                VAdminProto.VoldemortAdminRequest adminRequest = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                                  .setReserveMemory(reserveRequest)
+                                                                                                  .setType(VAdminProto.AdminRequestType.RESERVE_MEMORY)
+                                                                                                  .build();
+                VAdminProto.ReserveMemoryResponse.Builder response = sendAndReceive(reserveNodeId,
+                                                                                    adminRequest,
+                                                                                    VAdminProto.ReserveMemoryResponse.newBuilder());
+                if(response.hasError())
+                    throwException(response.getError());
+            }
+            logger.info("Finished reserving memory for store : " + storeName);
+        }
     }
 }

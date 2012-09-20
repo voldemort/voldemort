@@ -28,11 +28,16 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -137,6 +142,10 @@ public class VoldemortAdminTool {
               .describedAs("store-names")
               .withValuesSeparatedBy(',')
               .ofType(String.class);
+        parser.accepts("store", "Store name for querying keys")
+              .withRequiredArg()
+              .describedAs("store-name")
+              .ofType(String.class);
         parser.accepts("add-stores", "Add stores in this stores.xml")
               .withRequiredArg()
               .describedAs("stores.xml containing just the new stores")
@@ -233,6 +242,16 @@ public class VoldemortAdminTool {
                        "Verify the version of Metadata on all the cluster nodes");
         parser.accepts("synchronize-metadata-version",
                        "Synchronize the metadata versions across all the nodes.");
+        parser.accepts("reserve-memory", "Memory in MB to reserve for the store")
+              .withRequiredArg()
+              .describedAs("size-in-mb")
+              .ofType(Long.class);
+        parser.accepts("query-keys", "Get values of keys on specific nodes")
+              .withRequiredArg()
+              .describedAs("query-keys")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
+
         OptionSet options = parser.parse(args);
 
         if(options.has("help")) {
@@ -248,7 +267,8 @@ public class VoldemortAdminTool {
                      || options.has("ro-metadata") || options.has("set-metadata")
                      || options.has("get-metadata") || options.has("check-metadata") || options.has("key-distribution"))
                  || options.has("truncate") || options.has("clear-rebalancing-metadata")
-                 || options.has("async") || options.has("native-backup") || options.has("rollback") || options.has("verify-metadata-version"))) {
+                 || options.has("async") || options.has("native-backup") || options.has("rollback")
+                 || options.has("verify-metadata-version") || options.has("reserve-memory"))) {
                 System.err.println("Missing required arguments: " + Joiner.on(", ").join(missing));
                 printHelp(System.err, parser);
                 System.exit(1);
@@ -332,12 +352,21 @@ public class VoldemortAdminTool {
         if(options.has("synchronize-metadata-version")) {
             ops += "z";
         }
+        if(options.has("reserve-memory")) {
+            if(!options.has("stores")) {
+                Utils.croak("Specify the list of stores to reserve memory");
+            }
+            ops += "f";
+        }
+        if(options.has("query-keys")) {
+            ops += "q";
+        }
 
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
                         + "fetch-keys, add-stores, delete-store, update-entries, get-metadata, ro-metadata, "
                         + "set-metadata, check-metadata, key-distribution, clear-rebalancing-metadata, async, "
-                        + "repair-job, native-backup, verify-metadata-version) must be specified");
+                        + "repair-job, native-backup, rollback, reserve-memory, verify-metadata-version) must be specified");
         }
 
         List<String> storeNames = null;
@@ -504,6 +533,17 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("z")) {
                 synchronizeMetadataVersion(adminClient, nodeId);
+            }
+            if(ops.contains("f")) {
+                long reserveMB = (Long) options.valueOf("reserve-memory");
+                adminClient.reserveMemory(nodeId, storeNames, reserveMB);
+            }
+            if(ops.contains("q")) {
+                List<String> keyList = (List<String>) options.valuesOf("query-keys");
+                if(storeNames == null || storeNames.size() == 0) {
+                    throw new VoldemortException("Must specify store name using --stores option");
+                }
+                executeQueryKeys(nodeId, adminClient, storeNames, keyList);
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -694,6 +734,8 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id]");
         stream.println("\t9) Update entries for a set of stores using the output from a binary dump fetch entries");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --update-entries [folder path from output of --fetch-entries --outdir] --url [url] --node [node-id] --stores [comma-separated list of store names]");
+        stream.println("\t10) Query stores for a set of keys on a specific node.");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --query-keys [comma-separated list of keys] --url [url] --node [node-id] --stores [comma-separated list of store names]");
         stream.println();
         stream.println("READ-ONLY OPERATIONS");
         stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
@@ -1085,20 +1127,91 @@ public class VoldemortAdminTool {
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
             }
 
-            Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                    store,
-                                                                                                    partitionIdList,
-                                                                                                    null,
-                                                                                                    false);
+            final Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
+                                                                                                          store,
+                                                                                                          partitionIdList,
+                                                                                                          null,
+                                                                                                          false);
             File outputFile = null;
             if(directory != null) {
                 outputFile = new File(directory, store + ".entries");
             }
 
             if(useAscii) {
-                writeEntriesAscii(entriesIterator, outputFile, storeDefinition);
+                // k-v serializer
+                SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
+                SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
+                SerializerFactory serializerFactory = new DefaultSerializerFactory();
+                @SuppressWarnings("unchecked")
+                final Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(keySerializerDef);
+                @SuppressWarnings("unchecked")
+                final Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(valueSerializerDef);
+
+                // compression strategy
+                final CompressionStrategy keyCompressionStrategy;
+                final CompressionStrategy valueCompressionStrategy;
+                if(keySerializerDef != null && keySerializerDef.hasCompression()) {
+                    keyCompressionStrategy = new CompressionStrategyFactory().get(keySerializerDef.getCompression());
+                } else {
+                    keyCompressionStrategy = null;
+                }
+                if(valueSerializerDef != null && valueSerializerDef.hasCompression()) {
+                    valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
+                } else {
+                    valueCompressionStrategy = null;
+                }
+
+                writeAscii(outputFile, new Writable() {
+
+                    @Override
+                    public void writeTo(BufferedWriter out) throws IOException {
+                        final StringWriter stringWriter = new StringWriter();
+                        final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
+
+                        while(entriesIterator.hasNext()) {
+                            Pair<ByteArray, Versioned<byte[]>> kvPair = entriesIterator.next();
+                            byte[] keyBytes = kvPair.getFirst().get();
+                            byte[] valueBytes = kvPair.getSecond().getValue();
+                            VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
+
+                            Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
+                                                                                                      : keyCompressionStrategy.inflate(keyBytes));
+                            Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
+                                                                                                            : valueCompressionStrategy.inflate(valueBytes));
+                            generator.writeObject(keyObject);
+                            stringWriter.write(' ');
+                            stringWriter.write(version.toString());
+                            generator.writeObject(valueObject);
+
+                            StringBuffer buf = stringWriter.getBuffer();
+                            if(buf.charAt(0) == ' ') {
+                                buf.setCharAt(0, '\n');
+                            }
+                            out.write(buf.toString());
+                            buf.setLength(0);
+                        }
+                        out.write('\n');
+                    }
+                });
             } else {
-                writeEntriesBinary(entriesIterator, outputFile);
+                writeBinary(outputFile, new Printable() {
+
+                    @Override
+                    public void printTo(DataOutputStream out) throws IOException {
+                        while(entriesIterator.hasNext()) {
+                            Pair<ByteArray, Versioned<byte[]>> kvPair = entriesIterator.next();
+                            byte[] keyBytes = kvPair.getFirst().get();
+                            byte[] versionBytes = ((VectorClock) kvPair.getSecond().getVersion()).toBytes();
+                            byte[] valueBytes = kvPair.getSecond().getValue();
+                            out.writeInt(keyBytes.length);
+                            out.write(keyBytes);
+                            out.writeInt(versionBytes.length);
+                            out.write(versionBytes);
+                            out.writeInt(valueBytes.length);
+                            out.write(valueBytes);
+                        }
+                    }
+                });
             }
 
             if(outputFile != null)
@@ -1199,93 +1312,6 @@ public class VoldemortAdminTool {
         };
     }
 
-    private static void writeEntriesAscii(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
-                                          File outputFile,
-                                          StoreDefinition storeDefinition) throws IOException {
-        BufferedWriter writer = null;
-        CompressionStrategy keyCompressionStrategy = null;
-        CompressionStrategy valueCompressionStrategy = null;
-
-        if(outputFile != null) {
-            writer = new BufferedWriter(new FileWriter(outputFile));
-        } else {
-            writer = new BufferedWriter(new OutputStreamWriter(System.out));
-        }
-        SerializerFactory serializerFactory = new DefaultSerializerFactory();
-        StringWriter stringWriter = new StringWriter();
-        JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
-
-        SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
-        if(null != keySerializerDef && keySerializerDef.hasCompression()) {
-            keyCompressionStrategy = new CompressionStrategyFactory().get(keySerializerDef.getCompression());
-        }
-
-        SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
-        if(null != valueSerializerDef && valueSerializerDef.hasCompression()) {
-            valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
-        }
-
-        @SuppressWarnings("unchecked")
-        Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
-        @SuppressWarnings("unchecked")
-        Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getValueSerializer());
-
-        try {
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> kvPair = iterator.next();
-                byte[] keyBytes = kvPair.getFirst().get();
-                VectorClock version = (VectorClock) kvPair.getSecond().getVersion();
-                byte[] valueBytes = kvPair.getSecond().getValue();
-
-                Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
-                                                                                          : keyCompressionStrategy.inflate(keyBytes));
-                Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
-                                                                                                : valueCompressionStrategy.inflate(valueBytes));
-
-                generator.writeObject(keyObject);
-                stringWriter.write(' ');
-                stringWriter.write(version.toString());
-                generator.writeObject(valueObject);
-
-                StringBuffer buf = stringWriter.getBuffer();
-                if(buf.charAt(0) == ' ') {
-                    buf.setCharAt(0, '\n');
-                }
-                writer.write(buf.toString());
-                buf.setLength(0);
-            }
-            writer.write('\n');
-        } finally {
-            writer.close();
-        }
-    }
-
-    private static void writeEntriesBinary(Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator,
-                                           File outputFile) throws IOException {
-        DataOutputStream dos = null;
-        if(outputFile != null) {
-            dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
-        } else {
-            dos = new DataOutputStream(new BufferedOutputStream(System.out));
-        }
-        try {
-            while(iterator.hasNext()) {
-                Pair<ByteArray, Versioned<byte[]>> kvPair = iterator.next();
-                byte[] keyBytes = kvPair.getFirst().get();
-                byte[] versionBytes = ((VectorClock) kvPair.getSecond().getVersion()).toBytes();
-                byte[] valueBytes = kvPair.getSecond().getValue();
-                dos.writeInt(keyBytes.length);
-                dos.write(keyBytes);
-                dos.writeInt(versionBytes.length);
-                dos.write(versionBytes);
-                dos.writeInt(valueBytes.length);
-                dos.write(valueBytes);
-            }
-        } finally {
-            dos.close();
-        }
-    }
-
     private static void executeFetchKeys(Integer nodeId,
                                          AdminClient adminClient,
                                          List<Integer> partitionIdList,
@@ -1337,20 +1363,65 @@ public class VoldemortAdminTool {
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
             }
 
-            Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
-                                                                    store,
-                                                                    partitionIdList,
-                                                                    null,
-                                                                    false);
+            final Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
+                                                                          store,
+                                                                          partitionIdList,
+                                                                          null,
+                                                                          false);
             File outputFile = null;
             if(directory != null) {
                 outputFile = new File(directory, store + ".keys");
             }
 
             if(useAscii) {
-                writeKeysAscii(keyIterator, outputFile, storeDefinition);
+                final SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
+                final SerializerFactory serializerFactory = new DefaultSerializerFactory();
+                @SuppressWarnings("unchecked")
+                final Serializer<Object> serializer = (Serializer<Object>) serializerFactory.getSerializer(serializerDef);
+
+                final CompressionStrategy keysCompressionStrategy;
+                if(serializerDef != null && serializerDef.hasCompression()) {
+                    keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
+                } else {
+                    keysCompressionStrategy = null;
+                }
+
+                writeAscii(outputFile, new Writable() {
+
+                    @Override
+                    public void writeTo(BufferedWriter out) throws IOException {
+                        final StringWriter stringWriter = new StringWriter();
+                        final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
+
+                        while(keyIterator.hasNext()) {
+                            // Ugly hack to be able to separate text by newlines
+                            // vs. spaces
+                            byte[] keyBytes = keyIterator.next().get();
+                            Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
+                                                                                                    : keysCompressionStrategy.inflate(keyBytes));
+                            generator.writeObject(keyObject);
+                            StringBuffer buf = stringWriter.getBuffer();
+                            if(buf.charAt(0) == ' ') {
+                                buf.setCharAt(0, '\n');
+                            }
+                            out.write(buf.toString());
+                            buf.setLength(0);
+                        }
+                        out.write('\n');
+                    }
+                });
             } else {
-                writeKeysBinary(keyIterator, outputFile);
+                writeBinary(outputFile, new Printable() {
+
+                    @Override
+                    public void printTo(DataOutputStream out) throws IOException {
+                        while(keyIterator.hasNext()) {
+                            byte[] keyBytes = keyIterator.next().get();
+                            out.writeInt(keyBytes.length);
+                            out.write(keyBytes);
+                        }
+                    }
+                });
             }
 
             if(outputFile != null)
@@ -1358,74 +1429,55 @@ public class VoldemortAdminTool {
         }
     }
 
-    private static void writeKeysAscii(Iterator<ByteArray> keyIterator,
-                                       File outputFile,
-                                       StoreDefinition storeDefinition) throws IOException {
-        BufferedWriter writer = null;
-        CompressionStrategy keysCompressionStrategy = null;
-        FileWriter fileWriter = null;
-        if(outputFile != null) {
-            fileWriter = new FileWriter(outputFile);
-            writer = new BufferedWriter(fileWriter);
-        } else {
-            writer = new BufferedWriter(new OutputStreamWriter(System.out));
-        }
+    private abstract static class Printable {
 
-        SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
-        if(null != serializerDef && serializerDef.hasCompression()) {
-            keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
-        }
+        public abstract void printTo(DataOutputStream out) throws IOException;
+    }
 
-        SerializerFactory serializerFactory = new DefaultSerializerFactory();
-        StringWriter stringWriter = new StringWriter();
-        JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
-        @SuppressWarnings("unchecked")
-        Serializer<Object> serializer = (Serializer<Object>) serializerFactory.getSerializer(storeDefinition.getKeySerializer());
-        try {
-            while(keyIterator.hasNext()) {
-                // Ugly hack to be able to separate text by newlines vs. spaces
-                byte[] keyBytes = keyIterator.next().get();
-                Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
-                                                                                        : keysCompressionStrategy.inflate(keyBytes));
-                generator.writeObject(keyObject);
-                StringBuffer buf = stringWriter.getBuffer();
-                if(buf.charAt(0) == ' ') {
-                    buf.setCharAt(0, '\n');
+    private abstract static class Writable {
+
+        public abstract void writeTo(BufferedWriter out) throws IOException;
+    }
+
+    private static void writeBinary(File outputFile, Printable printable) throws IOException {
+        OutputStream outputStream = null;
+        if(outputFile == null) {
+            outputStream = new FilterOutputStream(System.out) {
+
+                @Override
+                public void close() throws IOException {
+                    flush();
                 }
-                writer.write(buf.toString());
-                buf.setLength(0);
-            }
-            writer.write('\n');
+            };
+        } else {
+            outputStream = new FileOutputStream(outputFile);
+        }
+        DataOutputStream dataOutputStream = new DataOutputStream(new BufferedOutputStream(outputStream));
+        try {
+            printable.printTo(dataOutputStream);
         } finally {
-            if(fileWriter != null) {
-                fileWriter.close();
-            }
-            writer.close();
+            dataOutputStream.close();
         }
     }
 
-    private static void writeKeysBinary(Iterator<ByteArray> keyIterator, File outputFile)
-            throws IOException {
-        DataOutputStream dos = null;
-        FileOutputStream outputStream = null;
-        if(outputFile != null) {
-            outputStream = new FileOutputStream(outputFile);
-            dos = new DataOutputStream(new BufferedOutputStream(outputStream));
-        } else {
-            dos = new DataOutputStream(new BufferedOutputStream(System.out));
-        }
+    private static void writeAscii(File outputFile, Writable writable) throws IOException {
+        Writer writer = null;
+        if(outputFile == null) {
+            writer = new OutputStreamWriter(new FilterOutputStream(System.out) {
 
+                @Override
+                public void close() throws IOException {
+                    flush();
+                }
+            });
+        } else {
+            writer = new FileWriter(outputFile);
+        }
+        BufferedWriter bufferedWriter = new BufferedWriter(writer);
         try {
-            while(keyIterator.hasNext()) {
-                byte[] keyBytes = keyIterator.next().get();
-                dos.writeInt(keyBytes.length);
-                dos.write(keyBytes);
-            }
+            writable.writeTo(bufferedWriter);
         } finally {
-            if(outputStream != null) {
-                outputStream.close();
-            }
-            dos.close();
+            bufferedWriter.close();
         }
     }
 
@@ -1447,6 +1499,109 @@ public class VoldemortAdminTool {
             System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList)
                                + " of " + store);
             adminClient.deletePartitions(nodeId, store, partitionIdList, null);
+        }
+    }
+
+    private static void executeQueryKeys(final Integer nodeId,
+                                         AdminClient adminClient,
+                                         List<String> storeNames,
+                                         List<String> keys) throws IOException {
+        Serializer<String> serializer = new StringSerializer();
+        List<ByteArray> listKeys = new ArrayList<ByteArray>();
+        for(String key: keys) {
+            listKeys.add(new ByteArray(serializer.toBytes(key)));
+        }
+        for(final String storeName: storeNames) {
+            final Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> iterator = adminClient.queryKeys(nodeId.intValue(),
+                                                                                                                       storeName,
+                                                                                                                       listKeys.iterator());
+            List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
+                                                                   .getValue();
+            StoreDefinition storeDefinition = null;
+            for(StoreDefinition storeDef: storeDefinitionList) {
+                if(storeDef.getName().equals(storeName))
+                    storeDefinition = storeDef;
+            }
+
+            // k-v serializer
+            SerializerDefinition keySerializerDef = storeDefinition.getKeySerializer();
+            SerializerDefinition valueSerializerDef = storeDefinition.getValueSerializer();
+            SerializerFactory serializerFactory = new DefaultSerializerFactory();
+            @SuppressWarnings("unchecked")
+            final Serializer<Object> keySerializer = (Serializer<Object>) serializerFactory.getSerializer(keySerializerDef);
+            @SuppressWarnings("unchecked")
+            final Serializer<Object> valueSerializer = (Serializer<Object>) serializerFactory.getSerializer(valueSerializerDef);
+
+            // compression strategy
+            final CompressionStrategy keyCompressionStrategy;
+            final CompressionStrategy valueCompressionStrategy;
+            if(keySerializerDef != null && keySerializerDef.hasCompression()) {
+                keyCompressionStrategy = new CompressionStrategyFactory().get(keySerializerDef.getCompression());
+            } else {
+                keyCompressionStrategy = null;
+            }
+            if(valueSerializerDef != null && valueSerializerDef.hasCompression()) {
+                valueCompressionStrategy = new CompressionStrategyFactory().get(valueSerializerDef.getCompression());
+            } else {
+                valueCompressionStrategy = null;
+            }
+
+            // write to stdout
+            writeAscii(null, new Writable() {
+
+                @Override
+                public void writeTo(BufferedWriter out) throws IOException {
+                    final StringWriter stringWriter = new StringWriter();
+                    final JsonGenerator generator = new JsonFactory(new ObjectMapper()).createJsonGenerator(stringWriter);
+                    stringWriter.write("Querying keys in node " + nodeId + " of " + storeName
+                                       + "\n");
+
+                    while(iterator.hasNext()) {
+                        Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> kvPair = iterator.next();
+                        // unserialize and write key
+                        byte[] keyBytes = kvPair.getFirst().get();
+                        Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
+                                                                                                  : keyCompressionStrategy.inflate(keyBytes));
+                        generator.writeObject(keyObject);
+
+                        // iterate through, unserialize and write values
+                        List<Versioned<byte[]>> values = kvPair.getSecond().getFirst();
+                        if(values != null) {
+                            if(values.size() == 0) {
+                                stringWriter.write(", null");
+                            }
+                            for(Versioned<byte[]> versioned: values) {
+                                VectorClock version = (VectorClock) versioned.getVersion();
+                                byte[] valueBytes = versioned.getValue();
+                                Object valueObject = valueSerializer.toObject((null == valueCompressionStrategy) ? valueBytes
+                                                                                                                : valueCompressionStrategy.inflate(valueBytes));
+
+                                stringWriter.write(", ");
+                                stringWriter.write(version.toString());
+                                stringWriter.write('[');
+                                stringWriter.write(new Date(version.getTimestamp()).toString());
+                                stringWriter.write(']');
+                                generator.writeObject(valueObject);
+                            }
+                        } else {
+                            stringWriter.write(", null");
+                        }
+                        // write out exception
+                        if(kvPair.getSecond().getSecond() != null) {
+                            stringWriter.write(", ");
+                            stringWriter.write(kvPair.getSecond().getSecond().toString());
+                        }
+
+                        StringBuffer buf = stringWriter.getBuffer();
+                        if(buf.charAt(0) == ' ') {
+                            buf.setCharAt(0, '\n');
+                        }
+                        out.write(buf.toString());
+                        buf.setLength(0);
+                    }
+                    out.write('\n');
+                }
+            });
         }
     }
 }

@@ -291,7 +291,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
 
         public void close() {
-        // Nothing to close here
+            // Nothing to close here
         }
 
         public boolean hasNext() {

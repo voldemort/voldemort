@@ -27,6 +27,7 @@
   </condition>
 
   <path id="contrib-classpath">
+    <pathelement path="${resources.dir}" />
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
     </fileset>
@@ -37,6 +38,7 @@
   </path>
 
   <path id="test-classpath">
+    <pathelement path="${resources.dir}" />
     <pathelement path="${env.VOLD_TEST_JARS}" />
     <path refid="main-classpath" />
     <pathelement path="${testclasses.dir}" />
