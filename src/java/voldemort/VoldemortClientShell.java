@@ -381,6 +381,12 @@ public class VoldemortClientShell {
                 System.out.print(", ");
             }
             System.out.print('}');
+        } else if(o instanceof Object[]) {
+            Object[] a = (Object[]) o;
+            System.out.print( Arrays.deepToString(a) );
+        } else if(o instanceof byte[]) {
+            byte[] a = (byte[]) o;
+            System.out.print( Arrays.toString(a) );
         } else {
             System.out.print(o);
         }
