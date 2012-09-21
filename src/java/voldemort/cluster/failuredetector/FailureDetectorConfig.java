@@ -547,7 +547,7 @@ public class FailureDetectorConfig {
      *         topology
      */
 
-    public synchronized Cluster getCluster() {
+    public Cluster getCluster() {
         return this.cluster;
     }
 
@@ -558,7 +558,7 @@ public class FailureDetectorConfig {
      *        non-null
      */
 
-    public synchronized FailureDetectorConfig setCluster(Cluster cluster) {
+    public FailureDetectorConfig setCluster(Cluster cluster) {
         Utils.notNull(cluster);
         this.cluster = cluster;
         return this;
@@ -569,14 +569,10 @@ public class FailureDetectorConfig {
      * detector configuration.
      * 
      * @return Collection of Node instances, usually determined from the Cluster
-     * 
-     *         EDIT: this should be deprecated in the future. We should not be
-     *         making copies of the cluster state. It results in a series of
-     *         inconsistency bugs.
      */
 
+    @Deprecated
     public synchronized Collection<Node> getNodes() {
-        System.err.println("DEPRECATED !!! Please use getCluster().getNodes() method instead !");
         return ImmutableSet.copyOf(this.cluster.getNodes());
     }
 
@@ -586,14 +582,10 @@ public class FailureDetectorConfig {
      * 
      * @param nodes Collection of Node instances, usually determined from the
      *        Cluster; must be non-null
-     * 
-     *        EDIT: this should be deprecated in the future. We should not be
-     *        making copies of the cluster state. It results in a series of
-     *        inconsistency bugs.
      */
 
+    @Deprecated
     public synchronized FailureDetectorConfig setNodes(Collection<Node> nodes) {
-        System.err.println("DEPRECATED !!! Please use setCluster method instead !");
         Utils.notNull(nodes);
         this.nodes = new HashSet<Node>(nodes);
         return this;

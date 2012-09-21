@@ -34,7 +34,7 @@ import voldemort.store.routed.Pipeline.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 
-/*
+/**
  * Configure the Nodes obtained via the routing strategy based on the zone
  * information. Local zone nodes first, followed by the corresponding nodes from
  * each of the other zones, ordered by proximity.

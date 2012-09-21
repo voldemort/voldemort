@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.configuration;
 
 import java.io.BufferedReader;
@@ -31,7 +47,7 @@ import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-/*
+/**
  * A Storage Engine used to persist the keys and values in a human readable
  * format on disk. The data is primarily served off of the cache. After each
  * put, the entire cache state is flushed to the backing file. The data is UTF-8
@@ -39,11 +55,15 @@ import voldemort.versioning.Versioned;
  * 
  * The primary purpose of this storage engine is for maintaining the cluster
  * metadata which is characterized by low QPS and not latency sensitive.
+ * 
+ * @author csoman
+ * 
  */
 public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
 
     private final static Logger logger = Logger.getLogger(FileBackedCachingStorageEngine.class);
     private static final CharSequence NEW_PROPERTY_SEPARATOR = "[name=";
+    private static final String NEW_LINE = System.getProperty("line.separator");
 
     private final String inputPath;
     private final String inputDirectory;
@@ -60,7 +80,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
                                                + " does not exist or can not be read.");
         }
 
-        this.inputPath = inputDirectory + "/" + name;
+        this.inputPath = inputDirectory + System.getProperty("file.separator") + name;
         this.metadataMap = new HashMap<String, String>();
         this.loadData();
         if(logger.isDebugEnabled()) {
@@ -112,7 +132,7 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
             String line = reader.readLine();
 
             while(line != null) {
-                if(line.contains(NEW_PROPERTY_SEPARATOR)) {
+                if(line.startsWith(NEW_PROPERTY_SEPARATOR.toString())) {
                     String key = null;
                     StringBuilder value = new StringBuilder();
                     String parts[] = line.split("=");
@@ -124,11 +144,11 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
 
                         // Now read the value block !
                         while((line = reader.readLine()) != null && line.length() != 0
-                              && !line.contains(NEW_PROPERTY_SEPARATOR)) {
+                              && !line.startsWith(NEW_PROPERTY_SEPARATOR.toString())) {
                             if(value.length() == 0) {
                                 value.append(line);
                             } else {
-                                value.append("\n" + line);
+                                value.append(NEW_LINE + line);
                             }
                         }
 
@@ -152,9 +172,9 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         try {
             writer = new BufferedWriter(new FileWriter(new File(this.inputPath)));
             for(String key: this.metadataMap.keySet()) {
-                writer.write(NEW_PROPERTY_SEPARATOR + key.toString() + "]\n");
+                writer.write(NEW_PROPERTY_SEPARATOR + key.toString() + "]" + NEW_LINE);
                 writer.write(this.metadataMap.get(key).toString());
-                writer.write("\n\n");
+                writer.write("" + NEW_LINE + "" + NEW_LINE);
             }
             writer.flush();
         } catch(IOException e) {

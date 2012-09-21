@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.system;
 
 import static org.junit.Assert.assertEquals;
@@ -23,6 +39,12 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.SystemTime;
 
+/**
+ * Test class to verify the AsyncMetadataVersionManager
+ * 
+ * @author csoman
+ * 
+ */
 public class AsyncMetadataVersionManagerTest {
 
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
@@ -88,6 +110,13 @@ public class AsyncMetadataVersionManagerTest {
         servers[1].stop();
     }
 
+    /*
+     * Validates that the AsyncMetadataVersionManager correctly identifies the
+     * version update. This is done by initializing the base metadata version
+     * (for cluster.xml), starting the AsyncMetadataVersionManager and then
+     * updating the version to a new value. For the test to succeed the callback
+     * has to be invoked correctly by the asynchronous manager.
+     */
     @Test
     public void testBasicAsyncBehaviour() {
         String storeVersionKey = "cluster.xml";

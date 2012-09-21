@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client.scheduler;
 
 import java.util.Properties;
@@ -8,7 +24,7 @@ import org.apache.log4j.Logger;
 import voldemort.client.SystemStoreRepository;
 import voldemort.utils.MetadataVersionStoreUtils;
 
-/*
+/**
  * The AsyncMetadataVersionManager is used to track the Metadata version on the
  * cluster and if necessary Re-bootstrap the client.
  * 
@@ -20,6 +36,9 @@ import voldemort.utils.MetadataVersionStoreUtils;
  * 
  * At the moment, this only tracks the cluster.xml changes. TODO: Extend this to
  * track other stuff (like stores.xml)
+ * 
+ * @author csoman
+ * 
  */
 
 public class AsyncMetadataVersionManager implements Runnable {
@@ -30,15 +49,15 @@ public class AsyncMetadataVersionManager implements Runnable {
     private final Logger logger = Logger.getLogger(this.getClass());
     private Long currentClusterVersion;
     private final Callable<Void> storeClientThunk;
-    private final SystemStoreRepository sysRepository;
+    private final SystemStoreRepository systemStoreRepository;
     public boolean isActive = false;
 
     public AsyncMetadataVersionManager(SystemStoreRepository sysRepository,
                                        Callable<Void> storeClientThunk) {
-        this.sysRepository = sysRepository;
+        this.systemStoreRepository = sysRepository;
 
         // Get the properties object from the system store (containing versions)
-        Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
+        Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
 
         try {
             this.currentClusterVersion = getCurrentVersion(CLUSTER_VERSION_KEY, versionProps);
@@ -108,14 +127,14 @@ public class AsyncMetadataVersionManager implements Runnable {
              * Get the properties object from the system store (containing
              * versions)
              */
-            Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
+            Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
             Long newClusterVersion = fetchNewVersion(CLUSTER_VERSION_KEY,
                                                      currentClusterVersion,
                                                      versionProps);
 
             // If nothing has been updated, continue
             if(newClusterVersion != null) {
-                logger.info("Metadata version mismatch detected. Re-bootstrapping !!!");
+                logger.info("Metadata version mismatch detected. Re-bootstrapping!");
                 try {
                     logger.info("Updating cluster version");
                     currentClusterVersion = newClusterVersion;
@@ -141,7 +160,7 @@ public class AsyncMetadataVersionManager implements Runnable {
 
     // Fetch the latest versions for cluster metadata
     public void updateMetadataVersions() {
-        Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysRepository.getMetadataVersionStore());
+        Properties versionProps = MetadataVersionStoreUtils.getProperties(this.systemStoreRepository.getMetadataVersionStore());
         Long newVersion = fetchNewVersion(CLUSTER_VERSION_KEY, null, versionProps);
         if(newVersion != null) {
             this.currentClusterVersion = newVersion;

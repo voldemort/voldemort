@@ -53,9 +53,6 @@ import voldemort.versioning.Versioned;
 @JmxManaged(description = "A voldemort client")
 public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
-    private static final int ASYNC_THREADS_COUNT = 2;
-    private static final boolean ALLOW_INTERRUPT_ASYNC = true;
-
     private final Logger logger = Logger.getLogger(ZenStoreClient.class);
 
     private final AbstractStoreClientFactory abstractStoreFactory;
@@ -116,11 +113,12 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                                                        config.getAsyncMetadataRefreshInMs());
         }
 
-        clientRegistryRefresher = registerClient(clientId, config.getClientRegistryUpdateInSecs());
+        clientRegistryRefresher = registerClient(clientId,
+                                                 config.getClientRegistryUpdateIntervalInSecs());
         logger.info("Voldemort client created: " + clientId + "\n" + clientInfo);
     }
 
-    private ClientRegistryRefresher registerClient(String jobId, int interval) {
+    private ClientRegistryRefresher registerClient(String jobId, int intervalInSecs) {
         ClientRegistryRefresher refresher = null;
         if(this.sysRepository.getClientRegistryStore() != null) {
             try {
@@ -131,15 +129,16 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                                         clientInfo,
                                                         version);
                 GregorianCalendar cal = new GregorianCalendar();
-                cal.add(Calendar.SECOND, interval);
+                cal.add(Calendar.SECOND, intervalInSecs);
 
                 if(scheduler != null) {
                     scheduler.schedule(jobId + refresher.getClass().getName(),
                                        refresher,
                                        cal.getTime(),
-                                       TimeUnit.MILLISECONDS.convert(interval, TimeUnit.SECONDS));
+                                       TimeUnit.MILLISECONDS.convert(intervalInSecs,
+                                                                     TimeUnit.SECONDS));
                     logger.info("Client registry refresher thread started, refresh interval: "
-                                + interval + " seconds");
+                                + intervalInSecs + " seconds");
                 } else {
                     logger.warn("Client registry won't run because scheduler service is not configured");
                 }
@@ -156,7 +155,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
     private AsyncMetadataVersionManager scheduleAsyncMetadataVersionManager(String jobId,
                                                                             long interval) {
         AsyncMetadataVersionManager asyncMetadataManager = null;
-        SystemStore<String, Long> versionStore = this.sysRepository.getVersionStore();
+        SystemStore<String, String> versionStore = this.sysRepository.getMetadataVersionStore();
         if(versionStore == null) {
             logger.warn("Metadata version system store not found. Cannot run Metadata version check thread.");
         } else {
@@ -200,6 +199,7 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
          */
         clusterXml = abstractStoreFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
 
+        // Get client store
         this.store = abstractStoreFactory.getRawStore(storeName, resolver, null, clusterXml, null);
 
         // Create system stores

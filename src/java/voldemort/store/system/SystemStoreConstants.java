@@ -34,7 +34,6 @@ public class SystemStoreConstants {
 
     public static enum SystemStoreName {
         voldsys$_client_registry,
-        voldsys$_metadata_version,
         voldsys$_metadata_version_persistence;
     }
 
@@ -62,27 +61,10 @@ public class SystemStoreConstants {
                                                      + "  </store>"
 
                                                      + "  <store>"
-                                                     + "    <name>voldsys$_metadata_version</name>"
-                                                     + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
-                                                     + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
-                                                     + "    <persistence>memory</persistence>"
-                                                     + "    <routing>client</routing>"
-                                                     + "    <replication-factor>1</replication-factor>"
-                                                     + "    <required-reads>1</required-reads>"
-                                                     + "    <required-writes>1</required-writes>"
-                                                     + "    <key-serializer>"
-                                                     + "      <type>string</type>"
-                                                     + "    </key-serializer>"
-                                                     + "    <value-serializer>"
-                                                     + "      <type>string</type>"
-                                                     + "    </value-serializer>"
-                                                     + "  </store>"
-
-                                                     + "  <store>"
                                                      + "    <name>voldsys$_metadata_version_persistence</name>"
                                                      + "    <routing-strategy>local-pref-all-routing</routing-strategy>"
                                                      + "    <hinted-handoff-strategy>proximity-handoff</hinted-handoff-strategy>"
-                                                     + "    <persistence>file</persistence>"
+                                                     + "    <persistence>file-backed-cache</persistence>"
                                                      + "    <routing>client</routing>"
                                                      + "    <replication-factor>1</replication-factor>"
                                                      + "    <required-reads>1</required-reads>"

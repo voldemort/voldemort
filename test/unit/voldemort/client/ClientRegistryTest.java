@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import java.io.ByteArrayInputStream;
@@ -39,7 +55,7 @@ public class ClientRegistryTest extends TestCase {
     public static final String STORES_XML_FILE = "test/common/voldemort/config/stores.xml";
     public static final String CLIENT_CONTEXT_NAME = "testClientRegistryHappyPath";
     public static final String CLIENT_CONTEXT_NAME2 = "testClientRegistryUnhappyPath";
-    public static final int CLIENT_REGISTRY_REFRSH_INTERVAL = 1;
+    public static final int CLIENT_REGISTRY_REFRESH_INTERVAL = 1;
     public static final int TOTAL_SERVERS = 2;
 
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(TOTAL_SERVERS,
@@ -87,6 +103,10 @@ public class ClientRegistryTest extends TestCase {
         this.clearRegistryContent();
     }
 
+    /*
+     * Tests that the client registry is populated correctly and that we can
+     * query using Admin Tool.
+     */
     @Test
     public void testHappyPath() {
         List<Integer> emptyPartitionList = Lists.newArrayList();
@@ -96,7 +116,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
         StoreClient<String, String> client1 = socketFactory.getStoreClient(TEST_STORE_NAME);
@@ -131,7 +151,7 @@ public class ClientRegistryTest extends TestCase {
         assertEquals(1, infoList.size());
 
         try {
-            Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+            Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
@@ -149,6 +169,10 @@ public class ClientRegistryTest extends TestCase {
         socketFactory.close();
     }
 
+    /*
+     * Test happy path for 2 clients created by the same factory, pointing to
+     * the same store
+     */
     @Test
     public void testTwoClients() {
         List<Integer> emptyPartitionList = Lists.newArrayList();
@@ -158,7 +182,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
         StoreClient<String, String> client1 = socketFactory.getStoreClient(TEST_STORE_NAME);
@@ -215,7 +239,7 @@ public class ClientRegistryTest extends TestCase {
         assertEquals(infoList.size(), 2);
 
         try {
-            Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+            Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
@@ -233,6 +257,10 @@ public class ClientRegistryTest extends TestCase {
         socketFactory.close();
     }
 
+    /*
+     * Tests client registry for 2 clients created using the same factory,
+     * pointing to different stores
+     */
     @Test
     public void testTwoStores() {
         List<Integer> emptyPartitionList = Lists.newArrayList();
@@ -242,7 +270,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
         StoreClient<String, String> client1 = socketFactory.getStoreClient(TEST_STORE_NAME);
@@ -316,7 +344,7 @@ public class ClientRegistryTest extends TestCase {
         }
 
         try {
-            Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+            Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
@@ -334,6 +362,10 @@ public class ClientRegistryTest extends TestCase {
         socketFactory.close();
     }
 
+    /*
+     * Tests client registry for 2 clients created using the different
+     * factories, pointing to different stores
+     */
     @Test
     public void testTwoFactories() {
         List<Integer> emptyPartitionList = Lists.newArrayList();
@@ -343,7 +375,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
 
@@ -353,7 +385,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[0])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
-                                                       .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
 
@@ -448,7 +480,7 @@ public class ClientRegistryTest extends TestCase {
         }
 
         try {
-            Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+            Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
@@ -467,6 +499,9 @@ public class ClientRegistryTest extends TestCase {
         socketFactory2.close();
     }
 
+    /*
+     * Tests client registry for in the presence of 1 server failure.
+     */
     @Test
     public void testOneServerFailure() {
         // bring down one server before starting up the clients
@@ -479,7 +514,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
 
@@ -489,7 +524,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
-                                                       .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
 
@@ -542,7 +577,7 @@ public class ClientRegistryTest extends TestCase {
         }
 
         try {
-            Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+            Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
         } catch(InterruptedException e) {}
         // now the periodical update has gone through, it shall be higher than
         // the bootstrap time
@@ -561,6 +596,9 @@ public class ClientRegistryTest extends TestCase {
         socketFactory2.close();
     }
 
+    /*
+     * Test repeated client-registry setup due to client bounce.
+     */
     @Test
     public void testRepeatRegistrationSameFactory() {
 
@@ -571,7 +609,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                      .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                      .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
 
@@ -581,7 +619,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
-                                                       .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
 
@@ -607,6 +645,10 @@ public class ClientRegistryTest extends TestCase {
         socketFactory2.close();
     }
 
+    /*
+     * Test repeated client-registry setup due to client bounce and via a
+     * different factory.
+     */
     @Test
     public void testRepeatRegistrationDifferentFactories() {
         long client1LastBootstrapTime = 0;
@@ -620,7 +662,7 @@ public class ClientRegistryTest extends TestCase {
                                                           .setBootstrapUrls(SERVER_LOCAL_URL
                                                                             + serverPorts[1])
                                                           .setClientContextName(CLIENT_CONTEXT_NAME)
-                                                          .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                          .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                           .setEnableLazy(false);
             SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
 
@@ -630,7 +672,7 @@ public class ClientRegistryTest extends TestCase {
                                                            .setBootstrapUrls(SERVER_LOCAL_URL
                                                                              + serverPorts[1])
                                                            .setClientContextName(CLIENT_CONTEXT_NAME2)
-                                                           .setClientRegistryUpdateInSecs(CLIENT_REGISTRY_REFRSH_INTERVAL)
+                                                           .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                            .setEnableLazy(false);
             SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
 
@@ -685,7 +727,7 @@ public class ClientRegistryTest extends TestCase {
             }
 
             try {
-                Thread.sleep(CLIENT_REGISTRY_REFRSH_INTERVAL * 1000 * 5);
+                Thread.sleep(CLIENT_REGISTRY_REFRESH_INTERVAL * 1000 * 5);
             } catch(InterruptedException e) {}
             // now the periodical update has gone through, it shall be higher
             // than

@@ -32,20 +32,17 @@ import org.apache.log4j.Logger;
  */
 public class ClientInfo implements Serializable {
 
-    /**
-     * 
-     */
     private static final long serialVersionUID = 1L;
 
     protected static final Logger logger = Logger.getLogger(ClientInfo.class);
 
-    private long bootstrapTime;
+    private long bootstrapTimestampMs;
     private String storeName;
     private String context;
     private int sequence;
     private String localHostName;
     private String deploymentPath;
-    private long updateTime;
+    private long updateTimestampMs;
     private String releaseVersion;
     private ClientConfig config;
     private long clusterMetadataVersion;
@@ -56,13 +53,13 @@ public class ClientInfo implements Serializable {
                       long bootstrapTime,
                       String version,
                       ClientConfig config) {
-        this.bootstrapTime = bootstrapTime;
+        this.bootstrapTimestampMs = bootstrapTime;
         this.storeName = storeName;
         this.context = clientContext;
         this.sequence = clientSequence;
         this.localHostName = createHostName();
         this.deploymentPath = createDeploymentPath();
-        this.updateTime = bootstrapTime;
+        this.updateTimestampMs = bootstrapTime;
         this.releaseVersion = version;
         this.config = config;
         this.clusterMetadataVersion = 0;
@@ -104,11 +101,11 @@ public class ClientInfo implements Serializable {
     }
 
     public synchronized void setBootstrapTime(long bootstrapTime) {
-        this.bootstrapTime = bootstrapTime;
+        this.bootstrapTimestampMs = bootstrapTime;
     }
 
     public synchronized long getBootstrapTime() {
-        return bootstrapTime;
+        return bootstrapTimestampMs;
     }
 
     public synchronized void setContext(String clientContext) {
@@ -144,11 +141,11 @@ public class ClientInfo implements Serializable {
     }
 
     public synchronized void setUpdateTime(long updateTime) {
-        this.updateTime = updateTime;
+        this.updateTimestampMs = updateTime;
     }
 
     public synchronized long getUpdateTime() {
-        return this.updateTime;
+        return this.updateTimestampMs;
     }
 
     public synchronized void setReleaseVersion(String version) {
@@ -180,26 +177,26 @@ public class ClientInfo implements Serializable {
         if(!object.getClass().equals(ClientInfo.class))
             return false;
         ClientInfo clientInfo = (ClientInfo) object;
-        return (this.bootstrapTime == clientInfo.bootstrapTime)
+        return (this.bootstrapTimestampMs == clientInfo.bootstrapTimestampMs)
                && (this.context.equals(clientInfo.context))
                && (this.deploymentPath.equals(clientInfo.deploymentPath))
                && (this.localHostName.equals(clientInfo.localHostName))
                && (this.sequence == clientInfo.sequence)
                && (this.storeName.equals(clientInfo.storeName))
-               && (this.updateTime == clientInfo.updateTime)
+               && (this.updateTimestampMs == clientInfo.updateTimestampMs)
                && (this.releaseVersion == clientInfo.releaseVersion);
     }
 
     @Override
     public synchronized String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("bootstrapTime=").append(bootstrapTime).append("\n");
+        builder.append("bootstrapTime=").append(bootstrapTimestampMs).append("\n");
         builder.append("context=").append(context).append("\n");
         builder.append("deploymentPath=").append(deploymentPath).append("\n");
         builder.append("localHostName=").append(localHostName).append("\n");
         builder.append("sequence=").append(sequence).append("\n");
         builder.append("storeName=").append(storeName).append("\n");
-        builder.append("updateTime=").append(updateTime).append("\n");
+        builder.append("updateTime=").append(updateTimestampMs).append("\n");
         builder.append("releaseVersion=").append(releaseVersion).append("\n");
         builder.append("clusterMetadataVersion=").append(clusterMetadataVersion).append("\n");
 

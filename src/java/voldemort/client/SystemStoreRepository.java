@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -5,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.store.system.SystemStoreConstants;
 
-/*
+/**
  * A repository that creates and maintains all the system stores in one place.
  * The purpose is to act as a source of truth for all the system stores, since
  * they can be recreated dynamically (in case cluster.xml changes).
@@ -33,12 +49,6 @@ public class SystemStoreRepository {
                                                    config);
             this.sysStoreMap.put(storeName.name(), sysStore);
         }
-    }
-
-    public SystemStore<String, Long> getVersionStore() {
-        String name = SystemStoreConstants.SystemStoreName.voldsys$_metadata_version.name();
-        SystemStore<String, Long> sysVersionStore = sysStoreMap.get(name);
-        return sysVersionStore;
     }
 
     public SystemStore<String, String> getClientRegistryStore() {

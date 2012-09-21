@@ -1,9 +1,29 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.client;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.util.Properties;
-
-import junit.framework.TestCase;
 
 import org.junit.After;
 import org.junit.Before;
@@ -25,7 +45,14 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.SystemTime;
 import voldemort.xml.ClusterMapper;
 
-public class EndToEndRebootstrapTest extends TestCase {
+/**
+ * Test class to verify that the Zenstore client rebootstraps when needed (on
+ * change of cluster.xml)
+ * 
+ * @author csoman
+ * 
+ */
+public class EndToEndRebootstrapTest {
 
     private static final String STORE_NAME = "test-replication-persistent";
     private static final String CLUSTER_KEY = "cluster.xml";
@@ -44,7 +71,6 @@ public class EndToEndRebootstrapTest extends TestCase {
     public static String socketUrl = "";
     protected final int CLIENT_ZONE_ID = 0;
 
-    @Override
     @Before
     public void setUp() throws Exception {
         cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
@@ -75,7 +101,7 @@ public class EndToEndRebootstrapTest extends TestCase {
         Node node = cluster.getNodeById(0);
         String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setClientRegistryUpdateInSecs(5);
+        clientConfig.setClientRegistryUpdateIntervalInSecs(5);
         clientConfig.setAsyncMetadataRefreshInMs(5000);
         clientConfig.setBootstrapUrls(bootstrapUrl);
         SocketStoreClientFactory storeClientFactory = new SocketStoreClientFactory(clientConfig);
@@ -100,13 +126,22 @@ public class EndToEndRebootstrapTest extends TestCase {
 
     }
 
-    @Override
     @After
     public void tearDown() throws Exception {
         servers[0].stop();
         servers[1].stop();
     }
 
+    /*
+     * Test to validate that the client bootstraps on metadata change. First do
+     * some operations to validate that the client is correctly initialized.
+     * Then update the cluster.xml using the Admin Tool (which should update the
+     * metadata version as well). Verify that the client bootstraps after this
+     * update.
+     * 
+     * Whether the client has automatically bootstrapped is verified by checking
+     * the new bootstrap time in the client registry.
+     */
     @Test
     public void testEndToEndRebootstrap() {
         try {

@@ -84,9 +84,9 @@ public class ClientConfig {
     private volatile String clientContextName = "";
 
     /* 5 second check interval, in ms */
-    private volatile long asyncCheckMetadataInterval = 5000;
+    private volatile long asyncCheckMetadataIntervalInMs = 5000;
     /* 12 hr refresh internval, in seconds */
-    private volatile int clientRegistryRefreshInterval = 3600 * 12;
+    private volatile int clientRegistryRefreshIntervalInSecs = 3600 * 12;
     private volatile int asyncJobThreadPoolSize = 2;
 
     /* SystemStore client config */
@@ -136,10 +136,10 @@ public class ClientConfig {
     public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY = "failuredetector_catastrophic_error_types";
     public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
-    public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context";
-    public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval";
+    public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context_name";
+    public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval_ms";
     public static final String USE_DEFAULT_CLIENT = "use_default_client";
-    public static final String CLIENT_REGISTRY_REFRESH_INTERVAL = "client_registry_refresh_interval";
+    public static final String CLIENT_REGISTRY_REFRESH_INTERVAL = "client_registry_refresh_interval_seconds";
     public static final String ASYNC_JOB_THREAD_POOL_SIZE = "async_job_thread_pool_size";
     public static final String SYS_MAX_CONNECTIONS_PER_NODE = "sys_max_connections_per_node";
     public static final String SYS_ROUTING_TIMEOUT_MS = "sys_routing_timeout_ms";
@@ -318,7 +318,7 @@ public class ClientConfig {
         }
 
         if(props.containsKey(CLIENT_REGISTRY_REFRESH_INTERVAL)) {
-            this.setClientRegistryUpdateInSecs(props.getInt(CLIENT_REGISTRY_REFRESH_INTERVAL));
+            this.setClientRegistryUpdateIntervalInSecs(props.getInt(CLIENT_REGISTRY_REFRESH_INTERVAL));
         }
 
         if(props.containsKey(ASYNC_JOB_THREAD_POOL_SIZE)) {
@@ -852,7 +852,7 @@ public class ClientConfig {
     }
 
     public long getAsyncMetadataRefreshInMs() {
-        return asyncCheckMetadataInterval;
+        return asyncCheckMetadataIntervalInMs;
     }
 
     /**
@@ -862,22 +862,23 @@ public class ClientConfig {
      */
     public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataInterval) {
 
-        this.asyncCheckMetadataInterval = asyncCheckMetadataInterval;
+        this.asyncCheckMetadataIntervalInMs = asyncCheckMetadataInterval;
         return this;
     }
 
-    public int getClientRegistryUpdateInSecs() {
-        return this.clientRegistryRefreshInterval;
+    public int getClientRegistryUpdateIntervalInSecs() {
+        return this.clientRegistryRefreshIntervalInSecs;
     }
 
     /**
      * Set the interval on which client refreshes its corresponding entry of the
      * client registry on the servers
      * 
-     * @param clientRegistryRefreshInterval The refresh interval in seconds
+     * @param clientRegistryRefreshIntervalInSecs The refresh interval in
+     *        seconds
      */
-    public ClientConfig setClientRegistryUpdateInSecs(int clientRegistryRefrshInterval) {
-        this.clientRegistryRefreshInterval = clientRegistryRefrshInterval;
+    public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshInterval) {
+        this.clientRegistryRefreshIntervalInSecs = clientRegistryRefrshInterval;
         return this;
     }
 

@@ -157,29 +157,24 @@ public class PipelineRoutedStore extends RoutedStore {
     }
 
     private ConfigureNodesType obtainNodeConfigurationType(Integer zonesRequired) {
-        // If Zone and local preference required
-        if(zonesRequired != null
-           && routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
-            return ConfigureNodesType.BYZONE_LOCAL;
 
-        // If only local preference required
-        else if(zonesRequired == null
-                && routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
-            return ConfigureNodesType.DEFAULT_LOCAL;
+        if(zonesRequired != null) {
+            if(routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
+                return ConfigureNodesType.BYZONE_LOCAL;
+            } else {
+                return ConfigureNodesType.BYZONE;
+            }
+        } else {
+            if(routingStrategy.getType().equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
+                return ConfigureNodesType.DEFAULT_LOCAL;
+            }
+        }
 
-        // If only Zone required
-        else if(zonesRequired != null
-                && !routingStrategy.getType()
-                                   .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY))
-            return ConfigureNodesType.BYZONE;
-
-        // Default case
         return ConfigureNodesType.DEFAULT;
-
     }
 
-    private AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> getNodeConfiguration(BasicPipelineData<List<Versioned<byte[]>>> pipelineData,
-                                                                                                                                        ByteArray key) {
+    private AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> makeNodeConfigurationForGet(BasicPipelineData<List<Versioned<byte[]>>> pipelineData,
+                                                                                                                                               ByteArray key) {
         switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
             case DEFAULT:
                 return new ConfigureNodesDefault<List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>>(pipelineData,
@@ -250,8 +245,8 @@ public class PipelineRoutedStore extends RoutedStore {
 
         // Get the correct type of configure nodes action depending on the store
         // requirements
-        AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> configureNodes = getNodeConfiguration(pipelineData,
-                                                                                                                                                     key);
+        AbstractConfigureNodes<ByteArray, List<Versioned<byte[]>>, BasicPipelineData<List<Versioned<byte[]>>>> configureNodes = makeNodeConfigurationForGet(pipelineData,
+                                                                                                                                                            key);
 
         pipeline.addEventAction(Event.STARTED, configureNodes);
 
@@ -675,8 +670,8 @@ public class PipelineRoutedStore extends RoutedStore {
         return slopStores != null;
     }
 
-    private AbstractConfigureNodes<ByteArray, Void, PutPipelineData> putNodeConfiguration(PutPipelineData pipelineData,
-                                                                                          ByteArray key) {
+    private AbstractConfigureNodes<ByteArray, Void, PutPipelineData> makeNodeConfigurationForPut(PutPipelineData pipelineData,
+                                                                                                 ByteArray key) {
         switch(obtainNodeConfigurationType(pipelineData.getZonesRequired())) {
             case DEFAULT:
                 return new ConfigureNodesDefault<Void, PutPipelineData>(pipelineData,
@@ -744,8 +739,8 @@ public class PipelineRoutedStore extends RoutedStore {
 
         // Get the correct type of configure nodes action depending on the store
         // requirements
-        AbstractConfigureNodes<ByteArray, Void, PutPipelineData> configureNodes = putNodeConfiguration(pipelineData,
-                                                                                                       key);
+        AbstractConfigureNodes<ByteArray, Void, PutPipelineData> configureNodes = makeNodeConfigurationForPut(pipelineData,
+                                                                                                              key);
 
         if(isHintedHandoffEnabled())
             hintedHandoff = new HintedHandoff(failureDetector,

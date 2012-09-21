@@ -345,6 +345,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public FailureDetector getFailureDetector() {
         if(this.cluster == null) {
+            logger.info("Cluster is null ! Getting cluster.xml again for setting up FailureDetector.");
             String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
                                                              bootstrapUrls);
             this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
@@ -354,11 +355,11 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         FailureDetector result = failureDetector;
 
         if(result == null) {
-            logger.debug("Failure detector is null. Creating a new FD.");
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
                 if(result == null) {
+                    logger.info("Failure detector is null. Creating a new FD.");
                     failureDetector = result = initFailureDetector(config, this.cluster);
                     if(isJmxEnabled) {
                         JmxUtils.registerMbean(failureDetector,
@@ -373,7 +374,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             /*
              * The existing failure detector might have an old state
              */
-            logger.debug("Failure detector already exists. Updating the state and flushing cached verifier stores.");
+            logger.info("Failure detector already exists. Updating the state and flushing cached verifier stores.");
             synchronized(this) {
                 failureDetector.getConfig().setCluster(this.cluster);
                 failureDetector.getConfig().getStoreVerifier().flushCachedStores();

@@ -74,7 +74,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String CLUSTER_KEY = "cluster.xml";
     public static final String STORES_KEY = "stores.xml";
-    public static final String SYSTEM_STORES_KEY = "systemStores";
+    public static final String SYSTEM_STORES_KEY = "system.stores";
     public static final String SERVER_STATE_KEY = "server.state";
     public static final String NODE_ID_KEY = "node.id";
     public static final String REBALANCING_STEAL_INFO = "rebalancing.steal.info.key";
