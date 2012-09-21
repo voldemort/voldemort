@@ -16,7 +16,6 @@
 
 package voldemort.store.routed.action;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -138,19 +137,18 @@ public class PerformParallelGetAllRequests
                     successCount.increment();
 
                     List<Versioned<byte[]>> retrieved = values.get(key);
-                    if(retrieved == null) {
-                        retrieved = new ArrayList<Versioned<byte[]>>();
-                    }
                     /*
                      * retrieved can be null if there are no values for the key
                      * provided
                      */
-                    List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
+                    if(retrieved != null) {
+                        List<Versioned<byte[]>> existing = pipelineData.getResult().get(key);
 
-                    if(existing == null)
-                        pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
-                    else
-                        existing.addAll(retrieved);
+                        if(existing == null)
+                            pipelineData.getResult().put(key, Lists.newArrayList(retrieved));
+                        else
+                            existing.addAll(retrieved);
+                    }
 
                     HashSet<Integer> zoneResponses = null;
                     if(pipelineData.getKeyToZoneResponse().containsKey(key)) {

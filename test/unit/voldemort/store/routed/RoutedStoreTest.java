@@ -96,7 +96,7 @@ import com.google.common.collect.Sets;
 public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
     public static final int BANNAGE_PERIOD = 1000;
-    public static final int SLEEPY_TIME = 81;
+    public static final int SLEEPY_TIME = 200;
     public static final int OPERATION_TIMEOUT = 60;
 
     private Cluster cluster;
@@ -204,7 +204,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(threads);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
+                                                                       new TimeoutConfig(BANNAGE_PERIOD,
                                                                                          false));
 
         return routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
@@ -415,7 +415,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.put(new ByteArray("test".getBytes()), versioned, null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
         // Putting extra key to test getAll
         s1.put(new ByteArray("test2".getBytes()), versioned, null);
@@ -425,7 +425,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.get(new ByteArray("test".getBytes()), null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 130, elapsed < 130);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
         start = System.nanoTime();
@@ -436,29 +436,27 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
-        // make sure the failure detector adds back any previously failed nodes
-        Thread.sleep(BANNAGE_PERIOD * 2);
         start = System.nanoTime();
         try {
             s1.delete(new ByteArray("test".getBytes()), versioned.getVersion());
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
         // make sure sleepy stores processed the delete before checking,
         // otherwise, we might be bailing
         // out of the test too early for the delete to be processed.
-        Thread.sleep(SLEEPY_TIME);
+        Thread.sleep(SLEEPY_TIME * 2);
         List<ByteArray> keys = Lists.newArrayList(new ByteArray("test".getBytes()),
                                                   new ByteArray("test2".getBytes()));
 
         Map<ByteArray, List<Versioned<byte[]>>> values = s1.getAll(keys, null);
-        List<Versioned<byte[]>> results = values.get(new ByteArray("test".getBytes()));
-        assertEquals("\'test\' did not get deleted.", 0, results.size());
+        assertFalse("'test' did not get deleted.",
+                    values.containsKey(new ByteArray("test".getBytes())));
         ByteUtils.compare(values.get(new ByteArray("test2".getBytes())).get(0).getValue(),
                           new byte[] { 1 });
 
@@ -474,7 +472,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                        zoneReplicationFactor,
                                                        RoutingStrategyType.ZONE_STRATEGY,
                                                        SLEEPY_TIME,
-                                                       1000,
+                                                       BANNAGE_PERIOD,
                                                        new VoldemortException());
 
         start = System.nanoTime();
@@ -483,7 +481,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s2.put(new ByteArray("test".getBytes()), versioned, null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " > " + 81, elapsed >= 81);
+            assertTrue(elapsed + " > " + SLEEPY_TIME, elapsed >= SLEEPY_TIME);
         }
         s2.put(new ByteArray("test2".getBytes()), versioned, null);
 
@@ -517,8 +515,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         }
 
         values = s2.getAll(keys, null);
-        results = values.get(new ByteArray("test".getBytes()));
-        assertEquals("\'test\' did not get deleted.", 0, results.size());
+        assertFalse("'test' did not get deleted.",
+                    values.containsKey(new ByteArray("test".getBytes())));
         ByteUtils.compare(values.get(new ByteArray("test2".getBytes())).get(0).getValue(),
                           new byte[] { 1 });
 
@@ -534,8 +532,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                        null,
                                                        zoneReplicationFactor,
                                                        RoutingStrategyType.ZONE_STRATEGY,
-                                                       81,
-                                                       1000,
+                                                       SLEEPY_TIME,
+                                                       BANNAGE_PERIOD,
                                                        new VoldemortException());
 
         start = System.nanoTime();
@@ -543,7 +541,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s3.put(new ByteArray("test".getBytes()), versioned, null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
         // Putting extra key to test getAll
         s3.put(new ByteArray("test2".getBytes()), versioned, null);
@@ -556,7 +554,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             }
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
         start = System.nanoTime();
@@ -564,7 +562,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s3.get(new ByteArray("test".getBytes()), null);
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
         start = System.nanoTime();
@@ -572,7 +570,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s3.delete(new ByteArray("test".getBytes()), versioned.getVersion());
         } finally {
             long elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
         // Basic put with zone read = 1, zone write = 1 and failures in other
@@ -587,8 +585,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
                                                        null,
                                                        zoneReplicationFactor,
                                                        RoutingStrategyType.ZONE_STRATEGY,
-                                                       81,
-                                                       1000,
+                                                       SLEEPY_TIME,
+                                                       BANNAGE_PERIOD,
                                                        new VoldemortException());
 
         try {
@@ -875,7 +873,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
+                                                                       new TimeoutConfig(BANNAGE_PERIOD,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -932,7 +930,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
+                                                                       new TimeoutConfig(BANNAGE_PERIOD,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1040,7 +1038,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
+                                                                       new TimeoutConfig(BANNAGE_PERIOD,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1247,7 +1245,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(1);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(1000L,
+                                                                       new TimeoutConfig(BANNAGE_PERIOD,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1392,7 +1390,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             Store<ByteArray, byte[], byte[]> subStore = null;
 
             if(sleepy != null && sleepy.contains(n.getId()))
-                subStore = new SleepyStore<ByteArray, byte[], byte[]>(81,
+                subStore = new SleepyStore<ByteArray, byte[], byte[]>(SLEEPY_TIME,
                                                                       new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"));
             else
                 subStore = new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test");
@@ -1416,7 +1414,8 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(8);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(60, false));
+                                                                       new TimeoutConfig(OPERATION_TIMEOUT,
+                                                                                         false));
 
         Store<ByteArray, byte[], byte[]> s1 = routedStoreFactory.create(cluster,
                                                                         storeDef,
@@ -1433,10 +1432,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.put(new ByteArray("test".getBytes()), versioned, null);
         } finally {
             elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
-        Thread.sleep(81 - elapsed);
+        Thread.sleep(SLEEPY_TIME - elapsed);
 
         for(Node node: nodesRoutedTo) {
             assertEquals(subStores.get(node.getId())
@@ -1451,10 +1450,10 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
             s1.delete(new ByteArray("test".getBytes()), versioned.getVersion());
         } finally {
             elapsed = (System.nanoTime() - start) / Time.NS_PER_MS;
-            assertTrue(elapsed + " < " + 81, elapsed < 81);
+            assertTrue(elapsed + " < " + SLEEPY_TIME, elapsed < SLEEPY_TIME);
         }
 
-        Thread.sleep(81 - elapsed);
+        Thread.sleep(SLEEPY_TIME - elapsed);
 
         for(Node node: nodesRoutedTo) {
             assertEquals(subStores.get(node.getId())
