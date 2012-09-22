@@ -143,6 +143,7 @@ public class ClientConnectionStressTest {
                                         TimeUnit.MILLISECONDS);
         if(options.has(ROUTING_TIMEOUT))
             config.setTimeoutConfig(new TimeoutConfig(TimeUnit.MILLISECONDS.toMillis((Integer) options.valueOf(ROUTING_TIMEOUT)),
+                                                      false,
                                                       false));
 
         if(options.has(SOCKET_TIMEOUT))

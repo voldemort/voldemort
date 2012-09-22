@@ -205,6 +205,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         return routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
@@ -256,6 +257,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(timeOutMs,
+                                                                                         false,
                                                                                          false));
 
         return routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
@@ -816,7 +818,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStoreThreadPool = Executors.newFixedThreadPool(3);
 
-        TimeoutConfig timeoutConfig = new TimeoutConfig(1500, true);
+        TimeoutConfig timeoutConfig = new TimeoutConfig(1500, true, false);
         // This means, the getall will only succeed on two of the nodes
         timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE, 250);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
@@ -843,7 +845,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         assert (expectedValues.size() > all.size());
 
         /* 2. negative test; if partial is off, should fail the whole operation */
-        timeoutConfig.setPartialGetAllAllowed(false);
+        timeoutConfig.setPartialGetAllsAllowed(false);
         try {
             all = routedStore.getAll(expectedValues.keySet(), null);
             fail("Should have failed");
@@ -876,6 +878,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -933,6 +936,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1041,6 +1045,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1088,6 +1093,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(timeout,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(new Cluster("test", nodes),
@@ -1142,6 +1148,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(timeout,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(new Cluster("test", nodes),
@@ -1189,7 +1196,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(3);
         // with a 500ms general timeout and a 100ms get timeout, only get should
         // fail
-        TimeoutConfig timeoutConfig = new TimeoutConfig(1500, false);
+        TimeoutConfig timeoutConfig = new TimeoutConfig(1500, false, false);
         timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE, 100);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
@@ -1248,6 +1255,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1300,6 +1308,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(10000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1312,7 +1321,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
-                                                    new TimeoutConfig(sleepTimeMs / 2, false));
+                                                    new TimeoutConfig(sleepTimeMs / 2, false, false));
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 
@@ -1355,6 +1364,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(10000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore routedStore = routedStoreFactory.create(cluster,
@@ -1367,7 +1377,7 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
 
         routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                     routedStoreThreadPool,
-                                                    new TimeoutConfig(sleepTimeMs / 2, false));
+                                                    new TimeoutConfig(sleepTimeMs / 2, false, false));
 
         routedStore = routedStoreFactory.create(cluster, storeDef, subStores, true, failureDetector);
 
@@ -1416,7 +1426,9 @@ public class RoutedStoreTest extends AbstractByteArrayStoreTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(8);
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        routedStoreThreadPool,
-                                                                       new TimeoutConfig(60, false));
+                                                                       new TimeoutConfig(60,
+                                                                                         false,
+                                                                                         false));
 
         Store<ByteArray, byte[], byte[]> s1 = routedStoreFactory.create(cluster,
                                                                         storeDef,

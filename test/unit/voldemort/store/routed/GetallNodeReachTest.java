@@ -52,6 +52,7 @@ public class GetallNodeReachTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(true,
                                                                        Executors.newFixedThreadPool(2),
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         store = routedStoreFactory.create(cluster,

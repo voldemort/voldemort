@@ -32,18 +32,19 @@ import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.routed.GetAllPipelineData;
+import voldemort.store.routed.MultiKeysPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
 public class GetAllConfigureNodesTest extends AbstractActionTest {
 
     @Test
     public void testConfigureNodes() throws Exception {
         RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
-        GetAllPipelineData pipelineData = new GetAllPipelineData();
+        MultiKeysPipelineData<List<Versioned<byte[]>>> pipelineData = new MultiKeysPipelineData<List<Versioned<byte[]>>>();
         List<ByteArray> keys = new ArrayList<ByteArray>();
 
         for(int i = 0; i < 10; i++)
@@ -51,15 +52,15 @@ public class GetAllConfigureNodesTest extends AbstractActionTest {
 
         int preferred = cluster.getNumberOfNodes() - 1;
 
-        GetAllConfigureNodes action = new GetAllConfigureNodes(pipelineData,
-                                                               Event.COMPLETED,
-                                                               failureDetector,
-                                                               preferred,
-                                                               preferred - 1,
-                                                               routingStrategy,
-                                                               keys,
-                                                               null,
-                                                               null);
+        MultiKeysConfigureNodes<List<Versioned<byte[]>>> action = new MultiKeysConfigureNodes<List<Versioned<byte[]>>>(pipelineData,
+                                                                                                                       Event.COMPLETED,
+                                                                                                                       failureDetector,
+                                                                                                                       preferred,
+                                                                                                                       preferred - 1,
+                                                                                                                       routingStrategy,
+                                                                                                                       keys,
+                                                                                                                       null,
+                                                                                                                       null);
 
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);
@@ -94,7 +95,7 @@ public class GetAllConfigureNodesTest extends AbstractActionTest {
     }
 
     @Test(expected = InsufficientOperationalNodesException.class)
-    public void testConfigureNodesNotEnoughNodes() throws Exception {
+    public <T> void testConfigureNodesNotEnoughNodes() throws Exception {
         for(Node node: cluster.getNodes())
             failureDetector.recordException(node,
                                             0,
@@ -102,17 +103,17 @@ public class GetAllConfigureNodesTest extends AbstractActionTest {
                                                                           + getClass().getName()));
 
         RoutingStrategy routingStrategy = new RouteToAllStrategy(cluster.getNodes());
-        GetAllPipelineData pipelineData = new GetAllPipelineData();
+        MultiKeysPipelineData<List<Versioned<byte[]>>> pipelineData = new MultiKeysPipelineData<List<Versioned<byte[]>>>();
 
-        GetAllConfigureNodes action = new GetAllConfigureNodes(pipelineData,
-                                                               Event.COMPLETED,
-                                                               failureDetector,
-                                                               1,
-                                                               1,
-                                                               routingStrategy,
-                                                               Arrays.asList(aKey),
-                                                               null,
-                                                               null);
+        MultiKeysConfigureNodes<List<Versioned<byte[]>>> action = new MultiKeysConfigureNodes<List<Versioned<byte[]>>>(pipelineData,
+                                                                                                                       Event.COMPLETED,
+                                                                                                                       failureDetector,
+                                                                                                                       1,
+                                                                                                                       1,
+                                                                                                                       routingStrategy,
+                                                                                                                       Arrays.asList(aKey),
+                                                                                                                       null,
+                                                                                                                       null);
 
         Pipeline pipeline = new Pipeline(Operation.GET, 10000, TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED, action);

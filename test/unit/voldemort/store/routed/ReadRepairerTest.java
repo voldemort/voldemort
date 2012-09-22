@@ -159,6 +159,7 @@ public class ReadRepairerTest {
         RoutedStoreFactory routedStoreFactory = new RoutedStoreFactory(isPipelineRoutedStoreEnabled,
                                                                        routedStoreThreadPool,
                                                                        new TimeoutConfig(1000L,
+                                                                                         false,
                                                                                          false));
 
         RoutedStore store = routedStoreFactory.create(cluster,

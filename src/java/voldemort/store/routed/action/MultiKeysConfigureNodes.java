@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -27,7 +27,7 @@ import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.routed.HasKeysPipelineData;
+import voldemort.store.routed.MultiKeysPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
@@ -35,8 +35,8 @@ import voldemort.utils.ByteArray;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class HasKeysConfigureNodes extends
-        AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, Boolean>, HasKeysPipelineData> {
+public class MultiKeysConfigureNodes<T> extends
+        AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, T>, MultiKeysPipelineData<T>> {
 
     private final int preferred;
 
@@ -44,17 +44,21 @@ public class HasKeysConfigureNodes extends
 
     private final Zone clientZone;
 
-    public HasKeysConfigureNodes(HasKeysPipelineData pipelineData,
-                                 Event completeEvent,
-                                 FailureDetector failureDetector,
-                                 int preferred,
-                                 int required,
-                                 RoutingStrategy routingStrategy,
-                                 Iterable<ByteArray> keys,
-                                 Zone clientZone) {
+    private final Map<ByteArray, byte[]> transforms;
+
+    public MultiKeysConfigureNodes(MultiKeysPipelineData<T> pipelineData,
+                                   Event completeEvent,
+                                   FailureDetector failureDetector,
+                                   int preferred,
+                                   int required,
+                                   RoutingStrategy routingStrategy,
+                                   Iterable<ByteArray> keys,
+                                   Map<ByteArray, byte[]> transforms,
+                                   Zone clientZone) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.preferred = preferred;
         this.keys = keys;
+        this.transforms = transforms;
         this.clientZone = clientZone;
     }
 
@@ -150,6 +154,7 @@ public class HasKeysConfigureNodes extends
 
         pipelineData.setKeyToExtraNodesMap(keyToExtraNodesMap);
         pipelineData.setNodeToKeysMap(nodeToKeysMap);
+        pipelineData.setTransforms(transforms);
 
         pipeline.addEvent(completeEvent);
     }

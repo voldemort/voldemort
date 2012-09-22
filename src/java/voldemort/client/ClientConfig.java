@@ -56,7 +56,7 @@ public class ClientConfig {
     private volatile boolean socketKeepAlive = false;
     private volatile int selectors = 8;
     private volatile long routingTimeoutMs = 15000;
-    private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
+    private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false, false);
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
@@ -99,6 +99,7 @@ public class ClientConfig {
     public static final String GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY = "getversions_routing_timeout_ms";
     public static final String DELETE_ROUTING_TIMEOUT_MS_PROPERTY = "delete_routing_timeout_ms";
     public static final String ALLOW_PARTIAL_GETALLS_PROPERTY = "allow_partial_getalls";
+    public static final String ALLOW_PARTIAL_HASKEYS_PROPERTY = "allow_partial_haskeys";
     public static final String NODE_BANNAGE_MS_PROPERTY = "node_bannage_ms";
     public static final String SOCKET_BUFFER_SIZE_PROPERTY = "socket_buffer_size";
     public static final String SERIALIZER_FACTORY_CLASS_PROPERTY = "serializer_factory_class";
@@ -183,7 +184,7 @@ public class ClientConfig {
             this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
 
         // By default, make all the timeouts equal to routing timeout
-        timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
+        timeoutConfig = new TimeoutConfig(routingTimeoutMs, false, false);
 
         if(props.containsKey(GETALL_ROUTING_TIMEOUT_MS_PROPERTY))
             timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
@@ -210,7 +211,10 @@ public class ClientConfig {
                                               props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY));
 
         if(props.containsKey(ALLOW_PARTIAL_GETALLS_PROPERTY))
-            timeoutConfig.setPartialGetAllAllowed(props.getBoolean(ALLOW_PARTIAL_GETALLS_PROPERTY));
+            timeoutConfig.setPartialGetAllsAllowed(props.getBoolean(ALLOW_PARTIAL_GETALLS_PROPERTY));
+
+        if(props.containsKey(ALLOW_PARTIAL_HASKEYS_PROPERTY))
+            timeoutConfig.setPartialHasKeysAllowed(props.getBoolean(ALLOW_PARTIAL_HASKEYS_PROPERTY));
 
         if(props.containsKey(SOCKET_BUFFER_SIZE_PROPERTY))
             this.setSocketBufferSize(props.getInt(SOCKET_BUFFER_SIZE_PROPERTY));

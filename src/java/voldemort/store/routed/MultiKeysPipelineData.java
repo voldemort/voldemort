@@ -25,17 +25,14 @@ import org.apache.commons.lang.mutable.MutableInt;
 
 import voldemort.cluster.Node;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.Versioned;
 
 /**
  * This is used only by the "get all" operation as it includes data specific
  * only to that operation.
  */
+public class MultiKeysPipelineData<T> extends PipelineData<Iterable<ByteArray>, Map<ByteArray, T>> {
 
-public class GetAllPipelineData extends
-        PipelineData<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>> {
-
-    private final Map<ByteArray, List<Versioned<byte[]>>> result;
+    private final Map<ByteArray, T> result;
 
     // Keys for each node needed to satisfy storeDef.getPreferredReads() if
     // no failures.
@@ -53,8 +50,8 @@ public class GetAllPipelineData extends
 
     private Integer zonesRequired;
 
-    public GetAllPipelineData() {
-        this.result = new HashMap<ByteArray, List<Versioned<byte[]>>>();
+    public MultiKeysPipelineData() {
+        this.result = new HashMap<ByteArray, T>();
         this.keyToSuccessCount = new HashMap<ByteArray, MutableInt>();
         this.keyToZoneResponses = new HashMap<ByteArray, HashSet<Integer>>();
     }
@@ -63,7 +60,7 @@ public class GetAllPipelineData extends
         return this.keyToZoneResponses;
     }
 
-    public Map<ByteArray, List<Versioned<byte[]>>> getResult() {
+    public Map<ByteArray, T> getResult() {
         return result;
     }
 

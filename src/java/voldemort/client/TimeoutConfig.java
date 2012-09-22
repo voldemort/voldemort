@@ -12,16 +12,21 @@ public class TimeoutConfig {
 
     private HashMap<Byte, Long> timeoutMap;
 
-    private boolean partialGetAllAllowed;
+    private boolean partialGetAllsAllowed;
 
-    public TimeoutConfig(long globalTimeout, boolean allowPartialGetAlls) {
+    private boolean partialHasKeysAllowed;
+
+    public TimeoutConfig(long globalTimeout,
+                         boolean partialGetAllsAllowed,
+                         boolean partialHasKeysAllowed) {
         this(globalTimeout,
              globalTimeout,
              globalTimeout,
              globalTimeout,
              globalTimeout,
              globalTimeout,
-             allowPartialGetAlls);
+             partialGetAllsAllowed,
+             partialHasKeysAllowed);
     }
 
     public TimeoutConfig(long getTimeout,
@@ -30,7 +35,8 @@ public class TimeoutConfig {
                          long getAllTimeout,
                          long getVersionsTimeout,
                          long hasKeysTimeout,
-                         boolean allowPartialGetAlls) {
+                         boolean partialGetAllsAllowed,
+                         boolean partialHasKeysAllowed) {
         timeoutMap = new HashMap<Byte, Long>();
         timeoutMap.put(VoldemortOpCode.GET_OP_CODE, getTimeout);
         timeoutMap.put(VoldemortOpCode.PUT_OP_CODE, putTimeout);
@@ -38,7 +44,8 @@ public class TimeoutConfig {
         timeoutMap.put(VoldemortOpCode.GET_ALL_OP_CODE, getAllTimeout);
         timeoutMap.put(VoldemortOpCode.GET_VERSION_OP_CODE, getVersionsTimeout);
         timeoutMap.put(VoldemortOpCode.HAS_KEYS_OP_CODE, hasKeysTimeout);
-        setPartialGetAllAllowed(allowPartialGetAlls);
+        setPartialGetAllsAllowed(partialGetAllsAllowed);
+        setPartialHasKeysAllowed(partialHasKeysAllowed);
     }
 
     public long getOperationTimeout(Byte opCode) {
@@ -50,12 +57,20 @@ public class TimeoutConfig {
         timeoutMap.put(opCode, timeoutMs);
     }
 
-    public boolean isPartialGetAllAllowed() {
-        return partialGetAllAllowed;
+    public boolean isPartialGetAllsAllowed() {
+        return partialGetAllsAllowed;
     }
 
-    public void setPartialGetAllAllowed(boolean allowPartialGetAlls) {
-        this.partialGetAllAllowed = allowPartialGetAlls;
+    public void setPartialGetAllsAllowed(boolean partialGetAllsAllowed) {
+        this.partialGetAllsAllowed = partialGetAllsAllowed;
+    }
+
+    public boolean isPartialHasKeysAllowed() {
+        return partialHasKeysAllowed;
+    }
+
+    public void setPartialHasKeysAllowed(boolean partialHasKeysAllowed) {
+        this.partialHasKeysAllowed = partialHasKeysAllowed;
     }
 
 }

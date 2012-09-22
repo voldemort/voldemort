@@ -16,179 +16,56 @@
 
 package voldemort.store.routed.action;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.mutable.MutableInt;
-
-import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
-import voldemort.store.InsufficientOperationalNodesException;
 import voldemort.store.Store;
-import voldemort.store.routed.HasKeysPipelineData;
-import voldemort.store.routed.Pipeline;
+import voldemort.store.routed.MultiKeysPipelineData;
 import voldemort.store.routed.Pipeline.Event;
-import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
-import voldemort.utils.Time;
 
 import com.google.common.collect.Lists;
 
-public class PerformSerialHasKeysRequests extends
-        AbstractAction<Iterable<ByteArray>, Map<ByteArray, Boolean>, HasKeysPipelineData> {
-
-    private final Iterable<ByteArray> keys;
-
-    private final FailureDetector failureDetector;
-
-    private final Map<Integer, Store<ByteArray, byte[], byte[]>> stores;
-
-    private final int preferred;
-
-    private final int required;
+public class PerformSerialHasKeysRequests extends PerformSerialMultiKeysRequests<Boolean> {
 
     private final boolean exact;
 
-    public PerformSerialHasKeysRequests(HasKeysPipelineData pipelineData,
+    public PerformSerialHasKeysRequests(MultiKeysPipelineData<Boolean> pipelineData,
                                         Event completeEvent,
                                         Iterable<ByteArray> keys,
                                         boolean exact,
                                         FailureDetector failureDetector,
                                         Map<Integer, Store<ByteArray, byte[], byte[]>> stores,
                                         int preferred,
-                                        int required) {
-        super(pipelineData, completeEvent);
-        this.keys = keys;
-        this.failureDetector = failureDetector;
-        this.stores = stores;
-        this.preferred = preferred;
-        this.required = required;
+                                        int required,
+                                        boolean allowPartial) {
+        super(pipelineData,
+              completeEvent,
+              keys,
+              failureDetector,
+              stores,
+              preferred,
+              required,
+              allowPartial);
         this.exact = exact;
     }
 
-    public void execute(Pipeline pipeline) {
-        Map<ByteArray, Boolean> result = pipelineData.getResult();
+    @Override
+    public Boolean transform(Store<ByteArray, byte[], byte[]> store,
+                             Map<ByteArray, Boolean> result,
+                             ByteArray key) {
+        Map<ByteArray, Boolean> values = store.hasKeys(Lists.newArrayList(key), exact);
 
-        for(ByteArray key: keys) {
-            boolean zoneRequirement = false;
-            MutableInt successCount = pipelineData.getSuccessCount(key);
+        Boolean retrieved = values.get(key);
+        if(retrieved == null)
+            retrieved = false;
 
-            if(logger.isDebugEnabled())
-                logger.debug("HASKEYS for key " + ByteUtils.toHexString(key.get()) + " (keyRef: "
-                             + System.identityHashCode(key) + ") successes: "
-                             + successCount.intValue() + " preferred: " + preferred + " required: "
-                             + required);
-
-            if(successCount.intValue() >= preferred) {
-                if(pipelineData.getZonesRequired() != null && pipelineData.getZonesRequired() > 0) {
-
-                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
-                        int zonesSatisfied = pipelineData.getKeyToZoneResponse().get(key).size();
-                        if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
-                            continue;
-                        } else {
-                            zoneRequirement = true;
-                        }
-                    } else {
-                        zoneRequirement = true;
-                    }
-
-                } else {
-                    continue;
-                }
-            }
-
-            List<Node> extraNodes = pipelineData.getKeyToExtraNodesMap().get(key);
-
-            if(extraNodes == null)
-                continue;
-
-            for(Node node: extraNodes) {
-                long start = System.nanoTime();
-
-                try {
-                    Store<ByteArray, byte[], byte[]> store = stores.get(node.getId());
-                    Map<ByteArray, Boolean> values = store.hasKeys(Lists.newArrayList(key), exact);
-
-                    Boolean retrieved = values.get(key);
-                    if(retrieved == null)
-                        retrieved = false;
-
-                    Boolean existing = result.get(key);
-                    if(existing == null)
-                        result.put(key, retrieved);
-                    else
-                        result.put(key, retrieved | existing);
-
-                    Map<ByteArray, Boolean> map = new HashMap<ByteArray, Boolean>();
-                    map.put(key, result.get(key));
-
-                    Response<Iterable<ByteArray>, Map<ByteArray, Boolean>> response = new Response<Iterable<ByteArray>, Map<ByteArray, Boolean>>(node,
-                                                                                                                                                 Arrays.asList(key),
-                                                                                                                                                 map,
-                                                                                                                                                 ((System.nanoTime() - start) / Time.NS_PER_MS));
-
-                    successCount.increment();
-                    pipelineData.getResponses().add(response);
-                    failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
-
-                    if(logger.isDebugEnabled())
-                        logger.debug("HASKEY for key " + ByteUtils.toHexString(key.get())
-                                     + " (keyRef: " + System.identityHashCode(key)
-                                     + ") successes: " + successCount.intValue() + " preferred: "
-                                     + preferred + " required: " + required
-                                     + " new GET success on node " + node.getId());
-
-                    HashSet<Integer> zoneResponses = null;
-                    if(pipelineData.getKeyToZoneResponse().containsKey(key)) {
-                        zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
-                    } else {
-                        zoneResponses = new HashSet<Integer>();
-                        pipelineData.getKeyToZoneResponse().put(key, zoneResponses);
-                    }
-                    zoneResponses.add(response.getNode().getZoneId());
-
-                    if(zoneRequirement) {
-                        if(zoneResponses.size() >= pipelineData.getZonesRequired())
-                            break;
-                    } else {
-                        if(successCount.intValue() >= preferred)
-                            break;
-                    }
-
-                } catch(Exception e) {
-                    long requestTime = (System.nanoTime() - start) / Time.NS_PER_MS;
-
-                    if(handleResponseError(e, node, requestTime, pipeline, failureDetector))
-                        return;
-                }
-            }
-        }
-
-        for(ByteArray key: keys) {
-            MutableInt successCount = pipelineData.getSuccessCount(key);
-
-            if(successCount.intValue() < required) {
-                // if we allow partial results, then just remove keys that did
-                pipelineData.setFatalError(new InsufficientOperationalNodesException(required
-                                                                                             + " "
-                                                                                             + pipeline.getOperation()
-                                                                                                       .getSimpleName()
-                                                                                             + "s required, but "
-                                                                                             + successCount.intValue()
-                                                                                             + " succeeded. Failing nodes : "
-                                                                                             + pipelineData.getFailedNodes(),
-                                                                                     pipelineData.getFailures()));
-                pipeline.addEvent(Event.ERROR);
-                return;
-            }
-        }
-
-        pipeline.addEvent(completeEvent);
+        Boolean existing = result.get(key);
+        if(existing == null)
+            result.put(key, retrieved);
+        else
+            result.put(key, retrieved | existing);
+        return retrieved;
     }
 
 }

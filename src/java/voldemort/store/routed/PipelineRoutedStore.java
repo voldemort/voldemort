@@ -37,10 +37,9 @@ import voldemort.store.nonblockingstore.NonblockingStore;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Pipeline.Operation;
 import voldemort.store.routed.action.ConfigureNodes;
-import voldemort.store.routed.action.GetAllConfigureNodes;
 import voldemort.store.routed.action.GetAllReadRepair;
-import voldemort.store.routed.action.HasKeysConfigureNodes;
 import voldemort.store.routed.action.IncrementClock;
+import voldemort.store.routed.action.MultiKeysConfigureNodes;
 import voldemort.store.routed.action.PerformDeleteHintedHandoff;
 import voldemort.store.routed.action.PerformParallelDeleteRequests;
 import voldemort.store.routed.action.PerformParallelGetAllRequests;
@@ -295,7 +294,7 @@ public class PipelineRoutedStore extends RoutedStore {
 
         boolean allowReadRepair = repairReads && (transforms == null || transforms.size() == 0);
 
-        GetAllPipelineData pipelineData = new GetAllPipelineData();
+        MultiKeysPipelineData<List<Versioned<byte[]>>> pipelineData = new MultiKeysPipelineData<List<Versioned<byte[]>>>();
         if(zoneRoutingEnabled)
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
@@ -306,15 +305,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                          timeoutConfig.getOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE),
                                          TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED,
-                                new GetAllConfigureNodes(pipelineData,
-                                                         Event.CONFIGURED,
-                                                         failureDetector,
-                                                         storeDef.getPreferredReads(),
-                                                         storeDef.getRequiredReads(),
-                                                         routingStrategy,
-                                                         keys,
-                                                         transforms,
-                                                         clientZone));
+                                new MultiKeysConfigureNodes<List<Versioned<byte[]>>>(pipelineData,
+                                                                                     Event.CONFIGURED,
+                                                                                     failureDetector,
+                                                                                     storeDef.getPreferredReads(),
+                                                                                     storeDef.getRequiredReads(),
+                                                                                     routingStrategy,
+                                                                                     keys,
+                                                                                     transforms,
+                                                                                     clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelGetAllRequests(pipelineData,
                                                                   Event.INSUFFICIENT_SUCCESSES,
@@ -330,7 +329,7 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                 innerStores,
                                                                 storeDef.getPreferredReads(),
                                                                 storeDef.getRequiredReads(),
-                                                                timeoutConfig.isPartialGetAllAllowed()));
+                                                                timeoutConfig.isPartialGetAllsAllowed()));
 
         if(allowReadRepair)
             pipeline.addEventAction(Event.RESPONSES_RECEIVED,
@@ -384,7 +383,7 @@ public class PipelineRoutedStore extends RoutedStore {
             startTimeNs = System.nanoTime();
         }
 
-        HasKeysPipelineData pipelineData = new HasKeysPipelineData();
+        MultiKeysPipelineData<Boolean> pipelineData = new MultiKeysPipelineData<Boolean>();
         if(zoneRoutingEnabled)
             pipelineData.setZonesRequired(storeDef.getZoneCountReads());
         else
@@ -395,14 +394,15 @@ public class PipelineRoutedStore extends RoutedStore {
                                          timeoutConfig.getOperationTimeout(VoldemortOpCode.HAS_KEYS_OP_CODE),
                                          TimeUnit.MILLISECONDS);
         pipeline.addEventAction(Event.STARTED,
-                                new HasKeysConfigureNodes(pipelineData,
-                                                          Event.CONFIGURED,
-                                                          failureDetector,
-                                                          storeDef.getPreferredReads(),
-                                                          storeDef.getRequiredReads(),
-                                                          routingStrategy,
-                                                          keys,
-                                                          clientZone));
+                                new MultiKeysConfigureNodes<Boolean>(pipelineData,
+                                                                     Event.CONFIGURED,
+                                                                     failureDetector,
+                                                                     storeDef.getPreferredReads(),
+                                                                     storeDef.getRequiredReads(),
+                                                                     routingStrategy,
+                                                                     keys,
+                                                                     null,
+                                                                     clientZone));
         pipeline.addEventAction(Event.CONFIGURED,
                                 new PerformParallelHasKeysRequests(pipelineData,
                                                                    Event.INSUFFICIENT_SUCCESSES,
@@ -418,7 +418,8 @@ public class PipelineRoutedStore extends RoutedStore {
                                                                  failureDetector,
                                                                  innerStores,
                                                                  storeDef.getPreferredReads(),
-                                                                 storeDef.getRequiredReads()));
+                                                                 storeDef.getRequiredReads(),
+                                                                 timeoutConfig.isPartialHasKeysAllowed()));
 
         pipeline.addEvent(Event.STARTED);
 
