@@ -27,18 +27,16 @@ import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.routed.GetAllPipelineData;
+import voldemort.store.routed.MultiKeysPipelineData;
 import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-public class GetAllConfigureNodes
-        extends
-        AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
+public class MultiKeysConfigureNodes<T> extends
+        AbstractConfigureNodes<Iterable<ByteArray>, Map<ByteArray, T>, MultiKeysPipelineData<T>> {
 
     private final int preferred;
 
@@ -48,15 +46,15 @@ public class GetAllConfigureNodes
 
     private final Map<ByteArray, byte[]> transforms;
 
-    public GetAllConfigureNodes(GetAllPipelineData pipelineData,
-                                Event completeEvent,
-                                FailureDetector failureDetector,
-                                int preferred,
-                                int required,
-                                RoutingStrategy routingStrategy,
-                                Iterable<ByteArray> keys,
-                                Map<ByteArray, byte[]> transforms,
-                                Zone clientZone) {
+    public MultiKeysConfigureNodes(MultiKeysPipelineData<T> pipelineData,
+                                   Event completeEvent,
+                                   FailureDetector failureDetector,
+                                   int preferred,
+                                   int required,
+                                   RoutingStrategy routingStrategy,
+                                   Iterable<ByteArray> keys,
+                                   Map<ByteArray, byte[]> transforms,
+                                   Zone clientZone) {
         super(pipelineData, completeEvent, failureDetector, required, routingStrategy);
         this.preferred = preferred;
         this.keys = keys;

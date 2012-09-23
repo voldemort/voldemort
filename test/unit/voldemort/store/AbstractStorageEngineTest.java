@@ -16,6 +16,7 @@
 
 package voldemort.store;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,33 @@ public abstract class AbstractStorageEngineTest extends AbstractByteArrayStoreTe
     }
 
     public abstract StorageEngine<ByteArray, byte[], byte[]> getStorageEngine();
+
+    public void testHasKeys() {
+        StorageEngine<ByteArray, byte[], byte[]> store = getStorageEngine();
+        StorageEngine<String, String, String> stringStore = new SerializingStorageEngine<String, String, String>(store,
+                                                                                                                 new StringSerializer(),
+                                                                                                                 new StringSerializer(),
+                                                                                                                 new StringSerializer());
+        Map<String, String> vals = new HashMap<String, String>();
+        for(int i = 0; i < 100; i++) {
+            vals.put("" + i, "" + i);
+            stringStore.put("" + i, new Versioned<String>("" + i), null);
+        }
+
+        for(int i = 100; i < 200; i++) {
+            vals.put("" + i, "" + i);
+        }
+
+        Map<String, Boolean> results = stringStore.hasKeys(vals.keySet(), true);
+
+        for(int i = 0; i < 100; i++) {
+            assertEquals(results.get("" + i), new Boolean(true));
+        }
+
+        for(int i = 100; i < 200; i++) {
+            assertEquals(results.get("" + i), new Boolean(false));
+        }
+    }
 
     public void testGetNoEntries() {
         ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> it = null;

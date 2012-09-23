@@ -47,6 +47,18 @@ public class ThreadPoolBasedNonblockingStoreImpl implements NonblockingStore {
         this.innerStore = Utils.notNull(innerStore);
     }
 
+    public void submitHasKeysRequest(final Iterable<ByteArray> keys,
+                                     final boolean exact,
+                                     final NonblockingStoreCallback callback,
+                                     long timeoutMs) {
+        submit(new StoreRequest<Map<ByteArray, Boolean>>() {
+
+            public Map<ByteArray, Boolean> request(Store<ByteArray, byte[], byte[]> store) {
+                return innerStore.hasKeys(keys, exact);
+            }
+        }, callback, timeoutMs, "has keys");
+    }
+
     public void submitGetAllRequest(final Iterable<ByteArray> keys,
                                     final Map<ByteArray, byte[]> transforms,
                                     final NonblockingStoreCallback callback,

@@ -171,7 +171,7 @@ public class HintedHandoffTest {
         routedStoreThreadPool = Executors.newFixedThreadPool(NUM_THREADS);
         routedStoreFactory = new RoutedStoreFactory(true,
                                                     routedStoreThreadPool,
-                                                    new TimeoutConfig(1500L, false));
+                                                    new TimeoutConfig(1500L, false, false));
         strategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef, cluster);
 
         Map<Integer, NonblockingStore> nonblockingSlopStores = Maps.newHashMap();

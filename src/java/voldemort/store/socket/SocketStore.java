@@ -46,6 +46,7 @@ import voldemort.store.socket.clientrequest.DeleteClientRequest;
 import voldemort.store.socket.clientrequest.GetAllClientRequest;
 import voldemort.store.socket.clientrequest.GetClientRequest;
 import voldemort.store.socket.clientrequest.GetVersionsClientRequest;
+import voldemort.store.socket.clientrequest.HasKeysClientRequest;
 import voldemort.store.socket.clientrequest.PutClientRequest;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Time;
@@ -138,6 +139,22 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
         requestAsync(clientRequest, callback, timeoutMs, "get all");
     }
 
+    public void submitHasKeysRequest(Iterable<ByteArray> keys,
+                                     boolean exact,
+                                     NonblockingStoreCallback callback,
+                                     long timeoutMs) {
+        StoreUtils.assertValidKeys(keys);
+        HasKeysClientRequest clientRequest = new HasKeysClientRequest(storeName,
+                                                                      requestFormat,
+                                                                      requestRoutingType,
+                                                                      keys,
+                                                                      exact);
+        if(logger.isDebugEnabled())
+            logger.debug("HASKEYS keyRef: " + System.identityHashCode(keys) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
+        requestAsync(clientRequest, callback, timeoutMs, "has keys");
+    }
+
     public void submitGetVersionsRequest(ByteArray key,
                                          NonblockingStoreCallback callback,
                                          long timeoutMs) {
@@ -209,6 +226,19 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
             logger.debug("GETALL keyRef: " + System.identityHashCode(keys) + " requestRef: "
                          + System.identityHashCode(clientRequest));
         return request(clientRequest, "getAll");
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        StoreUtils.assertValidKeys(keys);
+        HasKeysClientRequest clientRequest = new HasKeysClientRequest(storeName,
+                                                                      requestFormat,
+                                                                      requestRoutingType,
+                                                                      keys,
+                                                                      exact);
+        if(logger.isDebugEnabled())
+            logger.debug("HASKEYS keyRef: " + System.identityHashCode(keys) + " requestRef: "
+                         + System.identityHashCode(clientRequest));
+        return request(clientRequest, "hasKeys");
     }
 
     public List<Version> getVersions(ByteArray key) {
@@ -444,8 +474,7 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
                                      + ":"
                                      + clientRequestExecutor.getSocketChannel()
                                                             .socket()
-                                                            .getLocalPort() + " result: "
-                                     + o);
+                                                            .getLocalPort() + " result: " + o);
                     }
 
                     callback.requestComplete(o, requestTime);

@@ -73,6 +73,11 @@ public interface NonblockingStore {
                                     NonblockingStoreCallback callback,
                                     long timeoutMs);
 
+    public void submitHasKeysRequest(Iterable<ByteArray> keys,
+                                     boolean exact,
+                                     NonblockingStoreCallback callback,
+                                     long timeoutMs);
+
     public void submitGetVersionsRequest(ByteArray key,
                                          NonblockingStoreCallback callback,
                                          long timeoutMs);

@@ -261,6 +261,61 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return bdbDatabase;
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+
+        long startTimeNs = -1;
+
+        if(logger.isTraceEnabled())
+            startTimeNs = System.nanoTime();
+
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, Boolean> result = StoreUtils.newEmptyHashMap(keys);
+        Cursor cursor = null;
+
+        String keyStr = "";
+
+        try {
+            cursor = getBdbDatabase().openCursor(null, null);
+            for(ByteArray key: keys) {
+
+                if(logger.isTraceEnabled())
+                    keyStr += ByteUtils.toHexString(key.get()) + " ";
+
+                DatabaseEntry keyEntry = new DatabaseEntry(key.get());
+                DatabaseEntry valueEntry = new DatabaseEntry();
+                valueEntry.setPartial(0, 0, true);
+
+                OperationStatus status = cursor.getSearchKey(keyEntry,
+                                                             valueEntry,
+                                                             LockMode.READ_UNCOMMITTED);
+
+                if(status == OperationStatus.SUCCESS) {
+                    result.put(key, true);
+                } else {
+                    result.put(key, false);
+                }
+
+                if(logger.isTraceEnabled()) {
+                    logger.trace("Completed HASKEY from key " + ByteUtils.toHexString(key.get())
+                                 + " in " + (System.nanoTime() - startTimeNs) + " ns at "
+                                 + System.currentTimeMillis());
+                }
+            }
+        } catch(DatabaseException e) {
+            logger.error(e);
+            throw new PersistenceFailureException(e);
+        } finally {
+            attemptClose(cursor);
+        }
+
+        if(logger.isTraceEnabled())
+            logger.trace("Completed HASKEYS from keys " + keyStr + " in "
+                         + (System.nanoTime() - startTimeNs) + " ns at "
+                         + System.currentTimeMillis());
+
+        return result;
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {

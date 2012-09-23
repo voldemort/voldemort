@@ -285,7 +285,7 @@ public class VoldemortConfig implements Serializable {
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
-        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
+        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false, false);
         this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
                                                      props.getInt("client.routing.get.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
@@ -301,8 +301,10 @@ public class VoldemortConfig implements Serializable {
         this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
                                                      props.getInt("client.routing.delete.timeout.ms",
                                                                   this.clientRoutingTimeoutMs));
-        this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",
-                                                                          false));
+        this.clientTimeoutConfig.setPartialGetAllsAllowed(props.getBoolean("client.routing.allow.partial.getall",
+                                                                           false));
+        this.clientTimeoutConfig.setPartialHasKeysAllowed(props.getBoolean("client.routing.allow.partial.haskeys",
+                                                                           false));
         this.clientMaxThreads = props.getInt("client.max.threads", 500);
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);

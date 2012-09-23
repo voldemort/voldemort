@@ -37,6 +37,10 @@ public class FailingReadsStore<K, V, T> implements Store<K, V, T> {
         throw new VoldemortException("Operation failed");
     }
 
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
+        throw new VoldemortException("Operation failed");
+    }
+
     public Object getCapability(StoreCapabilityType capability) {
         throw new NoSuchCapabilityException(capability, getName());
     }
@@ -48,4 +52,5 @@ public class FailingReadsStore<K, V, T> implements Store<K, V, T> {
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         engine.put(key, value, transforms);
     }
+
 }

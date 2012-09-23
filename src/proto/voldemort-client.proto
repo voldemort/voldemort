@@ -29,6 +29,11 @@ message KeyedVersions {
   repeated Versioned versions = 2;
 }
 
+message KeyedBoolean {
+  required bytes key = 1;
+  required bool present = 2;
+}
+
 message GetRequest {
   optional bytes key = 1;
   optional bytes transforms = 2;
@@ -59,6 +64,16 @@ message GetAllResponse {
   optional Error error = 2;
 }
 
+message HasKeysRequest {
+  repeated bytes keys = 1;
+  required bool exact = 2;
+}
+
+message HasKeysResponse {
+  repeated KeyedBoolean values = 1;
+  optional Error error = 2;
+}
+
 message PutRequest {
   required bytes key = 1;
   required Versioned versioned = 2;
@@ -85,6 +100,7 @@ enum RequestType {
   PUT = 2;
   DELETE = 3;
   GET_VERSION = 4;
+  HAS_KEYS = 5;
 }
 
 
@@ -97,4 +113,5 @@ message VoldemortRequest {
   optional PutRequest put = 6;
   optional DeleteRequest delete = 7;
   optional int32 requestRouteType = 8;
+  optional HasKeysRequest hasKeys = 9;
 }

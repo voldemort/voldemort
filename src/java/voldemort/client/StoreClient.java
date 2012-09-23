@@ -206,4 +206,16 @@ public interface StoreClient<K, V> {
      * @return a list of Nodes which should hold this key
      */
     public List<Node> getResponsibleNodes(K key);
+
+    /**
+     * Given a set of keys, check if it exists
+     * 
+     * @param keys Set of keys to check
+     * @param exact Do we want an exact answer? If set to false we can get some
+     *        false positives as well ( and will be faster )
+     * @return Map of key to boolean. The guarantee is number of keys = number
+     *         of input keys
+     */
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact);
+
 }

@@ -21,6 +21,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -496,6 +497,41 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             } else {
                 return Collections.emptyList();
             }
+        } finally {
+            fileModificationLock.readLock().unlock();
+        }
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, Boolean> results = new HashMap<ByteArray, Boolean>();
+        try {
+            fileModificationLock.readLock().lock();
+            List<KeyValueLocation> keysAndValueLocations = Lists.newArrayList();
+            for(ByteArray key: keys) {
+                int chunk = fileSet.getChunkForKey(key.get());
+                int valueLocation = searchStrategy.indexOf(fileSet.indexFileFor(chunk),
+                                                           fileSet.keyToStorageFormat(key.get()),
+                                                           fileSet.getIndexFileSize(chunk));
+                if(valueLocation >= 0) {
+                    if(exact)
+                        keysAndValueLocations.add(new KeyValueLocation(chunk, key, valueLocation));
+                    else
+                        results.put(key, true);
+                }
+            }
+
+            if(exact) {
+                Collections.sort(keysAndValueLocations);
+
+                for(KeyValueLocation keyVal: keysAndValueLocations) {
+                    results.put(keyVal.getKey(),
+                                fileSet.keyExists(keyVal.getKey().get(),
+                                                  keyVal.getChunk(),
+                                                  keyVal.getValueLocation()));
+                }
+            }
+            return results;
         } finally {
             fileModificationLock.readLock().unlock();
         }

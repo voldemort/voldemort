@@ -148,7 +148,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     }
 
     public void close() throws PersistenceFailureException {
-    // don't close datasource cause others could be using it
+        // don't close datasource cause others could be using it
     }
 
     public Object getCapability(StoreCapabilityType capability) {
@@ -199,6 +199,11 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         } finally {
             tryClose(deleteStmt);
         }
+    }
+
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        StoreUtils.assertValidKeys(keys);
+        return StoreUtils.hasKeys(this, keys);
     }
 
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,

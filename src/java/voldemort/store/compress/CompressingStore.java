@@ -59,6 +59,20 @@ public class CompressingStore implements Store<ByteArray, byte[], byte[]> {
         this.innerStore = Utils.notNull(innerStore);
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        StoreUtils.assertValidKeys(keys);
+        Map<ByteArray, ByteArray> deflatedToOriginalKeys = Maps.newHashMap();
+        for(ByteArray key: keys)
+            deflatedToOriginalKeys.put(deflateKey(key), key);
+        Map<ByteArray, Boolean> deflatedToBoolean = innerStore.hasKeys(deflatedToOriginalKeys.keySet(),
+                                                                       exact);
+        Map<ByteArray, Boolean> originalToBoolean = Maps.newHashMapWithExpectedSize(deflatedToBoolean.size());
+        for(Map.Entry<ByteArray, Boolean> entry: deflatedToBoolean.entrySet()) {
+            originalToBoolean.put(deflatedToOriginalKeys.get(entry.getKey()), entry.getValue());
+        }
+        return originalToBoolean;
+    }
+
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {

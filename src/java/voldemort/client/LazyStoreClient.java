@@ -122,4 +122,9 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
     public List<Node> getResponsibleNodes(K key) {
         return getStoreClient().getResponsibleNodes(key);
     }
+
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
+        return getStoreClient().hasKeys(keys, exact);
+    }
+
 }

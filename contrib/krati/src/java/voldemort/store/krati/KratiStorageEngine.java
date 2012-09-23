@@ -104,6 +104,10 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        return StoreUtils.hasKeys(this, keys);
+    }
+
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         List<Pair<ByteArray, Versioned<byte[]>>> returnedList = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
         DataArray array = datastore.getDataArray();

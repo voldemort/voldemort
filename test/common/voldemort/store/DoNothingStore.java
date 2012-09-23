@@ -38,7 +38,7 @@ public class DoNothingStore<K, V, T> implements Store<K, V, T> {
     }
 
     public void close() throws VoldemortException {
-    // Do nothing;
+        // Do nothing;
     }
 
     public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
@@ -56,7 +56,7 @@ public class DoNothingStore<K, V, T> implements Store<K, V, T> {
     }
 
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
-    // Do nothing
+        // Do nothing
     }
 
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
@@ -69,6 +69,11 @@ public class DoNothingStore<K, V, T> implements Store<K, V, T> {
     }
 
     public List<Version> getVersions(K key) {
+        // Do nothing
+        return null;
+    }
+
+    public Map<K, Boolean> hasKeys(Iterable<K> keys, boolean exact) {
         // Do nothing
         return null;
     }

@@ -21,18 +21,18 @@ import java.util.List;
 import java.util.Map;
 
 import voldemort.store.nonblockingstore.NonblockingStore;
-import voldemort.store.routed.GetAllPipelineData;
+import voldemort.store.routed.MultiKeysPipelineData;
+import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.ReadRepairer;
 import voldemort.store.routed.Response;
-import voldemort.store.routed.Pipeline.Event;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 public class GetAllReadRepair
         extends
-        AbstractReadRepair<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, GetAllPipelineData> {
+        AbstractReadRepair<Iterable<ByteArray>, Map<ByteArray, List<Versioned<byte[]>>>, MultiKeysPipelineData<List<Versioned<byte[]>>>> {
 
-    public GetAllReadRepair(GetAllPipelineData pipelineData,
+    public GetAllReadRepair(MultiKeysPipelineData<List<Versioned<byte[]>>> pipelineData,
                             Event completeEvent,
                             int preferred,
                             long timeoutMs,

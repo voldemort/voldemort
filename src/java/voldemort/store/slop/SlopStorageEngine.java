@@ -103,6 +103,10 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
         return slopEngine.getAll(keys, transforms);
     }
 
+    public Map<ByteArray, Boolean> hasKeys(Iterable<ByteArray> keys, boolean exact) {
+        return slopEngine.hasKeys(keys, exact);
+    }
+
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         slopEngine.put(key, value, transforms);

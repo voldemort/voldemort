@@ -29,6 +29,7 @@ import voldemort.client.protocol.pb.VProto.DeleteResponse;
 import voldemort.client.protocol.pb.VProto.GetAllResponse;
 import voldemort.client.protocol.pb.VProto.GetResponse;
 import voldemort.client.protocol.pb.VProto.GetVersionResponse;
+import voldemort.client.protocol.pb.VProto.HasKeysResponse;
 import voldemort.client.protocol.pb.VProto.PutResponse;
 import voldemort.client.protocol.pb.VProto.RequestType;
 import voldemort.server.RequestRoutingType;
@@ -240,6 +241,43 @@ public class ProtoBuffClientRequestFormat implements RequestFormat {
     private boolean isCompleteResponse(ByteBuffer buffer) {
         int size = buffer.getInt();
         return buffer.remaining() == size;
+    }
+
+    public void writeHasKeysRequest(DataOutputStream output,
+                                    String storeName,
+                                    Iterable<ByteArray> keys,
+                                    boolean exact,
+                                    RequestRoutingType routingType) throws IOException {
+        StoreUtils.assertValidKeys(keys);
+
+        VProto.HasKeysRequest.Builder req = VProto.HasKeysRequest.newBuilder();
+        for(ByteArray key: keys)
+            req.addKeys(ByteString.copyFrom(key.get()));
+        req.setExact(exact);
+
+        ProtoUtils.writeMessage(output,
+                                VProto.VoldemortRequest.newBuilder()
+                                                       .setType(RequestType.HAS_KEYS)
+                                                       .setStore(storeName)
+                                                       .setShouldRoute(routingType.equals(RequestRoutingType.ROUTED))
+                                                       .setRequestRouteType(routingType.getRoutingTypeCode())
+                                                       .setHasKeys(req)
+                                                       .build());
+    }
+
+    public Map<ByteArray, Boolean> readHasKeysResponse(DataInputStream input) throws IOException {
+        HasKeysResponse.Builder response = ProtoUtils.readToBuilder(input,
+                                                                    HasKeysResponse.newBuilder());
+        if(response.hasError())
+            throwException(response.getError());
+        Map<ByteArray, Boolean> vals = new HashMap<ByteArray, Boolean>(response.getValuesCount());
+        for(VProto.KeyedBoolean versions: response.getValuesList())
+            vals.put(ProtoUtils.decodeBytes(versions.getKey()), versions.getPresent());
+        return vals;
+    }
+
+    public boolean isCompleteHasKeysResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer);
     }
 
 }

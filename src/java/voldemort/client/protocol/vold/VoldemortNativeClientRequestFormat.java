@@ -173,6 +173,47 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
         }
     }
 
+    public void writeHasKeysRequest(DataOutputStream output,
+                                    String storeName,
+                                    Iterable<ByteArray> keys,
+                                    boolean exact,
+                                    RequestRoutingType routingType) throws IOException {
+        StoreUtils.assertValidKeys(keys);
+        output.writeByte(VoldemortOpCode.HAS_KEYS_OP_CODE);
+        output.writeUTF(storeName);
+        output.writeBoolean(routingType.equals(RequestRoutingType.ROUTED));
+        if(protocolVersion > 1) {
+            output.writeByte(routingType.getRoutingTypeCode());
+        }
+        // write out keys
+        List<ByteArray> l = new ArrayList<ByteArray>();
+        for(ByteArray key: keys)
+            l.add(key);
+        output.writeInt(l.size());
+        for(ByteArray key: keys) {
+            output.writeInt(key.length());
+            output.write(key.get());
+        }
+        output.writeBoolean(exact);
+    }
+
+    public Map<ByteArray, Boolean> readHasKeysResponse(DataInputStream stream) throws IOException {
+        checkException(stream);
+        int numResults = stream.readInt();
+        Map<ByteArray, Boolean> results = new HashMap<ByteArray, Boolean>(numResults);
+        for(int i = 0; i < numResults; i++) {
+            int keySize = stream.readInt();
+            byte[] key = new byte[keySize];
+            stream.readFully(key);
+            results.put(new ByteArray(key), stream.readBoolean());
+        }
+        return results;
+    }
+
+    public boolean isCompleteHasKeysResponse(ByteBuffer buffer) {
+        return isCompleteResponse(buffer, VoldemortOpCode.HAS_KEYS_OP_CODE);
+    }
+
     public boolean isCompleteGetAllResponse(ByteBuffer buffer) {
         return isCompleteResponse(buffer, VoldemortOpCode.GET_ALL_OP_CODE);
     }
@@ -296,6 +337,10 @@ public class VoldemortNativeClientRequestFormat implements RequestFormat {
 
                     case VoldemortOpCode.PUT_OP_CODE:
                         readPutResponse(inputStream);
+                        break;
+
+                    case VoldemortOpCode.HAS_KEYS_OP_CODE:
+                        readHasKeysResponse(inputStream);
                         break;
                 }
             } catch(VoldemortException e) {

@@ -233,7 +233,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
     }
 
     public ClosableIterator<String> keys() {
-        throw new VoldemortException("keys iteration not supported.");
+        throw new VoldemortException("Keys iteration not supported.");
     }
 
     public void truncate() {
@@ -242,5 +242,9 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
 
     public boolean isPartitionAware() {
         return false;
+    }
+
+    public Map<String, Boolean> hasKeys(Iterable<String> keys, boolean exact) {
+        throw new VoldemortException("Has keys operation not supported in ConfigurationStorageEngine");
     }
 }

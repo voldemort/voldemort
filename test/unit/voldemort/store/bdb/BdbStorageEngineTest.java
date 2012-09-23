@@ -19,6 +19,7 @@ package voldemort.store.bdb;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +41,7 @@ import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Lists;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.Durability;
@@ -103,9 +105,16 @@ public class BdbStorageEngineTest extends AbstractStorageEngineTest {
         this.environment = new Environment(this.tempDir, envConfig);
         this.database = environment.openDatabase(null, "test", databaseConfig);
         this.store = new BdbStorageEngine("test", this.environment, this.database, runtimeConfig);
-        List<Versioned<byte[]>> vals = store.get(new ByteArray("abc".getBytes()), null);
+        ByteArray key = new ByteArray("abc".getBytes());
+        ByteArray nonAvailableKey = new ByteArray("cde".getBytes());
+        List<Versioned<byte[]>> vals = store.get(key, null);
         assertEquals(1, vals.size());
         TestUtils.bytesEqual("cdef".getBytes(), vals.get(0).getValue());
+        Map<ByteArray, Boolean> returnedHasKeys = store.hasKeys(Lists.newArrayList(key,
+                                                                                   nonAvailableKey),
+                                                                true);
+        assertTrue(returnedHasKeys.get(key));
+        assertTrue(!returnedHasKeys.containsKey(nonAvailableKey));
     }
 
     public void testEquals() {
