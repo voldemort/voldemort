@@ -76,6 +76,9 @@ public class StoreUtils {
     public static <K, V, T> Map<K, Boolean> hasKeys(Store<K, V, T> storageEngine, Iterable<K> keys) {
         Map<K, List<Versioned<V>>> result = storageEngine.getAll(keys, null);
         Map<K, Boolean> returnResult = new HashMap<K, Boolean>();
+        for(K key: keys) {
+            returnResult.put(key, false);
+        }
         for(Map.Entry<K, List<Versioned<V>>> entry: result.entrySet()) {
             if(entry.getValue() != null && entry.getValue().size() > 0)
                 returnResult.put(entry.getKey(), true);

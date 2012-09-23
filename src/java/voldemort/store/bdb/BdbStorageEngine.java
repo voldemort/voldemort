@@ -291,6 +291,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
                 if(status == OperationStatus.SUCCESS) {
                     result.put(key, true);
+                } else {
+                    result.put(key, false);
                 }
 
                 if(logger.isTraceEnabled()) {

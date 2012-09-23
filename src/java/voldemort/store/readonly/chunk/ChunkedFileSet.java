@@ -463,6 +463,69 @@ public class ChunkedFileSet {
 
     }
 
+    public boolean keyExists(byte[] key, int chunk, int valueLocation) {
+        FileChannel dataFile = dataFileFor(chunk);
+        try {
+            switch(storageFormat) {
+                case READONLY_V0:
+                case READONLY_V1: {
+                    return true;
+                }
+                case READONLY_V2: {
+
+                    // Buffer for 'numKeyValues', 'keySize' and 'valueSize'
+                    int headerSize = ByteUtils.SIZE_OF_SHORT + (2 * ByteUtils.SIZE_OF_INT);
+                    ByteBuffer sizeBuffer = ByteBuffer.allocate(headerSize);
+                    dataFile.read(sizeBuffer, valueLocation);
+                    valueLocation += headerSize;
+
+                    // Read the number of key-values
+                    short numKeyValues = sizeBuffer.getShort(0);
+
+                    // Read the key size
+                    int keySize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT);
+
+                    // Read the value size
+                    int valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_SHORT
+                                                      + ByteUtils.SIZE_OF_INT);
+
+                    do {
+                        if(keySize == -1 && valueSize == -1) {
+                            sizeBuffer.clear();
+                            // Reads an extra short, but that is fine since
+                            // collisions are rare. Also we save the unnecessary
+                            // overhead of allocating a new byte-buffer
+                            dataFile.read(sizeBuffer, valueLocation);
+                            keySize = sizeBuffer.getInt(0);
+                            valueSize = sizeBuffer.getInt(ByteUtils.SIZE_OF_INT);
+                            valueLocation += (2 * ByteUtils.SIZE_OF_INT);
+                        }
+
+                        // Read key
+                        ByteBuffer buffer = ByteBuffer.allocate(keySize);
+                        dataFile.read(buffer, valueLocation);
+
+                        // Compare key
+                        if(ByteUtils.compare(key, buffer.array(), 0, keySize) == 0) {
+                            return true;
+                        }
+                        valueLocation += (keySize + valueSize);
+                        keySize = valueSize = -1;
+
+                    } while(--numKeyValues > 0);
+                    // Could not find key, return value of no size
+                    return false;
+                }
+
+                default: {
+                    throw new VoldemortException("Storage format not supported ");
+                }
+            }
+        } catch(IOException e) {
+            throw new VoldemortException(e);
+        }
+    }
+
     public byte[] readValue(byte[] key, int chunk, int valueLocation) {
         FileChannel dataFile = dataFileFor(chunk);
         try {

@@ -525,11 +525,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                 Collections.sort(keysAndValueLocations);
 
                 for(KeyValueLocation keyVal: keysAndValueLocations) {
-                    byte[] value = fileSet.readValue(keyVal.getKey().get(),
-                                                     keyVal.getChunk(),
-                                                     keyVal.getValueLocation());
-                    if(value.length > 0)
-                        results.put(keyVal.getKey(), true);
+                    results.put(keyVal.getKey(),
+                                fileSet.keyExists(keyVal.getKey().get(),
+                                                  keyVal.getChunk(),
+                                                  keyVal.getValueLocation()));
                 }
             }
             return results;
