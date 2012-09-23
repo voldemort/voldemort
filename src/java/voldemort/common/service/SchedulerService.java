@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.server.scheduler;
+package voldemort.common.service;
 
 import java.util.Date;
 import java.util.List;
@@ -31,9 +31,6 @@ import org.apache.log4j.Logger;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxManaged;
 import voldemort.annotations.jmx.JmxOperation;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
-import voldemort.server.VoldemortService;
 import voldemort.utils.Time;
 
 import com.google.common.collect.Lists;

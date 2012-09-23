@@ -16,8 +16,8 @@
 
 package voldemort.server.socket;
 
+import voldemort.common.service.ServiceType;
 import voldemort.server.AbstractSocketService;
-import voldemort.server.ServiceType;
 import voldemort.server.StatusManager;
 import voldemort.server.protocol.RequestHandlerFactory;
 

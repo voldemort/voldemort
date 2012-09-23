@@ -23,6 +23,7 @@ import java.util.List;
 import voldemort.client.RoutingTier;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.Utils;
 
 import com.google.common.base.Objects;
@@ -151,7 +152,8 @@ public class StoreDefinition implements Serializable {
         if(retentionPeriodDays != null && retentionPeriodDays < 0)
             throw new IllegalArgumentException("Retention days must be non-negative.");
 
-        if(zoneReplicationFactor != null && zoneReplicationFactor.size() != 0) {
+        if(!SystemStoreConstants.isSystemStore(name) && zoneReplicationFactor != null
+           && zoneReplicationFactor.size() != 0) {
 
             if(zoneCountReads == null || zoneCountReads < 0)
                 throw new IllegalArgumentException("Zone Counts reads must be non-negative / non-null");

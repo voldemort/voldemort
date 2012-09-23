@@ -99,7 +99,7 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
                 break;
             }
 
-            for(Node node: getConfig().getNodes()) {
+            for(Node node: getConfig().getCluster().getNodes()) {
                 if(isAvailable(node))
                     continue;
 

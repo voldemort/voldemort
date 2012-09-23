@@ -65,9 +65,6 @@ public interface StoreClientFactory {
     /**
      * Get the underlying store, not the public StoreClient interface
      * 
-     * @param <K> The key type
-     * @param <V> The value type
-     * @param <T> The transform type
      * @param storeName The name of the store
      * @param resolver The inconsistency resolver
      * @return The appropriate store

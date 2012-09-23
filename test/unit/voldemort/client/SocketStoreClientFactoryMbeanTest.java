@@ -106,7 +106,7 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
             bootStrap(clients, 10);
 
             checkMbeanIdCount(CLIENT_DOMAIN, "ClientThreadPool*", 1, true);
-            checkMbeanIdCount(CLIENT_DOMAIN, "DefaultStoreClient*", 2, true);
+            checkMbeanIdCount(CLIENT_DOMAIN, "ZenStoreClient*", 2, true);
             checkMbeanIdCount(CLUSTER_FAILUREDETECTOR_DOMAIN, "ThresholdFailureDetector*", 1, true);
             checkMbeanIdCount(PIPELINE_ROUTED_STATS_DOMAIN, "*", 2, true);
             checkMbeanIdCount(CLIENT_REQUEST_DOMAIN, "aggregated*", 1, true);
@@ -135,7 +135,7 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
             bootStrap(clients, 10);
 
             checkMbeanIdCount(CLIENT_DOMAIN, "ClientThreadPool*", 1, true);
-            checkMbeanIdCount(CLIENT_DOMAIN, "DefaultStoreClient*", 2, true);
+            checkMbeanIdCount(CLIENT_DOMAIN, "ZenStoreClient*", 2, true);
             checkMbeanIdCount(CLUSTER_FAILUREDETECTOR_DOMAIN, "ThresholdFailureDetector*", 1, true);
             checkMbeanIdCount(PIPELINE_ROUTED_STATS_DOMAIN, "*", 2, true);
             checkMbeanIdCount(CLIENT_REQUEST_DOMAIN, "aggregated*", 1, true);
@@ -163,7 +163,7 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
             bootStrap(clients, 10);
 
             checkMbeanIdCount(CLIENT_DOMAIN, "ClientThreadPool*", 2, true);
-            checkMbeanIdCount(CLIENT_DOMAIN, "DefaultStoreClient*", 2, true);
+            checkMbeanIdCount(CLIENT_DOMAIN, "ZenStoreClient*", 2, true);
             checkMbeanIdCount(CLUSTER_FAILUREDETECTOR_DOMAIN, "ThresholdFailureDetector*", 2, true);
             checkMbeanIdCount(PIPELINE_ROUTED_STATS_DOMAIN, "*", 2, true);
             checkMbeanIdCount(CLIENT_REQUEST_DOMAIN, "aggregated*", 2, true);
@@ -198,7 +198,7 @@ public class SocketStoreClientFactoryMbeanTest extends SocketStoreClientFactoryT
             bootStrap(clients, 10);
 
             checkMbeanIdCount(CLIENT_DOMAIN, "ClientThreadPool*", 2, true);
-            checkMbeanIdCount(CLIENT_DOMAIN, "DefaultStoreClient*", 2, true);
+            checkMbeanIdCount(CLIENT_DOMAIN, "ZenStoreClient*", 2, true);
             checkMbeanIdCount(CLUSTER_FAILUREDETECTOR_DOMAIN, "ThresholdFailureDetector*", 2, true);
             checkMbeanIdCount(PIPELINE_ROUTED_STATS_DOMAIN, "*", 4, true);
             checkMbeanIdCount(CLIENT_REQUEST_DOMAIN, "aggregated*", 2, true);

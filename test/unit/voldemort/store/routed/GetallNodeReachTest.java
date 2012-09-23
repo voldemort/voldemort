@@ -2,7 +2,6 @@ package voldemort.store.routed;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static voldemort.VoldemortTestConstants.getEightNodeClusterWithZones;
 import static voldemort.VoldemortTestConstants.getFourNodeClusterWithZones;
 
@@ -96,16 +95,15 @@ public class GetallNodeReachTest {
         assertEquals(2, store.getAll(keys011, null)
                              .get(TestUtils.toByteArray("k011_zone0_only"))
                              .size());
-        assertEquals(0, store.getAll(keys100, null)
-                             .get(TestUtils.toByteArray("k100_zone1_only"))
-                             .size());
+        assertFalse(store.getAll(keys100, null)
+                         .containsKey(TestUtils.toByteArray("k100_zone1_only")));
         /* test multiple keys getall */
         List<ByteArray> keys = new ArrayList<ByteArray>();
         keys.add(TestUtils.toByteArray("k011_zone0_only"));
         keys.add(TestUtils.toByteArray("k100_zone1_only"));
         Map<ByteArray, List<Versioned<byte[]>>> result = store.getAll(keys, null);
         assertEquals(2, result.get(TestUtils.toByteArray("k011_zone0_only")).size());
-        assertEquals(0, result.get(TestUtils.toByteArray("k100_zone1_only")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("k100_zone1_only")));
     }
 
     @Test
@@ -161,13 +159,9 @@ public class GetallNodeReachTest {
         keys.add(TestUtils.toByteArray("k111"));
         Map<ByteArray, List<Versioned<byte[]>>> result = store.getAll(keys, null);
         assertFalse(result.containsKey(TestUtils.toByteArray("not_included")));
-        assertEquals(0, result.get(TestUtils.toByteArray("k000")).size());
-        assertEquals(1, result.get(TestUtils.toByteArray("k001")).size());
-        assertEquals(0, result.get(TestUtils.toByteArray("k010")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("k000")));
         assertEquals(1, result.get(TestUtils.toByteArray("k011")).size());
-        assertEquals(0, result.get(TestUtils.toByteArray("k100")).size());
-        assertEquals(1, result.get(TestUtils.toByteArray("k101")).size());
-        assertEquals(0, result.get(TestUtils.toByteArray("k110")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("k100")));
         assertEquals(1, result.get(TestUtils.toByteArray("k111")).size());
     }
 
@@ -227,21 +221,12 @@ public class GetallNodeReachTest {
         Map<ByteArray, List<Versioned<byte[]>>> result = store.getAll(keys, null);
         assertFalse(result.containsKey(TestUtils.toByteArray("not_included")));
         /* client will first try all the nodes in local zone */
-        assertEquals(0, result.get(TestUtils.toByteArray("k000")).size());
-        assertEquals(1, result.get(TestUtils.toByteArray("k001")).size());
-        // don't know which one of node 0 or 1 comes second on preferece list
-        // for key
-        // k*10 or k*01
-        // therefore it can be 1 or 0 beside existence on node 2
-        int size = -1;
-        size = result.get(TestUtils.toByteArray("k010")).size();
-        assertTrue(size == 1 || size == 0);
+        assertFalse(result.containsKey(TestUtils.toByteArray("k000")));
+        assertEquals(1, result.get(TestUtils.toByteArray("k011")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("not_included")));
+        assertFalse(result.containsKey(TestUtils.toByteArray("k000")));
         assertEquals(1, result.get(TestUtils.toByteArray("k011")).size());
         assertEquals(1, result.get(TestUtils.toByteArray("k100")).size());
-        size = result.get(TestUtils.toByteArray("k101")).size();
-        assertTrue(size == 1 || size == 2);
-        size = result.get(TestUtils.toByteArray("k110")).size();
-        assertTrue(size == 1 || size == 2);
         assertEquals(2, result.get(TestUtils.toByteArray("k111")).size());
     }
 
@@ -297,9 +282,9 @@ public class GetallNodeReachTest {
         keys.add(TestUtils.toByteArray("k1111_1111"));
         Map<ByteArray, List<Versioned<byte[]>>> result = store.getAll(keys, null);
         assertFalse(result.containsKey(TestUtils.toByteArray("not_included")));
-        assertEquals(0, result.get(TestUtils.toByteArray("k0000_0000")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("k0000_0000")));
         assertEquals(2, result.get(TestUtils.toByteArray("k0000_1111")).size());
-        assertEquals(0, result.get(TestUtils.toByteArray("k1111_0000")).size());
+        assertFalse(result.containsKey(TestUtils.toByteArray("k1111_0000")));
         assertEquals(2, result.get(TestUtils.toByteArray("k1111_1111")).size());
     }
 }

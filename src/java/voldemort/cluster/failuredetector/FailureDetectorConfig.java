@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import voldemort.client.ClientConfig;
+import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.VoldemortConfig;
 import voldemort.utils.SystemTime;
@@ -82,6 +83,8 @@ public class FailureDetectorConfig {
     protected StoreVerifier storeVerifier;
 
     protected Time time = SystemTime.INSTANCE;
+
+    private Cluster cluster = null;
 
     /**
      * Constructs a new FailureDetectorConfig using all the defaults. This is
@@ -538,14 +541,39 @@ public class FailureDetectorConfig {
     }
 
     /**
+     * Returns a reference to the cluster object
+     * 
+     * @return Cluster object which determines the source of truth for the
+     *         topology
+     */
+
+    public Cluster getCluster() {
+        return this.cluster;
+    }
+
+    /**
+     * Assigns a cluster which determines the source of truth for the topology
+     * 
+     * @param cluster The Cluster object retrieved during bootstrap; must be
+     *        non-null
+     */
+
+    public FailureDetectorConfig setCluster(Cluster cluster) {
+        Utils.notNull(cluster);
+        this.cluster = cluster;
+        return this;
+    }
+
+    /**
      * Returns a list of nodes in the cluster represented by this failure
      * detector configuration.
      * 
      * @return Collection of Node instances, usually determined from the Cluster
      */
 
+    @Deprecated
     public synchronized Collection<Node> getNodes() {
-        return ImmutableSet.copyOf(nodes);
+        return ImmutableSet.copyOf(this.cluster.getNodes());
     }
 
     /**
@@ -556,6 +584,7 @@ public class FailureDetectorConfig {
      *        Cluster; must be non-null
      */
 
+    @Deprecated
     public synchronized FailureDetectorConfig setNodes(Collection<Node> nodes) {
         Utils.notNull(nodes);
         this.nodes = new HashSet<Node>(nodes);

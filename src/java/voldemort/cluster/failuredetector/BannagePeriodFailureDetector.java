@@ -49,6 +49,7 @@ import voldemort.store.UnreachableStoreException;
  */
 
 @JmxManaged(description = "Detects the availability of the nodes on which a Voldemort cluster runs")
+@Deprecated
 public class BannagePeriodFailureDetector extends AbstractFailureDetector {
 
     public BannagePeriodFailureDetector(FailureDetectorConfig failureDetectorConfig) {
@@ -99,7 +100,7 @@ public class BannagePeriodFailureDetector extends AbstractFailureDetector {
         long bannagePeriod = failureDetectorConfig.getBannagePeriod();
         long currentTime = failureDetectorConfig.getTime().getMilliseconds();
 
-        for(Node node: getConfig().getNodes()) {
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(!isAvailable(node)) {
                 NodeStatus nodeStatus = getNodeStatus(node);
                 long millis = 0;

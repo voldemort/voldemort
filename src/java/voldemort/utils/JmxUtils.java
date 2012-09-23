@@ -68,6 +68,8 @@ public class JmxUtils {
     private static final Object LOCK = new Object();
     private static final Logger logger = Logger.getLogger(JmxUtils.class);
 
+    public static final String MBEAN_NAME_SEPARATOR = "-";
+
     /**
      * Create a model mbean from an object using the description given in the
      * Jmx annotation if present. Only operations are supported so far, no

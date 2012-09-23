@@ -1,12 +1,12 @@
 package voldemort.server.rebalance;
 
 import voldemort.annotations.jmx.JmxManaged;
-import voldemort.server.AbstractService;
-import voldemort.server.ServiceType;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.admin.AsyncOperationService;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.store.metadata.MetadataStore;
 
 /**

@@ -15,8 +15,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import voldemort.VoldemortException;
+import voldemort.common.service.ServiceType;
 import voldemort.server.AbstractSocketService;
-import voldemort.server.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.http.VoldemortServletContextListener;
 import voldemort.store.Store;

@@ -312,21 +312,7 @@ public abstract class AbstractStoreTest<K, V, T> extends TestCase {
     public void testGetAllWithAbsentKeys() throws Exception {
         Store<K, V, T> store = getStore();
         Map<K, List<Versioned<V>>> result = store.getAll(getKeys(3), null);
-        boolean resultZero = (result.size() == 0);
-        boolean resultEmpty = true;
-        if(!resultZero) {
-            if(result.get(result.keySet().toArray()[0]).size() != 0) {
-                resultEmpty = false;
-            }
-            if(result.get(result.keySet().toArray()[1]).size() != 0) {
-                resultEmpty = false;
-            }
-            if(result.get(result.keySet().toArray()[2]).size() != 0) {
-                resultEmpty = false;
-            }
-        }
-        assertTrue(resultZero || resultEmpty);
-
+        assertEquals(0, result.size());
     }
 
     @Test

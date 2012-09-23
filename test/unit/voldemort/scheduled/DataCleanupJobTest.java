@@ -26,9 +26,9 @@ import org.apache.commons.io.FileDeleteStrategy;
 
 import voldemort.MockTime;
 import voldemort.TestUtils;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.storage.ScanPermitWrapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;

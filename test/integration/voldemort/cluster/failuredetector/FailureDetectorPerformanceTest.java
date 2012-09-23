@@ -16,9 +16,9 @@
 
 package voldemort.cluster.failuredetector;
 
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.VoldemortTestConstants.getNineNodeCluster;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
 import java.io.IOException;
 
@@ -71,7 +71,7 @@ public abstract class FailureDetectorPerformanceTest {
                                                   failureDetectorConfig.getThresholdInterval());
         Cluster cluster = getNineNodeCluster();
 
-        failureDetectorConfig.setNodes(cluster.getNodes())
+        failureDetectorConfig.setCluster(cluster)
                              .setStoreVerifier(create(cluster.getNodes()))
                              .setAsyncRecoveryInterval(asyncScanInterval)
                              .setBannagePeriod(bannagePeriod)

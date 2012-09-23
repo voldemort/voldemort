@@ -50,6 +50,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 
@@ -233,7 +234,8 @@ public class StoreDefinitionsMapper {
                 retentionFreqDays = Integer.parseInt(retentionFreqDaysElement.getText());
         }
 
-        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0
+           && !SystemStoreConstants.isSystemStore(name)) {
             if(zoneCountReads == null || zoneCountWrites == null || zoneReplicationFactor == null) {
                 throw new MappingException("Have not set one of the following correctly for store '"
                                            + name

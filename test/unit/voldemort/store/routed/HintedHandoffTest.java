@@ -442,7 +442,7 @@ public class HintedHandoffTest {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig();
         failureDetectorConfig.setImplementationClassName(failureDetectorCls.getName());
         failureDetectorConfig.setBannagePeriod(500);
-        failureDetectorConfig.setNodes(cluster.getNodes());
+        failureDetectorConfig.setCluster(cluster);
         failureDetectorConfig.setStoreVerifier(MutableStoreVerifier.create(subStores));
 
         failureDetector = FailureDetectorUtils.create(failureDetectorConfig, false);

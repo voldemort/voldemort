@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort.common.service;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

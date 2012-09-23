@@ -205,5 +205,4 @@ public class MockStoreClientFactory implements StoreClientFactory {
     public FailureDetector getFailureDetector() {
         return failureDetector;
     }
-
 }

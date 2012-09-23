@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,6 +47,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
+import voldemort.client.SystemStore;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.VoldemortFilter;
 import voldemort.client.protocol.pb.ProtoUtils;
@@ -76,9 +78,11 @@ import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
@@ -128,11 +132,18 @@ public class AdminClient {
     private static final long PRINT_STATS_INTERVAL = 5 * 60 * 1000; // 5 minutes
     private final AdminClientConfig adminClientConfig;
 
+    private static final String CLUSTER_VERSION_KEY = "cluster.xml";
+    private static final int DEFAULT_ZONE_ID = 0;
+
     public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
                                                                                  ReadOnlyStorageConfiguration.TYPE_NAME,
                                                                                  ViewStorageConfiguration.TYPE_NAME);
 
     private Cluster currentCluster;
+
+    private SystemStore<String, String> sysStoreVersion = null;
+    private String[] cachedBootstrapURLs = null;
+    private int cachedZoneID = -1;
 
     /**
      * Create an instance of AdminClient given a URL of a node in the cluster.
@@ -155,6 +166,7 @@ public class AdminClient {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.adminClientConfig = adminClientConfig;
+        cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
     }
 
     /**
@@ -178,6 +190,97 @@ public class AdminClient {
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
         this.adminClientConfig = adminClientConfig;
+
+        Node node = cluster.getNodeById(0);
+        String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
+        cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
+    }
+
+    /**
+     * Wrapper for the actual AdminClient constructor given the URL of a node in
+     * the cluster.
+     * 
+     * @param bootstrapURL URL pointing to the bootstrap node
+     * @param adminClientConfig Configuration for AdminClient specifying client
+     *        parameters eg. <br>
+     *        <ul>
+     *        <t>
+     *        <li>number of threads</li>
+     *        <li>number of sockets per node</li>
+     *        <li>socket buffer size</li>
+     *        </ul>
+     * @param zoneID The primary Zone ID for the purpose of the SystemStore
+     */
+    public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig, int zoneID) {
+        this(bootstrapURL, adminClientConfig);
+        cacheSystemStoreParams(bootstrapURL, zoneID);
+    }
+
+    /**
+     * Cache the paramater values for the internal system store client. These
+     * cached values are used every time the system store client needs to be
+     * initialized (useful when the cluster.xml changes).
+     * 
+     * @param bootstrapURL The URL to bootstrap from
+     * @param zoneID Indicates the primary zone of the sytem store client
+     */
+    private void cacheSystemStoreParams(String bootstrapURL, int zoneID) {
+        String[] bootstrapUrls = new String[1];
+        bootstrapUrls[0] = bootstrapURL;
+        this.cachedBootstrapURLs = bootstrapUrls;
+        this.cachedZoneID = zoneID;
+    }
+
+    /**
+     * Create a system store client based on the cached bootstrap URLs and Zone
+     * ID
+     */
+    public void initSystemStoreClient() {
+        if(this.cachedBootstrapURLs != null && this.cachedZoneID >= 0) {
+            try {
+                this.sysStoreVersion = new SystemStore<String, String>(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                       this.cachedBootstrapURLs,
+                                                                       this.cachedZoneID);
+            } catch(Exception e) {
+                logger.debug("Error while creating a system store client for metadata version store.");
+            }
+
+        }
+    }
+
+    /**
+     * Update the metadata version for the given key (cluster or store). The new
+     * value set is the current timestamp.
+     * 
+     * @param versionKey The metadata key for which Version should be
+     *        incremented
+     */
+    public void updateMetadataversion(String versionKey) {
+        initSystemStoreClient();
+        Properties props = MetadataVersionStoreUtils.getProperties(this.sysStoreVersion);
+        long newValue = 0;
+        if(props != null && props.getProperty(versionKey) != null) {
+            logger.debug("Version obtained = " + props.getProperty(versionKey));
+            newValue = System.currentTimeMillis();
+        } else {
+            logger.debug("Current version is null. Assuming version 0.");
+            if(props == null) {
+                props = new Properties();
+            }
+        }
+        props.setProperty(versionKey, Long.toString(newValue));
+        MetadataVersionStoreUtils.setProperties(this.sysStoreVersion, props);
+    }
+
+    /**
+     * Set the metadata versions to the given set
+     * 
+     * @param newProperties The new metadata versions to be set across all the
+     *        nodes in the cluster
+     */
+    public void setMetadataversion(Properties newProperties) {
+        initSystemStoreClient();
+        MetadataVersionStoreUtils.setProperties(this.sysStoreVersion, newProperties);
     }
 
     private Cluster getClusterFromBootstrapURL(String bootstrapURL) {
@@ -1027,9 +1130,9 @@ public class AdminClient {
     private HashMap<Integer, List<Integer>> getReplicaToPartitionMap(int nodeId,
                                                                      String storeName,
                                                                      List<Integer> partitions) {
-
-        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(getRemoteStoreDefList(nodeId).getValue(),
-                                                                        storeName);
+        List<StoreDefinition> allStoreDefs = getRemoteStoreDefList(nodeId).getValue();
+        allStoreDefs.addAll(SystemStoreConstants.getAllSystemStoreDefs());
+        StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(allStoreDefs, storeName);
         HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
         for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
             replicaToPartitionList.put(replicaNum, partitions);
@@ -1515,6 +1618,44 @@ public class AdminClient {
                                                                              VAdminProto.UpdateMetadataResponse.newBuilder());
         if(response.hasError())
             throwException(response.getError());
+    }
+
+    /**
+     * Wrapper for updateRemoteMetadata function used against a single Node It
+     * basically loops over the entire list of Nodes that we need to execute the
+     * required operation against. It also increments the version of the
+     * corresponding metadata in the system store.
+     * <p>
+     * 
+     * Metadata keys can be one of {@link MetadataStore#METADATA_KEYS}<br>
+     * eg.<br>
+     * <li>cluster metadata (cluster.xml as string)
+     * <li>stores definitions (stores.xml as string)
+     * <li>Server states <br <br>
+     * See {@link voldemort.store.metadata.MetadataStore} for more information.
+     * 
+     * @param remoteNodeId Id of the node
+     * @param key Metadata key to update
+     * @param value Value for the metadata key
+     * 
+     * */
+    public void updateRemoteMetadata(List<Integer> remoteNodeIds,
+                                     String key,
+                                     Versioned<String> value) {
+        for(Integer currentNodeId: remoteNodeIds) {
+            System.out.println("Setting " + key + " for "
+                               + getAdminClientCluster().getNodeById(currentNodeId).getHost() + ":"
+                               + getAdminClientCluster().getNodeById(currentNodeId).getId());
+            updateRemoteMetadata(currentNodeId, key, value);
+        }
+
+        /*
+         * Assuming everything is fine, we now increment the metadata version
+         * for the key
+         */
+        if(key.equals(CLUSTER_VERSION_KEY)) {
+            updateMetadataversion(key);
+        }
     }
 
     /**
@@ -2352,6 +2493,18 @@ public class AdminClient {
             if(exceptions.size() > 0) {
                 throw new VoldemortRebalancingException("Got exceptions from nodes "
                                                         + exceptions.keySet());
+            }
+
+            /*
+             * If everything went smoothly, update the version of the cluster
+             * metadata
+             */
+            if(changeClusterMetadata) {
+                try {
+                    updateMetadataversion(CLUSTER_VERSION_KEY);
+                } catch(Exception e) {
+                    logger.info("Exception occurred while setting cluster metadata version during Rebalance state change !!!");
+                }
             }
         } catch(Exception e) {
 
