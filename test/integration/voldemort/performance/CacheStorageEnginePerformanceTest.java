@@ -39,7 +39,8 @@ public class CacheStorageEnginePerformanceTest {
         final int mod = 100;
         final int readMax = (int) readPercent * mod;
 
-        final Store<ByteArray, byte[], byte[]> store = new CacheStorageConfiguration(null).getStore(TestUtils.makeStoreDefinition("test"));
+        final Store<ByteArray, byte[], byte[]> store = new CacheStorageConfiguration(null).getStore(TestUtils.makeStoreDefinition("test"),
+                                                                                                    TestUtils.makeSingleNodeRoutingStrategy());
         final AtomicInteger obsoletes = new AtomicInteger(0);
 
         PerformanceTest readWriteTest = new PerformanceTest() {

@@ -14,12 +14,15 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamStats;
 import voldemort.store.stats.StreamStats.Operation;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.RebalanceUtils;
 
 import com.google.protobuf.Message;
 
 public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
+
+    protected final ClosableIterator<ByteArray> keyIterator;
 
     public FetchKeysStreamRequestHandler(FetchPartitionEntriesRequest request,
                                          MetadataStore metadataStore,
@@ -36,6 +39,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
               networkClassLoader,
               stats,
               Operation.FETCH_KEYS);
+        this.keyIterator = storageEngine.keys();
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
     }
@@ -56,7 +60,8 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                                                      replicaToPartitionList,
                                                      initialCluster,
                                                      storeDef)
-           && filter.accept(key, null) && counter % skipRecords == 0) {
+           && filter.accept(key, null)
+           && counter % skipRecords == 0) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
 
@@ -87,5 +92,12 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
         }
+    }
+
+    @Override
+    public final void close(DataOutputStream outputStream) throws IOException {
+        if(null != keyIterator)
+            keyIterator.close();
+        super.close(outputStream);
     }
 }

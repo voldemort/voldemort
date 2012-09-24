@@ -64,6 +64,54 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
         };
     }
 
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(final int partition) {
+        return new ClosableIterator<Pair<K, Versioned<V>>>() {
+
+            ClosableIterator<Pair<K, Versioned<V>>> iterator = innerStorageEngine.entries(partition);
+
+            public void close() {
+                iterator.close();
+            }
+
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            public Pair<K, Versioned<V>> next() {
+                if(Math.random() > FAIL_PROBABILITY)
+                    return iterator.next();
+
+                throw new VoldemortException("Failing now !!");
+            }
+
+            public void remove() {}
+        };
+    }
+
+    public ClosableIterator<K> keys(final int partition) {
+        return new ClosableIterator<K>() {
+
+            ClosableIterator<K> iterator = innerStorageEngine.keys(partition);
+
+            public void close() {
+                iterator.close();
+            }
+
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            public K next() {
+                if(Math.random() > FAIL_PROBABILITY)
+                    return iterator.next();
+
+                throw new VoldemortException("Failing now !!");
+            }
+
+            public void remove() {}
+        };
+    }
+
     public void truncate() {
         if(Math.random() > FAIL_PROBABILITY) {
             innerStorageEngine.truncate();
@@ -74,5 +122,9 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
 
     public boolean isPartitionAware() {
         return innerStorageEngine.isPartitionAware();
+    }
+
+    public boolean isPartitionScanSupported() {
+        return innerStorageEngine.isPartitionScanSupported();
     }
 }

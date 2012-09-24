@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -126,17 +127,24 @@ public class BdbStorageConfiguration implements StorageConfiguration {
         unreservedStores = new HashSet<Environment>();
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         synchronized(lock) {
             try {
                 String storeName = storeDef.getName();
                 Environment environment = getEnvironment(storeDef);
                 Database db = environment.openDatabase(null, storeName, databaseConfig);
                 BdbRuntimeConfig runtimeConfig = new BdbRuntimeConfig(voldemortConfig);
-                BdbStorageEngine engine = new BdbStorageEngine(storeName,
-                                                               environment,
-                                                               db,
-                                                               runtimeConfig);
+                BdbStorageEngine engine = null;
+                if(voldemortConfig.getBdbPrefixKeysWithPartitionId()) {
+                    engine = new PartitionPrefixedBdbStorageEngine(storeName,
+                                                                   environment,
+                                                                   db,
+                                                                   runtimeConfig,
+                                                                   strategy);
+                } else {
+                    engine = new BdbStorageEngine(storeName, environment, db, runtimeConfig);
+                }
                 if(voldemortConfig.isJmxEnabled()) {
                     // register the environment stats mbean
                     JmxUtils.registerMbean(storeName, engine.getBdbEnvironmentStats());

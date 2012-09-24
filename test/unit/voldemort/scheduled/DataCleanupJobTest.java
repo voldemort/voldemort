@@ -16,13 +16,22 @@
 
 package voldemort.scheduled;
 
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.fail;
+
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
-import junit.framework.TestCase;
-
 import org.apache.commons.io.FileDeleteStrategy;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.MockTime;
 import voldemort.TestUtils;
@@ -41,14 +50,26 @@ import voldemort.utils.Time;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-public class DataCleanupJobTest extends TestCase {
+@RunWith(Parameterized.class)
+public class DataCleanupJobTest {
 
     private MockTime time;
     private StorageEngine<ByteArray, byte[], byte[]> engine;
     private File storeDir;
     private BdbStorageConfiguration bdbStorage;
+    private boolean prefixPartitionId;
 
-    @Override
+    public DataCleanupJobTest(boolean prefixPartitionId) {
+        this.prefixPartitionId = prefixPartitionId;
+    }
+
+    @Parameters
+    public static Collection<Object[]> modes() {
+        Object[][] data = new Object[][] { { true }, { false } };
+        return Arrays.asList(data);
+    }
+
+    @Before
     public void setUp() throws Exception {
         time = new MockTime();
         storeDir = TestUtils.createTempDir();
@@ -62,15 +83,16 @@ public class DataCleanupJobTest extends TestCase {
         voldemortConfig.setBdbCacheSize(1024 * 1024);
         voldemortConfig.setBdbOneEnvPerStore(true);
         voldemortConfig.setBdbDataDirectory(storeDir.toURI().getPath());
+        voldemortConfig.setBdbPrefixKeysWithPartitionId(prefixPartitionId);
 
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
         StoreDefinition defA = TestUtils.makeStoreDefinition("cleanupTestStore");
-        engine = bdbStorage.getStore(defA);
+        engine = bdbStorage.getStore(defA, TestUtils.makeSingleNodeRoutingStrategy());
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
+
         try {
             if(engine != null)
                 engine.close();
@@ -81,6 +103,7 @@ public class DataCleanupJobTest extends TestCase {
         }
     }
 
+    @Test
     public void testCleanupFrequency() {
 
         SchedulerService scheduler = new SchedulerService(1, time);
@@ -145,6 +168,7 @@ public class DataCleanupJobTest extends TestCase {
         }
     }
 
+    @Test
     public void testCleanupCleansUp() {
         time.setTime(123);
         put("a", "b", "c");

@@ -191,8 +191,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public void put(String key, Object value) {
         if(METADATA_KEYS.contains(key)) {
             VectorClock version = (VectorClock) get(key, null).get(0).getVersion();
-            put(key, new Versioned<Object>(value, version.incremented(getNodeId(),
-                                                                      System.currentTimeMillis())));
+            put(key,
+                new Versioned<Object>(value, version.incremented(getNodeId(),
+                                                                 System.currentTimeMillis())));
         } else {
             throw new VoldemortException("Unhandled Key:" + key + " for MetadataStore put()");
         }
@@ -427,6 +428,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         throw new VoldemortException("You cannot iterate over all keys in Metadata");
     }
 
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
+    }
+
     public void truncate() {
         throw new VoldemortException("You cannot truncate entries in Metadata");
     }
@@ -580,6 +589,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     public boolean isPartitionAware() {
+        return false;
+    }
+
+    public boolean isPartitionScanSupported() {
         return false;
     }
 }

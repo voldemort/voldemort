@@ -159,6 +159,17 @@ public class ByteUtils {
     }
 
     /**
+     * Read an unsigned short from the byte array starting at the given offset
+     * 
+     * @param bytes The byte array to read from
+     * @param offset The offset to start reading at
+     * @return The short read
+     */
+    public static int readUnsignedShort(byte[] bytes, int offset) {
+        return (((bytes[offset] & 0xff) << 8) | (bytes[offset + 1] & 0xff));
+    }
+
+    /**
      * Read an int from the byte array starting at the given offset
      * 
      * @param bytes The byte array to read from
@@ -225,6 +236,18 @@ public class ByteUtils {
      * @param offset The offset to begin writing at
      */
     public static void writeShort(byte[] bytes, short value, int offset) {
+        bytes[offset] = (byte) (0xFF & (value >> 8));
+        bytes[offset + 1] = (byte) (0xFF & value);
+    }
+
+    /**
+     * Write an unsigned short to the byte array starting at the given offset
+     * 
+     * @param bytes The byte array
+     * @param value The short to write
+     * @param offset The offset to begin writing at
+     */
+    public static void writeUnsignedShort(byte[] bytes, int value, int offset) {
         bytes[offset] = (byte) (0xFF & (value >> 8));
         bytes[offset + 1] = (byte) (0xFF & value);
     }

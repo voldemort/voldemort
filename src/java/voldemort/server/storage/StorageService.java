@@ -50,6 +50,7 @@ import voldemort.cluster.failuredetector.FailureDetectorConfig;
 import voldemort.cluster.failuredetector.ServerStoreVerifier;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.server.AbstractService;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.ServiceType;
@@ -222,7 +223,7 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       null,
-                                                                      null,
+                                                                      RoutingStrategyType.CONSISTENT_STRATEGY,
                                                                       0,
                                                                       null,
                                                                       0,
@@ -241,7 +242,9 @@ public class StorageService extends AbstractService {
                                                                       null,
                                                                       null,
                                                                       0);
-            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition),
+            SlopStorageEngine slopEngine = new SlopStorageEngine(config.getStore(slopStoreDefinition,
+                                                                                 new RoutingStrategyFactory().updateRoutingStrategy(slopStoreDefinition,
+                                                                                                                                    metadata.getCluster())),
                                                                  metadata.getCluster());
             registerEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
@@ -330,13 +333,11 @@ public class StorageService extends AbstractService {
                                              + " storage engine has not been enabled.");
 
         boolean isReadOnly = storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0;
-        if(isReadOnly) {
-            final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                       metadata.getCluster());
-            ((ReadOnlyStorageConfiguration) config).setRoutingStrategy(routingStrategy);
-        }
+        final RoutingStrategy routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                   metadata.getCluster());
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef,
+                                                                                routingStrategy);
         // Update the routing strategy + add listener to metadata
         if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
             metadata.addMetadataStoreListener(storeDef.getName(), new MetadataStoreListener() {

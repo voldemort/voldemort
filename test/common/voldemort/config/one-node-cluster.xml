@@ -6,6 +6,6 @@
     <host>localhost</host>
     <http-port>8080</http-port>
     <socket-port>6666</socket-port>
-    <partitions>0,1</partitions>
+    <partitions>0,1,2,3,4,5,6,7,8,9</partitions>
   </server>
 </cluster>

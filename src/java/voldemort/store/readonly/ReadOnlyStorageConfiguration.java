@@ -67,7 +67,9 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
         this.routingStrategy = routingStrategy;
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
+        this.setRoutingStrategy(strategy);
         ReadOnlyStorageEngine store = new ReadOnlyStorageEngine(storeDef.getName(),
                                                                 this.searcher,
                                                                 this.routingStrategy,

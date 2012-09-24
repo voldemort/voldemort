@@ -17,6 +17,7 @@
 package voldemort;
 
 import java.io.File;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -30,12 +31,15 @@ import java.util.TreeSet;
 import junit.framework.AssertionFailedError;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 /**
  * Helper utilities for tests
@@ -404,5 +408,17 @@ public class TestUtils {
                                    null,
                                    null,
                                    memFootprintMB);
+    }
+
+    /**
+     * Provides a routing strategy for local tests to work with
+     * 
+     * @return
+     */
+    public static RoutingStrategy makeSingleNodeRoutingStrategy() {
+        Cluster cluster = VoldemortTestConstants.getOneNodeCluster();
+        StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
+        List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreDefinitionsXml()));
+        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefs.get(0), cluster);
     }
 }
