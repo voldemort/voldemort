@@ -1,3 +1,7 @@
+Release 0.96.li8 (LinkedIn release) on 09/24/2012
+* Efficient partition scan support
+Note: This is experimental again
+
 Release 0.96.li4 (LinkedIn release) on 08/02/2012
 * Upgrading BDB JE version to 4.1.17 on top of 0.96.li3
 Note : This is experimental. Once verified, will merge to master
