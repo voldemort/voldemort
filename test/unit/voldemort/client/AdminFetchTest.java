@@ -203,7 +203,7 @@ public class AdminFetchTest {
     }
 
     @Test
-    public void testFetchNonExistentEntriesSeccondary() {
+    public void testFetchNonExistentEntriesSecondary() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(1, Arrays.asList(1, 2));
         Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.fetchEntries(0,

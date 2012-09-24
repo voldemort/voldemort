@@ -54,6 +54,11 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 import com.sleepycat.je.LockMode;
 
+/**
+ * Tests the BDB storage engine. Note that this class uses junit4 style test
+ * methods, though the base class extends TestCase junit 3 style
+ * 
+ */
 @RunWith(Parameterized.class)
 public class BdbStorageEngineTest extends AbstractStorageEngineTest {
 

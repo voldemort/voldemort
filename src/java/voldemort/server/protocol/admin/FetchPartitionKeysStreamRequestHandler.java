@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.protocol.admin;
 
 import java.io.DataInputStream;
@@ -21,6 +37,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Time;
 
 import com.google.protobuf.Message;
 
@@ -100,7 +117,7 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                     found = true;
                     logger.info("Fetching [partition: " + currentPartition + ", replica type:"
                                 + currentReplicaType + "] for store " + storageEngine.getName());
-                    keysPartitionIterator = storageEngine.keys(currentPartition.shortValue());
+                    keysPartitionIterator = storageEngine.keys(currentPartition);
                 }
                 currentIndex++;
             }
@@ -135,7 +152,7 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
 
                 // log progress
                 if(0 == counter % 100000) {
-                    long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+                    long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
 
                     logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched
                                 + " entries for store '" + storageEngine.getName()

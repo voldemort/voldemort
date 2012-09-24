@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -92,7 +92,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getPartitionList(key.get()).get(0);
+        int partition = routingStrategy.getMasterPartition(key.get());
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         return super.get(prefixedKey, transforms);
@@ -103,7 +103,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getPartitionList(key.get()).get(0);
+        int partition = routingStrategy.getMasterPartition(key.get());
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         super.put(prefixedKey, value, transforms);
@@ -113,7 +113,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);
-        int partition = routingStrategy.getPartitionList(key.get()).get(0);
+        int partition = routingStrategy.getMasterPartition(key.get());
         ByteArray prefixedKey = new ByteArray(StoreBinaryFormat.makePrefixedKey(key.get(),
                                                                                 partition));
         return super.delete(prefixedKey, version);
@@ -124,6 +124,10 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
         return logger;
     }
 
+    /**
+     * Implements a range scan over the partition entries
+     * 
+     */
     private static class BdbPartitionEntriesIterator extends
             BdbIterator<Pair<ByteArray, Versioned<byte[]>>> {
 
@@ -153,6 +157,11 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             return cache.remove(cache.size() - 1);
         }
 
+        /**
+         * Fetches the next entry from the DB, for the partition
+         * 
+         * @return true if some new data was fetched, false if end of data
+         */
         private boolean makeMore() {
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
@@ -188,6 +197,10 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
         }
     }
 
+    /**
+     * Implements a range scan over the key entries belonging to the partition
+     * 
+     */
     private static class BdbPartitionKeysIterator extends BdbIterator<ByteArray> {
 
         ByteArray current = null;
@@ -215,6 +228,12 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             return result;
         }
 
+        /**
+         * Fetches the next key for the partition from the DB
+         * 
+         * @return true if successfully fetched one more key, false if end of
+         *         keys
+         */
         private boolean fetchNextKey() {
             DatabaseEntry keyEntry = new DatabaseEntry();
             DatabaseEntry valueEntry = new DatabaseEntry();
