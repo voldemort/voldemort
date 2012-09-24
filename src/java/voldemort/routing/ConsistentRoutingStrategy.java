@@ -150,6 +150,16 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
         return replicationPartitionsList;
     }
 
+    /**
+     * Obtain the master partition for a given key
+     * 
+     * @param key
+     * @return
+     */
+    public Integer getMasterPartition(byte[] key) {
+        return abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
+    }
+
     public Set<Node> getNodes() {
         Set<Node> s = Sets.newHashSetWithExpectedSize(partitionToNode.length);
         for(Node n: this.partitionToNode)
@@ -172,7 +182,7 @@ public class ConsistentRoutingStrategy implements RoutingStrategy {
     public List<Integer> getPartitionList(byte[] key) {
         // hash the key and perform a modulo on the total number of partitions,
         // to get the master partition
-        int index = abs(hash.hash(key)) % (Math.max(1, this.partitionToNode.length));
+        int index = getMasterPartition(key);
         if(logger.isDebugEnabled()) {
             logger.debug("Key " + ByteUtils.toHexString(key) + " primary partition " + index);
         }
