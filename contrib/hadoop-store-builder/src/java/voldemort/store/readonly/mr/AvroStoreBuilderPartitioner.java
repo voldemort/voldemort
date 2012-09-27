@@ -29,7 +29,8 @@ import org.apache.hadoop.mapred.Partitioner;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.store.readonly.mr.utils.KeyValuePartitioner;
+import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.utils.ByteUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -46,9 +47,17 @@ public class AvroStoreBuilderPartitioner implements
 
         byte[] keyBytes = null, valueBytes;
 
+        if(!key.datum().hasRemaining()) {
+            // System.out.println("empty key");
+            return 0;
+        }
         keyBytes = new byte[key.datum().remaining()];
         key.datum().get(keyBytes);
 
+        if(!value.datum().hasRemaining()) {
+            // System.out.println("empty value");
+            return 0;
+        }
         valueBytes = new byte[value.datum().remaining()];
         value.datum().get(valueBytes);
 
@@ -65,16 +74,28 @@ public class AvroStoreBuilderPartitioner implements
         key.datum(keyBuffer);
         value.datum(valueBuffer);
 
-        KeyValuePartitioner partitioner = new KeyValuePartitioner();
+        int partitionId = ByteUtils.readInt(valueBytes, ByteUtils.SIZE_OF_INT);
+        int chunkId = ReadOnlyUtils.chunk(keyBytes, getNumChunks());
+        if(getSaveKeys()) {
+            int replicaType = (int) ByteUtils.readBytes(valueBytes,
+                                                        2 * ByteUtils.SIZE_OF_INT,
+                                                        ByteUtils.SIZE_OF_BYTE);
+            if(getReducerPerBucket()) {
+                return (partitionId * getStoreDef().getReplicationFactor() + replicaType)
+                       % numReduceTasks;
+            } else {
+                return ((partitionId * getStoreDef().getReplicationFactor() * getNumChunks())
+                        + (replicaType * getNumChunks()) + chunkId)
+                       % numReduceTasks;
+            }
+        } else {
+            if(getReducerPerBucket()) {
+                return partitionId % numReduceTasks;
+            } else {
+                return (partitionId * getNumChunks() + chunkId) % numReduceTasks;
+            }
 
-        return partitioner.getPartition(keyBytes,
-                                        valueBytes,
-                                        saveKeys,
-                                        reducerPerBucket,
-                                        storeDef,
-                                        numReduceTasks,
-                                        numReduceTasks);
-
+        }
     }
 
     private int numChunks;
