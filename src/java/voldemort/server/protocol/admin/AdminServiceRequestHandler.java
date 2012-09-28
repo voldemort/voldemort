@@ -814,11 +814,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 logger.info(message);
                             }
                         } catch(VoldemortException ve) {
-                            String errorMessage = "File fetcher failed for "
-                                                  + fetchUrl
-                                                  + " and store '"
-                                                  + storeName
-                                                  + "' due to too many push jobs happening at the same time.";
+                            String errorMessage = "File fetcher failed for " + fetchUrl
+                                                  + " and store '" + storeName + "' Reason: \n"
+                                                  + ve.getMessage();
                             updateStatus(errorMessage);
                             logger.error(errorMessage);
                             throw new VoldemortException(errorMessage);
