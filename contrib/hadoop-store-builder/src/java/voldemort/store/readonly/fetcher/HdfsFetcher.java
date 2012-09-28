@@ -327,16 +327,19 @@ public class HdfsFetcher implements FileFetcher {
             } catch(IOException ioe) {
                 success = false;
                 logger.error("Error during copying file ", ioe);
-                if(attempt < NUM_RETRIES - 1)
+                ioe.printStackTrace();
+                if(attempt < NUM_RETRIES - 1) {
                     logger.info("retrying copying");
-                else
+                } else {
                     throw ioe;
+                }
 
             } finally {
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
-                if(success)
+                if(success) {
                     break;
+                }
 
             }
 
