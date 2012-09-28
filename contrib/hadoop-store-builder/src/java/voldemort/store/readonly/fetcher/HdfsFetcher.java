@@ -309,7 +309,7 @@ public class HdfsFetcher implements FileFetcher {
                         logger.info(stats.getTotalBytesCopied() / (1024 * 1024) + " MB copied at "
                                     + format.format(stats.getBytesPerSecond() / (1024 * 1024))
                                     + " MB/sec - " + format.format(stats.getPercentCopied())
-                                    + " % complete");
+                                    + " % complete, destination:" + dest);
                         if(this.status != null) {
                             this.status.setStatus(stats.getTotalBytesCopied()
                                                   / (1024 * 1024)
@@ -317,7 +317,7 @@ public class HdfsFetcher implements FileFetcher {
                                                   + format.format(stats.getBytesPerSecond()
                                                                   / (1024 * 1024)) + " MB/sec - "
                                                   + format.format(stats.getPercentCopied())
-                                                  + " % complete");
+                                                  + " % complete, destination:" + dest);
                         }
                         stats.reset();
                     }
