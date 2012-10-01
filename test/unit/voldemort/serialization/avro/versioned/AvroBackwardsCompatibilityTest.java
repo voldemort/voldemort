@@ -4,12 +4,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import junit.framework.TestCase;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.util.Utf8;
+import org.junit.Test;
 
 /**
  * A test that the avro serialization remains compatible with older serialized
@@ -17,7 +16,7 @@ import org.apache.avro.util.Utf8;
  * 
  * 
  */
-public class AvroBackwardsCompatibilityTest extends TestCase {
+public class AvroBackwardsCompatibilityTest {
 
     private static byte[] writeVersion0(Schema s0) {
 
@@ -35,6 +34,7 @@ public class AvroBackwardsCompatibilityTest extends TestCase {
 
     }
 
+    @Test
     public static void testAvroSchemaEvolution() throws IOException {
 
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
