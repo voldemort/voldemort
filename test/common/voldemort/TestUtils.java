@@ -22,7 +22,9 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Random;
 import java.util.SortedSet;
@@ -420,5 +422,25 @@ public class TestUtils {
         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
         List<StoreDefinition> storeDefs = mapper.readStoreList(new StringReader(VoldemortTestConstants.getSingleStoreDefinitionsXml()));
         return new RoutingStrategyFactory().updateRoutingStrategy(storeDefs.get(0), cluster);
+    }
+
+    /**
+     * Constructs a calendar object representing the given time
+     */
+    public static GregorianCalendar getCalendar(int year,
+                                                int month,
+                                                int day,
+                                                int hour,
+                                                int mins,
+                                                int secs) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.set(Calendar.YEAR, year);
+        cal.set(Calendar.MONTH, month);
+        cal.set(Calendar.DATE, day);
+        cal.set(Calendar.HOUR_OF_DAY, hour);
+        cal.set(Calendar.MINUTE, mins);
+        cal.set(Calendar.SECOND, secs);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal;
     }
 }

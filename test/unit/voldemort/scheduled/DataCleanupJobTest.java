@@ -16,14 +16,18 @@
 
 package voldemort.scheduled;
 
+import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.commons.io.FileDeleteStrategy;
 import org.junit.After;
@@ -47,6 +51,7 @@ import voldemort.utils.EventThrottler;
 import voldemort.utils.Props;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -188,6 +193,63 @@ public class DataCleanupJobTest {
 
         // Check that all the later keys are there AND the key updated later
         assertContains("a", "d", "e", "f");
+    }
+
+    public void testCleanupStartTime() {
+        // Make sure the default is always the next day.
+        GregorianCalendar cal = new GregorianCalendar();
+        assertEquals("Default is not tomorrow",
+                     Utils.getDayOfTheWeekFromNow(1),
+                     (cal.get(Calendar.DAY_OF_WEEK) + 1) % 7);
+
+        // When starting the server any day in the week from SUN to FRI and
+        // targeting a saturday, should always start on the next saturday
+        GregorianCalendar expectedStart = TestUtils.getCalendar(2012,
+                                                                Calendar.SEPTEMBER,
+                                                                29,
+                                                                0,
+                                                                0,
+                                                                0);
+        Random rand = new Random();
+        for(int day = Calendar.SUNDAY; day <= Calendar.FRIDAY; day++) {
+            GregorianCalendar serverStartTime = TestUtils.getCalendar(2012,
+                                                                      Calendar.SEPTEMBER,
+                                                                      22 + day,
+                                                                      rand.nextInt(24),
+                                                                      rand.nextInt(60),
+                                                                      rand.nextInt(60));
+            GregorianCalendar computedStart = Utils.getCalendarForNextRun(serverStartTime,
+                                                                          Calendar.SATURDAY,
+                                                                          0);
+            assertEquals("Expected :" + expectedStart.getTimeInMillis() + " Computed: "
+                                 + computedStart.getTimeInMillis(),
+                         expectedStart.getTimeInMillis(),
+                         computedStart.getTimeInMillis());
+        }
+
+        // Targeting saturday, 00:00 and starting on a friday 23:59:59 should
+        // start the next saturday
+        GregorianCalendar serverStartTime = TestUtils.getCalendar(2012,
+                                                                  Calendar.SEPTEMBER,
+                                                                  28,
+                                                                  23,
+                                                                  59,
+                                                                  59);
+        GregorianCalendar computedStart = Utils.getCalendarForNextRun(serverStartTime,
+                                                                      Calendar.SATURDAY,
+                                                                      0);
+        assertEquals("Expected :" + expectedStart.getTimeInMillis() + " Computed: "
+                             + computedStart.getTimeInMillis(),
+                     expectedStart.getTimeInMillis(),
+                     computedStart.getTimeInMillis());
+
+        // If we start past the start hour on the target day, it should start
+        // the next week
+        serverStartTime = TestUtils.getCalendar(2012, Calendar.SEPTEMBER, 29, 1, 0, 1);
+        computedStart = Utils.getCalendarForNextRun(serverStartTime, Calendar.SATURDAY, 0);
+        assertEquals(Calendar.SATURDAY, computedStart.get(Calendar.DAY_OF_WEEK));
+        assertEquals(serverStartTime.get(Calendar.DAY_OF_YEAR) + 7,
+                     computedStart.get(Calendar.DAY_OF_YEAR));
     }
 
     private void put(String... items) {

@@ -164,10 +164,25 @@ public class SchedulerService extends AbstractService {
     }
 
     public void schedule(String id, Runnable runnable, Date nextRun, long periodMs) {
-        ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(runnable,
-                                                                     delayMs(nextRun),
-                                                                     periodMs,
-                                                                     TimeUnit.MILLISECONDS);
+        schedule(id, runnable, nextRun, periodMs, false);
+    }
+
+    public void schedule(String id,
+                         Runnable runnable,
+                         Date nextRun,
+                         long periodMs,
+                         boolean scheduleAtFixedRate) {
+        ScheduledFuture<?> future = null;
+        if(scheduleAtFixedRate)
+            future = scheduler.scheduleAtFixedRate(runnable,
+                                                   delayMs(nextRun),
+                                                   periodMs,
+                                                   TimeUnit.MILLISECONDS);
+        else
+            future = scheduler.scheduleWithFixedDelay(runnable,
+                                                      delayMs(nextRun),
+                                                      periodMs,
+                                                      TimeUnit.MILLISECONDS);
         if(!allJobs.containsKey(id)) {
             allJobs.put(id, new ScheduledRunnable(runnable, nextRun, periodMs));
         }

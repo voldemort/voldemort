@@ -102,6 +102,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.ReflectUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
+import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Versioned;
@@ -857,13 +858,10 @@ public class StorageService extends AbstractService {
      */
     private void scheduleCleanupJob(StoreDefinition storeDef,
                                     StorageEngine<ByteArray, byte[], byte[]> engine) {
-        // Schedule data retention cleanup job starting next day.
-        GregorianCalendar cal = new GregorianCalendar();
-        cal.add(Calendar.DAY_OF_YEAR, 1);
-        cal.set(Calendar.HOUR_OF_DAY, voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
+        // Compute the start time of the job, based on current time
+        GregorianCalendar cal = Utils.getCalendarForNextRun(new GregorianCalendar(),
+                                                            voldemortConfig.getRetentionCleanupFirstStartDayOfWeek(),
+                                                            voldemortConfig.getRetentionCleanupFirstStartTimeInHour());
 
         // allow only one cleanup job at a time
         Date startTime = cal.getTime();
@@ -893,7 +891,8 @@ public class StorageService extends AbstractService {
         this.scheduler.schedule("cleanup-" + storeDef.getName(),
                                 cleanupJob,
                                 startTime,
-                                retentionFreqHours * Time.MS_PER_HOUR);
+                                retentionFreqHours * Time.MS_PER_HOUR,
+                                voldemortConfig.getRetentionCleanupPinStartTime());
     }
 
     @Override

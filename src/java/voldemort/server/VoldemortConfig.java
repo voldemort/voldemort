@@ -192,6 +192,8 @@ public class VoldemortConfig implements Serializable {
 
     private int retentionCleanupFirstStartTimeInHour;
     private int retentionCleanupScheduledPeriodInHour;
+    private int retentionCleanupFirstStartDayOfWeek;
+    private boolean retentionCleanupPinStartTime;
 
     private int maxRebalancingAttempt;
     private long rebalancingTimeoutSec;
@@ -395,9 +397,16 @@ public class VoldemortConfig implements Serializable {
         // start at midnight (0-23)
         this.retentionCleanupFirstStartTimeInHour = props.getInt("retention.cleanup.first.start.hour",
                                                                  0);
+        // start next day by default (1=SUN, 2=MON, 3=TUE, 4=WED, 5=THU, 6=FRI,
+        // 7=SAT)
+        this.retentionCleanupFirstStartDayOfWeek = props.getInt("retention.cleanup.first.start.day",
+                                                                Utils.getDayOfTheWeekFromNow(1));
         // repeat every 24 hours
         this.retentionCleanupScheduledPeriodInHour = props.getInt("retention.cleanup.period.hours",
                                                                   24);
+        // should the retention job always start at the 'start time' specified
+        this.retentionCleanupPinStartTime = props.getBoolean("retention.cleanup.pin.start.time",
+                                                             true);
 
         // save props for access from plugins
         this.allProps = props;
@@ -1723,12 +1732,28 @@ public class VoldemortConfig implements Serializable {
         this.retentionCleanupFirstStartTimeInHour = retentionCleanupFirstStartTimeInHour;
     }
 
+    public int getRetentionCleanupFirstStartDayOfWeek() {
+        return retentionCleanupFirstStartDayOfWeek;
+    }
+
+    public void setRetentionCleanupFirstStartDayOfWeek(int retentionCleanupFirstStartDayOfWeek) {
+        this.retentionCleanupFirstStartDayOfWeek = retentionCleanupFirstStartDayOfWeek;
+    }
+
     public int getRetentionCleanupScheduledPeriodInHour() {
         return retentionCleanupScheduledPeriodInHour;
     }
 
     public void setRetentionCleanupScheduledPeriodInHour(int retentionCleanupScheduledPeriodInHour) {
         this.retentionCleanupScheduledPeriodInHour = retentionCleanupScheduledPeriodInHour;
+    }
+
+    public boolean getRetentionCleanupPinStartTime() {
+        return retentionCleanupPinStartTime;
+    }
+
+    public void setRetentionCleanupPinStartTime(boolean retentionCleanupFixStartTime) {
+        this.retentionCleanupPinStartTime = retentionCleanupFixStartTime;
     }
 
     public int getAdminSocketTimeout() {
