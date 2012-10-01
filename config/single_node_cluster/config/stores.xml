@@ -35,4 +35,5 @@
       <schema-info version="1">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }, { "name": "new-field", "type": "string", "default":"" }]}</schema-info>
     </value-serializer>
   </store>
-  </stores>
+ 
+</stores>

@@ -25,7 +25,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -39,8 +38,6 @@ import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import org.apache.avro.Schema;
-import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
@@ -60,7 +57,6 @@ import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
-import voldemort.serialization.avro.versioned.SchemaEvolutionValidator.Message;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -344,13 +340,13 @@ public class StorageService extends AbstractService {
 
             if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
 
-                checkSchemaCompatibility(keySerDef);
+                SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
 
             }
 
             if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
 
-                checkSchemaCompatibility(valueSerDef);
+                SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
 
             }
         }
@@ -565,62 +561,6 @@ public class StorageService extends AbstractService {
         // engine.truncate(); why truncate here when unregister? Isn't close
         // good enough?
         engine.close();
-    }
-
-    public static void checkSchemaCompatibility(SerializerDefinition serDef) {
-
-        Map<Integer, String> schemaVersions = serDef.getAllSchemaInfoVersions();
-
-        Iterator schemaIterator = schemaVersions.entrySet().iterator();
-
-        Schema firstSchema = null;
-        Schema secondSchema = null;
-
-        String firstSchemaStr;
-        String secondSchemaStr;
-
-        if(!schemaIterator.hasNext())
-            throw new VoldemortException("No schema specified");
-
-        Map.Entry schemaPair = (Map.Entry) schemaIterator.next();
-
-        firstSchemaStr = (String) schemaPair.getValue();
-
-        while(schemaIterator.hasNext()) {
-
-            schemaPair = (Map.Entry) schemaIterator.next();
-
-            secondSchemaStr = (String) schemaPair.getValue();
-            Schema oldSchema = Schema.parse(firstSchemaStr);
-            Schema newSchema = Schema.parse(secondSchemaStr);
-            List<Message> messages = SchemaEvolutionValidator.checkBackwardCompatability(oldSchema,
-                                                                                         newSchema,
-                                                                                         oldSchema.getName());
-            Level maxLevel = Level.ALL;
-            for(Message message: messages) {
-                System.out.println(message.getLevel() + ": " + message.getMessage());
-                if(message.getLevel().isGreaterOrEqual(maxLevel)) {
-                    maxLevel = message.getLevel();
-                }
-            }
-
-            if(maxLevel.isGreaterOrEqual(Level.ERROR)) {
-                System.out.println(Level.ERROR
-                                   + ": The schema is not backward compatible. New clients will not be able to read existing data.");
-                throw new VoldemortException(" The schema is not backward compatible. New clients will not be able to read existing data.");
-            } else if(maxLevel.isGreaterOrEqual(Level.WARN)) {
-                System.out.println(Level.WARN
-                                   + ": The schema is partially backward compatible, but old clients will not be able to read data serialized in the new format.");
-                throw new VoldemortException("The schema is partially backward compatible, but old clients will not be able to read data serialized in the new format.");
-            } else {
-                System.out.println(Level.INFO
-                                   + ": The schema is backward compatible. Old and new clients will be able to read records serialized by one another.");
-            }
-
-            firstSchemaStr = secondSchemaStr;
-
-        }
-
     }
 
     public void updateStore(StoreDefinition storeDef) {
