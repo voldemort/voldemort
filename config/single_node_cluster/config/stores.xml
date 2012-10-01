@@ -3,7 +3,8 @@
     <name>test</name>
     <persistence>bdb</persistence>
     <description>Test store</description>
-    <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>
@@ -19,7 +20,8 @@
     <name>test-evolution</name>
     <persistence>bdb</persistence>
     <description>Test store</description>
-    <owners> harry@hogwarts.edu, hermoine@hogwarts.edu </owners>
+    <owners>harry@hogwarts.edu, hermoine@hogwarts.edu</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
     <routing>client</routing>
     <replication-factor>1</replication-factor>
     <required-reads>1</required-reads>
@@ -29,9 +31,8 @@
     </key-serializer>
     <value-serializer>
       <type>avro-generic-versioned</type>
-       <schema-info version="0">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }]}</schema-info>
-        <schema-info version="1">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }, { "name": "new-field", "type": "string", "default":"" }]}
-       </schema-info>
+      <schema-info version="0">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }]}</schema-info>
+      <schema-info version="1">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }, { "name": "new-field", "type": "string", "default":"" }]}</schema-info>
     </value-serializer>
   </store>
-</stores>
+  </stores>
