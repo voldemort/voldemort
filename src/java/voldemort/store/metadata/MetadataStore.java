@@ -114,14 +114,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public final Lock readLock = lock.readLock();
     public final Lock writeLock = lock.writeLock();
 
-    private final ConcurrentHashMap<String, MetadataStoreListener> storeNameTolisteners;
+    private final ConcurrentHashMap<String, List<MetadataStoreListener>> storeNameTolisteners;
 
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String, String> innerStore, int nodeId) {
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
-        this.storeNameTolisteners = new ConcurrentHashMap<String, MetadataStoreListener>();
+        this.storeNameTolisteners = new ConcurrentHashMap<String, List<MetadataStoreListener>>();
 
         init(nodeId);
     }
@@ -130,10 +130,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
-        this.storeNameTolisteners.put(storeName, listener);
+        if(!this.storeNameTolisteners.containsKey(storeName))
+            this.storeNameTolisteners.put(storeName, new ArrayList<MetadataStoreListener>(2));
+        this.storeNameTolisteners.get(storeName).add(listener);
     }
 
-    public void remoteMetadataStoreListener(String storeName) {
+    public void removeMetadataStoreListener(String storeName) {
         if(this.storeNameTolisteners == null)
             throw new VoldemortException("MetadataStoreListener must be non-null");
 
@@ -352,6 +354,19 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     /**
+     * Returns the list of store defs as a map
+     * 
+     * @param storeDefs
+     * @return
+     */
+    private HashMap<String, StoreDefinition> makeStoreDefinitionMap(List<StoreDefinition> storeDefs) {
+        HashMap<String, StoreDefinition> storeDefMap = new HashMap<String, StoreDefinition>();
+        for(StoreDefinition storeDef: storeDefs)
+            storeDefMap.put(storeDef.getName(), storeDef);
+        return storeDefMap;
+    }
+
+    /**
      * Changes to cluster OR store definition metadata results in routing
      * strategies changing. These changes need to be propagated to all the
      * listeners.
@@ -365,8 +380,9 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             clock = (VectorClock) metadataCache.get(ROUTING_STRATEGY_KEY).getVersion();
 
         logger.info("Updating routing strategy for all stores");
+        HashMap<String, StoreDefinition> storeDefMap = makeStoreDefinitionMap(storeDefs);
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
-                                                                                       storeDefs);
+                                                                                       storeDefMap);
         this.metadataCache.put(ROUTING_STRATEGY_KEY,
                                new Versioned<Object>(routingStrategyMap,
                                                      clock.incremented(getNodeId(),
@@ -376,8 +392,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             RoutingStrategy updatedRoutingStrategy = routingStrategyMap.get(storeName);
             if(updatedRoutingStrategy != null) {
                 try {
-                    storeNameTolisteners.get(storeName)
-                                        .updateRoutingStrategy(updatedRoutingStrategy);
+                    for(MetadataStoreListener listener: storeNameTolisteners.get(storeName)) {
+                        listener.updateRoutingStrategy(updatedRoutingStrategy);
+                        listener.updateStoreDefinition(storeDefMap.get(storeName));
+                    }
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.WARN))
                         logger.warn(e, e);
@@ -393,7 +411,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      */
     private void initSystemRoutingStrategies(Cluster cluster) {
         HashMap<String, RoutingStrategy> routingStrategyMap = createRoutingStrategyMap(cluster,
-                                                                                       getSystemStoreDefList());
+                                                                                       makeStoreDefinitionMap(getSystemStoreDefList()));
         this.metadataCache.put(SYSTEM_ROUTING_STRATEGY_KEY,
                                new Versioned<Object>(routingStrategyMap));
     }
@@ -537,10 +555,10 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     }
 
     private HashMap<String, RoutingStrategy> createRoutingStrategyMap(Cluster cluster,
-                                                                      List<StoreDefinition> storeDefs) {
+                                                                      HashMap<String, StoreDefinition> storeDefs) {
         HashMap<String, RoutingStrategy> map = new HashMap<String, RoutingStrategy>();
 
-        for(StoreDefinition store: storeDefs) {
+        for(StoreDefinition store: storeDefs.values()) {
             map.put(store.getName(), routingFactory.updateRoutingStrategy(store, cluster));
         }
 

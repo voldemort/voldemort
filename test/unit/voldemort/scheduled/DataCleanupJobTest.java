@@ -21,12 +21,14 @@ import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import java.io.File;
+import java.io.StringReader;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.apache.commons.io.FileDeleteStrategy;
@@ -39,6 +41,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.MockTime;
 import voldemort.TestUtils;
+import voldemort.VoldemortTestConstants;
 import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.scheduler.DataCleanupJob;
@@ -54,6 +57,7 @@ import voldemort.utils.Time;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
+import voldemort.xml.StoreDefinitionsMapper;
 
 @RunWith(Parameterized.class)
 public class DataCleanupJobTest {
@@ -250,6 +254,70 @@ public class DataCleanupJobTest {
         assertEquals(Calendar.SATURDAY, computedStart.get(Calendar.DAY_OF_WEEK));
         assertEquals(serverStartTime.get(Calendar.DAY_OF_YEAR) + 7,
                      computedStart.get(Calendar.DAY_OF_YEAR));
+    }
+
+    private void runRetentionEnforcingStoreTest(boolean onlineDeletes) throws InterruptedException {
+
+        time.setTime(System.currentTimeMillis());
+        StoreDefinition retentionStoreDef = new StoreDefinitionsMapper().readStoreList(new StringReader(VoldemortTestConstants.getStoreDefinitionsWithRetentionXml()))
+                                                                        .get(0);
+        RetentionEnforcingStore store = new RetentionEnforcingStore(engine,
+                                                                    retentionStoreDef,
+                                                                    onlineDeletes,
+                                                                    time);
+        // do a bunch of puts
+        store.put(new ByteArray("k1".getBytes()), new Versioned<byte[]>("v1".getBytes()), null);
+        store.put(new ByteArray("k2".getBytes()), new Versioned<byte[]>("v2".getBytes()), null);
+        long writeMs = System.currentTimeMillis();
+
+        // wait for a bit and then do more puts
+        Thread.sleep(2000);
+
+        store.put(new ByteArray("k3".getBytes()), new Versioned<byte[]>("v3".getBytes()), null);
+        store.put(new ByteArray("k4".getBytes()), new Versioned<byte[]>("v4".getBytes()), null);
+
+        // move time forward just enough such that some keys will have expired.
+        time.setTime(writeMs + retentionStoreDef.getRetentionDays() * Time.MS_PER_DAY + 1);
+        assertEquals("k1 should have expired", 0, store.get(new ByteArray("k1".getBytes()), null)
+                                                       .size());
+        assertEquals("k2 should have expired", 0, store.get(new ByteArray("k2".getBytes()), null)
+                                                       .size());
+
+        assertTrue("k3 should not have expired", store.get(new ByteArray("k3".getBytes()), null)
+                                                      .size() > 0);
+        assertTrue("k4 should not have expired", store.get(new ByteArray("k4".getBytes()), null)
+                                                      .size() > 0);
+        // get all with k1, k4 should return a map with k4 alone
+        Map<ByteArray, List<Versioned<byte[]>>> getAllResult = store.getAll(Arrays.asList(new ByteArray("k1".getBytes()),
+                                                                                          new ByteArray("k4".getBytes())),
+                                                                            null);
+        assertEquals("map should contain one element only", 1, getAllResult.size());
+        assertEquals("k1 should not be present",
+                     false,
+                     getAllResult.containsKey(new ByteArray("k1".getBytes())));
+        assertEquals("k4 should be present",
+                     true,
+                     getAllResult.containsKey(new ByteArray("k4".getBytes())));
+
+        // if online deletes are not configured, we should see the deleted keys
+        // in the base bdb store, so the datacleanup job can go and delete them
+        assertEquals("k1 should be present",
+                     !onlineDeletes,
+                     engine.get(new ByteArray("k1".getBytes()), null).size() > 0);
+        assertEquals("k2 should be present",
+                     !onlineDeletes,
+                     engine.get(new ByteArray("k2".getBytes()), null).size() > 0);
+
+        // delete everything for next run
+        engine.truncate();
+    }
+
+    public void testRetentionEnforcingStore() throws InterruptedException {
+        runRetentionEnforcingStoreTest(false);
+    }
+
+    public void testRetentionEnforcingStoreOnlineDeletes() throws InterruptedException {
+        runRetentionEnforcingStoreTest(true);
     }
 
     private void put(String... items) {

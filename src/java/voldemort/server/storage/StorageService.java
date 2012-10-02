@@ -79,6 +79,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngine;
 import voldemort.store.rebalancing.RebootstrappingStore;
 import voldemort.store.rebalancing.RedirectingStore;
+import voldemort.store.retention.RetentionEnforcingStore;
 import voldemort.store.routed.RoutedStore;
 import voldemort.store.routed.RoutedStoreFactory;
 import voldemort.store.slop.SlopStorageEngine;
@@ -600,6 +601,10 @@ public class StorageService extends AbstractService {
                 public void updateRoutingStrategy(RoutingStrategy updatedRoutingStrategy) {
                     ((ReadOnlyStorageEngine) engine).setRoutingStrategy(updatedRoutingStrategy);
                 }
+
+                public void updateStoreDefinition(StoreDefinition storeDef) {
+                    return;
+                }
             });
         }
 
@@ -715,31 +720,45 @@ public class StorageService extends AbstractService {
                                                                 cluster.getName(),
                                                                 SystemTime.INSTANCE);
         if(!isSlop) {
-            if(voldemortConfig.isEnableRebalanceService() && !isReadOnly && !isMetadata && !isView) {
-                store = new RedirectingStore(store,
-                                             metadata,
-                                             storeRepository,
-                                             failureDetector,
-                                             storeFactory);
-                if(voldemortConfig.isJmxEnabled()) {
-                    MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                    ObjectName name = null;
-                    if(this.voldemortConfig.isEnableJmxClusterName())
-                        name = JmxUtils.createObjectName(cluster.getName()
-                                                                 + "."
-                                                                 + JmxUtils.getPackageName(RedirectingStore.class),
-                                                         store.getName());
-                    else
-                        name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
-                                                         store.getName());
+            if(!isReadOnly && !isMetadata && !isView) {
+                // wrap store to enforce retention policy
+                if(voldemortConfig.isEnforceRetentionPolicyOnRead()) {
+                    RetentionEnforcingStore retentionEnforcingStore = new RetentionEnforcingStore(store,
+                                                                                                  metadata.getStoreDef(store.getName()),
+                                                                                                  voldemortConfig.isDeleteExpiredValuesOnRead(),
+                                                                                                  SystemTime.INSTANCE);
+                    metadata.addMetadataStoreListener(store.getName(), retentionEnforcingStore);
+                    store = retentionEnforcingStore;
+                }
 
-                    synchronized(mbeanServer) {
-                        if(mbeanServer.isRegistered(name))
-                            JmxUtils.unregisterMbean(mbeanServer, name);
+                if(voldemortConfig.isEnableRebalanceService()) {
+                    store = new RedirectingStore(store,
+                                                 metadata,
+                                                 storeRepository,
+                                                 failureDetector,
+                                                 storeFactory);
+                    if(voldemortConfig.isJmxEnabled()) {
+                        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                        ObjectName name = null;
+                        if(this.voldemortConfig.isEnableJmxClusterName())
+                            name = JmxUtils.createObjectName(cluster.getName()
+                                                                     + "."
+                                                                     + JmxUtils.getPackageName(RedirectingStore.class),
+                                                             store.getName());
+                        else
+                            name = JmxUtils.createObjectName(JmxUtils.getPackageName(RedirectingStore.class),
+                                                             store.getName());
 
-                        JmxUtils.registerMbean(mbeanServer, JmxUtils.createModelMBean(store), name);
+                        synchronized(mbeanServer) {
+                            if(mbeanServer.isRegistered(name))
+                                JmxUtils.unregisterMbean(mbeanServer, name);
+
+                            JmxUtils.registerMbean(mbeanServer,
+                                                   JmxUtils.createModelMBean(store),
+                                                   name);
+                        }
+
                     }
-
                 }
             }
 
