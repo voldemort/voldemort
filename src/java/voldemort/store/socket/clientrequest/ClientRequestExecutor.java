@@ -253,19 +253,28 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
      * check in the instance again which causes problems for the pool
      * maintenance.
      */
+    private synchronized ClientRequest<?> atomicNullOutClientRequest() {
+        ClientRequest<?> local = clientRequest;
+        clientRequest = null;
+        expiration = 0;
 
-    private synchronized void completeClientRequest() {
-        if(clientRequest == null) {
+        return local;
+    }
+
+    /**
+     * Null out current clientRequest before calling complete. timeOut and
+     * complete must *not* be within a synchronized block since both eventually
+     * check in the client request executor. Such a check in can trigger
+     * additional synchronized methods deeper in the stack.
+     */
+    private void completeClientRequest() {
+        ClientRequest<?> local = atomicNullOutClientRequest();
+        if(local == null) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("No client associated with " + socketChannel.socket());
 
             return;
         }
-
-        // Sorry about this - please see the method comments...
-        ClientRequest<?> local = clientRequest;
-        clientRequest = null;
-        expiration = 0;
 
         if(isExpired)
             local.timeOut();

@@ -196,14 +196,12 @@ public class PerformParallelPutRequests extends
 
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
             Response<ByteArray, Object> response = responseEntry.getValue();
-            if(response.getValue() instanceof Exception) {
-                if(response.getValue() instanceof ObsoleteVersionException) {
-                    // ignore this completely here
-                    // this means that a higher version was able
-                    // to write on this node and should be termed as
-                    // clean success.
-                    responses.remove(responseEntry.getKey());
-                } else if(handleResponseError(response, pipeline, failureDetector))
+            // Treat ObsoleteVersionExceptions as success since such an
+            // exception means that a higher version was able to write on the
+            // node.
+            if(response.getValue() instanceof Exception
+               && !(response.getValue() instanceof ObsoleteVersionException)) {
+                if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
@@ -227,14 +225,12 @@ public class PerformParallelPutRequests extends
 
                 for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
                     Response<ByteArray, Object> response = responseEntry.getValue();
-                    if(response.getValue() instanceof Exception) {
-                        if(response.getValue() instanceof ObsoleteVersionException) {
-                            // ignore this completely here
-                            // this means that a higher version was able
-                            // to write on this node and should be termed as
-                            // clean success.
-                            responses.remove(responseEntry.getKey());
-                        } else if(handleResponseError(response, pipeline, failureDetector))
+                    // Treat ObsoleteVersionExceptions as success since such an
+                    // exception means that a higher version was able to write
+                    // on the node.
+                    if(response.getValue() instanceof Exception
+                       && !(response.getValue() instanceof ObsoleteVersionException)) {
+                        if(handleResponseError(response, pipeline, failureDetector))
                             return;
                     } else {
                         pipelineData.incrementSuccesses();
