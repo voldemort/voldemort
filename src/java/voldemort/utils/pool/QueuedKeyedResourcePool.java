@@ -331,7 +331,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     /**
      * Count the total number of queued resource requests for all queues. The
      * result is "approximate" in the face of concurrency since individual
-     * queues ools can change size during the aggregate count.
+     * queues can change size during the aggregate count.
      * 
      * @return The (approximate) aggregate count of queued resource requests.
      */

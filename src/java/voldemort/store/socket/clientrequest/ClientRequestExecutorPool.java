@@ -167,6 +167,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             long end = System.nanoTime();
             if(stats != null) {
                 stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
+                stats.recordCheckoutQueueLength(destination,
+                                                queuedPool.getBlockingGetsCount(destination));
             }
         }
         return clientRequestExecutor;
@@ -184,26 +186,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         } catch(Exception e) {
             throw new VoldemortException("Failure while checking in socket for " + destination
                                          + ": ", e);
-        }
-    }
-
-    // TODO: remove this helper method once JmxUtils are all updated to track
-    // queue stats of interest.
-    /**
-     * This method is useful for printing out QueuedKeyedResourcePool statistics
-     * if debugging issues with the underlying QueuedKeyedResourcePool and
-     * KeyedResourcePool.
-     * 
-     * @param tag A tag to be printed out in debugger output.
-     * @param destination The socket destination to print pool statistics for.
-     */
-    private void printPoolStats(String tag, SocketDestination destination) {
-        if(logger.isDebugEnabled()) {
-            logger.debug("CREP::" + tag + " : " + destination.toString() + " --- AQ QLen = "
-                         + queuedPool.getRegisteredResourceRequestCount(destination)
-                         + " --- SQ QLen = " + queuedPool.getBlockingGetsCount(destination)
-                         + ", ChkIn = " + queuedPool.getCheckedInResourcesCount(destination)
-                         + ", Tot = " + queuedPool.getTotalResourceCount(destination));
         }
     }
 
@@ -278,7 +260,17 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             this.startTimeNs = System.nanoTime();
         }
 
+        protected void updateStats() {
+            if(stats != null) {
+                stats.recordResourceRequestTimeUs(destination, (System.nanoTime() - startTimeNs)
+                                                               / Time.NS_PER_US);
+                stats.recordResourceRequestQueueLength(destination,
+                                                       queuedPool.getRegisteredResourceRequestCount(destination));
+            }
+        }
+
         public void useResource(ClientRequestExecutor clientRequestExecutor) {
+            updateStats();
             if(logger.isDebugEnabled()) {
                 logger.debug("Async request start; type: "
                              + operationName
@@ -306,12 +298,14 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
 
         public void handleTimeout() {
+            // Do *not* invoke updateStats since handleException does so.
             long durationNs = System.nanoTime() - startTimeNs;
             handleException(new TimeoutException("Could not acquire resource in " + timeoutMs
                                                  + " ms. (Took " + durationNs + " ns.)"));
         }
 
         public void handleException(Exception e) {
+            updateStats();
             if(!(e instanceof UnreachableStoreException))
                 e = new UnreachableStoreException("Failure in " + operationName + ": "
                                                   + e.getMessage(), e);

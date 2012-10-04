@@ -57,8 +57,8 @@ public class ClientSocketStatsTest {
         assertNotNull(stats);
         assertEquals(0, stats.getConnectionsCreated());
         assertEquals(0, stats.getConnectionsDestroyed());
-        assertEquals(0, stats.getConnectionsCheckedout());
-        assertEquals(-1, stats.getAveWaitUs());
+        assertEquals(0, stats.getCheckoutCount());
+        assertEquals(-1, stats.getAvgCheckoutWaitUs());
     }
 
     @Test
@@ -84,26 +84,26 @@ public class ClientSocketStatsTest {
     }
 
     @Test
-    public void testRecordCheckoutTimeNsOnce() {
+    public void testRecordCheckoutTimeOnce() {
         ClientSocketStats stats = masterStats;
-        assertEquals(0, stats.getConnectionsCheckedout());
+        assertEquals(0, stats.getCheckoutCount());
 
         stats.recordCheckoutTimeUs(dest1, 100);
         // check parent
-        assertEquals(1, stats.getConnectionsCheckedout());
-        assertEquals(100, stats.getWaitHistogram().getQuantile(0.99));
+        assertEquals(1, stats.getCheckoutCount());
+        assertEquals(100, stats.getCheckoutWaitUsHistogram().getQuantile(0.99));
 
         // check child
         ClientSocketStats child = stats.getStatsMap().get(dest1);
         assertNotNull(child);
-        assertEquals(1, child.getConnectionsCheckedout());
-        assertEquals(100, child.getWaitHistogram().getQuantile(0.99));
+        assertEquals(1, child.getCheckoutCount());
+        assertEquals(100, child.getCheckoutWaitUsHistogram().getQuantile(0.99));
     }
 
     @Test
-    public void testRecordCheckoutTimeNsMultiple() {
+    public void testRecordCheckoutTimeMultiple() {
         ClientSocketStats stats = masterStats;
-        assertEquals(0, stats.getConnectionsCheckedout());
+        assertEquals(0, stats.getCheckoutCount());
 
         stats.recordCheckoutTimeUs(dest1, 100);
         stats.recordCheckoutTimeUs(dest1, 200);
@@ -116,24 +116,173 @@ public class ClientSocketStatsTest {
         stats.recordCheckoutTimeUs(dest2, 900);
 
         // check parent
-        assertEquals(9, stats.getConnectionsCheckedout());
-        assertEquals(900, stats.getWaitHistogram().getQuantile(0.99));
+        assertEquals(9, stats.getCheckoutCount());
+        assertEquals(900, stats.getCheckoutWaitUsHistogram().getQuantile(0.99));
 
         // check child1
         ClientSocketStats child1 = stats.getStatsMap().get(dest1);
         assertNotNull(child1);
-        assertEquals(6, child1.getConnectionsCheckedout());
-        assertEquals(100, child1.getWaitHistogram().getQuantile(0.1));
-        assertEquals(300, child1.getWaitHistogram().getQuantile(0.5));
-        assertEquals(800, child1.getWaitHistogram().getQuantile(0.99));
+        assertEquals(6, child1.getCheckoutCount());
+        assertEquals(100, child1.getCheckoutWaitUsHistogram().getQuantile(0.1));
+        assertEquals(300, child1.getCheckoutWaitUsHistogram().getQuantile(0.5));
+        assertEquals(800, child1.getCheckoutWaitUsHistogram().getQuantile(0.99));
 
         // check child2
         ClientSocketStats child2 = stats.getStatsMap().get(dest2);
         assertNotNull(child2);
-        assertEquals(3, child2.getConnectionsCheckedout());
-        assertEquals(500, child2.getWaitHistogram().getQuantile(0.1));
-        assertEquals(600, child2.getWaitHistogram().getQuantile(0.5));
-        assertEquals(900, child2.getWaitHistogram().getQuantile(0.99));
+        assertEquals(3, child2.getCheckoutCount());
+        assertEquals(500, child2.getCheckoutWaitUsHistogram().getQuantile(0.1));
+        assertEquals(600, child2.getCheckoutWaitUsHistogram().getQuantile(0.5));
+        assertEquals(900, child2.getCheckoutWaitUsHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordResourceRequestTimeOnce() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.resourceRequestCount());
+
+        stats.recordResourceRequestTimeUs(dest1, 100);
+        // check parent
+        assertEquals(1, stats.resourceRequestCount());
+        assertEquals(100, stats.getResourceRequestWaitUsHistogram().getQuantile(0.99));
+
+        // check child
+        ClientSocketStats child = stats.getStatsMap().get(dest1);
+        assertNotNull(child);
+        assertEquals(1, child.resourceRequestCount());
+        assertEquals(100, child.getResourceRequestWaitUsHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordResourceRequestTimeMultiple() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.resourceRequestCount());
+
+        stats.recordResourceRequestTimeUs(dest1, 100);
+        stats.recordResourceRequestTimeUs(dest1, 200);
+        stats.recordResourceRequestTimeUs(dest1, 300);
+        stats.recordResourceRequestTimeUs(dest1, 400);
+        stats.recordResourceRequestTimeUs(dest2, 500);
+        stats.recordResourceRequestTimeUs(dest2, 600);
+        stats.recordResourceRequestTimeUs(dest1, 700);
+        stats.recordResourceRequestTimeUs(dest1, 800);
+        stats.recordResourceRequestTimeUs(dest2, 900);
+
+        // check parent
+        assertEquals(9, stats.resourceRequestCount());
+        assertEquals(900, stats.getResourceRequestWaitUsHistogram().getQuantile(0.99));
+
+        // check child1
+        ClientSocketStats child1 = stats.getStatsMap().get(dest1);
+        assertNotNull(child1);
+        assertEquals(6, child1.resourceRequestCount());
+        assertEquals(100, child1.getResourceRequestWaitUsHistogram().getQuantile(0.1));
+        assertEquals(300, child1.getResourceRequestWaitUsHistogram().getQuantile(0.5));
+        assertEquals(800, child1.getResourceRequestWaitUsHistogram().getQuantile(0.99));
+
+        // check child2
+        ClientSocketStats child2 = stats.getStatsMap().get(dest2);
+        assertNotNull(child2);
+        assertEquals(3, child2.resourceRequestCount());
+        assertEquals(500, child2.getResourceRequestWaitUsHistogram().getQuantile(0.1));
+        assertEquals(600, child2.getResourceRequestWaitUsHistogram().getQuantile(0.5));
+        assertEquals(900, child2.getResourceRequestWaitUsHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordCheckoutQueueLengthOnce() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+
+        stats.recordCheckoutQueueLength(dest1, 50);
+        // check parent
+        assertEquals(50, stats.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+
+        // check child
+        ClientSocketStats child = stats.getStatsMap().get(dest1);
+        assertNotNull(child);
+        assertEquals(50, child.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordCheckoutQueueLengthMultiple() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+
+        stats.recordCheckoutQueueLength(dest1, 50);
+        stats.recordCheckoutQueueLength(dest2, 50);
+        stats.recordCheckoutQueueLength(dest1, 100);
+        stats.recordCheckoutQueueLength(dest2, 100);
+        stats.recordCheckoutQueueLength(dest2, 100);
+        stats.recordCheckoutQueueLength(dest1, 50);
+        // check parent
+        assertEquals(50, stats.getCheckoutQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, stats.getCheckoutQueueLengthHistogram().getQuantile(0.50));
+        assertEquals(100, stats.getCheckoutQueueLengthHistogram().getQuantile(0.51));
+        assertEquals(100, stats.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+
+        // check child 1
+        ClientSocketStats child1 = stats.getStatsMap().get(dest1);
+        assertNotNull(child1);
+        assertEquals(50, child1.getCheckoutQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, child1.getCheckoutQueueLengthHistogram().getQuantile(0.66));
+        assertEquals(100, child1.getCheckoutQueueLengthHistogram().getQuantile(0.67));
+        assertEquals(100, child1.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+        // check child 2
+        ClientSocketStats child2 = stats.getStatsMap().get(dest2);
+        assertNotNull(child2);
+        assertEquals(50, child2.getCheckoutQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, child2.getCheckoutQueueLengthHistogram().getQuantile(0.33));
+        assertEquals(100, child2.getCheckoutQueueLengthHistogram().getQuantile(0.34));
+        assertEquals(100, child2.getCheckoutQueueLengthHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordResourceRequestQueueLengthOnce() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+
+        stats.recordResourceRequestQueueLength(dest1, 50);
+        // check parent
+        assertEquals(50, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+
+        // check child
+        ClientSocketStats child = stats.getStatsMap().get(dest1);
+        assertNotNull(child);
+        assertEquals(50, child.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+    }
+
+    @Test
+    public void testRecordResourceRequestQueueLengthMultiple() {
+        ClientSocketStats stats = masterStats;
+        assertEquals(0, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+
+        stats.recordResourceRequestQueueLength(dest1, 50);
+        stats.recordResourceRequestQueueLength(dest2, 50);
+        stats.recordResourceRequestQueueLength(dest1, 100);
+        stats.recordResourceRequestQueueLength(dest2, 100);
+        stats.recordResourceRequestQueueLength(dest2, 100);
+        stats.recordResourceRequestQueueLength(dest1, 50);
+        // check parent
+        assertEquals(50, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.50));
+        assertEquals(100, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.51));
+        assertEquals(100, stats.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+
+        // check child 1
+        ClientSocketStats child1 = stats.getStatsMap().get(dest1);
+        assertNotNull(child1);
+        assertEquals(50, child1.getResourceRequestQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, child1.getResourceRequestQueueLengthHistogram().getQuantile(0.66));
+        assertEquals(100, child1.getResourceRequestQueueLengthHistogram().getQuantile(0.67));
+        assertEquals(100, child1.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
+        // check child 2
+        ClientSocketStats child2 = stats.getStatsMap().get(dest2);
+        assertNotNull(child2);
+        assertEquals(50, child2.getResourceRequestQueueLengthHistogram().getQuantile(0.01));
+        assertEquals(50, child2.getResourceRequestQueueLengthHistogram().getQuantile(0.33));
+        assertEquals(100, child2.getResourceRequestQueueLengthHistogram().getQuantile(0.34));
+        assertEquals(100, child2.getResourceRequestQueueLengthHistogram().getQuantile(0.99));
     }
 
     @Test
@@ -150,36 +299,30 @@ public class ClientSocketStatsTest {
         stats.recordCheckoutTimeUs(dest2, 800);
         // before interval based reset
         // check parent
-        assertEquals(8, stats.getConnectionsCheckedout());
-        assertEquals(450, stats.getAveWaitUs());
+        assertEquals(8, stats.getCheckoutCount());
+        assertEquals(450, stats.getAvgCheckoutWaitUs());
         // check child
         ClientSocketStats child1 = stats.getStatsMap().get(dest1);
         ClientSocketStats child2 = stats.getStatsMap().get(dest2);
-        assertEquals(6, child1.getConnectionsCheckedout());
-        assertEquals(2, child2.getConnectionsCheckedout());
-        assertEquals(350, child1.getAveWaitUs());
-        assertEquals(750, child2.getAveWaitUs());
+        assertEquals(6, child1.getCheckoutCount());
+        assertEquals(2, child2.getCheckoutCount());
+        assertEquals(350, child1.getAvgCheckoutWaitUs());
+        assertEquals(750, child2.getAvgCheckoutWaitUs());
 
         // after interval based reset
         stats.recordCheckoutTimeUs(dest2, 900000);
         // check parent
-        assertEquals(-1, stats.getAveWaitUs());
-        assertEquals(0, stats.getConnectionsCheckedout());
+        assertEquals(-1, stats.getAvgCheckoutWaitUs());
+        assertEquals(0, stats.getCheckoutCount());
         // check child
-        assertEquals(-1, child1.getAveWaitUs());
-        assertEquals(0, child1.getConnectionsCheckedout());
-        assertEquals(-1, child2.getAveWaitUs());
-        assertEquals(0, child2.getConnectionsCheckedout());
+        assertEquals(-1, child1.getAvgCheckoutWaitUs());
+        assertEquals(0, child1.getCheckoutCount());
+        assertEquals(-1, child2.getAvgCheckoutWaitUs());
+        assertEquals(0, child2.getCheckoutCount());
     }
 
     @Test
     public void concurrentTest() {
-        SocketDestination dest3 = new SocketDestination("localhost",
-                                                        dest1.getPort() + 2,
-                                                        RequestFormatType.VOLDEMORT_V1);
-        SocketDestination dest4 = new SocketDestination("localhost",
-                                                        dest1.getPort() + 3,
-                                                        RequestFormatType.VOLDEMORT_V1);
         class TestThread implements Runnable {
 
             SocketDestination dest;
@@ -220,14 +363,28 @@ public class ClientSocketStatsTest {
             t1_2.join();
             t1_3.join();
         } catch(Exception e) {}
-        assertEquals(masterStats.getWaitHistogram().getQuantile(0.01), 1000);
-        assertEquals(masterStats.getWaitHistogram().getQuantile(0.5), 5000);
+        assertEquals(masterStats.getCheckoutWaitUsHistogram().getQuantile(0.01), 1000);
+        assertEquals(masterStats.getCheckoutWaitUsHistogram().getQuantile(0.5), 5000);
 
-        assertEquals(masterStats.getStatsMap().get(dest1).getWaitHistogram().getQuantile(0.01),
+        assertEquals(masterStats.getStatsMap()
+                                .get(dest1)
+                                .getCheckoutWaitUsHistogram()
+                                .getQuantile(0.01),
                      1000);
-        assertEquals(masterStats.getStatsMap().get(dest1).getWaitHistogram().getQuantile(0.5), 5000);
-        assertEquals(masterStats.getStatsMap().get(dest2).getWaitHistogram().getQuantile(0.01),
+        assertEquals(masterStats.getStatsMap()
+                                .get(dest1)
+                                .getCheckoutWaitUsHistogram()
+                                .getQuantile(0.5),
+                     5000);
+        assertEquals(masterStats.getStatsMap()
+                                .get(dest2)
+                                .getCheckoutWaitUsHistogram()
+                                .getQuantile(0.01),
                      1000);
-        assertEquals(masterStats.getStatsMap().get(dest2).getWaitHistogram().getQuantile(0.5), 5000);
+        assertEquals(masterStats.getStatsMap()
+                                .get(dest2)
+                                .getCheckoutWaitUsHistogram()
+                                .getQuantile(0.5),
+                     5000);
     }
 }
