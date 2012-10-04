@@ -32,4 +32,8 @@ public interface AsyncResourceRequest<V> {
      *         invoked.
      */
     long getDeadlineNs();
+
+    long getStartTimeNs();
+
+    long getStartTimeMs();
 }

@@ -38,7 +38,6 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.store.stats.ClientSocketStats;
 
 /**
  * Tests for the socket pooling
@@ -53,7 +52,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
     private ClientRequestExecutorPool pool;
     private SocketDestination dest1;
     private AbstractSocketService server;
-    private ClientSocketStats stats;
 
     private final boolean useNio;
 

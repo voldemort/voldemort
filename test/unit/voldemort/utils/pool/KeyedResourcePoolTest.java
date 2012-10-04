@@ -69,7 +69,7 @@ public class KeyedResourcePoolTest {
     public void testExceptionOnDestroy() throws Exception {
         assertTrue("POOL_SIZE is not big enough", POOL_SIZE >= 2);
 
-        Exception toThrow = new Exception("An exception!");
+        Exception toThrow = new Exception("An exception! (This exception is expected and so will print out some output to stderr.)");
         this.factory.setDestroyException(toThrow);
 
         assertEquals(0, this.pool.getTotalResourceCount());
@@ -342,6 +342,7 @@ public class KeyedResourcePoolTest {
                     // if(i % 1000 == 0) { printStats(key); }
                 }
             } catch(Exception e) {
+                System.err.println(e.toString());
                 fail(e.toString());
             }
             doneSignal.countDown();

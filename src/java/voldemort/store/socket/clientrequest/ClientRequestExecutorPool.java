@@ -187,6 +187,24 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
+    /**
+     * This method is useful for printing out QueuedKeyedResourcePool statistics
+     * if debugging issues with the underlying QueuedKeyedResourcePool and
+     * KeyedResourcePool.
+     * 
+     * @param tag A tag to be printed out in debugger output.
+     * @param destination The socket destination to print pool statistics for.
+     */
+    private void printPoolStats(String tag, SocketDestination destination) {
+        if(logger.isDebugEnabled()) {
+            logger.debug("CREP::" + tag + " : " + destination.toString() + " --- AQ QLen = "
+                         + queuedPool.getRegisteredResourceRequestCount(destination)
+                         + " --- SQ QLen = " + queuedPool.getBlockingGetsCount(destination)
+                         + ", ChkIn = " + queuedPool.getCheckedInResourcesCount(destination)
+                         + ", Tot = " + queuedPool.getTotalResourceCount(destination));
+        }
+    }
+
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
         queuedPool.reset(destination);
@@ -219,6 +237,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                 NonblockingStoreCallback callback,
                                 long timeoutMs,
                                 String operationName) {
+
         AsyncSocketDestinationRequest<T> asyncSocketDestinationRequest = new AsyncSocketDestinationRequest<T>(destination,
                                                                                                               delegate,
                                                                                                               callback,
@@ -242,6 +261,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         public final String operationName;
 
         private final long startTimeNs;
+        private final long startTimeMs;
 
         public AsyncSocketDestinationRequest(SocketDestination destination,
                                              ClientRequest<T> delegate,
@@ -255,6 +275,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             this.operationName = operationName;
 
             this.startTimeNs = System.nanoTime();
+            this.startTimeMs = System.currentTimeMillis();
         }
 
         public void useResource(ClientRequestExecutor clientRequestExecutor) {
@@ -295,6 +316,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 e = new UnreachableStoreException("Failure in " + operationName + ": "
                                                   + e.getMessage(), e);
             try {
+                // TODO: when can callback end up being null? HAs something to
+                // do with destroying resources. --JJW
                 callback.requestComplete(e, 0);
             } catch(Exception ex) {
                 if(logger.isEnabledFor(Level.WARN))
@@ -304,6 +327,14 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
         public long getDeadlineNs() {
             return startTimeNs + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        }
+
+        public long getStartTimeNs() {
+            return startTimeNs;
+        }
+
+        public long getStartTimeMs() {
+            return startTimeMs;
         }
     }
 
@@ -367,6 +398,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             } catch(Exception e) {
                 invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } finally {
+                // TODO: checkin can throw an exception. should "iscomplete" be
+                // set before the call to checkin?
                 checkin(destination, clientRequestExecutor);
                 isComplete = true;
             }

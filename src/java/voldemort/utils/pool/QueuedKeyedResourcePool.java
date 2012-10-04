@@ -103,6 +103,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
                 resource = attemptCheckout(resourcePool);
             } catch(Exception e) {
                 destroyResource(key, resourcePool, resource);
+                resource = null;
                 resourceRequest.handleException(e);
             }
             if(resource != null) {
@@ -112,6 +113,10 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         }
 
         requestQueue.add(resourceRequest);
+        // Guard against (potential) races with checkin by invoking
+        // processQueueLoop after resource request has been added to the
+        // asynchronous queue.
+        processQueueLoop(key);
     }
 
     /**
@@ -141,7 +146,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param key The key for which to process the requestQueue
      * @return true iff an item was processed from the Queue.
      */
-    private boolean processQueue(K key) throws Exception {
+    private boolean processQueue(K key) {
         Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
             return false;
@@ -154,9 +159,12 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         try {
             // Always attempt to grow to deal with destroyed resources.
             attemptGrow(key, resourcePool);
+            // TODO: Concerned about mixing the bare poll() in attemptCheckout
+            // with queueing poll(timeout) in KeyedResourcePool...
             resource = attemptCheckout(resourcePool);
         } catch(Exception e) {
             destroyResource(key, resourcePool, resource);
+            resource = null;
         }
         if(resource == null) {
             return false;
@@ -167,12 +175,39 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         if(resourceRequest == null) {
             // Did not use the resource! Directly check in via super to avoid
             // circular call to processQueue().
-            super.checkin(key, resource);
+            try {
+                super.checkin(key, resource);
+            } catch(Exception e) {
+                logger.error("Exception checking in resource: ", e);
+            }
             return false;
         }
 
         resourceRequest.useResource(resource);
+        // TODO: remove resourceRequest.getStartTimeNS()
         return true;
+    }
+
+    private long peekNextStartTimeMs(K key) {
+        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+        if(requestQueue.isEmpty()) {
+            return -1;
+        }
+        AsyncResourceRequest<V> resourceRequest = requestQueue.peek();
+        if(resourceRequest == null) {
+            return -1;
+        }
+        return resourceRequest.getStartTimeMs();
+    }
+
+    /**
+     * Attempts to repeatedly process enqueued resource requests. Tries until no
+     * more progress is possible without blocking.
+     * 
+     * @param key
+     */
+    private void processQueueLoop(K key) {
+        while(processQueue(key)) {}
     }
 
     /**
@@ -183,10 +218,58 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     @Override
     public void checkin(K key, V resource) throws Exception {
+        // OPTION I: Attempt to provide FIFO between sync and async requests.
+        /*-
+        long nextStartTime = peekNextStartTimeMs(key);
+        if(nextStartTime != -1) {
+            if(nextStartTime < getLastTimeMs(key)) {
+                if(isOpenAndValid(key, resource)) {
+                    Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+                    AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
+                    if(resourceRequest != null) {
+                        resourceRequest.useResource(resource);
+                        return;
+                    }
+                } else {
+                    resource = null; // twas destroyed
+                }
+            }
+        }
+        // */
+
+        // OPTION II: Strictly prefer async requests over sync requets.
+        /*-
+        if(isOpenAndValid(key, resource)) {
+            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
+            AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
+            if(resourceRequest != null) {
+                resourceRequest.useResource(resource);
+                return;
+            }
+        } else {
+            // Must null out resource since a side effect of a failed call to
+            // isOpenAndValid is to call KeyedResourcePool::destroyResource
+            // which can only safely be invoked once because its finally clause
+            // decrements KeyedResourcePool's size.
+            resource = null; // twas destroyed
+        }
+         */
+
+        // For either Option I or II: only checkin if resource is not null, to
+        // avoid side-effect of invoking destroyResource multiple times on the
+        // same resource.
+        /*-
+        if(resource != null)
+            super.checkin(key, resource);
+        // */
+
+        // Option III:
         super.checkin(key, resource);
-        // NB: Blocking checkout calls may get checked in resource before
-        // processQueue() attempts checkout.
-        while(processQueue(key)) {}
+
+        // NB: Blocking checkout calls for synchronous requests get the resource
+        // checked in above before processQueueLoop() attempts checkout below.
+        // There is therefore a risk that asynchronous requests will be starved.
+        processQueueLoop(key);
     }
 
     /*
@@ -286,21 +369,33 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     }
 
     /**
-     * Return the number of requests queued up for a given pool.
+     * Count the number of queued resource requests for a specific pool.
      * 
      * @param key The key
-     * @return The count
+     * @return The count of queued resource requests. Returns 0 if no queue
+     *         exists for given key.
      */
     public int getRegisteredResourceRequestCount(K key) {
-        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
-        // FYI: .size() is not constant time in the next call. ;)
-        return requestQueue.size();
+        int rc = 0;
+        if(!requestQueueMap.containsKey(key)) {
+            return rc;
+        }
+        try {
+            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
+            // FYI: .size() is not constant time in the next call. ;)
+            rc = requestQueue.size();
+        } catch(IllegalArgumentException iae) {
+            logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+        }
+        return rc;
     }
 
     /**
-     * Return the number of resource requests queued up for all pools.
+     * Count the total number of queued resource requests for all queues. The
+     * result is "approximate" in the face of concurrency since individual
+     * queues ools can change size during the aggregate count.
      * 
-     * @return The count of resources
+     * @return The (approximate) aggregate count of queued resource requests.
      */
     public int getRegisteredResourceRequestCount() {
         int count = 0;
@@ -308,9 +403,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
             // FYI: .size() is not constant time in the next call. ;)
             count += entry.getValue().size();
         }
-        // count is approximate in the case of concurrency since .queue.size()
-        // for various entries can change while other entries are being counted.
         return count;
     }
-
 }
