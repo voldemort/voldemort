@@ -186,11 +186,11 @@ public class KeyedResourcePool<K, V> {
     }
 
     /*
-     * A safe wrapper to destroy the given resource that catches any user
-     * exceptions.
+     * A "safe" wrapper to destroy the given resource that catches any user
+     * exceptions. This wrapper is safe in that it does not throw any
+     * exceptions. However, this wrapper updates the size of the resource pool
+     * and so should be called no more than once for any resource.
      */
-    // TODO: If this method is called multiple times on the same resource, the
-    // resourcePool size gets decremented too many times and badness ensues.
     protected void destroyResource(K key, Pool<V> resourcePool, V resource) {
         if(resource != null) {
             try {
@@ -199,7 +199,8 @@ public class KeyedResourcePool<K, V> {
                 logger.error("Exception while destroying invalid resource: ", e);
             } finally {
                 // Assumes destroyed resource was in fact checked out of the
-                // pool.
+                // pool. Also assumes that this method will be called no more
+                // than once for any given checked out resource.
                 resourcePool.size.decrementAndGet();
             }
         }
