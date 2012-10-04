@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
@@ -107,7 +106,6 @@ public class KeyedResourcePool<K, V> {
     public V checkout(K key) throws Exception {
         checkNotClosed();
 
-        // TODO: clean up nanotime BS
         long startNs = System.nanoTime();
         Pool<V> resourcePool = getResourcePoolForKey(key);
         // Always attempt to grow. This protects against running out of
@@ -123,7 +121,7 @@ public class KeyedResourcePool<K, V> {
                 long timeRemainingNs = resourcePoolConfig.getTimeout(TimeUnit.NANOSECONDS)
                                        - (System.nanoTime() - startNs);
                 if(timeRemainingNs > 0)
-                    resource = resourcePool.blockingGet(timeRemainingNs, System.currentTimeMillis());
+                    resource = resourcePool.blockingGet(timeRemainingNs);
 
                 if(resource == null)
                     throw new TimeoutException("Could not acquire resource in "
@@ -140,7 +138,7 @@ public class KeyedResourcePool<K, V> {
         return resource;
     }
 
-    /*
+    /**
      * Get a free resource if one exists. This method does not block. It either
      * returns null or a resource.
      */
@@ -149,7 +147,7 @@ public class KeyedResourcePool<K, V> {
         return resource;
     }
 
-    /*
+    /**
      * Attempt to create a new object and add it to the pool--this only happens
      * if there is room for the new object. This method does not block. This
      * method returns true if it adds a resource to the pool. (Returning true
@@ -160,7 +158,7 @@ public class KeyedResourcePool<K, V> {
         return pool.attemptGrow(key, this.objectFactory);
     }
 
-    /*
+    /**
      * Get the pool for the given key. If no pool exists, create one.
      */
     protected Pool<V> getResourcePoolForKey(K key) {
@@ -175,7 +173,7 @@ public class KeyedResourcePool<K, V> {
         return resourcePool;
     }
 
-    /*
+    /**
      * Get the pool for the given key. If no pool exists, throw an exception.
      */
     protected Pool<V> getResourcePoolForExistingKey(K key) {
@@ -379,7 +377,7 @@ public class KeyedResourcePool<K, V> {
         return count;
     }
 
-    /*
+    /**
      * Check that the pool is not closed, and throw an IllegalStateException if
      * it is.
      */
@@ -387,24 +385,6 @@ public class KeyedResourcePool<K, V> {
         if(!isOpen.get())
             throw new IllegalStateException("Pool is closed!");
     }
-
-    // OPTION I: Attempt to provide FIFO between sync and async requests.
-    /*-
-    protected long getLastTimeMs(K key) {
-        long rc = 0;
-        if(!resourcePoolMap.containsKey(key)) {
-            return rc;
-        }
-        try {
-            Pool<V> resourcePool = getResourcePoolForExistingKey(key);
-            rc = resourcePool.lastTimeMs.get();
-        } catch(IllegalArgumentException iae) {
-            logger.debug("getBlockingGetsCount called on invalid key: ", iae);
-        }
-        return rc;
-    }
-
-    // */
 
     /**
      * A fixed size pool that uses an ArrayBlockingQueue. The pool grows to no
@@ -416,7 +396,6 @@ public class KeyedResourcePool<K, V> {
 
         final private AtomicInteger size = new AtomicInteger(0);
         final private AtomicInteger blockingGets = new AtomicInteger(0);
-        private final AtomicLong lastTimeMs = new AtomicLong(0);
         final private int maxPoolSize;
         final private BlockingQueue<V> queue;
 
@@ -470,14 +449,11 @@ public class KeyedResourcePool<K, V> {
             return this.queue.poll();
         }
 
-        public V blockingGet(long timeoutNs, long startTimeMs) throws InterruptedException {
+        public V blockingGet(long timeoutNs) throws InterruptedException {
             V v;
             try {
                 blockingGets.incrementAndGet();
                 v = this.queue.poll(timeoutNs, TimeUnit.NANOSECONDS);
-                // OPTION I: Attempt to provide FIFO between sync and async
-                // requests.
-                // updateLastTimeMs(startTimeMs);
             } finally {
                 blockingGets.decrementAndGet();
             }
@@ -493,19 +469,6 @@ public class KeyedResourcePool<K, V> {
             queue.drainTo(list);
             return list;
         }
-
-        // OPTION I: Attempt to provide FIFO between sync and async requests.
-        /*-
-        private void updateLastTimeMs(long startTimeMs) {
-            long curLastTimeMs = lastTimeMs.get();
-            while(startTimeMs > curLastTimeMs) {
-                if(lastTimeMs.compareAndSet(curLastTimeMs, startTimeMs)) {
-                    break;
-                }
-                curLastTimeMs = lastTimeMs.get();
-            }
-        }
-        // */
 
     }
 }

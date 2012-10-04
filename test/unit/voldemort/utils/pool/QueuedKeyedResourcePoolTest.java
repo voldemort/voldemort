@@ -459,13 +459,5 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
         public long getDeadlineNs() {
             return deadlineNs;
         }
-
-        public long getStartTimeNs() {
-            return 0;
-        }
-
-        public long getStartTimeMs() {
-            return 0;
-        }
     }
 }

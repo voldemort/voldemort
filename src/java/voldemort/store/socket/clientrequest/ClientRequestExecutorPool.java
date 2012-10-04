@@ -187,6 +187,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
+    // TODO: remove this helper method once JmxUtils are all updated to track
+    // queue stats of interest.
     /**
      * This method is useful for printing out QueuedKeyedResourcePool statistics
      * if debugging issues with the underlying QueuedKeyedResourcePool and
@@ -261,7 +263,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         public final String operationName;
 
         private final long startTimeNs;
-        private final long startTimeMs;
 
         public AsyncSocketDestinationRequest(SocketDestination destination,
                                              ClientRequest<T> delegate,
@@ -275,7 +276,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             this.operationName = operationName;
 
             this.startTimeNs = System.nanoTime();
-            this.startTimeMs = System.currentTimeMillis();
         }
 
         public void useResource(ClientRequestExecutor clientRequestExecutor) {
@@ -327,14 +327,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
 
         public long getDeadlineNs() {
             return startTimeNs + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-        }
-
-        public long getStartTimeNs() {
-            return startTimeNs;
-        }
-
-        public long getStartTimeMs() {
-            return startTimeMs;
         }
     }
 

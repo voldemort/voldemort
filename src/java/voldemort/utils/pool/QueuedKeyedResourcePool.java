@@ -159,8 +159,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         try {
             // Always attempt to grow to deal with destroyed resources.
             attemptGrow(key, resourcePool);
-            // TODO: Concerned about mixing the bare poll() in attemptCheckout
-            // with queueing poll(timeout) in KeyedResourcePool...
             resource = attemptCheckout(resourcePool);
         } catch(Exception e) {
             destroyResource(key, resourcePool, resource);
@@ -184,20 +182,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         }
 
         resourceRequest.useResource(resource);
-        // TODO: remove resourceRequest.getStartTimeNS()
         return true;
-    }
-
-    private long peekNextStartTimeMs(K key) {
-        Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
-        if(requestQueue.isEmpty()) {
-            return -1;
-        }
-        AsyncResourceRequest<V> resourceRequest = requestQueue.peek();
-        if(resourceRequest == null) {
-            return -1;
-        }
-        return resourceRequest.getStartTimeMs();
     }
 
     /**
@@ -218,61 +203,14 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      */
     @Override
     public void checkin(K key, V resource) throws Exception {
-        // OPTION I: Attempt to provide FIFO between sync and async requests.
-        /*-
-        long nextStartTime = peekNextStartTimeMs(key);
-        if(nextStartTime != -1) {
-            if(nextStartTime < getLastTimeMs(key)) {
-                if(isOpenAndValid(key, resource)) {
-                    Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
-                    AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
-                    if(resourceRequest != null) {
-                        resourceRequest.useResource(resource);
-                        return;
-                    }
-                } else {
-                    resource = null; // twas destroyed
-                }
-            }
-        }
-        // */
-
-        // OPTION II: Strictly prefer async requests over sync requets.
-        /*-
-        if(isOpenAndValid(key, resource)) {
-            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
-            AsyncResourceRequest<V> resourceRequest = getNextUnexpiredResourceRequest(requestQueue);
-            if(resourceRequest != null) {
-                resourceRequest.useResource(resource);
-                return;
-            }
-        } else {
-            // Must null out resource since a side effect of a failed call to
-            // isOpenAndValid is to call KeyedResourcePool::destroyResource
-            // which can only safely be invoked once because its finally clause
-            // decrements KeyedResourcePool's size.
-            resource = null; // twas destroyed
-        }
-         */
-
-        // For either Option I or II: only checkin if resource is not null, to
-        // avoid side-effect of invoking destroyResource multiple times on the
-        // same resource.
-        /*-
-        if(resource != null)
-            super.checkin(key, resource);
-        // */
-
-        // Option III:
         super.checkin(key, resource);
-
         // NB: Blocking checkout calls for synchronous requests get the resource
         // checked in above before processQueueLoop() attempts checkout below.
         // There is therefore a risk that asynchronous requests will be starved.
         processQueueLoop(key);
     }
 
-    /*
+    /**
      * A safe wrapper to destroy the given resource request.
      */
     protected void destroyRequest(AsyncResourceRequest<V> resourceRequest) {
