@@ -310,8 +310,6 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 e = new UnreachableStoreException("Failure in " + operationName + ": "
                                                   + e.getMessage(), e);
             try {
-                // TODO: when can callback end up being null? HAs something to
-                // do with destroying resources. --JJW
                 callback.requestComplete(e, 0);
             } catch(Exception ex) {
                 if(logger.isEnabledFor(Level.WARN))
@@ -384,10 +382,10 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             } catch(Exception e) {
                 invokeCallback(e, (System.nanoTime() - startNs) / Time.NS_PER_MS);
             } finally {
-                // TODO: checkin can throw an exception. should "iscomplete" be
-                // set before the call to checkin?
-                checkin(destination, clientRequestExecutor);
                 isComplete = true;
+                // checkin may throw a (new) exception. Any prior exception
+                // has been passed off via invokeCallback.
+                checkin(destination, clientRequestExecutor);
             }
         }
 

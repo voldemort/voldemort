@@ -230,7 +230,7 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param requestQueue The queue for which all resource requests are to be
      *        destroyed.
      */
-    private void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
+    private synchronized void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
         AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
         while(resourceRequest != null) {
             destroyRequest(resourceRequest);
