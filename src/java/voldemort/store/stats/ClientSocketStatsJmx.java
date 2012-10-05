@@ -128,9 +128,19 @@ public class ClientSocketStatsJmx {
         return result;
     }
 
-    @JmxGetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
+    @JmxGetter(name = "monitoringInterval", description = "The maximum number of checkouts plus resource requests over which performance statistics are calculated.")
     public int getMonitoringInterval() {
         return stats.getMonitoringInterval();
+    }
+
+    @JmxGetter(name = "monitoringCheckoutSampleSize", description = "The number of checkout samples currently included in (pertinent) aggregate measures.")
+    public int getMonitoringCheckoutSampleSize() {
+        return stats.getCheckoutCount();
+    }
+
+    @JmxGetter(name = "monitoringResourceRequestSampleSize", description = "The number of resource request samples currently included in (pertinent) aggregate measures.")
+    public int getMonitoringResourceRequestSampleSize() {
+        return stats.resourceRequestCount();
     }
 
     @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
