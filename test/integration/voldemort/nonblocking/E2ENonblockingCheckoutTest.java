@@ -244,26 +244,18 @@ public class E2ENonblockingCheckoutTest {
                                             + Thread.currentThread().getName() + ")");
                 System.out.println("START " + context);
                 long startTimeMs = System.currentTimeMillis();
-                boolean putDone = false;
-                while(!putDone) {
-                    try {
-                        storeClient.put(I, I);
-                        putDone = true;
-                    } catch(ObsoleteVersionException e) {
-                        System.out.println("RETRY " + context);
-                        // What to do here?
-                    }
+                try {
+                    storeClient.put(I, I);
+                } catch(ObsoleteVersionException e) {
+                    System.out.println("ObsoleteVersionException caught on put." + context);
                 }
                 long endTimeMs = System.currentTimeMillis();
                 System.out.println(" DONE " + context + " --- Time (ms): "
                                    + (endTimeMs - startTimeMs));
                 if(i >= NUM_EXEMPT_PUTS) {
-                    /*-
                     assertFalse("Operation completes without blocking on slow server:"
                                         + (endTimeMs - startTimeMs),
                                 (endTimeMs - startTimeMs) > this.putTimeLimitMs);
-                     */
-                    assertFalse("False", false); // noop until fix
                     if((endTimeMs - startTimeMs) > this.putTimeLimitMs) {
                         System.err.println("Operation blocked! Therefore, operation is not nonblocking... "
                                            + context
