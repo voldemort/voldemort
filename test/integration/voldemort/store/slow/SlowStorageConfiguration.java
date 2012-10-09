@@ -21,6 +21,7 @@ import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
+import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ByteArray;
 
 /**
@@ -40,11 +41,11 @@ public class SlowStorageConfiguration implements StorageConfiguration {
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
         if(voldemortConfig != null) {
-            return new SlowStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(),
+            return new SlowStorageEngine<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                     this.voldemortConfig.testingGetSlowQueueingDelays(),
                                                                     this.voldemortConfig.testingGetSlowConcurrentDelays());
         }
-        return new SlowStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(),
+        return new SlowStorageEngine<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName()),
                                                                 new OpTimeMap(0),
                                                                 new OpTimeMap(0));
     }

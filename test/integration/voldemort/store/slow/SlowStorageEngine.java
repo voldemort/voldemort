@@ -25,7 +25,6 @@ import voldemort.common.OpTimeMap;
 import voldemort.common.VoldemortOpCode;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.memory.InMemoryStorageEngine;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.versioning.Version;
@@ -50,16 +49,18 @@ import voldemort.versioning.Versioned;
  */
 public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
-    private final InMemoryStorageEngine<K, V, T> imStore;
+    private final StorageEngine<K, V, T> innerStorageEngine;
     private final OpTimeMap queueingDelays;
     private final OpTimeMap concurrentDelays;
 
-    public SlowStorageEngine(String name) {
-        this(name, new OpTimeMap(0), new OpTimeMap(0));
+    public SlowStorageEngine(StorageEngine<K, V, T> innerStorageEngine) {
+        this(innerStorageEngine, new OpTimeMap(0), new OpTimeMap(0));
     }
 
-    public SlowStorageEngine(String name, OpTimeMap queueingDelays, OpTimeMap concurrentDelays) {
-        imStore = new InMemoryStorageEngine<K, V, T>(name);
+    public SlowStorageEngine(StorageEngine<K, V, T> innerStorageEngine,
+                             OpTimeMap queueingDelays,
+                             OpTimeMap concurrentDelays) {
+        this.innerStorageEngine = innerStorageEngine;
         this.queueingDelays = queueingDelays;
         this.concurrentDelays = concurrentDelays;
     }
@@ -93,56 +94,56 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
 
     public boolean delete(K key, Version version) {
         delayByOp(VoldemortOpCode.DELETE_OP_CODE);
-        return imStore.delete(key, version);
+        return innerStorageEngine.delete(key, version);
     }
 
     public List<Version> getVersions(K key) {
         delayByOp(VoldemortOpCode.GET_VERSION_OP_CODE);
-        return imStore.getVersions(key);
+        return innerStorageEngine.getVersions(key);
     }
 
     public List<Versioned<V>> get(K key, T transform) throws VoldemortException {
         delayByOp(VoldemortOpCode.GET_OP_CODE);
-        return imStore.get(key, transform);
+        return innerStorageEngine.get(key, transform);
     }
 
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         delayByOp(VoldemortOpCode.GET_ALL_OP_CODE);
-        return imStore.getAll(keys, transforms);
+        return innerStorageEngine.getAll(keys, transforms);
     }
 
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         delayByOp(VoldemortOpCode.PUT_OP_CODE);
-        imStore.put(key, value, transforms);
+        innerStorageEngine.put(key, value, transforms);
     }
 
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
-        return imStore.entries();
+        return innerStorageEngine.entries();
     }
 
     public ClosableIterator<K> keys() {
-        return imStore.keys();
+        return innerStorageEngine.keys();
     }
 
     public void truncate() {
-        imStore.truncate();
+        innerStorageEngine.truncate();
     }
 
     public boolean isPartitionAware() {
-        return imStore.isPartitionAware();
+        return innerStorageEngine.isPartitionAware();
     }
 
     public String getName() {
-        return imStore.getName();
+        return innerStorageEngine.getName();
     }
 
     public void close() {
-        imStore.close();
+        innerStorageEngine.close();
     }
 
     public Object getCapability(StoreCapabilityType capability) {
-        return imStore.getCapability(capability);
+        return innerStorageEngine.getCapability(capability);
     }
 
 }
