@@ -132,6 +132,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         return factory;
     }
 
+    @Override
     public SocketStore create(String storeName,
                               String hostName,
                               int port,
@@ -189,6 +190,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
+    @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
         queuedPool.reset(destination);
@@ -197,6 +199,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     /**
      * Close the socket pool
      */
+    @Override
     public void close() {
         // unregister MBeans
         if(stats != null) {
@@ -269,6 +272,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             }
         }
 
+        @Override
         public void useResource(ClientRequestExecutor clientRequestExecutor) {
             updateStats();
             if(logger.isDebugEnabled()) {
@@ -297,6 +301,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             clientRequestExecutor.addClientRequest(clientRequest, timeoutMs);
         }
 
+        @Override
         public void handleTimeout() {
             // Do *not* invoke updateStats since handleException does so.
             long durationNs = System.nanoTime() - startTimeNs;
@@ -304,6 +309,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                  + " ms. (Took " + durationNs + " ns.)"));
         }
 
+        @Override
         public void handleException(Exception e) {
             updateStats();
             if(!(e instanceof UnreachableStoreException))
@@ -317,6 +323,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             }
         }
 
+        @Override
         public long getDeadlineNs() {
             return startTimeNs + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
         }
@@ -373,6 +380,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             }
         }
 
+        @Override
         public void complete() {
             try {
                 clientRequest.complete();
@@ -389,26 +397,32 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             }
         }
 
+        @Override
         public boolean isComplete() {
             return isComplete;
         }
 
+        @Override
         public boolean formatRequest(DataOutputStream outputStream) {
             return clientRequest.formatRequest(outputStream);
         }
 
+        @Override
         public T getResult() throws VoldemortException, IOException {
             return clientRequest.getResult();
         }
 
+        @Override
         public boolean isCompleteResponse(ByteBuffer buffer) {
             return clientRequest.isCompleteResponse(buffer);
         }
 
+        @Override
         public void parseResponse(DataInputStream inputStream) {
             clientRequest.parseResponse(inputStream);
         }
 
+        @Override
         public void timeOut() {
             clientRequest.timeOut();
             invokeCallback(new StoreTimeoutException("ClientRequestExecutor timed out. Cannot complete request."),
@@ -416,6 +430,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             checkin(destination, clientRequestExecutor);
         }
 
+        @Override
         public boolean isTimedOut() {
             return clientRequest.isTimedOut();
         }
