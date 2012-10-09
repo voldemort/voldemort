@@ -329,18 +329,16 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      *         exists for given key.
      */
     public int getRegisteredResourceRequestCount(K key) {
-        int rc = 0;
-        if(!requestQueueMap.containsKey(key)) {
-            return rc;
+        if(requestQueueMap.containsKey(key)) {
+            try {
+                Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
+                // FYI: .size() is not constant time in the next call. ;)
+                return requestQueue.size();
+            } catch(IllegalArgumentException iae) {
+                logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+            }
         }
-        try {
-            Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForExistingKey(key);
-            // FYI: .size() is not constant time in the next call. ;)
-            rc = requestQueue.size();
-        } catch(IllegalArgumentException iae) {
-            logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
-        }
-        return rc;
+        return 0;
     }
 
     /**

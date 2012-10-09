@@ -297,17 +297,15 @@ public class KeyedResourcePool<K, V> {
      *         given key.
      */
     public int getTotalResourceCount(K key) {
-        int rc = 0;
-        if(!resourcePoolMap.containsKey(key)) {
-            return rc;
+        if(resourcePoolMap.containsKey(key)) {
+            try {
+                Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+                return resourcePool.size.get();
+            } catch(IllegalArgumentException iae) {
+                logger.debug("getTotalResourceCount called on invalid key: ", iae);
+            }
         }
-        try {
-            Pool<V> resourcePool = getResourcePoolForExistingKey(key);
-            rc = resourcePool.size.get();
-        } catch(IllegalArgumentException iae) {
-            logger.debug("getTotalResourceCount called on invalid key: ", iae);
-        }
-        return rc;
+        return 0;
     }
 
     /**
@@ -332,17 +330,15 @@ public class KeyedResourcePool<K, V> {
      *         for given key.
      */
     public int getCheckedInResourcesCount(K key) {
-        int rc = 0;
-        if(!resourcePoolMap.containsKey(key)) {
-            return rc;
+        if(resourcePoolMap.containsKey(key)) {
+            try {
+                Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+                return resourcePool.queue.size();
+            } catch(IllegalArgumentException iae) {
+                logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
+            }
         }
-        try {
-            Pool<V> resourcePool = getResourcePoolForExistingKey(key);
-            rc = resourcePool.queue.size();
-        } catch(IllegalArgumentException iae) {
-            logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
-        }
-        return rc;
+        return 0;
     }
 
     /**
@@ -367,17 +363,15 @@ public class KeyedResourcePool<K, V> {
      *         key.
      */
     public int getBlockingGetsCount(K key) {
-        int rc = 0;
-        if(!resourcePoolMap.containsKey(key)) {
-            return rc;
+        if(resourcePoolMap.containsKey(key)) {
+            try {
+                Pool<V> resourcePool = getResourcePoolForExistingKey(key);
+                return resourcePool.blockingGets.get();
+            } catch(IllegalArgumentException iae) {
+                logger.debug("getBlockingGetsCount called on invalid key: ", iae);
+            }
         }
-        try {
-            Pool<V> resourcePool = getResourcePoolForExistingKey(key);
-            rc = resourcePool.blockingGets.get();
-        } catch(IllegalArgumentException iae) {
-            logger.debug("getBlockingGetsCount called on invalid key: ", iae);
-        }
-        return rc;
+        return 0;
     }
 
     /**

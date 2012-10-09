@@ -66,7 +66,9 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
         // unit tests assert on specific delays occurring.
         OpTimeMap queued = new OpTimeMap(10, 20, 30, 40, 50);
         OpTimeMap concurrent = new OpTimeMap(50, 40, 30, 20, 10);
-        this.store = new SlowStorageEngine<ByteArray, byte[], byte[]>("test", queued, concurrent);
+        this.store = new SlowStorageEngine<ByteArray, byte[], byte[]>(new InMemoryStorageEngine<ByteArray, byte[], byte[]>("test"),
+                                                                      queued,
+                                                                      concurrent);
     }
 
     @Override
