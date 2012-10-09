@@ -159,8 +159,13 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
 
         long startNs = System.nanoTime();
         assertEquals(POOL_SIZE * 10000, this.queuedPool.getRegisteredResourceRequestCount());
-        assertTrue("O(n) count of queue is too slow",
-                   System.nanoTime() - startNs < TimeUnit.MILLISECONDS.toNanos(10));
+        long durationNs = System.nanoTime() - startNs;
+        // 20 ms is an arbitrary time limit:
+        // POOL_SIZE * 10000 resource requests / 20 ms
+        // = 50000 resource requests/20ms
+        // = 2500 resource requests/ms
+        assertTrue("O(n) count of queue is too slow: " + durationNs + " ns.",
+                   durationNs < TimeUnit.MILLISECONDS.toNanos(20));
 
         // Confirm additional requests are queued
         assertEquals(POOL_SIZE, this.factory.getCreated());

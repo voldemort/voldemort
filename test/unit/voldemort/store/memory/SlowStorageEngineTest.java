@@ -190,10 +190,10 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
         // Magic constant 60 ms is based on operation times defined above.
         long expectedMs = 60;
 
-        // Magic constants 50 and 5 below allow us to make sure a tight timing
-        // test passes 90% of the time.
+        // Magic constants 50 and 10 below allow us to make sure a tight timing
+        // test passes 80% of the time.
         int numOps = 50;
-        int numOpsWithBadTimesOK = 5;
+        int numOpsWithBadTimesOK = 10;
         for(byte op: opList) {
             int badTimesCounter = 0;
             for(int i = 0; i < numOps; ++i) {
@@ -226,9 +226,13 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
      * Test repeated operations.
      */
     public void testEachOpTypeRepeated() {
-        // Magic number '2': Run once to warm up, run again and test asserts on
-        // second pass
+        // Magic number '2': Run once to warm up, then tests timing asserts.
         for(int j = 0; j < 2; j++) {
+            // Magic constant 1 means we can have one op report a bad (tight)
+            // timing result
+            int numOpsWithBadTimesAllowed = 1;
+            int numOpsWithBadTimes = 0;
+
             for(byte op: opList) {
                 ConcurrentLinkedQueue<Long> runTimes = new ConcurrentLinkedQueue<Long>();
                 CountDownLatch waitForOps = new CountDownLatch(5 + 1);
@@ -270,12 +274,16 @@ public class SlowStorageEngineTest extends AbstractStorageEngineTest {
                             expectedTimeMs = (5 * 30) + 30;
                             break;
                     }
-                    String details = "(maxTimeMs: " + maxTimeMs + ", " + expectedTimeMs + ")";
-                    assertFalse("OpInvoker operation time is bad " + details,
-                                isRunTimeBad(maxTimeMs, expectedTimeMs));
+                    if(isRunTimeBad(maxTimeMs, expectedTimeMs)) {
+                        numOpsWithBadTimes++;
+                        String details = getOpName(op) + ", maxTimeMs: " + maxTimeMs + ", "
+                                         + expectedTimeMs;
+                        System.err.println("Bad run time (some are expected): " + details);
+                    }
                 }
+                assertFalse("Too many operations with bad run times: " + numOpsWithBadTimes,
+                            numOpsWithBadTimes > numOpsWithBadTimesAllowed);
             }
         }
     }
-
 }

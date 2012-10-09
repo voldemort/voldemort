@@ -37,7 +37,7 @@ import voldemort.utils.Time;
 public class KeyedResourcePoolTest {
 
     protected static int POOL_SIZE = 5;
-    protected static long TIMEOUT_MS = 200;
+    protected static long TIMEOUT_MS = 500;
 
     protected TestResourceFactory factory;
     protected KeyedResourcePool<String, TestResource> pool;
