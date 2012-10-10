@@ -58,7 +58,7 @@ public class ClientSocketStatsTest {
         assertEquals(0, stats.getConnectionsCreated());
         assertEquals(0, stats.getConnectionsDestroyed());
         assertEquals(0, stats.getCheckoutCount());
-        assertEquals(-1, stats.getAvgCheckoutWaitUs());
+        assertEquals(0, stats.getAvgCheckoutWaitUs());
     }
 
     @Test
@@ -312,12 +312,12 @@ public class ClientSocketStatsTest {
         // after interval based reset
         stats.recordCheckoutTimeUs(dest2, 900000);
         // check parent
-        assertEquals(-1, stats.getAvgCheckoutWaitUs());
+        assertEquals(0, stats.getAvgCheckoutWaitUs());
         assertEquals(0, stats.getCheckoutCount());
         // check child
-        assertEquals(-1, child1.getAvgCheckoutWaitUs());
+        assertEquals(0, child1.getAvgCheckoutWaitUs());
         assertEquals(0, child1.getCheckoutCount());
-        assertEquals(-1, child2.getAvgCheckoutWaitUs());
+        assertEquals(0, child2.getAvgCheckoutWaitUs());
         assertEquals(0, child2.getCheckoutCount());
     }
 
@@ -331,6 +331,7 @@ public class ClientSocketStatsTest {
                 this.dest = dest;
             }
 
+            @Override
             public void run() {
                 masterStats.recordCheckoutTimeUs(dest, 1000);
                 masterStats.recordCheckoutTimeUs(dest, 2000);
