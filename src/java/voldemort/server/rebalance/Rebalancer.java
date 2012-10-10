@@ -298,8 +298,8 @@ public class Rebalancer implements Runnable {
                                                                                                         System.currentTimeMillis());
                 logger.info("Switching metadata from " + metadataStore.getCluster() + " to "
                             + cluster + " [ " + updatedVectorClock + " ]");
-                metadataStore.put(MetadataStore.CLUSTER_KEY, Versioned.value((Object) cluster,
-                                                                             updatedVectorClock));
+                metadataStore.put(MetadataStore.CLUSTER_KEY,
+                                  Versioned.value((Object) cluster, updatedVectorClock));
             } finally {
                 metadataStore.writeLock.unlock();
             }
@@ -383,7 +383,8 @@ public class Rebalancer implements Runnable {
                                                                            voldemortConfig,
                                                                            metadataStore,
                                                                            requestId,
-                                                                           stealInfos));
+                                                                           stealInfos,
+                                                                           voldemortConfig.usePartitionScanForRebalance()));
 
         return requestId;
     }

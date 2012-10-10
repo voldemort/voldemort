@@ -195,6 +195,7 @@ public class VoldemortConfig implements Serializable {
     private long rebalancingTimeoutSec;
     private int maxParallelStoresRebalancing;
     private boolean rebalancingOptimization;
+    private boolean usePartitionScanForRebalance;
 
     public VoldemortConfig(Properties props) {
         this(new Props(props));
@@ -405,6 +406,8 @@ public class VoldemortConfig implements Serializable {
         this.rebalancingTimeoutSec = props.getLong("rebalancing.timeout.seconds", 10 * 24 * 60 * 60);
         this.maxParallelStoresRebalancing = props.getInt("max.parallel.stores.rebalancing", 3);
         this.rebalancingOptimization = props.getBoolean("rebalancing.optimization", true);
+        this.usePartitionScanForRebalance = props.getBoolean("use.partition.scan.for.rebalance",
+                                                             true);
 
         this.failureDetectorImplementation = props.getString("failuredetector.implementation",
                                                              FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME);
@@ -1644,6 +1647,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setMaxParallelStoresRebalancing(boolean rebalancingOptimization) {
         this.rebalancingOptimization = rebalancingOptimization;
+    }
+
+    public boolean usePartitionScanForRebalance() {
+        return usePartitionScanForRebalance;
+    }
+
+    public void setUsePartitionScanForRebalance(boolean usePartitionScanForRebalance) {
+        this.usePartitionScanForRebalance = usePartitionScanForRebalance;
     }
 
     public boolean isEnableJmxClusterName() {

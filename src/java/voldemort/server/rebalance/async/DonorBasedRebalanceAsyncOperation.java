@@ -16,13 +16,15 @@
 
 package voldemort.server.rebalance.async;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +42,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.VoldemortRebalancingException;
+import voldemort.store.PartitionListIterator;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
@@ -78,6 +81,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Cluster initialCluster;
     private final Cluster targetCluster;
+    private final boolean usePartitionScan;
 
     private final HashMultimap<String, Pair<Integer, HashMap<Integer, List<Integer>>>> storeToNodePartitionMapping;
 
@@ -103,13 +107,15 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                                              VoldemortConfig voldemortConfig,
                                              MetadataStore metadataStore,
                                              int requestId,
-                                             List<RebalancePartitionsInfo> stealInfos) {
+                                             List<RebalancePartitionsInfo> stealInfos,
+                                             boolean usePartitionScan) {
         super(rebalancer, voldemortConfig, metadataStore, requestId, "Donor based rebalance : "
                                                                      + stealInfos);
         this.storeRepository = storeRepository;
         this.stealInfos = stealInfos;
         this.targetCluster = metadataStore.getCluster();
         this.initialCluster = stealInfos.get(0).getInitialCluster();
+        this.usePartitionScan = usePartitionScan;
 
         // Group the plans by the store names
         this.storeToNodePartitionMapping = groupByStores(stealInfos);
@@ -293,11 +299,18 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 logger.info("Started a thread for " + jobName);
             }
 
-            fetchEntriesForStealers(storageEngine,
-                                    optimizedStealerNodeToMappingTuples,
-                                    storeDef,
-                                    nodeToQueue,
-                                    storeName);
+            if(usePartitionScan && storageEngine.isPartitionScanSupported())
+                fetchEntriesForStealersPartitionScan(storageEngine,
+                                                     optimizedStealerNodeToMappingTuples,
+                                                     storeDef,
+                                                     nodeToQueue,
+                                                     storeName);
+            else
+                fetchEntriesForStealers(storageEngine,
+                                        optimizedStealerNodeToMappingTuples,
+                                        storeDef,
+                                        nodeToQueue,
+                                        storeName);
         }
     }
 
@@ -340,18 +353,79 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         }
     }
 
+    private void fetchEntriesForStealersPartitionScan(StorageEngine<ByteArray, byte[], byte[]> storageEngine,
+                                                      Set<Pair<Integer, HashMap<Integer, List<Integer>>>> optimizedStealerNodeToMappingTuples,
+                                                      StoreDefinition storeDef,
+                                                      HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue,
+                                                      String storeName) {
+        int scanned = 0;
+        int[] fetched = new int[targetCluster.getNumberOfNodes()];
+        long startTime = System.currentTimeMillis();
+
+        // construct a set of all the partitions we will be fetching
+        Set<Integer> partitionsToDonate = new HashSet<Integer>();
+        for(Pair<Integer, HashMap<Integer, List<Integer>>> nodePartitionMapPair: optimizedStealerNodeToMappingTuples) {
+            // for each of the nodes, add all the partitions requested
+            HashMap<Integer, List<Integer>> replicaToPartitionMap = nodePartitionMapPair.getSecond();
+            if(replicaToPartitionMap != null && replicaToPartitionMap.values() != null) {
+                for(List<Integer> partitions: replicaToPartitionMap.values())
+                    if(partitions != null)
+                        partitionsToDonate.addAll(partitions);
+            }
+        }
+
+        PartitionListIterator entries = new PartitionListIterator(storageEngine,
+                                                                  new ArrayList<Integer>(partitionsToDonate));
+
+        try {
+            while(running.get() && entries.hasNext()) {
+                Pair<ByteArray, Versioned<byte[]>> entry = entries.next();
+                ByteArray key = entry.getFirst();
+                Versioned<byte[]> value = entry.getSecond();
+
+                scanned++;
+                List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                                                                                  optimizedStealerNodeToMappingTuples,
+                                                                                  targetCluster,
+                                                                                  storeDef);
+
+                if(nodeIds.size() > 0) {
+                    putValue(nodeIds, key, value, nodeToQueue, fetched);
+                }
+
+                // print progress for every 100k entries.
+                if(0 == scanned % SCAN_PROGRESS_COUNT) {
+                    printProgress(scanned, fetched, startTime, storeName);
+                }
+            }
+            terminateAllSlaves(storeName);
+        } catch(InterruptedException e) {
+            logger.info("InterruptedException received while sending entries to remote nodes, the process is terminating...");
+            terminateAllSlavesAsync(storeName);
+        } finally {
+            close(entries, storeName, scanned, fetched, startTime);
+        }
+    }
+
     private void putAll(List<Integer> dests,
                         ByteArray key,
                         List<Versioned<byte[]>> values,
                         HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue,
                         int[] fetched) throws InterruptedException {
-        for(Versioned<byte[]> value: values) {
-            for(int nodeId: dests) {
-                fetched[nodeId]++;
-                nodeToQueue.get(nodeId).put(Pair.create(key, value));
-                if(0 == fetched[nodeId] % FETCHUPDATE_BATCH_SIZE) {
-                    nodeToQueue.get(nodeId).put(BREAK);
-                }
+        for(Versioned<byte[]> value: values)
+            putValue(dests, key, value, nodeToQueue, fetched);
+    }
+
+    private void putValue(List<Integer> dests,
+                          ByteArray key,
+                          Versioned<byte[]> value,
+                          HashMap<Integer, SynchronousQueue<Pair<ByteArray, Versioned<byte[]>>>> nodeToQueue,
+                          int[] fetched) throws InterruptedException {
+        for(int nodeId: dests) {
+            fetched[nodeId]++;
+            nodeToQueue.get(nodeId).put(Pair.create(key, value));
+            if(0 == fetched[nodeId] % FETCHUPDATE_BATCH_SIZE) {
+                nodeToQueue.get(nodeId).put(BREAK);
             }
         }
     }
@@ -364,7 +438,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         }
     }
 
-    private void close(ClosableIterator<ByteArray> keys,
+    private void close(ClosableIterator<?> keys,
                        String storeName,
                        int scanned,
                        int[] fetched,
