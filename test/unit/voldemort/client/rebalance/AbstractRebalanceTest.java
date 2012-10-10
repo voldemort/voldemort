@@ -380,7 +380,9 @@ public abstract class AbstractRebalanceTest {
         // SocketServer.java fires with an error message like the following:
         // "[18:46:32,994 voldemort.server.socket.SocketServer[admin-server]]
         // ERROR Too many open connections, 20 of 20 threads in use, denying
-        // connection from /127.0.0.1:43756 [Thread-552]"
+        // connection from /127.0.0.1:43756 [Thread-552]". Note, this issues
+        // seems to only affect ThreadPoolBasedNonblockingStoreImpl tests rather
+        // than Nio-based tests.
         Map<String, String> configProps = new HashMap<String, String>();
         configProps.put("admin.max.threads", "50");
         currentCluster = startServers(currentCluster,

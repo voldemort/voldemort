@@ -84,7 +84,8 @@ public class ClientSocketStats {
      */
     public ClientSocketStats(ClientSocketStats parent,
                              SocketDestination destination,
-                             QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool, int jmxId) {
+                             QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool,
+                             int jmxId) {
         this.parent = parent;
         this.statsMap = null;
         this.destination = destination;
@@ -243,13 +244,13 @@ public class ClientSocketStats {
     }
 
     /**
-     * @return -1 if there have been no checkout invocations
+     * @return 0 if there have been no checkout invocations
      */
     public long getAvgCheckoutWaitUs() {
         long count = checkoutCount.get();
         if(count > 0)
             return totalCheckoutTimeUs.get() / count;
-        return -1;
+        return 0;
     }
 
     public Histogram getCheckoutQueueLengthHistogram() {
@@ -267,13 +268,13 @@ public class ClientSocketStats {
     }
 
     /**
-     * @return -1 if there have been no resourceRequest invocations
+     * @return 0 if there have been no resourceRequest invocations
      */
     public long getAvgResourceRequestWaitUs() {
         long count = resourceRequestCount.get();
         if(count > 0)
             return totalResourceRequestTimeUs.get() / count;
-        return -1;
+        return 0;
     }
 
     public Histogram getResourceRequestQueueLengthHistogram() {

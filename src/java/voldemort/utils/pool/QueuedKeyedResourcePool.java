@@ -103,7 +103,8 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
         Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
-            // Attempt non-blocking checkout iff requestQueue is empty.
+            // Optimistically attempt non-blocking checkout iff requestQueue is
+            // empty.
             Pool<V> resourcePool = getResourcePoolForKey(key);
             try {
                 attemptGrow(key, resourcePool);
@@ -231,6 +232,10 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     protected void destroyRequest(AsyncResourceRequest<V> resourceRequest) {
         if(resourceRequest != null) {
             try {
+                // To hand control back to the owner of the
+                // AsyncResourceRequest, treat "destroy" as an exception since
+                // there is no resource to pass into useResource, and the
+                // timeout has not expired.
                 Exception e = new UnreachableStoreException("Resource request destroyed before resource checked out.");
                 resourceRequest.handleException(e);
             } catch(Exception ex) {

@@ -17,25 +17,30 @@ package voldemort.utils.pool;
 
 /**
  * Interface for asynchronous requests for resources. Exactly one of
- * useResource, handleTimeout, or handleException expected to be invoked within
- * deadline specified by getDeadlineNs.
+ * useResource, handleTimeout, or handleException expected to be invoked before,
+ * or soon after, deadline specified by getDeadlineNs. Ideally, useResource is
+ * only invoked before the deadline. Ideally, handleTimeout is invoked soon
+ * after the deadline. If owners of an object with this interface need to take
+ * action after some specified timeout, then the owner needs to set their own
+ * timer.
  */
 public interface AsyncResourceRequest<V> {
 
     /**
-     * To be invoked with resource to use.
+     * To be invoked with resource to use before deadline.
      * 
      * @param resource. resource should not be null.
      */
     void useResource(V resource);
 
     /**
-     * Invoked sometime after deadline.
+     * Invoked sometime (soon) after deadline.
      */
     void handleTimeout();
 
     /**
-     * Invoked upon exception trying to process resource request.
+     * Invoked upon exception trying to process resource request. Invoked before
+     * or (soon) after the deadline.
      * 
      * @param e
      */
