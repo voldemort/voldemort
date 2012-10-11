@@ -35,7 +35,7 @@ public class AvroBackwardsCompatibilityTest {
     }
 
     @Test
-    public static void testAvroSchemaEvolution() throws IOException {
+    public void testAvroSchemaEvolution() throws IOException {
 
         String versionZero = "{\"type\": \"record\", \"name\": \"myrec\",\"fields\": [{ \"name\": \"original\", \"type\": \"string\" }]}";
 
