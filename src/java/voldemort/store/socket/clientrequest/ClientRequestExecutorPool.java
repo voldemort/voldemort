@@ -317,6 +317,11 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                 e = new UnreachableStoreException("Failure in " + operationName + ": "
                                                   + e.getMessage(), e);
             try {
+                // Because PerformParallel(Put||Delete|GetAll)Requests define
+                // 'callback' via an anonymous class, callback can be null if
+                // the client factory closes down and some other thread invokes
+                // this code. This can cause NullPointerExceptions during
+                // shutdown if async resource requests are queued up.
                 callback.requestComplete(e, 0);
             } catch(Exception ex) {
                 if(logger.isEnabledFor(Level.WARN))
