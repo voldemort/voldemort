@@ -92,6 +92,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     }
 
     public synchronized void addClientRequest(ClientRequest<?> clientRequest, long timeoutMs) {
+        addClientRequest(clientRequest, timeoutMs, 0);
+    }
+
+    public synchronized void addClientRequest(ClientRequest<?> clientRequest,
+                                              long timeoutMs,
+                                              long elapsedNs) {
         if(logger.isTraceEnabled())
             logger.trace("Associating client with " + socketChannel.socket());
 
@@ -100,7 +106,11 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(timeoutMs == -1) {
             this.expiration = -1;
         } else {
-            this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs);
+            if (elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
+                this.expiration = System.nanoTime();
+            } else {
+                this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs) - elapsedNs;
+            }
 
             if(this.expiration < System.nanoTime())
                 throw new IllegalArgumentException("timeout " + timeoutMs + " not valid");

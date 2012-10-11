@@ -263,22 +263,24 @@ public class SocketStore implements Store<ByteArray, byte[], byte[]>, Nonblockin
      */
 
     private <T> T request(ClientRequest<T> delegate, String operationName) {
-        ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
-
         long startTimeMs = -1;
         long startTimeNs = -1;
 
         if(logger.isDebugEnabled()) {
             startTimeMs = System.currentTimeMillis();
-            startTimeNs = System.nanoTime();
         }
+        startTimeNs = System.nanoTime();
+
+        ClientRequestExecutor clientRequestExecutor = pool.checkout(destination);
 
         String debugMsgStr = "";
 
         BlockingClientRequest<T> blockingClientRequest = null;
         try {
             blockingClientRequest = new BlockingClientRequest<T>(delegate, timeoutMs);
-            clientRequestExecutor.addClientRequest(blockingClientRequest, timeoutMs);
+            clientRequestExecutor.addClientRequest(blockingClientRequest,
+                                                   timeoutMs,
+                                                   System.nanoTime() - startTimeNs);
             blockingClientRequest.await();
 
             if(logger.isDebugEnabled())

@@ -298,7 +298,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
                                                                                                                   delegate,
                                                                                                                   clientRequestExecutor,
                                                                                                                   callback);
-            clientRequestExecutor.addClientRequest(clientRequest, timeoutMs);
+            clientRequestExecutor.addClientRequest(clientRequest, timeoutMs, System.nanoTime()
+                                                                             - startTimeNs);
         }
 
         @Override
