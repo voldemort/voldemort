@@ -47,17 +47,9 @@ public class AvroStoreBuilderPartitioner implements
 
         byte[] keyBytes = null, valueBytes;
 
-        if(!key.datum().hasRemaining()) {
-            // System.out.println("empty key");
-            return 0;
-        }
         keyBytes = new byte[key.datum().remaining()];
         key.datum().get(keyBytes);
 
-        if(!value.datum().hasRemaining()) {
-            // System.out.println("empty value");
-            return 0;
-        }
         valueBytes = new byte[value.datum().remaining()];
         value.datum().get(valueBytes);
 
