@@ -141,7 +141,8 @@ public class AsyncMetadataVersionManagerTest {
 
             // Starting the Version Metadata Manager
             this.asyncCheckMetadata = new AsyncMetadataVersionManager(this.repository,
-                                                                      rebootstrapCallback);
+                                                                      rebootstrapCallback,
+                                                                      null);
             scheduler.schedule(asyncCheckMetadata.getClass().getName(),
                                asyncCheckMetadata,
                                new Date(),

@@ -504,6 +504,17 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+                        if(storeNames != null) {
+                            System.out.println("Updating metadata version for the following stores: "
+                                               + storeNames);
+                            try {
+                                for(String name: storeNames) {
+                                    adminClient.updateMetadataversion(name);
+                                }
+                            } catch(Exception e) {
+                                System.err.println("Error while updating metadata version for the specified store.");
+                            }
+                        }
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Rebalancing steal info file path incorrect");
