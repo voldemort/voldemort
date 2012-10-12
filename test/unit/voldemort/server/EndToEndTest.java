@@ -5,10 +5,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -20,7 +18,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -49,8 +46,6 @@ public class EndToEndTest {
                                                                                         32 * 1024);
     private final boolean useNio;
 
-    private List<VoldemortServer> servers;
-    private Cluster cluster;
     private StoreClient<String, String> storeClient;
 
     public EndToEndTest(boolean useNio) {
@@ -64,26 +59,18 @@ public class EndToEndTest {
 
     @Before
     public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 2, 4, 6 }, { 1, 3, 5, 7 } });
-        servers = new ArrayList<VoldemortServer>();
-        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                         ServerTestUtils.createServerConfig(useNio,
-                                                                                            0,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            STORES_XML,
-                                                                                            new Properties()),
-                                                         cluster));
-        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                         ServerTestUtils.createServerConfig(useNio,
-                                                                                            1,
-                                                                                            TestUtils.createTempDir()
-                                                                                                     .getAbsolutePath(),
-                                                                                            null,
-                                                                                            STORES_XML,
-                                                                                            new Properties()),
-                                                         cluster));
+        int numServers = 2;
+        VoldemortServer[] servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 2, 4, 6 }, { 1, 3, 5, 7 } };
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                                servers,
+                                                                partitionMap,
+                                                                socketStoreFactory,
+                                                                useNio,
+                                                                null,
+                                                                STORES_XML,
+                                                                new Properties());
+
         Node node = cluster.getNodeById(0);
         String bootstrapUrl = "tcp://" + node.getHost() + ":" + node.getSocketPort();
         StoreClientFactory storeClientFactory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl));

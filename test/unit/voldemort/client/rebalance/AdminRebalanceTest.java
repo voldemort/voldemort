@@ -111,10 +111,6 @@ public class AdminRebalanceTest {
     }
 
     public void startThreeNodeRW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                {} });
-
-        servers = new VoldemortServer[3];
         storeDef1 = ServerTestUtils.getStoreDef("test",
                                                 1,
                                                 1,
@@ -129,23 +125,24 @@ public class AdminRebalanceTest {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 3; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 3;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
@@ -156,10 +153,6 @@ public class AdminRebalanceTest {
     }
 
     public void startFourNodeRW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = ServerTestUtils.getStoreDef("test",
                                                 2,
                                                 1,
@@ -174,23 +167,24 @@ public class AdminRebalanceTest {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
@@ -201,10 +195,6 @@ public class AdminRebalanceTest {
     }
 
     public void startFourNodeRO() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = new StoreDefinitionBuilder().setName("test")
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
@@ -229,23 +219,24 @@ public class AdminRebalanceTest {
                                                 .setPreferredWrites(1)
                                                 .setRequiredWrites(1)
                                                 .build();
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
@@ -256,10 +247,6 @@ public class AdminRebalanceTest {
     }
 
     public void startFourNodeRORW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = new StoreDefinitionBuilder().setName("test")
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
@@ -299,25 +286,26 @@ public class AdminRebalanceTest {
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2,
                                                                                                    storeDef3,
                                                                                                    storeDef4)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         // Make plan only with RO stores
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,

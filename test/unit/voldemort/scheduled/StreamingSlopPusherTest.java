@@ -78,6 +78,7 @@ public class StreamingSlopPusherTest {
         }
     }
 
+    // TODO: Refactor to take advantage of ServerTestUtils.startVoldemortCluster
     private void startServers(int... nodeIds) {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS) {

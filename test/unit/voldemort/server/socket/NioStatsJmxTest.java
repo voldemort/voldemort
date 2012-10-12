@@ -16,6 +16,8 @@
 
 package voldemort.server.socket;
 
+import static org.junit.Assert.assertEquals;
+
 import java.lang.management.ManagementFactory;
 import java.util.Properties;
 import java.util.Random;
@@ -24,18 +26,14 @@ import java.util.concurrent.TimeUnit;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import junit.framework.TestCase;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.VoldemortConfig;
 import voldemort.server.VoldemortServer;
 import voldemort.server.niosocket.NioSocketService;
 import voldemort.store.Store;
@@ -49,16 +47,15 @@ import voldemort.versioning.Versioned;
  * Unit test for NIO selector connection stats
  * 
  */
-public class NioStatsJmxTest extends TestCase {
+public class NioStatsJmxTest {
 
     private VoldemortServer server;
     private Store<ByteArray, byte[], byte[]> socketStore;
     private static final int MAX_TRAFFIC_TIME_MS = 2000;
 
-    @Override
     @Before
     public void setUp() throws Exception {
-        String storeDefinitionFile = "test/common/voldemort/config/single-store.xml";
+        String storesXmlfile = "test/common/voldemort/config/single-store.xml";
         ClientConfig clientConfig = new ClientConfig().setMaxConnectionsPerNode(1).setMaxThreads(1);
         SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(clientConfig.getSelectors(),
                                                                               clientConfig.getMaxConnectionsPerNode(),
@@ -66,17 +63,23 @@ public class NioStatsJmxTest extends TestCase {
                                                                               clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
                                                                               clientConfig.getSocketBufferSize(),
                                                                               clientConfig.getSocketKeepAlive());
-        Cluster cluster = ServerTestUtils.getLocalCluster(1);
+
         Properties props = new Properties();
         props.put("jmx.enable", "true");
-        VoldemortConfig config = ServerTestUtils.createServerConfig(true,
-                                                                    0,
-                                                                    TestUtils.createTempDir()
-                                                                             .getAbsolutePath(),
-                                                                    null,
-                                                                    storeDefinitionFile,
-                                                                    props);
-        server = ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster);
+
+        int numServers = 1;
+        VoldemortServer[] servers = new VoldemortServer[numServers];
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                                servers,
+                                                                null,
+                                                                socketStoreFactory,
+                                                                true,
+                                                                null,
+                                                                storesXmlfile,
+                                                                props);
+
+        server = servers[0];
+
         for(Node node: cluster.getNodes()) {
             socketStore = ServerTestUtils.getSocketStore(socketStoreFactory,
                                                          "test",
@@ -90,10 +93,9 @@ public class NioStatsJmxTest extends TestCase {
         // generate some traffic,
         Random dataGen = new Random();
         long start = System.currentTimeMillis();
-        long now = 0;
 
         byte[] data = new byte[256];
-        while(((now = System.currentTimeMillis()) - start) <= MAX_TRAFFIC_TIME_MS) {
+        while(((System.currentTimeMillis()) - start) <= MAX_TRAFFIC_TIME_MS) {
             dataGen.nextBytes(data);
             ByteArray key = new ByteArray(data);
             socketStore.put(key, new Versioned<byte[]>(data), null);
@@ -107,7 +109,6 @@ public class NioStatsJmxTest extends TestCase {
         assertEquals(1, beanserver.getAttribute(name, "numActiveConnections"));
     }
 
-    @Override
     @After
     public void tearDown() {
         server.stop();

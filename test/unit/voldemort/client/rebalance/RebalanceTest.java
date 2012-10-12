@@ -81,6 +81,7 @@ public class RebalanceTest extends AbstractRebalanceTest {
         }
     }
 
+    // TODO: refactor to take advantage of ServerTestUtils.startVoldemortCluster
     @Override
     protected Cluster startServers(Cluster cluster,
                                    String storeXmlFile,

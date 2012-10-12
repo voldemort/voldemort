@@ -161,6 +161,8 @@ public class RoutedStoreParallelismTest {
                                                                               clientConfig.getSocketBufferSize(),
                                                                               clientConfig.getSocketKeepAlive());
 
+        // TODO: add a variant of ServerTestUtils.startVoldemortCluster that
+        // accepts StoreDefinitions in the interface.
         for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
             VoldemortConfig config = ServerTestUtils.createServerConfig(true,
                                                                         i,

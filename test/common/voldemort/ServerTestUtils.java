@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +34,7 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpClient;
+import org.apache.log4j.Logger;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -85,6 +87,8 @@ import com.google.common.collect.Lists;
  * 
  */
 public class ServerTestUtils {
+
+    private static final Logger logger = Logger.getLogger(ServerTestUtils.class.getName());
 
     public static StoreRepository getStores(String storeName, String clusterXml, String storesXml) {
         StoreRepository repository = new StoreRepository();
@@ -234,6 +238,7 @@ public class ServerTestUtils {
      * Return an array of free ports as chosen by new ServerSocket(0)
      */
     public static int[] findFreePorts(int n) {
+        logger.info("findFreePorts cannot guarantee that ports identified as free will still be free when used. This is effectively a TOCTOU issue. Expect intermittent BindException when \"free\" ports are used.");
         int[] ports = new int[n];
         ServerSocket[] sockets = new ServerSocket[n];
         try {
@@ -663,6 +668,9 @@ public class ServerTestUtils {
     public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
                                                        VoldemortConfig config,
                                                        Cluster cluster) {
+
+        // TODO: Should this use VoldemortServer(config) instead!?!?!?
+        // (config.xml)
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
 
@@ -709,4 +717,59 @@ public class ServerTestUtils {
         if(!success)
             throw new RuntimeException("Failed to connect with server:" + node);
     }
+
+    protected static Cluster internalStartVoldemortCluster(int numServers,
+                                                           VoldemortServer[] voldemortServers,
+                                                           int[][] partitionMap,
+                                                           SocketStoreFactory socketStoreFactory,
+                                                           boolean useNio,
+                                                           String clusterFile,
+                                                           String storeFile,
+                                                           Properties properties)
+            throws IOException {
+        Cluster cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
+        for(int i = 0; i < numServers; i++) {
+            voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                       ServerTestUtils.createServerConfig(useNio,
+                                                                                                          i,
+                                                                                                          TestUtils.createTempDir()
+                                                                                                                   .getAbsolutePath(),
+                                                                                                          clusterFile,
+                                                                                                          storeFile,
+                                                                                                          properties),
+                                                                       cluster);
+        }
+        return cluster;
+    }
+
+    public static Cluster startVoldemortCluster(int numServers,
+                                                VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                SocketStoreFactory socketStoreFactory,
+                                                boolean useNio,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties) throws IOException {
+        boolean started = false;
+        Cluster cluster = null;
+
+        while(!started) {
+            try {
+                cluster = internalStartVoldemortCluster(numServers,
+                                                        voldemortServers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        clusterFile,
+                                                        storeFile,
+                                                        properties);
+                started = true;
+            } catch(BindException be) {
+                logger.debug("Caught BindException when starting cluster. Will retry.");
+            }
+        }
+
+        return cluster;
+    }
+
 }

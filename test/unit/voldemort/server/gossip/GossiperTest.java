@@ -1,5 +1,7 @@
 package voldemort.server.gossip;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,8 +12,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import junit.framework.TestCase;
-
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +39,9 @@ import voldemort.versioning.Versioned;
  * Tests {@link voldemort.server.gossip.Gossiper}
  */
 @RunWith(Parameterized.class)
-public class GossiperTest extends TestCase {
+public class GossiperTest {
+
+    private static final Logger logger = Logger.getLogger(GossiperTest.class.getName());
 
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
     private Cluster cluster;
@@ -61,9 +64,8 @@ public class GossiperTest extends TestCase {
         return Arrays.asList(new Object[][] { { false }, { true } });
     }
 
-    @Override
     @Before
-    public void setUp() throws IOException {
+    public void setUp() {
         props.put("enable.gossip", "true");
         props.put("gossip.interval.ms", "250");
         props.put("socket.buffer.size", String.valueOf(socketBufferSize));
@@ -76,6 +78,8 @@ public class GossiperTest extends TestCase {
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         final CountDownLatch countDownLatch = new CountDownLatch(3);
 
+        // TODO: Add a variant of ServerTestUtils.startVoldemortCluster that
+        // starts servers in parallel?
         for(int i = 0; i < 3; i++) {
             final int j = i;
             executorService.submit(new Runnable() {
@@ -93,6 +97,9 @@ public class GossiperTest extends TestCase {
                                                                          cluster));
                         countDownLatch.countDown();
                     } catch(IOException e) {
+                        logger.error("Caught IOException during parallel server start: "
+                                     + e.getMessage());
+                        e.printStackTrace();
                         throw new RuntimeException();
                     }
                 }
@@ -106,7 +113,6 @@ public class GossiperTest extends TestCase {
         }
     }
 
-    @Override
     @After
     public void tearDown() {
         socketStoreFactory.close();
@@ -116,7 +122,9 @@ public class GossiperTest extends TestCase {
         return new AdminClient(newCluster, new AdminClientConfig());
     }
 
-    @Test
+    // Protect against this test running forever until the root cause of running
+    // forever is found.
+    @Test(timeout = 1800)
     public void testGossiper() throws Exception {
         // First create a new cluster:
         // Allocate ports for all nodes in the new cluster, to match existing
@@ -127,7 +135,11 @@ public class GossiperTest extends TestCase {
         for(int i = 0, j = 0; i < originalSize; i++, j += 3) {
             Node node = cluster.getNodeById(i);
             System.arraycopy(new int[] { node.getHttpPort(), node.getSocketPort(),
-                    node.getAdminPort() }, 0, ports, j, 3);
+                                     node.getAdminPort() },
+                             0,
+                             ports,
+                             j,
+                             3);
         }
 
         System.arraycopy(ServerTestUtils.findFreePorts(3), 0, ports, numOriginalPorts, 3);
