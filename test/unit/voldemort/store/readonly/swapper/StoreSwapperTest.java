@@ -117,9 +117,18 @@ public class StoreSwapperTest {
         baseDirs = new File[NUM_NODES];
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             String baseDir = servers[nodeId].getVoldemortConfig().getDataDirectory();
-            baseDirs[nodeId] = new File(baseDir + "/node-" + nodeId + "/data/read-only/"
-                                        + STORE_NAME);
+            baseDirs[nodeId] = new File(baseDir + "/read-only/" + STORE_NAME);
         }
+        /*-
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            System.err.println("nodeId: " + nodeId);
+            System.err.println("  basedir: " + baseDirs[nodeId].getAbsolutePath());
+            System.err.println("  datadir: "
+                               + servers[nodeId].getVoldemortConfig().getDataDirectory());
+            System.err.println("  metadir: "
+                               + servers[nodeId].getVoldemortConfig().getMetadataDirectory());
+        }
+         */
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
 

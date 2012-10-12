@@ -21,7 +21,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
-
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -123,18 +122,18 @@ public class AdminServiceBasicTest {
     @Before
     public void setUp() throws IOException {
         int numServers = 2;
-        VoldemortServer[] servers = new VoldemortServer[numServers];
+        servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
         Properties serverProperties = new Properties();
         serverProperties.setProperty("client.max.connections.per.node", "20");
-        ServerTestUtils.startVoldemortCluster(numServers,
-                                              servers,
-                                              partitionMap,
-                                              socketStoreFactory,
-                                              useNio,
-                                              null,
-                                              storesXmlfile,
-                                              serverProperties);
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        storesXmlfile,
+                                                        serverProperties);
 
         storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
