@@ -81,7 +81,8 @@ public class RebalanceTest extends AbstractRebalanceTest {
         }
     }
 
-    // TODO: refactor to take advantage of ServerTestUtils.startVoldemortCluster
+    // This method may be susceptible to BindException issues due to TOCTOU
+    // problem with getLocalCluster.
     @Override
     protected Cluster startServers(Cluster cluster,
                                    String storeXmlFile,

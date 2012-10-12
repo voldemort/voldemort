@@ -78,7 +78,8 @@ public class StreamingSlopPusherTest {
         }
     }
 
-    // TODO: Refactor to take advantage of ServerTestUtils.startVoldemortCluster
+    // This method may be susceptible to BindException issues due to TOCTOU
+    // problem with getLocalCluster.
     private void startServers(int... nodeIds) {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS) {
