@@ -228,7 +228,11 @@ public class ServerTestUtils {
     }
 
     /**
-     * Return a free port as chosen by new ServerSocket(0)
+     * Return a free port as chosen by new ServerSocket(0).
+     * 
+     * There is no guarantee that the port returned will be free when the caller
+     * attempts to bind to the port. This is a time-of-check-to-time-of-use
+     * (TOCTOU) issue that cannot be avoided.
      */
     public static int findFreePort() {
         return findFreePorts(1)[0];
@@ -236,6 +240,10 @@ public class ServerTestUtils {
 
     /**
      * Return an array of free ports as chosen by new ServerSocket(0)
+     * 
+     * There is no guarantee that the ports returned will be free when the
+     * caller attempts to bind to some returned port. This is a
+     * time-of-check-to-time-of-use (TOCTOU) issue that cannot be avoided.
      */
     public static int[] findFreePorts(int n) {
         logger.info("findFreePorts cannot guarantee that ports identified as free will still be free when used. This is effectively a TOCTOU issue. Expect intermittent BindException when \"free\" ports are used.");
@@ -669,8 +677,17 @@ public class ServerTestUtils {
                                                        VoldemortConfig config,
                                                        Cluster cluster) {
 
-        // TODO: Should this use VoldemortServer(config) instead!?!?!?
-        // (config.xml)
+        // TODO: Some tests that use this method fail intermittently with the
+        // following output:
+        //
+        // A successor version version() to this version() exists for key
+        // cluster.xml
+        // voldemort.versioning.ObsoleteVersionException: A successor version
+        // version() to this version() exists for key cluster.xml"
+        //
+        // Need to trace through the constructor VoldemortServer(VoldemortConfig
+        // config, Cluster cluster) to understand how this error is possible,
+        // and why it only happens intermittently.
         VoldemortServer server = new VoldemortServer(config, cluster);
         server.start();
 
@@ -742,6 +759,25 @@ public class ServerTestUtils {
         return cluster;
     }
 
+    /**
+     * This method wraps up work that is done in many different tests to set up
+     * some number of Voldemort servers in a cluster. This method masks an
+     * intermittent TOCTOU problem with the ports identified by
+     * {@link #findFreePorts(int)} not actually being free when a server needs
+     * to bind to them.
+     * 
+     * @param numServers
+     * @param voldemortServers
+     * @param partitionMap
+     * @param socketStoreFactory
+     * @param useNio
+     * @param clusterFile
+     * @param storeFile
+     * @param properties
+     * @return Cluster object that was used to successfully start all of the
+     *         servers.
+     * @throws IOException
+     */
     public static Cluster startVoldemortCluster(int numServers,
                                                 VoldemortServer[] voldemortServers,
                                                 int[][] partitionMap,

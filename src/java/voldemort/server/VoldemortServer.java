@@ -91,8 +91,6 @@ public class VoldemortServer extends AbstractService {
         this.services = createServices();
     }
 
-    // TODO: Should we use a different VoldemortServer construction depending on
-    // whether cluster is written previously!?!?! (cluster.xml issue)
     public VoldemortServer(VoldemortConfig config, Cluster cluster) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;

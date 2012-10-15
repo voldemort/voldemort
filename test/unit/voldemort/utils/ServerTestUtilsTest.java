@@ -62,7 +62,9 @@ public class ServerTestUtilsTest {
         }
     }
 
+    // **********************************************************************
     // * START : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM *
+
     // @Test
     public void startMultipleVoldemortServers() throws IOException {
         Cluster cluster = ServerTestUtils.getLocalCluster(8, new int[][] { { 0 }, { 1 }, { 2 },
@@ -177,6 +179,7 @@ public class ServerTestUtilsTest {
             testFindFreePorts();
         }
     }
-    // ** END : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM **
 
+    // ** END : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM **
+    // **********************************************************************
 }
