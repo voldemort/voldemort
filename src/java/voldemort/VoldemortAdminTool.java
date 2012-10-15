@@ -504,6 +504,13 @@ public class VoldemortAdminTool {
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+
+                        /*
+                         * This is a hack to update the metadata version of the
+                         * requested stores. TODO: Add the functionality to
+                         * Admin Client and Server to update one individual
+                         * store definition.
+                         */
                         if(storeNames != null) {
                             System.out.println("Updating metadata version for the following stores: "
                                                + storeNames);
