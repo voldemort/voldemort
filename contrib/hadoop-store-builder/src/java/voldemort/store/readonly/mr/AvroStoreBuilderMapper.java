@@ -154,9 +154,8 @@ public class AvroStoreBuilderMapper extends
         this.saveKeys = conf.getBoolean("save.keys", true);
         this.reducerPerBucket = conf.getBoolean("reducer.per.bucket", false);
 
-        // TODO this breaks but why?
-        // keySerializerDefinition = getStoreDef().getKeySerializer();
-        // valueSerializerDefinition = getStoreDef().getValueSerializer();
+        keySerializerDefinition = getStoreDef().getKeySerializer();
+        valueSerializerDefinition = getStoreDef().getValueSerializer();
 
         try {
             SerializerFactory factory = new DefaultSerializerFactory();

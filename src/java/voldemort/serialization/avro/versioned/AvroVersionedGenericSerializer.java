@@ -18,10 +18,12 @@ package voldemort.serialization.avro.versioned;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.BinaryEncoder;
@@ -78,13 +80,54 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
             datumWriter = new GenericDatumWriter<Object>(typeDef);
             datumWriter.write(object, encoder);
             encoder.flush();
+        } catch(ArrayIndexOutOfBoundsException aIOBE) {
+            Schema writer = ((GenericContainer) object).getSchema();
+            Integer writerVersion = getSchemaVersion(writer);
+            return toBytes(object, writer, writerVersion);
+
         } catch(IOException e) {
             throw new SerializationException(e);
+        } catch(SerializationException sE) {
+            throw sE;
         } finally {
             SerializationUtils.close(output);
         }
 
         return output.toByteArray();
+    }
+
+    private byte[] toBytes(Object object, Schema writer, Integer writerVersion) {
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        Encoder encoder = new BinaryEncoder(output);
+        GenericDatumWriter<Object> datumWriter = null;
+
+        output.write(writerVersion.byteValue());
+        try {
+            datumWriter = new GenericDatumWriter<Object>(writer);
+            datumWriter.write(object, encoder);
+            encoder.flush();
+        } catch(IOException e) {
+            throw new SerializationException(e);
+        } catch(SerializationException sE) {
+            throw sE;
+        } finally {
+            SerializationUtils.close(output);
+        }
+
+        return output.toByteArray();
+
+    }
+
+    private Integer getSchemaVersion(Schema s) throws SerializationException {
+        for(Entry<Integer, String> entry: typeDefVersions.entrySet()) {
+            Schema version = Schema.parse(entry.getValue());
+            if(s.equals(version))
+                return entry.getKey();
+
+        }
+
+        throw new SerializationException("Writer's schema invalid!");
     }
 
     public Object toObject(byte[] bytes) {
