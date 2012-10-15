@@ -91,6 +91,9 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
 
         Integer version = Integer.valueOf(bytes[0]);
 
+        if(version > newestVersion)
+            throw new SerializationException("Client needs to rebootstrap! \n Writer's schema version greater than Reader");
+
         Schema typeDefWriter = Schema.parse(typeDefVersions.get(version));
 
         byte[] dataBytes = new byte[bytes.length - 1];
