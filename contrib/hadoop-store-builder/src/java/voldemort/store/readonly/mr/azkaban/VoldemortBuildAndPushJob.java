@@ -181,13 +181,9 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
             log.info("Working on " + url);
 
             try {
-                /*
-                 * if(isAvroJob && !isAvroVersioned) verifyAvroSchema(url); else
-                 * if(isAvroJob && isAvroVersioned)
-                 * verifyAvroSchemaandVersions(url, isAvroVersioned);
-                 */
+
                 if(isAvroJob)
-                    verifyAvroSchemaandVersions(url, isAvroVersioned);
+                    verifyAvroSchemaAndVersions(url, isAvroVersioned);
                 else
                     verifySchema(url);
 
@@ -574,7 +570,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
     // version present on the server
     // supports schema evolution
 
-    public void verifyAvroSchemaandVersions(String url, boolean isVersioned) throws Exception {
+    public void verifyAvroSchemaAndVersions(String url, boolean isVersioned) throws Exception {
         // create new n store def with schema from the metadata in the input
         // path
         Schema schema = AvroUtils.getAvroSchemaFromPath(getInputPath());

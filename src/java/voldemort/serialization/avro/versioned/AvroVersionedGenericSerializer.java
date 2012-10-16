@@ -40,6 +40,7 @@ import voldemort.serialization.Serializer;
  * representation is best for applications which deal with dynamic data, whose
  * schemas are not known until runtime.
  * 
+ * This serializer supports schema versioning
  */
 public class AvroVersionedGenericSerializer implements Serializer<Object> {
 
@@ -81,6 +82,12 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
             datumWriter.write(object, encoder);
             encoder.flush();
         } catch(ArrayIndexOutOfBoundsException aIOBE) {
+
+            // probably the object sent to us was not created using the latest
+            // schema
+            // We simply check the old version number and serialize it using the
+            // old schema version
+
             Schema writer = ((GenericContainer) object).getSchema();
             Integer writerVersion = getSchemaVersion(writer);
             return toBytes(object, writer, writerVersion);
@@ -96,6 +103,12 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
         return output.toByteArray();
     }
 
+    /*
+     * Serialize a given object using a non latest schema With auto rebootstrap
+     * the client gets the latest schema updated on the server However an
+     * application may still create objects using an old schema this lets us
+     * serialize those objects without an exception
+     */
     private byte[] toBytes(Object object, Schema writer, Integer writerVersion) {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();

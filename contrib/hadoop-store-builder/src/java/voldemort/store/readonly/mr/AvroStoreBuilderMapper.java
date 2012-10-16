@@ -210,7 +210,6 @@ public class AvroStoreBuilderMapper extends
         routingStrategy = new ConsistentRoutingStrategy(getCluster().getNodes(),
                                                         getStoreDef().getReplicationFactor());
 
-        // /
         Props props = HadoopUtils.getPropsFromJob(conf);
 
     }
