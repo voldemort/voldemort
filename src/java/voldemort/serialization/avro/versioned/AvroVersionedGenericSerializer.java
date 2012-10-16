@@ -81,7 +81,11 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
             datumWriter = new GenericDatumWriter<Object>(typeDef);
             datumWriter.write(object, encoder);
             encoder.flush();
-        } catch(ArrayIndexOutOfBoundsException aIOBE) {
+        } catch(SerializationException sE) {
+            throw sE;
+        } catch(IOException e) {
+            throw new SerializationException(e);
+        } catch(Exception aIOBE) {
 
             // probably the object sent to us was not created using the latest
             // schema
@@ -92,10 +96,6 @@ public class AvroVersionedGenericSerializer implements Serializer<Object> {
             Integer writerVersion = getSchemaVersion(writer);
             return toBytes(object, writer, writerVersion);
 
-        } catch(IOException e) {
-            throw new SerializationException(e);
-        } catch(SerializationException sE) {
-            throw sE;
         } finally {
             SerializationUtils.close(output);
         }
