@@ -1,3 +1,50 @@
+Release 1.0.0 on 10/17/2012
+
+Changes made since release 0.96
+
+* Auto bootstrapping: ZenStoreClient and System stores
+  * Added server side system stores for managing metadata
+  * ZenStoreClient interacts with system stores
+  * ZenStoreClient auto bootstraps whenever cluster.xml or stores.xml changes
+  * Added a new routing strategy to route to all with local preference
+  * Added a client-registry for publishing client info and config values
+  * Updated LazyClientStore to try to bootstrap during Init
+  * Modified Failure Detector to work on a shared cluster object reference
+* Avro: schema evolution and read only support
+  * Added new Avro serializer type that supports schema evolution
+  * Added Avro support to read only stores
+  * Added LinkedIn build-and-push Azkaban jobs to build read only stores to contrib
+* Non-blocking IO: Fixed design flaw that blocked in the face of slow servers
+  * Asynchronous operations no longer do a blocking checkout to get a SocketDestination
+  * Added additional stats collection for better visibility into request queues
+* Minor features
+  * Enhanced VoldemortAdminTool to update store metadata version
+  * Enhanced VoldemortAdminTool to work with the new system stores
+  * Added feature to voldemort-shell.sh to dump byte & object arrays
+  * Added a SlowStorageEngine for testing degraded mode performance
+  * Added mechanism to isolate BDB cache usage among stores
+  * Enhanced debug logging (for traffic analysis).
+  * Python client bug fixes (from pull request)
+  * Improved messages in request tracing
+  * Cleaned up help/usage messages within the client shell
+  * Added server config to control socket backlog
+  * Added "--query-keys" option to query multiple keys of multiple stores from specific node
+  * Added control to DataCleanupJob Frequency
+  * Unified jmxid as the factory across the board
+* Tools
+  * bin/generate_cluster_xml.py to generate cluster.xml
+  * bin/repeat-junit.sh and bin/repeat-junit-test.sh to repeatedly run tests
+* Bug fixes
+  * Changed getall return behavior to comply with javadoc
+  * Fixed a bug that caused unnecessary serial requests in getall
+  * HFTP performance issue bug fix (fix in byte buffer and copy process)
+  * Fixed a bug that prevented "--fetch-keys" and "--fetch-entries" in admin tool from showing multiple store results
+  * Fixed problem in sample config that prevented the server from starting
+  * Fixed some intermittent BindException failures across many unit tests
+  * Fixed some intermittent rebalance test failures
+  * Wrapped long running tests with timeouts
+
+
 Release 0.96 on 09/05/2012
 
 Changes made since 0.90.1
