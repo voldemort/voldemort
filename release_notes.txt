@@ -14,6 +14,7 @@ Changes made since release 0.96
   * Added new Avro serializer type that supports schema evolution
   * Added Avro support to read only stores
   * Added LinkedIn build-and-push Azkaban jobs to build read only stores to contrib
+  * Added a schema backwards compatibility check to VoldemortAdminTool and on server startup to prevent mishaps due to bad schemas
 * Non-blocking IO: Fixed design flaw that blocked in the face of slow servers
   * Asynchronous operations no longer do a blocking checkout to get a SocketDestination
   * Added additional stats collection for better visibility into request queues
