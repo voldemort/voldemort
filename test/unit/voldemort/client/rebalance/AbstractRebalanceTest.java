@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -85,6 +86,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
+
+    private static final Logger logger = Logger.getLogger(AbstractRebalanceTest.class.getName());
 
     protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
@@ -213,7 +216,9 @@ public abstract class AbstractRebalanceTest {
     @After
     public void tearDown() {
         testEntries.clear();
+        testEntries = null;
         socketStoreFactory.close();
+        socketStoreFactory = null;
     }
 
     protected abstract Cluster startServers(Cluster cluster,
@@ -262,8 +267,9 @@ public abstract class AbstractRebalanceTest {
         return NUM_KEYS;
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRORWRebalance() throws Exception {
+        logger.info("Starting testRORWRebalance");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
@@ -313,8 +319,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRORWRebalanceWithReplication() throws Exception {
+        logger.info("Starting testRORWRebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -363,8 +370,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRORebalanceWithReplication() throws Exception {
+        logger.info("Starting testRORebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -415,8 +423,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRWRebalanceWithReplication() throws Exception {
+        logger.info("Starting testRWRebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -457,8 +466,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRebalanceCleanPrimary() throws Exception {
+        logger.info("Starting testRebalanceCleanPrimary");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
                 { 2 } });
 
@@ -558,8 +568,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRebalanceCleanSecondary() throws Exception {
+        logger.info("Starting testRebalanceCleanSecondary");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 }, { 1 },
                 { 2 } });
 
@@ -660,8 +671,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRWRebalanceFourNodes() throws Exception {
+        logger.info("Starting testRWRebalanceFourNodes");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
@@ -720,8 +732,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testRWRebalanceSerial() throws Exception {
+        logger.info("Starting testRWRebalanceSerial");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
@@ -782,8 +795,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testProxyGetDuringRebalancing() throws Exception {
+        logger.info("Starting testProxyGetDuringRebalancing");
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -918,8 +932,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test(timeout = 60000)
+    @Test(timeout = 600000)
     public void testServerSideRouting() throws Exception {
+        logger.info("Starting testServerSideRouting");
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 

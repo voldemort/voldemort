@@ -30,7 +30,7 @@ import voldemort.store.metadata.MetadataStore.VoldemortState;
 @RunWith(Parameterized.class)
 public class RebalanceLongTest extends AbstractRebalanceTest {
 
-    Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
+    Map<Integer, VoldemortServer> serverMap;
     private final boolean useNio;
     private final boolean useDonorBased;
     protected static int NUM_MANY_KEYS = 10100;
@@ -38,6 +38,7 @@ public class RebalanceLongTest extends AbstractRebalanceTest {
     public RebalanceLongTest(boolean useNio, boolean useDonorBased) {
         this.useNio = useNio;
         this.useDonorBased = useDonorBased;
+        this.serverMap = new HashMap<Integer, VoldemortServer>();
     }
 
     @Parameters
@@ -110,6 +111,7 @@ public class RebalanceLongTest extends AbstractRebalanceTest {
                 // ignore these at stop time
             }
         }
+        serverMap = null;
     }
 
     @Override
