@@ -1,5 +1,9 @@
 Release 1.0.0 on 10/17/2012
 
+NOTE: This is not a major release. This is a minor release. The large
+version number jump from 0.96 is to standardize on a version number of
+the sort MAJOR.MINOR.PATCH.
+
 Changes made since release 0.96
 
 * Auto bootstrapping: ZenStoreClient and System stores
