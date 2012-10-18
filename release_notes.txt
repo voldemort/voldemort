@@ -1,8 +1,12 @@
 Release 1.0.0 on 10/17/2012
 
-NOTE: This is not a major release. This is a minor release. The large
-version number jump from 0.96 is to standardize on a version number of
-the sort MAJOR.MINOR.PATCH.
+NOTE: The large version number jump from 0.96 to 1.0.0 is to
+standardize on a version number of the sort MAJOR.MINOR.PATCH.  This
+change is part of our effort to treat internal and open source
+releases in a much more similar manner. Along these lines, release
+notes for internal releases (like this one) are committed on the
+master branch. We hope this improves transparency as we work towards
+the next open source release.
 
 Changes made since release 0.96
 
