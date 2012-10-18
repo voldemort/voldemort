@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,6 +22,7 @@ import java.io.StringReader;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -34,6 +35,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.client.protocol.RequestFormatType;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -59,12 +61,14 @@ import voldemort.xml.StoreDefinitionsMapper;
 public class Benchmark {
 
     private static final int MAX_WORKERS = 8;
+    private static final int MAX_CONNECTIONS_PER_NODE = 50;
 
     /**
      * Constants for the benchmark file
      */
     public static final String PROP_FILE = "prop-file";
     public static final String THREADS = "threads";
+    public static final String NUM_CONNECTIONS_PER_NODE = "num-connections-per-node";
     public static final String ITERATIONS = "iterations";
     public static final String STORAGE_CONFIGURATION_CLASS = "storage-configuration-class";
     public static final String INTERVAL = "interval";
@@ -116,8 +120,8 @@ public class Benchmark {
     private StoreClient<Object, Object> storeClient;
     private StoreClientFactory factory;
 
-    private int numThreads, numIterations, targetThroughput, recordCount, opsCount,
-            statusIntervalSec;
+    private int numThreads, numConnectionsPerNode, numIterations, targetThroughput, recordCount,
+            opsCount, statusIntervalSec;
     private double perThreadThroughputPerMs;
     private Workload workLoad;
     private String pluginName;
@@ -220,6 +224,7 @@ public class Benchmark {
                         e.printStackTrace();
                 }
                 opsDone++;
+
                 if(targetThroughputPerMs > 0) {
                     double timePerOp = ((double) opsDone) / targetThroughputPerMs;
                     while(System.currentTimeMillis() - startTime < timePerOp) {
@@ -315,6 +320,8 @@ public class Benchmark {
     public void initializeStore(Props benchmarkProps) throws Exception {
 
         this.numThreads = benchmarkProps.getInt(THREADS, MAX_WORKERS);
+        this.numConnectionsPerNode = benchmarkProps.getInt(NUM_CONNECTIONS_PER_NODE,
+                                                           MAX_CONNECTIONS_PER_NODE);
         this.numIterations = benchmarkProps.getInt(ITERATIONS, 1);
         this.statusIntervalSec = benchmarkProps.getInt(INTERVAL, 0);
         this.verbose = benchmarkProps.getBoolean(VERBOSE, false);
@@ -334,7 +341,14 @@ public class Benchmark {
 
             ClientConfig clientConfig = new ClientConfig().setMaxThreads(numThreads)
                                                           .setMaxTotalConnections(numThreads)
-                                                          .setMaxConnectionsPerNode(numThreads)
+                                                          .setMaxConnectionsPerNode(numConnectionsPerNode)
+                                                          .setRoutingTimeout(1500,
+                                                                             TimeUnit.MILLISECONDS)
+                                                          .setSocketTimeout(1500,
+                                                                            TimeUnit.MILLISECONDS)
+                                                          .setConnectionTimeout(500,
+                                                                                TimeUnit.MILLISECONDS)
+                                                          .setRequestFormatType(RequestFormatType.VOLDEMORT_V3)
                                                           .setBootstrapUrls(socketUrl);
 
             if(clientZoneId >= 0) {
@@ -519,6 +533,12 @@ public class Benchmark {
               .withRequiredArg()
               .describedAs("num-threads")
               .ofType(Integer.class);
+        parser.accepts(NUM_CONNECTIONS_PER_NODE,
+                       "max number of connections to any node; Default = "
+                               + MAX_CONNECTIONS_PER_NODE)
+              .withRequiredArg()
+              .describedAs("num-connections-per-node")
+              .ofType(Integer.class);
         parser.accepts(ITERATIONS, "number of times to repeat benchmark phase; Default = 1")
               .withRequiredArg()
               .describedAs("num-iter")
@@ -658,6 +678,9 @@ public class Benchmark {
             mainProps.put(VALUE_SIZE, CmdUtils.valueOf(options, VALUE_SIZE, 1024));
             mainProps.put(ITERATIONS, CmdUtils.valueOf(options, ITERATIONS, 1));
             mainProps.put(THREADS, CmdUtils.valueOf(options, THREADS, MAX_WORKERS));
+            mainProps.put(NUM_CONNECTIONS_PER_NODE, CmdUtils.valueOf(options,
+                                                                     NUM_CONNECTIONS_PER_NODE,
+                                                                     MAX_CONNECTIONS_PER_NODE));
             mainProps.put(PERCENT_CACHED, CmdUtils.valueOf(options, PERCENT_CACHED, 0));
             mainProps.put(INTERVAL, CmdUtils.valueOf(options, INTERVAL, 0));
             mainProps.put(TARGET_THROUGHPUT, CmdUtils.valueOf(options, TARGET_THROUGHPUT, -1));

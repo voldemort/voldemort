@@ -17,10 +17,15 @@
 package voldemort.store.readonly.mr;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 
+import org.apache.avro.Schema;
+import org.apache.avro.mapred.AvroJob;
+import org.apache.avro.mapred.AvroOutputFormat;
+import org.apache.avro.mapred.Pair;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -36,6 +41,7 @@ import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.OutputFormat;
 import org.apache.hadoop.mapred.RunningJob;
 import org.apache.hadoop.mapred.SequenceFileOutputFormat;
 import org.apache.log4j.Logger;
@@ -48,6 +54,7 @@ import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
+import voldemort.store.readonly.disk.KeyValueWriter;
 import voldemort.utils.Utils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
@@ -66,7 +73,7 @@ public class HadoopStoreBuilder {
     private static final Logger logger = Logger.getLogger(HadoopStoreBuilder.class);
 
     private final Configuration config;
-    private final Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass;
+    private final Class mapperClass;
     @SuppressWarnings("unchecked")
     private final Class<? extends InputFormat> inputFormatClass;
     private final Cluster cluster;
@@ -79,6 +86,8 @@ public class HadoopStoreBuilder {
     private boolean saveKeys = false;
     private boolean reducerPerBucket = false;
     private int numChunks = -1;
+
+    private boolean isAvro;
 
     /**
      * Kept for backwards compatibility. We do not use replicationFactor any
@@ -99,7 +108,7 @@ public class HadoopStoreBuilder {
     @SuppressWarnings("unchecked")
     @Deprecated
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -135,7 +144,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -153,6 +162,7 @@ public class HadoopStoreBuilder {
         this.chunkSizeBytes = chunkSizeBytes;
         this.tempDir = tempDir;
         this.outputDir = Utils.notNull(outputDir);
+        isAvro = false;
         if(chunkSizeBytes > MAX_CHUNK_SIZE || chunkSizeBytes < MIN_CHUNK_SIZE)
             throw new VoldemortException("Invalid chunk size, chunk size must be in the range "
                                          + MIN_CHUNK_SIZE + "..." + MAX_CHUNK_SIZE);
@@ -175,7 +185,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -218,7 +228,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -265,7 +275,7 @@ public class HadoopStoreBuilder {
      */
     @SuppressWarnings("unchecked")
     public HadoopStoreBuilder(Configuration conf,
-                              Class<? extends AbstractHadoopStoreBuilderMapper<?, ?>> mapperClass,
+                              Class mapperClass,
                               Class<? extends InputFormat> inputFormatClass,
                               Cluster cluster,
                               StoreDefinition storeDef,
@@ -290,6 +300,7 @@ public class HadoopStoreBuilder {
         this.saveKeys = saveKeys;
         this.reducerPerBucket = reducerPerBucket;
         this.numChunks = numChunks;
+        isAvro = false;
         if(numChunks <= 0)
             throw new VoldemortException("Number of chunks should be greater than zero");
     }
@@ -306,14 +317,16 @@ public class HadoopStoreBuilder {
                      new StoreDefinitionsMapper().writeStoreList(Collections.singletonList(storeDef)));
             conf.setBoolean("save.keys", saveKeys);
             conf.setBoolean("reducer.per.bucket", reducerPerBucket);
-            conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
-            conf.setMapperClass(mapperClass);
-            conf.setMapOutputKeyClass(BytesWritable.class);
-            conf.setMapOutputValueClass(BytesWritable.class);
-            if(reducerPerBucket) {
-                conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
-            } else {
-                conf.setReducerClass(HadoopStoreBuilderReducer.class);
+            if(!isAvro) {
+                conf.setPartitionerClass(HadoopStoreBuilderPartitioner.class);
+                conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(BytesWritable.class);
+                conf.setMapOutputValueClass(BytesWritable.class);
+                if(reducerPerBucket) {
+                    conf.setReducerClass(HadoopStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(HadoopStoreBuilderReducer.class);
+                }
             }
             conf.setInputFormat(inputFormatClass);
             conf.setOutputFormat(SequenceFileOutputFormat.class);
@@ -380,6 +393,35 @@ public class HadoopStoreBuilder {
             conf.setInt("num.chunks", numChunks);
             conf.setNumReduceTasks(numReducers);
 
+            if(isAvro) {
+                conf.setPartitionerClass(AvroStoreBuilderPartitioner.class);
+                // conf.setMapperClass(mapperClass);
+                conf.setMapOutputKeyClass(ByteBuffer.class);
+                conf.setMapOutputValueClass(ByteBuffer.class);
+
+                conf.setInputFormat(inputFormatClass);
+
+                conf.setOutputFormat((Class<? extends OutputFormat>) AvroOutputFormat.class);
+                conf.setOutputKeyClass(ByteBuffer.class);
+                conf.setOutputValueClass(ByteBuffer.class);
+
+                // AvroJob confs for the avro mapper
+                AvroJob.setInputSchema(conf, Schema.parse(config.get("avro.rec.schema")));
+
+                AvroJob.setOutputSchema(conf,
+                                        Pair.getPairSchema(Schema.create(Schema.Type.BYTES),
+                                                           Schema.create(Schema.Type.BYTES)));
+
+                AvroJob.setMapperClass(conf, mapperClass);
+
+                if(reducerPerBucket) {
+                    conf.setReducerClass(AvroStoreBuilderReducerPerBucket.class);
+                } else {
+                    conf.setReducerClass(AvroStoreBuilderReducer.class);
+                }
+
+            }
+
             logger.info("Number of chunks: " + numChunks + ", number of reducers: " + numReducers
                         + ", save keys: " + saveKeys + ", reducerPerBucket: " + reducerPerBucket);
             logger.info("Building store...");
@@ -391,14 +433,14 @@ public class HadoopStoreBuilder {
             if(saveKeys) {
                 if(reducerPerBucket) {
                     logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.NUM_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
                     logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducerPerBucket.CollisionCounter.MAX_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
                 } else {
                     logger.info("Number of collisions in the job - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.NUM_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.NUM_COLLISIONS));
                     logger.info("Maximum number of collisions for one entry - "
-                                + counters.getCounter(HadoopStoreBuilderReducer.CollisionCounter.MAX_COLLISIONS));
+                                + counters.getCounter(KeyValueWriter.CollisionCounter.MAX_COLLISIONS));
                 }
             }
 
@@ -487,6 +529,17 @@ public class HadoopStoreBuilder {
             logger.error("Error in Store builder", e);
             throw new VoldemortException(e);
         }
+
+    }
+
+    /**
+     * Run the job
+     */
+    public void buildAvro() {
+
+        isAvro = true;
+        build();
+        return;
 
     }
 

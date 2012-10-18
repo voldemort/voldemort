@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -38,7 +38,6 @@ import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.store.stats.ClientSocketStats;
 
 /**
  * Tests for the socket pooling
@@ -53,7 +52,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
     private ClientRequestExecutorPool pool;
     private SocketDestination dest1;
     private AbstractSocketService server;
-    private ClientSocketStats stats;
 
     private final boolean useNio;
 

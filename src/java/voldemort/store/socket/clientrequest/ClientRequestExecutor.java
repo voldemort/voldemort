@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -71,7 +71,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         return !s.isClosed() && s.isBound() && s.isConnected();
     }
 
-    public synchronized boolean checkTimeout(SelectionKey selectionKey) {
+    public synchronized boolean checkTimeout() {
         if(expiration <= 0)
             return true;
 
@@ -92,6 +92,12 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     }
 
     public synchronized void addClientRequest(ClientRequest<?> clientRequest, long timeoutMs) {
+        addClientRequest(clientRequest, timeoutMs, 0);
+    }
+
+    public synchronized void addClientRequest(ClientRequest<?> clientRequest,
+                                              long timeoutMs,
+                                              long elapsedNs) {
         if(logger.isTraceEnabled())
             logger.trace("Associating client with " + socketChannel.socket());
 
@@ -100,7 +106,11 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(timeoutMs == -1) {
             this.expiration = -1;
         } else {
-            this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs);
+            if (elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
+                this.expiration = System.nanoTime();
+            } else {
+                this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs) - elapsedNs;
+            }
 
             if(this.expiration < System.nanoTime())
                 throw new IllegalArgumentException("timeout " + timeoutMs + " not valid");
@@ -162,7 +172,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void read(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         int count = 0;
@@ -211,7 +221,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
 
     @Override
     protected void write(SelectionKey selectionKey) throws IOException {
-        if(!checkTimeout(selectionKey))
+        if(!checkTimeout())
             return;
 
         if(outputStream.getBuffer().hasRemaining()) {
@@ -253,19 +263,28 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
      * check in the instance again which causes problems for the pool
      * maintenance.
      */
+    private synchronized ClientRequest<?> atomicNullOutClientRequest() {
+        ClientRequest<?> local = clientRequest;
+        clientRequest = null;
+        expiration = 0;
 
-    private synchronized void completeClientRequest() {
-        if(clientRequest == null) {
+        return local;
+    }
+
+    /**
+     * Null out current clientRequest before calling complete. timeOut and
+     * complete must *not* be within a synchronized block since both eventually
+     * check in the client request executor. Such a check in can trigger
+     * additional synchronized methods deeper in the stack.
+     */
+    private void completeClientRequest() {
+        ClientRequest<?> local = atomicNullOutClientRequest();
+        if(local == null) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn("No client associated with " + socketChannel.socket());
 
             return;
         }
-
-        // Sorry about this - please see the method comments...
-        ClientRequest<?> local = clientRequest;
-        clientRequest = null;
-        expiration = 0;
 
         if(isExpired)
             local.timeOut();

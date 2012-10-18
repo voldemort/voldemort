@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -85,6 +86,8 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.collect.Lists;
 
 public abstract class AbstractRebalanceTest {
+
+    private static final Logger logger = Logger.getLogger(AbstractRebalanceTest.class.getName());
 
     protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
@@ -213,7 +216,9 @@ public abstract class AbstractRebalanceTest {
     @After
     public void tearDown() {
         testEntries.clear();
+        testEntries = null;
         socketStoreFactory.close();
+        socketStoreFactory = null;
     }
 
     protected abstract Cluster startServers(Cluster cluster,
@@ -262,8 +267,9 @@ public abstract class AbstractRebalanceTest {
         return NUM_KEYS;
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRORWRebalance() throws Exception {
+        logger.info("Starting testRORWRebalance");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6, 7, 8 }, {} });
 
@@ -273,10 +279,12 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         currentCluster = startServers(currentCluster,
                                       storeDefFileWithoutReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -303,6 +311,7 @@ public abstract class AbstractRebalanceTest {
                               storeDefWithoutReplication,
                               rebalanceClient,
                               Arrays.asList(1));
+
             checkConsistentMetadata(targetCluster, serverList);
         } finally {
             // stop servers
@@ -310,8 +319,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRORWRebalanceWithReplication() throws Exception {
+        logger.info("Starting testRORWRebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -321,7 +331,13 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
-        currentCluster = startServers(currentCluster, storeDefFileWithReplication, serverList, null);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
+
+        currentCluster = startServers(currentCluster,
+                                      storeDefFileWithReplication,
+                                      serverList,
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -354,8 +370,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRORebalanceWithReplication() throws Exception {
+        logger.info("Starting testRORebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -365,10 +382,21 @@ public abstract class AbstractRebalanceTest {
 
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
+
+        // If this test fails, consider increasing the number of admin threads.
+        // In particular, if this test fails by RejectedExecutionHandler in
+        // SocketServer.java fires with an error message like the following:
+        // "[18:46:32,994 voldemort.server.socket.SocketServer[admin-server]]
+        // ERROR Too many open connections, 20 of 20 threads in use, denying
+        // connection from /127.0.0.1:43756 [Thread-552]". Note, this issues
+        // seems to only affect ThreadPoolBasedNonblockingStoreImpl tests rather
+        // than Nio-based tests.
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         currentCluster = startServers(currentCluster,
                                       roStoreDefFileWithReplication,
                                       serverList,
-                                      null);
+                                      configProps);
         // Update the cluster information based on the node information
         targetCluster = updateCluster(targetCluster);
 
@@ -395,8 +423,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRWRebalanceWithReplication() throws Exception {
+        logger.info("Starting testRWRebalanceWithReplication");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -437,8 +466,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRebalanceCleanPrimary() throws Exception {
+        logger.info("Starting testRebalanceCleanPrimary");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
                 { 2 } });
 
@@ -538,8 +568,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRebalanceCleanSecondary() throws Exception {
+        logger.info("Starting testRebalanceCleanSecondary");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 3 }, { 1 },
                 { 2 } });
 
@@ -640,8 +671,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRWRebalanceFourNodes() throws Exception {
+        logger.info("Starting testRWRebalanceFourNodes");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
@@ -700,8 +732,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testRWRebalanceSerial() throws Exception {
+        logger.info("Starting testRWRebalanceSerial");
         Cluster currentCluster = ServerTestUtils.getLocalCluster(4, new int[][] {
                 { 0, 1, 4, 7, 9 }, { 2, 3, 5, 6, 8 }, {}, {} });
 
@@ -762,8 +795,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testProxyGetDuringRebalancing() throws Exception {
+        logger.info("Starting testProxyGetDuringRebalancing");
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -772,10 +806,12 @@ public abstract class AbstractRebalanceTest {
                                                                           Lists.newArrayList(2, 3));
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                            storeDefFileWithReplication,
                                                            serverList,
-                                                           null);
+                                                           configProps);
         final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
         ExecutorService executors = Executors.newFixedThreadPool(2);
@@ -823,14 +859,12 @@ public abstract class AbstractRebalanceTest {
                 try {
                     List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                    int nRequests = 0;
                     while(!rebalancingToken.get()) {
                         // should always able to get values.
                         int index = (int) (Math.random() * keys.size());
 
                         // should get a valid value
                         try {
-                            nRequests++;
                             Versioned<String> value = storeClientRW.get(keys.get(index));
                             assertNotSame("StoreClient get() should not return null.", null, value);
                             assertEquals("Value returned should be good",
@@ -898,8 +932,9 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    @Test
+    @Test(timeout = 600000)
     public void testServerSideRouting() throws Exception {
+        logger.info("Starting testServerSideRouting");
         final Cluster currentCluster = ServerTestUtils.getLocalCluster(2, new int[][] {
                 { 0, 1, 2, 3, 4, 5, 6 }, { 7, 8 } });
 
@@ -908,10 +943,12 @@ public abstract class AbstractRebalanceTest {
                                                                           Lists.newArrayList(2, 3));
 
         final List<Integer> serverList = Arrays.asList(0, 1);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "50");
         final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                            storeDefFileWithReplication,
                                                            serverList,
-                                                           null);
+                                                           configProps);
         final Cluster updatedTargetCluster = updateCluster(targetCluster);
 
         ExecutorService executors = Executors.newFixedThreadPool(2);
@@ -956,14 +993,12 @@ public abstract class AbstractRebalanceTest {
                 try {
                     List<String> keys = new ArrayList<String>(testEntries.keySet());
 
-                    int nRequests = 0;
                     while(!rebalancingToken.get()) {
                         // should always able to get values.
                         int index = (int) (Math.random() * keys.size());
 
                         // should get a valid value
                         try {
-                            nRequests++;
                             List<Versioned<byte[]>> values = serverSideRoutingStoreRW.get(new ByteArray(ByteUtils.getBytes(keys.get(index),
                                                                                                                            "UTF-8")),
                                                                                           null);

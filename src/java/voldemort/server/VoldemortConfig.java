@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -25,6 +25,7 @@ import java.util.Properties;
 import voldemort.client.TimeoutConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.OpTimeMap;
 import voldemort.common.VoldemortOpCode;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.bdb.BdbStorageConfiguration;
@@ -102,6 +103,9 @@ public class VoldemortConfig implements Serializable {
     private long minBytesPerSecond;
     private long reportingIntervalBytes;
     private int fetcherBufferSize;
+
+    private OpTimeMap testingSlowQueueingDelays;
+    private OpTimeMap testingSlowConcurrentDelays;
 
     private int coreThreads;
     private int maxThreads;
@@ -251,6 +255,34 @@ public class VoldemortConfig implements Serializable {
         this.mysqlHost = props.getString("mysql.host", "localhost");
         this.mysqlPort = props.getInt("mysql.port", 3306);
         this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
+
+        this.testingSlowQueueingDelays = new OpTimeMap(0);
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.get.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getall.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getversions.ms",
+                                                              0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.put.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.delete.ms", 0));
+
+        this.testingSlowConcurrentDelays = new OpTimeMap(0);
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.get.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getall.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getversions.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.put.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.delete.ms",
+                                                                0));
 
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
@@ -1547,4 +1579,11 @@ public class VoldemortConfig implements Serializable {
         this.enableJmxClusterName = enableJmxClusterName;
     }
 
+    public OpTimeMap testingGetSlowQueueingDelays() {
+        return this.testingSlowQueueingDelays;
+    }
+
+    public OpTimeMap testingGetSlowConcurrentDelays() {
+        return this.testingSlowConcurrentDelays;
+    }
 }

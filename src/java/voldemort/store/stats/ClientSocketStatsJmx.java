@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2011 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -39,37 +39,78 @@ public class ClientSocketStatsJmx {
         this.stats = stats;
     }
 
-    @JmxGetter(name = "socketsCreated", description = "Number of sockets created.")
+    @JmxGetter(name = "socketsCreated", description = "Number of sockets created. Aggregate measure based on current monitoring interval.")
     public int getConnectionsCreated() {
         return stats.getConnectionsCreated();
     }
 
-    @JmxGetter(name = "socketsDestroyed", description = "Number of sockets destroyed.")
+    @JmxGetter(name = "socketsDestroyed", description = "Number of sockets destroyed. Aggregate measure based on current monitoring interval.")
     public int getConnectionsDestroyed() {
         return stats.getConnectionsDestroyed();
     }
 
-    @JmxGetter(name = "socketsCheckedout", description = "Number of sockets checked out.")
+    @JmxGetter(name = "socketsCheckedout", description = "Number of sockets checked out. Aggregate measure based on current monitoring interval.")
     public int getConnectionsCheckinout() {
-        return stats.getConnectionsCheckedout();
+        return stats.getCheckoutCount();
     }
 
-    @JmxGetter(name = "waitMsAverage", description = "Average ms to wait to get a socket.")
+    @JmxGetter(name = "waitMsAverage", description = "Average ms wait to do a synchronous socket checkout. Aggregate measure based on current monitoring interval.")
     public double getWaitMsAverage() {
-        return (double) stats.getAveWaitUs() / Time.US_PER_MS;
+        return (double) stats.getAvgCheckoutWaitUs() / Time.US_PER_MS;
     }
 
-    @JmxGetter(name = "waitMsQ50th", description = "50th percentile wait time to get a connection.")
+    @JmxGetter(name = "waitMsQ50th", description = "50th percentile wait time (ms) to get a connection. Aggregate measure based on current monitoring interval.")
     public double getWaitMsQ50th() {
-        return (double) stats.getWaitHistogram().getQuantile(0.5) / Time.US_PER_MS;
+        return (double) stats.getCheckoutWaitUsHistogram().getQuantile(0.5) / Time.US_PER_MS;
     }
 
-    @JmxGetter(name = "waitMsQ99th", description = "99th percentile wait time to get a connection.")
+    @JmxGetter(name = "waitMsQ99th", description = "99th percentile wait time (ms) to get a connection. Aggregate measure based on current monitoring interval.")
     public double getWaitMsQ99th() {
-        return (double) stats.getWaitHistogram().getQuantile(0.99) / Time.US_PER_MS;
+        return (double) stats.getCheckoutWaitUsHistogram().getQuantile(0.99) / Time.US_PER_MS;
     }
 
-    @JmxGetter(name = "socketsActive", description = "Total number of sockets, checkedin and checkout.")
+    @JmxGetter(name = "checkoutQueueLengthQ50th", description = "50th percentile blocking queue length to get a connection. Aggregate measure based on current monitoring interval.")
+    public double getCheckoutQueueLengthQ50th() {
+        return stats.getCheckoutQueueLengthHistogram().getQuantile(0.5);
+    }
+
+    @JmxGetter(name = "checkoutQueueLength99th", description = "99th percentile blocking queue length to get a connection. Aggregate measure based on current monitoring interval.")
+    public double getCheckoutQueueLengthQ99th() {
+        return stats.getCheckoutQueueLengthHistogram().getQuantile(0.99);
+    }
+
+    @JmxGetter(name = "resourceRequestCount", description = "Number of resource requests made. Aggregate measure based on current monitoring interval.")
+    public int getResourceRequestCount() {
+        return stats.resourceRequestCount();
+    }
+
+    @JmxGetter(name = "resourceRequestWaitMsAverage", description = "Average ms wait to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
+    public double getResourceRequestWaitMsAverage() {
+        return (double) stats.getAvgResourceRequestWaitUs() / Time.US_PER_MS;
+    }
+
+    @JmxGetter(name = "resourceRequestWaitMsQ50th", description = "50th percentile wait time (ms) to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
+    public double getResourceRequestWaitMsQ50th() {
+        return (double) stats.getResourceRequestWaitUsHistogram().getQuantile(0.5) / Time.US_PER_MS;
+    }
+
+    @JmxGetter(name = "resourceRequestWaitMsQ99th", description = "99th percentile wait time (ms) to do an asynchronous socket checkout. Aggregate measure based on current monitoring interval.")
+    public double getResourceRequestWaitMsQ99th() {
+        return (double) stats.getResourceRequestWaitUsHistogram().getQuantile(0.99)
+               / Time.US_PER_MS;
+    }
+
+    @JmxGetter(name = "resourceRequestQueueLengthQ50th", description = "50th percentile asynchronous queue length to get a connection. Aggregate measure based on current monitoring interval.")
+    public double getResourceRequestQueueLengthQ50th() {
+        return stats.getResourceRequestQueueLengthHistogram().getQuantile(0.5);
+    }
+
+    @JmxGetter(name = "resourceRequestQueueLengthQ99th", description = "99th percentile asynchronous queue length to get a connection. Aggregate measure based on current monitoring interval.")
+    public double getResourceRequestQueueLengthQ99th() {
+        return stats.getResourceRequestQueueLengthHistogram().getQuantile(0.99);
+    }
+
+    @JmxGetter(name = "socketsActive", description = "Total number of sockets, checkedin and checkout. Instantaneous measure (i.e., object is polled for current value).")
     public int getConnActive() {
         int result = -1;
         try {
@@ -78,7 +119,7 @@ public class ClientSocketStatsJmx {
         return result;
     }
 
-    @JmxGetter(name = "socketsInPool", description = "Total number of sockets in the pool.")
+    @JmxGetter(name = "socketsInPool", description = "Total number of sockets in the pool. Instantaneous measure (i.e., object is polled for current value).")
     public int getConnAvailable() {
         int result = -1;
         try {
@@ -87,12 +128,22 @@ public class ClientSocketStatsJmx {
         return result;
     }
 
-    @JmxGetter(name = "monitoringInterval", description = "The number of checkouts over which performance statics are calculated.")
+    @JmxGetter(name = "monitoringInterval", description = "The maximum number of checkouts plus resource requests over which performance statistics are calculated.")
     public int getMonitoringInterval() {
         return stats.getMonitoringInterval();
     }
 
-    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statics are calculated.")
+    @JmxGetter(name = "monitoringCheckoutSampleSize", description = "The number of checkout samples currently included in (pertinent) aggregate measures.")
+    public int getMonitoringCheckoutSampleSize() {
+        return stats.getCheckoutCount();
+    }
+
+    @JmxGetter(name = "monitoringResourceRequestSampleSize", description = "The number of resource request samples currently included in (pertinent) aggregate measures.")
+    public int getMonitoringResourceRequestSampleSize() {
+        return stats.resourceRequestCount();
+    }
+
+    @JmxSetter(name = "monitoringInterval", description = "The number of checkouts over which performance statistics are calculated.")
     public void setMonitoringInterval(int count) {
         if(count <= 0)
             throw new IllegalArgumentException("Monitoring interval must be a positive number.");

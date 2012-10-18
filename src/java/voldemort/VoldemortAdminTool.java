@@ -63,6 +63,7 @@ import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.serialization.StringSerializer;
+import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.rebalance.RebalancerState;
 import voldemort.store.StoreDefinition;
 import voldemort.store.compress.CompressionStrategy;
@@ -480,10 +481,47 @@ public class VoldemortAdminTool {
                             throw new VoldemortException("Stores definition xml file path incorrect");
                         StoreDefinitionsMapper mapper = new StoreDefinitionsMapper();
                         List<StoreDefinition> storeDefs = mapper.readStoreList(new File(metadataValue));
+
+                        String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
+
+                        for(StoreDefinition storeDef: storeDefs) {
+                            SerializerDefinition keySerDef = storeDef.getKeySerializer();
+                            SerializerDefinition valueSerDef = storeDef.getValueSerializer();
+
+                            if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+
+                                SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
+
+                            }
+
+                            if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+
+                                SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
+
+                            }
+                        }
                         executeSetMetadata(nodeId,
                                            adminClient,
                                            MetadataStore.STORES_KEY,
                                            mapper.writeStoreList(storeDefs));
+
+                        /*
+                         * This is a hack to update the metadata version of the
+                         * requested stores. TODO: Add the functionality to
+                         * Admin Client and Server to update one individual
+                         * store definition.
+                         */
+                        if(storeNames != null) {
+                            System.out.println("Updating metadata version for the following stores: "
+                                               + storeNames);
+                            try {
+                                for(String name: storeNames) {
+                                    adminClient.updateMetadataversion(name);
+                                }
+                            } catch(Exception e) {
+                                System.err.println("Error while updating metadata version for the specified store.");
+                            }
+                        }
                     } else if(metadataKey.compareTo(MetadataStore.REBALANCING_STEAL_INFO) == 0) {
                         if(!Utils.isReadableFile(metadataValue))
                             throw new VoldemortException("Rebalancing steal info file path incorrect");
@@ -635,6 +673,7 @@ public class VoldemortAdminTool {
             e.printStackTrace();
             System.exit(-1);
         }
+
     }
 
     private static void executeRollback(Integer nodeId,

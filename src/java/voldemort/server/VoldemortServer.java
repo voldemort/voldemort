@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -95,6 +95,7 @@ public class VoldemortServer extends AbstractService {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
+
         this.checkHostName();
         this.storeRepository = new StoreRepository();
         // update cluster details in metaDataStore
@@ -220,6 +221,7 @@ public class VoldemortServer extends AbstractService {
                                                                                                      rebalancer);
 
             if(voldemortConfig.getUseNioConnector()) {
+
                 logger.info("Using NIO Connector for Admin Service.");
                 services.add(new NioSocketService(adminRequestHandlerFactory,
                                                   identityNode.getAdminPort(),
@@ -361,4 +363,5 @@ public class VoldemortServer extends AbstractService {
             adminClient.stop();
         }
     }
+
 }
