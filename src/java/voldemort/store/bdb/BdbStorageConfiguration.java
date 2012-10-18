@@ -111,10 +111,16 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Integer.toString(config.getBdbLogIteratorReadSize()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_LAZY_MIGRATION,
                                          Boolean.toString(config.getBdbCleanerLazyMigration()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BACKGROUND_PROACTIVE_MIGRATION,
+                                         Boolean.toString(config.getBdbProactiveBackgroundMigration()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         if(config.getBdbCacheModeEvictLN()) {
             environmentConfig.setCacheMode(CacheMode.EVICT_LN);
+        }
+        if(config.isBdbLevelBasedEviction()) {
+            environmentConfig.setConfigParam(EnvironmentConfig.EVICTOR_LRU_ONLY,
+                                             Boolean.toString(false));
         }
 
         databaseConfig = new DatabaseConfig();

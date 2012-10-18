@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 LinkedIn, Inc
+ * Copyright 2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -374,6 +374,19 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             }
         }
 
+        // check if all the partitions being requested are present in the
+        // current node
+        for(Integer partition: partitionsToDonate) {
+            if(!RebalanceUtils.checkPartitionBelongsToNode(partition,
+                                                           voldemortConfig.getNodeId(),
+                                                           initialCluster,
+                                                           storeDef)) {
+                logger.info("Node " + voldemortConfig.getNodeId()
+                            + " does not seem to contain partition " + partition
+                            + " as primary/secondary");
+            }
+        }
+
         PartitionListIterator entries = new PartitionListIterator(storageEngine,
                                                                   new ArrayList<Integer>(partitionsToDonate));
 
@@ -438,15 +451,15 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         }
     }
 
-    private void close(ClosableIterator<?> keys,
+    private void close(ClosableIterator<?> storageItr,
                        String storeName,
                        int scanned,
                        int[] fetched,
                        long startTime) {
 
         printProgress(scanned, fetched, startTime, storeName);
-        if(null != keys)
-            keys.close();
+        if(null != storageItr)
+            storageItr.close();
     }
 
     private void terminateAllSlaves(String storeName) {

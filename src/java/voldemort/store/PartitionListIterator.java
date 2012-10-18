@@ -1,3 +1,18 @@
+/*
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.store;
 
 import java.util.List;
@@ -6,6 +21,7 @@ import java.util.NoSuchElementException;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
+import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
 /**
@@ -22,6 +38,7 @@ public class PartitionListIterator implements ClosableIterator<Pair<ByteArray, V
 
     public PartitionListIterator(StorageEngine<ByteArray, byte[], byte[]> storageEngine,
                                  List<Integer> partitionsToFetch) {
+        Utils.notNull(partitionsToFetch);
         this.storageEngine = storageEngine;
         this.partitionsToFetch = partitionsToFetch;
         this.currentIndex = 0;
@@ -37,7 +54,8 @@ public class PartitionListIterator implements ClosableIterator<Pair<ByteArray, V
             if(this.partitionIterator != null)
                 this.partitionIterator.close();
             // advance to the next partition
-            this.partitionIterator = storageEngine.entries(this.partitionsToFetch.get(currentIndex++));
+            this.partitionIterator = storageEngine.entries(this.partitionsToFetch.get(currentIndex));
+            currentIndex++;
             if(this.partitionIterator.hasNext())
                 return true;
         }

@@ -91,6 +91,8 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbCacheModeEvictLN;
     private boolean bdbMinimizeScanImpact;
     private boolean bdbPrefixKeysWithPartitionId;
+    private boolean bdbLevelBasedEviction;
+    private boolean bdbProactiveBackgroundMigration;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -243,6 +245,9 @@ public class VoldemortConfig implements Serializable {
         this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", false);
         this.bdbPrefixKeysWithPartitionId = props.getBoolean("bdb.prefix.keys.with.partitionid",
                                                              true);
+        this.bdbLevelBasedEviction = props.getBoolean("bdb.evict.by.level", false);
+        this.bdbProactiveBackgroundMigration = props.getBoolean("bdb.proactive.background.migration",
+                                                                false);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -550,8 +555,10 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The node id given by "voldemort.home" default: VOLDEMORT_HOME environment
-     * variable
+     * <ul>
+     * <li>Property : "voldemort.home"</li>
+     * <li>Default : VOLDEMORT_HOME environment variable</li>
+     * </ul>
      */
     public String getVoldemortHome() {
         return voldemortHome;
@@ -563,6 +570,7 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * The directory name given by "data.directory" default: voldemort.home/data
+     * 
      */
     public String getDataDirectory() {
         return dataDirectory;
@@ -585,7 +593,12 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The cache size given by "bdb.cache.size" in bytes default: 200MB
+     * The size of BDB Cache to hold portions of the BTree.
+     * 
+     * <ul>
+     * <li>Property : "bdb.cache.size"</li>
+     * <li>Default : 200MB</li>
+     * </ul>
      */
     public long getBdbCacheSize() {
         return bdbCacheSize;
@@ -599,6 +612,10 @@ public class VoldemortConfig implements Serializable {
      * This parameter controls whether we expose space utilization via MBean. If
      * set to false, stat will always return 0;
      * 
+     * <ul>
+     * <li>Property : "bdb.expose.space.utilization"</li>
+     * <li>Default : true</li>
+     * </ul>
      */
     public boolean getBdbExposeSpaceUtilization() {
         return bdbExposeSpaceUtilization;
@@ -609,8 +626,13 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * Given by "bdb.flush.transactions". If true then sync transactions to disk
-     * immediately. default: false
+     * If true then sync transactions to disk immediately.
+     * 
+     * <ul>
+     * <li>Property : "bdb.flush.transactions"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
      */
     public boolean isBdbFlushTransactionsEnabled() {
         return bdbFlushTransactions;
@@ -621,8 +643,12 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The directory in which bdb data is stored. Given by "bdb.data.directory"
-     * default: data.directory/bdb
+     * The directory in which bdb data is stored.
+     * 
+     * <ul>
+     * <li>Property : "bdb.data.directory"</li>
+     * <li>Default : data.directory/bdb</li>
+     * </ul>
      */
     public String getBdbDataDirectory() {
         return bdbDataDirectory;
@@ -633,8 +659,12 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The maximum size of a single .jdb log file in bytes. Given by
-     * "bdb.max.logfile.size" default: 60MB
+     * The maximum size of a single .jdb log file in bytes.
+     * 
+     * <ul>
+     * <li>Property : "bdb.max.logfile.size"</li>
+     * <li>Default : 60MB</li>
+     * </ul>
      */
     public long getBdbMaxLogFileSize() {
         return this.bdbMaxLogFileSize;
@@ -723,6 +753,16 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerThreads = bdbCleanerThreads;
     }
 
+    /**
+     * Buffer size used by cleaner to fetch BTree nodes during cleaning.
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.lookahead.cache.size"</li>
+     * <li>default: 8192</li>
+     * </ul>
+     * 
+     * @return
+     */
     public int getBdbCleanerLookAheadCacheSize() {
         return bdbCleanerLookAheadCacheSize;
     }
@@ -737,7 +777,8 @@ public class VoldemortConfig implements Serializable {
      * 
      * The lock timeout for all transactional and non-transactional operations.
      * Value of zero disables lock timeouts i.e. a deadlock scenario will block
-     * forever
+     * forever. High locktimeout combined with a highly concurrent workload,
+     * might have adverse impact on latency for all stores
      * 
      * <ul>
      * <li>property: "bdb.lock.timeout.ms"</li>
@@ -756,6 +797,20 @@ public class VoldemortConfig implements Serializable {
         this.bdbLockTimeoutMs = bdbLockTimeoutMs;
     }
 
+    /**
+     * The size of the lock table used by BDB JE
+     * 
+     * <ul>
+     * <li>Property : bdb.lock.nLockTables"</li>
+     * <li>Default : 1</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public int getBdbLockNLockTables() {
+        return bdbLockNLockTables;
+    }
+
     public void setBdbLockNLockTables(int bdbLockNLockTables) {
         if(bdbLockNLockTables < 1 || bdbLockNLockTables > 32767)
             throw new IllegalArgumentException("bdbLockNLockTables should be greater than 0 and "
@@ -763,26 +818,52 @@ public class VoldemortConfig implements Serializable {
         this.bdbLockNLockTables = bdbLockNLockTables;
     }
 
-    public int getBdbLockNLockTables() {
-        return bdbLockNLockTables;
+    /**
+     * Buffer for faulting in objects from disk
+     * 
+     * <ul>
+     * <li>Property : "bdb.log.fault.read.size"</li>
+     * <li>Default : 2048</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public int getBdbLogFaultReadSize() {
+        return bdbLogFaultReadSize;
     }
 
     public void setBdbLogFaultReadSize(int bdbLogFaultReadSize) {
         this.bdbLogFaultReadSize = bdbLogFaultReadSize;
     }
 
-    public int getBdbLogFaultReadSize() {
-        return bdbLogFaultReadSize;
+    /**
+     * Buffer size used by BDB JE for reading the log eg: Cleaning.
+     * 
+     * <ul>
+     * <li>Property : "bdb.log.iterator.read.size"</li>
+     * <li>Default : 8192</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public int getBdbLogIteratorReadSize() {
+        return bdbLogIteratorReadSize;
     }
 
     public void setBdbLogIteratorReadSize(int bdbLogIteratorReadSize) {
         this.bdbLogIteratorReadSize = bdbLogIteratorReadSize;
     }
 
-    public int getBdbLogIteratorReadSize() {
-        return bdbLogIteratorReadSize;
-    }
-
+    /**
+     * Controls whether BDB JE should use latches instead of synchronized blocks
+     * 
+     * <ul>
+     * <li>Property : "bdb.fair.latches"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
     public boolean getBdbFairLatches() {
         return bdbFairLatches;
     }
@@ -791,6 +872,16 @@ public class VoldemortConfig implements Serializable {
         this.bdbFairLatches = bdbFairLatches;
     }
 
+    /**
+     * If true, BDB JE get() will not be blocked by put()
+     * 
+     * <ul>
+     * <li>Property : "bdb.lock.read_uncommitted"</li>
+     * <li>Default : true</li>
+     * </ul>
+     * 
+     * @return
+     */
     public boolean getBdbReadUncommitted() {
         return bdbReadUncommitted;
     }
@@ -822,8 +913,12 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * The btree node fanout. Given by "". default: 512
      * 
-     * The btree node fanout. Given by "bdb.btree.fanout". default: 512
+     * <ul>
+     * <li>property: "bdb.btree.fanout"</li>
+     * <li>default: 512</li>
+     * </ul>
      */
     public int getBdbBtreeFanout() {
         return this.bdbBtreeFanout;
@@ -835,7 +930,9 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * If true, Cleaner offloads some work to application threads, to keep up
-     * with the write rate.
+     * with the write rate. Side effect is that data is staged on the JVM till
+     * it is flushed down by Checkpointer, hence not GC friendly (Will cause
+     * promotions)
      * 
      * <ul>
      * <li>property: "bdb.cleaner.lazy.migration"</li>
@@ -889,6 +986,17 @@ public class VoldemortConfig implements Serializable {
         this.bdbMinimizeScanImpact = bdbMinimizeScanImpact;
     }
 
+    /**
+     * Controls persistence mode for BDB JE Transaction. By default, we rely on
+     * the checkpointer to flush the writes
+     * 
+     * <ul>
+     * <li>Property : "bdb.write.transactions"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
     public boolean isBdbWriteTransactionsEnabled() {
         return bdbWriteTransactions;
     }
@@ -897,6 +1005,16 @@ public class VoldemortConfig implements Serializable {
         this.bdbWriteTransactions = bdbWriteTransactions;
     }
 
+    /**
+     * If true, use separate BDB JE environment per store
+     * 
+     * <ul>
+     * <li>Property : "bdb.one.env.per.store"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @param bdbOneEnvPerStore
+     */
     public void setBdbOneEnvPerStore(boolean bdbOneEnvPerStore) {
         this.bdbOneEnvPerStore = bdbOneEnvPerStore;
     }
@@ -925,6 +1043,17 @@ public class VoldemortConfig implements Serializable {
         this.bdbPrefixKeysWithPartitionId = bdbPrefixKeysWithPartitionId;
     }
 
+    /**
+     * Checkpointer is woken up and a checkpoint is written once this many bytes
+     * have been logged
+     * 
+     * <ul>
+     * <li>Property : "bdb.checkpoint.interval.bytes"</li>
+     * <li>Default : 20MB</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getBdbCheckpointBytes() {
         return this.bdbCheckpointBytes;
     }
@@ -933,6 +1062,16 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointBytes = bdbCheckpointBytes;
     }
 
+    /**
+     * BDB JE Checkpointer wakes up whenever this time period elapses
+     * 
+     * <ul>
+     * <li>Property : "bdb.checkpoint.interval.ms"</li>
+     * <li>Default : 30s or 30000 ms</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getBdbCheckpointMs() {
         return this.bdbCheckpointMs;
     }
@@ -941,6 +1080,17 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointMs = bdbCheckpointMs;
     }
 
+    /**
+     * Interval to reuse environment stats fetched from BDB. Once the interval
+     * expires, a fresh call will be made
+     * 
+     * <ul>
+     * <li>Property : "bdb.stats.cache.ttl.ms"</li>
+     * <li>Default : 5s</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getBdbStatsCacheTtlMs() {
         return this.bdbStatsCacheTtlMs;
     }
@@ -949,12 +1099,60 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = statsCacheTtlMs;
     }
 
+    /**
+     * When using partitioned caches, this parameter controls the minimum amount
+     * of memory reserved for the global pool. Any memory-footprint reservation
+     * that will break this guarantee will fail.
+     * 
+     * <ul>
+     * <li>Property : "bdb.minimum.shared.cache"</li>
+     * <li>Default : 0</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getBdbMinimumSharedCache() {
         return this.bdbMinimumSharedCache;
     }
 
     public void setBdbMinimumSharedCache(long minimumSharedCache) {
         this.bdbMinimumSharedCache = minimumSharedCache;
+    }
+
+    /**
+     * Controls if BDB JE cache eviction happens based on LRU or by BTree level.
+     * 
+     * <ul>
+     * <li>Property : "bdb.evict.by.level"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean isBdbLevelBasedEviction() {
+        return bdbLevelBasedEviction;
+    }
+
+    public void setBdbLevelBasedEviction(boolean bdbLevelBasedEviction) {
+        this.bdbLevelBasedEviction = bdbLevelBasedEviction;
+    }
+
+    /**
+     * Exposes BDB JE EnvironmentConfig.CLEANER_PROACTIVE_BACKGROUND_MIGRATION.
+     * 
+     * <ul>
+     * <li>Property : "bdb.proactive.background.migration"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbProactiveBackgroundMigration() {
+        return bdbProactiveBackgroundMigration;
+    }
+
+    public void setBdbProactiveBackgroundMigration(boolean bdbProactiveBackgroundMigration) {
+        this.bdbProactiveBackgroundMigration = bdbProactiveBackgroundMigration;
     }
 
     /**
