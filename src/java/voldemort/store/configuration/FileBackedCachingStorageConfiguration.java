@@ -16,6 +16,7 @@
 
 package voldemort.store.configuration;
 
+import voldemort.routing.RoutingStrategy;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
@@ -38,7 +39,8 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
         this.inputPath = config.getMetadataDirectory();
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
+                                                             RoutingStrategy strategy) {
         return new FileBackedCachingStorageEngine(storeDef.getName(), inputPath);
     }
 
@@ -51,5 +53,4 @@ public class FileBackedCachingStorageConfiguration implements StorageConfigurati
     public void update(StoreDefinition storeDef) {
 
     }
-
 }

@@ -333,4 +333,19 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
 
     }
 
+    @Override
+    public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
+        throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
+    }
+
+    @Override
+    public ClosableIterator<ByteArray> keys(int partition) {
+        throw new UnsupportedOperationException("Partition based keys scan not supported for this storage type");
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return false;
+    }
+
 }

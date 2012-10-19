@@ -146,4 +146,19 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return innerStorageEngine.getCapability(capability);
     }
 
+    @Override
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+        return innerStorageEngine.entries(partition);
+    }
+
+    @Override
+    public ClosableIterator<K> keys(int partition) {
+        return innerStorageEngine.keys(partition);
+    }
+
+    @Override
+    public boolean isPartitionScanSupported() {
+        return innerStorageEngine.isPartitionScanSupported();
+    }
+
 }

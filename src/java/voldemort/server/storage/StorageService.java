@@ -443,7 +443,7 @@ public class StorageService extends AbstractService {
                                              + " but " + storeDef.getType()
                                              + " storage engine has not been enabled.");
 
-        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef);
+        final StorageEngine<ByteArray, byte[], byte[]> engine = config.getStore(storeDef, null);
 
         // Noted that there is no read-only processing as for user stores.
 
