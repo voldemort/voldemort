@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -37,6 +37,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.DaemonThreadFactory;
 import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
@@ -61,18 +62,21 @@ public class ClientRequestExecutorFactory implements
     private final AtomicInteger counter = new AtomicInteger();
     private final Map<SocketDestination, Long> lastClosedTimestamps;
     private final Logger logger = Logger.getLogger(getClass());
+    private final ClientSocketStats stats;
 
     public ClientRequestExecutorFactory(int selectors,
                                         int connectTimeoutMs,
                                         int soTimeoutMs,
                                         int socketBufferSize,
-                                        boolean socketKeepAlive) {
+                                        boolean socketKeepAlive,
+                                        ClientSocketStats stats) {
         this.connectTimeoutMs = connectTimeoutMs;
         this.soTimeoutMs = soTimeoutMs;
         this.created = new AtomicInteger(0);
         this.destroyed = new AtomicInteger(0);
         this.socketBufferSize = socketBufferSize;
         this.socketKeepAlive = socketKeepAlive;
+        this.stats = stats;
 
         this.selectorManagers = new ClientRequestSelectorManager[selectors];
         this.selectorManagerThreadPool = Executors.newFixedThreadPool(selectorManagers.length,
@@ -94,6 +98,9 @@ public class ClientRequestExecutorFactory implements
             throws Exception {
         clientRequestExecutor.close();
         int numDestroyed = destroyed.incrementAndGet();
+        if(stats != null) {
+            stats.connectionDestroy(dest);
+        }
 
         if(logger.isDebugEnabled())
             logger.debug("Destroyed socket " + numDestroyed + " connection to " + dest.getHost()
@@ -108,7 +115,6 @@ public class ClientRequestExecutorFactory implements
 
     public ClientRequestExecutor create(SocketDestination dest) throws Exception {
         int numCreated = created.incrementAndGet();
-
         if(logger.isDebugEnabled())
             logger.debug("Creating socket " + numCreated + " for " + dest.getHost() + ":"
                          + dest.getPort() + " using protocol "
@@ -214,6 +220,10 @@ public class ClientRequestExecutorFactory implements
             }
 
             throw e;
+        }
+
+        if(stats != null) {
+            stats.connectionCreate(dest);
         }
 
         return clientRequestExecutor;
@@ -378,7 +388,7 @@ public class ClientRequestExecutorFactory implements
                     // its way to being canceled.
                     if(clientRequestExecutor != null) {
                         try {
-                            clientRequestExecutor.checkTimeout(selectionKey);
+                            clientRequestExecutor.checkTimeout();
                         } catch(Exception e) {
                             if(logger.isEnabledFor(Level.ERROR))
                                 logger.error(e.getMessage(), e);
@@ -425,5 +435,4 @@ public class ClientRequestExecutorFactory implements
     public void setLastClosedTimestamp(SocketDestination socketDestination) {
         lastClosedTimestamps.put(socketDestination, System.nanoTime());
     }
-
 }

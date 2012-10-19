@@ -19,7 +19,8 @@ package voldemort.client;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -32,6 +33,7 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.failuredetector.FailureDetector;
+import voldemort.common.service.SchedulerService;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SerializationException;
@@ -57,6 +59,7 @@ import voldemort.store.stats.StoreStatsJmx;
 import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.utils.JmxUtils;
+import voldemort.utils.SystemTime;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
@@ -91,13 +94,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final SerializerFactory serializerFactory;
     private final boolean isJmxEnabled;
     private final RequestFormatType requestFormatType;
-    private final int jmxId;
+    protected final int jmxId;
     protected volatile FailureDetector failureDetector;
     private final int maxBootstrapRetries;
     private final StoreStats stats;
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
+    private final String clientContextName;
+    private final AtomicInteger clientSequencer;
+    private final HashSet<SchedulerService> clientAsyncServiceRepo;
+
+    private Cluster cluster;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -108,23 +116,36 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.bootstrapUrls = validateUrls(config.getBootstrapUrls());
         this.isJmxEnabled = config.isJmxEnabled();
         this.requestFormatType = config.getRequestFormatType();
-        this.jmxId = jmxIdCounter.getAndIncrement();
+        this.jmxId = getNextJmxId();
         this.maxBootstrapRetries = config.getMaxBootstrapRetries();
         this.stats = new StoreStats();
         this.clientZoneId = config.getClientZoneId();
+        this.clientContextName = config.getClientContextName();
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
-                                                         config.getRoutingTimeout(TimeUnit.MILLISECONDS));
+                                                         config.getTimeoutConfig());
+
+        this.clientSequencer = new AtomicInteger(0);
+        this.clientAsyncServiceRepo = new HashSet<SchedulerService>();
 
         if(this.isJmxEnabled) {
             JmxUtils.registerMbean(threadPool,
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
                                                              JmxUtils.getClassName(threadPool.getClass())
-                                                                     + jmxId()));
+                                                                     + JmxUtils.getJmxId(jmxId)));
             JmxUtils.registerMbean(new StoreStatsJmx(stats),
                                    JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             "aggregate-perf" + jmxId()));
+                                                             "aggregate-perf"
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
+    }
+
+    public int getNextJmxId() {
+        return jmxIdCounter.getAndIncrement();
+    }
+
+    public int getCurrentJmxId() {
+        return jmxIdCounter.get();
     }
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName) {
@@ -133,24 +154,67 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
 
     public <K, V> StoreClient<K, V> getStoreClient(String storeName,
                                                    InconsistencyResolver<Versioned<V>> resolver) {
-        return new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+
+        StoreClient<K, V> client = null;
+        if(this.config.isDefaultClientEnabled()) {
+            client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        } else if(this.bootstrapUrls.length > 0
+                  && this.bootstrapUrls[0].getScheme().equals(HttpStoreClientFactory.URL_SCHEME)) {
+            client = new DefaultStoreClient<K, V>(storeName, resolver, this, 3);
+        } else {
+
+            SchedulerService service = new SchedulerService(config.getAsyncJobThreadPoolSize(),
+                                                            SystemTime.INSTANCE,
+                                                            true);
+            clientAsyncServiceRepo.add(service);
+
+            client = new ZenStoreClient<K, V>(storeName,
+                                              resolver,
+                                              this,
+                                              3,
+                                              clientContextName,
+                                              clientSequencer.getAndIncrement(),
+                                              config,
+                                              service);
+        }
+
+        return client;
     }
 
     @SuppressWarnings("unchecked")
     public <K, V, T> Store<K, V, T> getRawStore(String storeName,
                                                 InconsistencyResolver<Versioned<V>> resolver) {
+        return getRawStore(storeName, resolver, null, null, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <K, V, T> Store<K, V, T> getRawStore(String storeName,
+                                                InconsistencyResolver<Versioned<V>> resolver,
+                                                String customStoresXml,
+                                                String clusterXmlString,
+                                                FailureDetector fd) {
 
         logger.info("Client zone-id [" + clientZoneId
                     + "] Attempting to obtain metadata for store [" + storeName + "] ");
+
         if(logger.isDebugEnabled()) {
             for(URI uri: bootstrapUrls) {
                 logger.debug("Client Bootstrap url [" + uri + "]");
             }
         }
         // Get cluster and store metadata
-        String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
-        Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
-        String storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+        String clusterXml = clusterXmlString;
+        if(clusterXml == null) {
+            logger.debug("Fetching cluster.xml ...");
+            clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY, bootstrapUrls);
+        }
+
+        this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+        String storesXml = customStoresXml;
+        if(storesXml == null) {
+            logger.debug("Fetching stores.xml ...");
+            storesXml = bootstrapMetadataWithRetries(MetadataStore.STORES_KEY, bootstrapUrls);
+        }
 
         if(logger.isDebugEnabled()) {
             logger.debug("Obtained cluster metadata xml" + clusterXml);
@@ -163,11 +227,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         for(StoreDefinition d: storeDefs)
             if(d.getName().equals(storeName))
                 storeDef = d;
-        if(storeDef == null)
+        if(storeDef == null) {
+            logger.error("Bootstrap - unknown store: " + storeName);
             throw new BootstrapFailureException("Unknown store '" + storeName + "'.");
+        }
 
         if(logger.isDebugEnabled()) {
-            logger.debug(cluster.toString(true));
+            logger.debug(this.cluster.toString(true));
             logger.debug(storeDef.toString());
         }
         boolean repairReads = !storeDef.isView();
@@ -181,7 +247,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(storeDef.hasHintedHandoffStrategyType())
             slopStores = Maps.newHashMap();
 
-        for(Node node: cluster.getNodes()) {
+        for(Node node: this.cluster.getNodes()) {
             Store<ByteArray, byte[], byte[]> store = getStore(storeDef.getName(),
                                                               node.getHost(),
                                                               getPort(node),
@@ -206,7 +272,18 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
-        Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(cluster,
+        /*
+         * Check if we need to retrieve a reference to the failure detector. For
+         * system stores - the FD reference would be passed in.
+         */
+        FailureDetector failureDetectorRef = fd;
+        if(failureDetectorRef == null) {
+            failureDetectorRef = getFailureDetector();
+        } else {
+            logger.debug("Using existing failure detector.");
+        }
+
+        Store<ByteArray, byte[], byte[]> store = routedStoreFactory.create(this.cluster,
                                                                            storeDef,
                                                                            clientMapping,
                                                                            nonblockingStores,
@@ -214,7 +291,9 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            nonblockingSlopStores,
                                                                            repairReads,
                                                                            clientZoneId,
-                                                                           getFailureDetector());
+                                                                           failureDetectorRef,
+                                                                           isJmxEnabled,
+                                                                           this.jmxId);
         store = new LoggingStore(store);
 
         if(isJmxEnabled) {
@@ -222,7 +301,8 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             store = statStore;
             JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
                                    JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             store.getName() + jmxId()));
+                                                             store.getName()
+                                                                     + JmxUtils.getJmxId(jmxId)));
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -261,20 +341,43 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     protected abstract FailureDetector initFailureDetector(final ClientConfig config,
-                                                           final Collection<Node> nodes);
+                                                           Cluster cluster);
 
     public FailureDetector getFailureDetector() {
-        // first check: avoids locking as the field is volatile
-        FailureDetector result = failureDetector;
-        if(result == null) {
+        if(this.cluster == null) {
+            logger.info("Cluster is null ! Getting cluster.xml again for setting up FailureDetector.");
             String clusterXml = bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY,
                                                              bootstrapUrls);
-            Cluster cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+            this.cluster = clusterMapper.readCluster(new StringReader(clusterXml), false);
+        }
+
+        // first check: avoids locking as the field is volatile
+        FailureDetector result = failureDetector;
+
+        if(result == null) {
             synchronized(this) {
                 // second check: avoids double initialization
                 result = failureDetector;
-                if(result == null)
-                    failureDetector = result = initFailureDetector(config, cluster.getNodes());
+                if(result == null) {
+                    logger.info("Failure detector is null. Creating a new FD.");
+                    failureDetector = result = initFailureDetector(config, this.cluster);
+                    if(isJmxEnabled) {
+                        JmxUtils.registerMbean(failureDetector,
+                                               JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                         JmxUtils.getClassName(failureDetector.getClass())
+                                                                                 + JmxUtils.getJmxId(jmxId)));
+                    }
+                }
+            }
+        } else {
+
+            /*
+             * The existing failure detector might have an old state
+             */
+            logger.info("Failure detector already exists. Updating the state and flushing cached verifier stores.");
+            synchronized(this) {
+                failureDetector.getConfig().setCluster(this.cluster);
+                failureDetector.getConfig().getStoreVerifier().flushCachedStores();
             }
         }
 
@@ -304,7 +407,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             }
         }
 
-        throw new BootstrapFailureException("No available boostrap servers found!");
+        throw new BootstrapFailureException("No available bootstrap servers found!");
     }
 
     public String bootstrapMetadataWithRetries(String key) {
@@ -394,13 +497,33 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             this.threadPool.shutdownNow();
         }
 
-        if(failureDetector != null)
+        if(failureDetector != null) {
             failureDetector.destroy();
+
+            if(isJmxEnabled) {
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(failureDetector.getClass()),
+                                                                   JmxUtils.getClassName(failureDetector.getClass())
+                                                                           + JmxUtils.getJmxId(jmxId)));
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
+                                                                   JmxUtils.getClassName(threadPool.getClass())
+                                                                           + JmxUtils.getJmxId(jmxId)));
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName("voldemort.store.stats.aggregate",
+                                                                   "aggregate-perf"
+                                                                           + JmxUtils.getJmxId(jmxId)));
+            }
+        }
+        stopClientAsyncSchedulers();
     }
 
-    /* Give a unique id to avoid jmx clashes */
-    private String jmxId() {
-        return jmxId == 0 ? "" : Integer.toString(jmxId);
+    private void stopClientAsyncSchedulers() {
+        Iterator<SchedulerService> it = clientAsyncServiceRepo.iterator();
+        while(it.hasNext()) {
+            it.next().stop();
+        }
+        clientAsyncServiceRepo.clear();
     }
 
+    protected String getClientContext() {
+        return clientContextName;
+    }
 }

@@ -5,7 +5,7 @@
 
   <property name="name" value="voldemort" />
   <property name="display.name" value="Voldemort" />
-  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao" />
+  <property name="author" value="Jay Kreps, Roshan Sumbaly, Alex Feinberg, Bhupesh Bansal, Lei Gao, Chinmay Soman, Vinoth Chandar, Zhongjie Wu" />
   <property environment="env" />
 
   <path id="main-classpath">
@@ -27,6 +27,7 @@
   </condition>
 
   <path id="contrib-classpath">
+    <pathelement path="${resources.dir}" />
     <fileset dir="${dist.dir}">
       <include name="${name}-${curr.release}.jar" />
     </fileset>
@@ -37,6 +38,7 @@
   </path>
 
   <path id="test-classpath">
+    <pathelement path="${resources.dir}" />
     <pathelement path="${env.VOLD_TEST_JARS}" />
     <path refid="main-classpath" />
     <pathelement path="${testclasses.dir}" />
@@ -76,6 +78,12 @@
         <exclude name="**/log4j.properties" />
       </fileset>
     </copy>
+    <replace-dir dir="META-INF" />
+    <manifest file="META-INF/MANIFEST.MF">       
+      <attribute name="Implementation-Title" value="Voldemort" />
+      <attribute name="Implementation-Version" value="${curr.release}" />
+      <attribute name="Implementation-Vendor" value="LinkedIn" />
+    </manifest>
     <!-- place to put log4j.properties -->
     <replace-dir dir="${resources.dir}"/>
     <copy file="${java.dir}/log4j.properties" todir="${resources.dir}"/>
@@ -103,6 +111,7 @@
       <src path="${unittestsrc.dir}" />
       <src path="${inttestsrc.dir}" />
       <src path="${commontestsrc.dir}" />
+      <src path="${longtestsrc.dir}" />
       <classpath refid="main-classpath" />
     </javac>
   </target>
@@ -139,6 +148,9 @@
       <!-- include xsds -->
       <fileset dir="${java.dir}">
         <include name="**/*.xsd" />
+      </fileset>
+    	<fileset dir=".">
+    		<include name="META-INF/MANIFEST.MF" />
       </fileset>
     </jar>
   </target>
@@ -210,7 +222,7 @@
   <target name="contrib-junit" depends="contrib-jar" description="Run contrib junit tests except EC2 and Krati tests.">
     <replace-dir dir="${contribtestreport.dir}" />
     <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
+    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
       <classpath refid="contrib-test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${contribtestreport.dir}">
@@ -237,7 +249,7 @@
     </copy>
     <replace-dir dir="${contribtestreport.dir}" />
     <replace-dir dir="${contribtesthtml.dir}" />
-    <junit printsummary="yes" maxmemory="1024m" showoutput="true" failureProperty="test.failure">
+    <junit printsummary="yes" maxmemory="2048m" showoutput="true" failureProperty="test.failure">
       <syspropertyset>
         <propertyref prefix="ec2" />
       </syspropertyset>
@@ -369,7 +381,7 @@
   <target name="junit" depends="build, buildtest" description="Run junit tests.">
     <replace-dir dir="${testreport.dir}" />
     <replace-dir dir="${testhtml.dir}" />
-    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m" timeout="1200000">
       <classpath refid="test-classpath" />
       <formatter type="xml" />
       <batchtest fork="yes" todir="${testreport.dir}">
@@ -387,14 +399,45 @@
     </junitreport>
   </target>
  
-  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test with -Dtest.name=">
-    <junit printsummary="yes" showoutput="true" maxmemory="1024m">
-      <classpath refid="contrib-test-classpath" />
-      <test name="${test.name}" />
+  <target name="junit-long" depends="build, buildtest, junit" description="Run long junit tests that uses larger data sets than normal junit tests.">
+    <replace-dir dir="${longtestreport.dir}" />
+    <replace-dir dir="${longtesthtml.dir}" />
+    <junit printsummary="yes" showoutput="true" maxmemory="2048m" fork="yes" timeout="5400000">
+      <classpath refid="test-classpath" />
+      <formatter type="xml" />
+      <batchtest todir="${longtestreport.dir}">
+        <fileset dir="${longtestsrc.dir}">
+          <include name="**/*Test.java" />
+        </fileset>
+      </batchtest>
     </junit>
+    <junitreport todir="${longtesthtml.dir}">
+      <fileset dir="${longtestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${longtesthtml.dir}" format="frames" />
+    </junitreport>
   </target>
 
-  <target name="junit-all" depends="junit, contrib-junit" description="Run All junit tests including contrib.">
+  <target name="junit-test" depends="build, buildtest, contrib-jar" description="Run single junit test for class ClassName with -Dtest.name=[ClassName]  (Note: Use the class name, not the file name with the .java extension)">
+    <replace-dir dir="${singletestreport.dir}" />
+    <replace-dir dir="${singletesthtml.dir}" />
+    <junit printsummary="on" showoutput="true" maxmemory="2048m">
+      <classpath refid="contrib-test-classpath" />
+      <classpath path="${log4j.properties.dir}" />
+      <formatter type="plain" />
+      <formatter type="xml" />
+      <test name="${test.name}"  todir="${singletestreport.dir}"/>
+    </junit>
+    <junitreport todir="${singletesthtml.dir}">
+      <fileset dir="${singletestreport.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report todir="${singletesthtml.dir}" format="frames" />
+    </junitreport>
+  </target>
+
+  <target name="junit-all" depends="junit-long, contrib-junit" description="Run All junit tests including contrib.">
   </target>
 
   <macrodef name="make-javadocs">

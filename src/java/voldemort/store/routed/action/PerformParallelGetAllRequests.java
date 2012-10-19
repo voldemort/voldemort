@@ -98,6 +98,7 @@ public class PerformParallelGetAllRequests
                     // responses below.
                     if(pipeline.isFinished() && response.getValue() instanceof Exception)
                         if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"
@@ -118,7 +119,7 @@ public class PerformParallelGetAllRequests
         }
 
         try {
-            latch.await(timeoutMs * 3, TimeUnit.MILLISECONDS);
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -154,6 +155,7 @@ public class PerformParallelGetAllRequests
                         zoneResponses = pipelineData.getKeyToZoneResponse().get(key);
                     } else {
                         zoneResponses = new HashSet<Integer>();
+                        pipelineData.getKeyToZoneResponse().put(key, zoneResponses);
                     }
                     zoneResponses.add(response.getNode().getZoneId());
                 }

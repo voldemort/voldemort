@@ -108,7 +108,7 @@ public class StorageEnginePerformanceTest {
             VoldemortConfig config = new VoldemortConfig(props);
             StorageConfiguration storageConfig = (StorageConfiguration) ReflectUtils.callConstructor(ReflectUtils.loadClass(storageEngineClass),
                                                                                                      new Object[] { config });
-            StorageEngine<ByteArray, byte[], byte[]> engine = storageConfig.getStore("test");
+            StorageEngine<ByteArray, byte[], byte[]> engine = storageConfig.getStore(TestUtils.makeStoreDefinition("test"));
             @SuppressWarnings("unchecked")
             final Store<String, byte[], byte[]> store = new SerializingStore(engine,
                                                                              new StringSerializer(),

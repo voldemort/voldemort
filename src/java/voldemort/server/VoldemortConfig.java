@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,8 +22,11 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Properties;
 
+import voldemort.client.TimeoutConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.OpTimeMap;
+import voldemort.common.VoldemortOpCode;
 import voldemort.server.scheduler.slop.StreamingSlopPusherJob;
 import voldemort.store.bdb.BdbStorageConfiguration;
 import voldemort.store.memory.CacheStorageConfiguration;
@@ -83,6 +86,8 @@ public class VoldemortConfig implements Serializable {
     private int bdbLogIteratorReadSize;
     private boolean bdbFairLatches;
     private long bdbStatsCacheTtlMs;
+    private boolean bdbExposeSpaceUtilization;
+    private long bdbMinimumSharedCache;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -105,6 +110,9 @@ public class VoldemortConfig implements Serializable {
     private long reportingIntervalBytes;
     private int fetcherBufferSize;
 
+    private OpTimeMap testingSlowQueueingDelays;
+    private OpTimeMap testingSlowConcurrentDelays;
+
     private int coreThreads;
     private int maxThreads;
 
@@ -115,9 +123,11 @@ public class VoldemortConfig implements Serializable {
     private boolean useNioConnector;
     private int nioConnectorSelectors;
     private int nioAdminConnectorSelectors;
+    private int nioAcceptorBacklog;
 
     private int clientSelectors;
     private int clientRoutingTimeoutMs;
+    private TimeoutConfig clientTimeoutConfig;
     private int clientMaxConnectionsPerNode;
     private int clientConnectionTimeoutMs;
     private int clientMaxThreads;
@@ -125,6 +135,7 @@ public class VoldemortConfig implements Serializable {
     private int clientMaxQueuedRequests;
 
     private int schedulerThreads;
+    private boolean mayInterruptService;
 
     private int numScanPermits;
 
@@ -228,6 +239,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbCleanerMaxBatchFiles = props.getInt("bdb.cleaner.max.batch.files", 0);
         this.bdbReadUncommitted = props.getBoolean("bdb.lock.read_uncommitted", true);
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
+        this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
+        this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -252,9 +265,36 @@ public class VoldemortConfig implements Serializable {
         this.mysqlValueType = props.getString("mysql.valuetype", "MEDIUMBLOB");
         this.mysqlDsInitialPoolSize = props.getInt("mysql.ds.initialpoolsize", 0);
         this.mysqlDsPoolPreparedStatements = props.getBoolean("mysql.ds.poolpreparedstatements",
-                                                              false);
         this.mysqlDsMaxActiveConnections = props.getInt("mysql.ds.maxactiveconnections", 8);
         this.mysqlDsMinIdleConnections = props.getInt("mysql.ds.minidleconnections", 0);
+
+        this.testingSlowQueueingDelays = new OpTimeMap(0);
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.get.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getall.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.getversions.ms",
+                                                              0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.put.ms", 0));
+        this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                 props.getInt("testing.slow.queueing.delete.ms", 0));
+
+        this.testingSlowConcurrentDelays = new OpTimeMap(0);
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.get.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getall.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.getversions.ms",
+                                                                0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.PUT_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.put.ms", 0));
+        this.testingSlowConcurrentDelays.setOpTime(VoldemortOpCode.DELETE_OP_CODE,
+                                                   props.getInt("testing.slow.concurrent.delete.ms",
+                                                                0));
         this.maxThreads = props.getInt("max.threads", 100);
         this.coreThreads = props.getInt("core.threads", Math.max(1, maxThreads / 2));
 
@@ -274,18 +314,38 @@ public class VoldemortConfig implements Serializable {
         this.socketBufferSize = (int) props.getBytes("socket.buffer.size", 64 * 1024);
         this.socketKeepAlive = props.getBoolean("socket.keepalive", false);
 
-        this.useNioConnector = props.getBoolean("enable.nio.connector", false);
+        this.useNioConnector = props.getBoolean("enable.nio.connector", true);
         this.nioConnectorSelectors = props.getInt("nio.connector.selectors",
                                                   Math.max(8, Runtime.getRuntime()
                                                                      .availableProcessors()));
         this.nioAdminConnectorSelectors = props.getInt("nio.admin.connector.selectors",
                                                        Math.max(8, Runtime.getRuntime()
                                                                           .availableProcessors()));
+        // a value <= 0 forces the default to be used
+        this.nioAcceptorBacklog = props.getInt("nio.acceptor.backlog", -1);
 
         this.clientSelectors = props.getInt("client.selectors", 4);
         this.clientMaxConnectionsPerNode = props.getInt("client.max.connections.per.node", 50);
         this.clientConnectionTimeoutMs = props.getInt("client.connection.timeout.ms", 500);
         this.clientRoutingTimeoutMs = props.getInt("client.routing.timeout.ms", 15000);
+        this.clientTimeoutConfig = new TimeoutConfig(this.clientRoutingTimeoutMs, false);
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
+                                                     props.getInt("client.routing.get.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
+                                                     props.getInt("client.routing.getall.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE,
+                                                     props.getInt("client.routing.put.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                                     props.getLong("client.routing.getversions.timeout.ms",
+                                                                   this.clientTimeoutConfig.getOperationTimeout(VoldemortOpCode.PUT_OP_CODE)));
+        this.clientTimeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
+                                                     props.getInt("client.routing.delete.timeout.ms",
+                                                                  this.clientRoutingTimeoutMs));
+        this.clientTimeoutConfig.setPartialGetAllAllowed(props.getBoolean("client.routing.allow.partial.getall",
+                                                                          false));
         this.clientMaxThreads = props.getInt("client.max.threads", 500);
         this.clientThreadIdleMs = props.getInt("client.thread.idle.ms", 100000);
         this.clientMaxQueuedRequests = props.getInt("client.max.queued.requests", 1000);
@@ -319,6 +379,7 @@ public class VoldemortConfig implements Serializable {
         this.slopZonesDownToTerminate = props.getInt("slop.zones.terminate", 0);
 
         this.schedulerThreads = props.getInt("scheduler.threads", 6);
+        this.mayInterruptService = props.getBoolean("service.interruptible", true);
 
         this.numScanPermits = props.getInt("num.scan.permits", 1);
 
@@ -548,6 +609,19 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbCacheSize(int bdbCacheSize) {
         this.bdbCacheSize = bdbCacheSize;
+    }
+
+    /**
+     * This parameter controls whether we expose space utilization via MBean. If
+     * set to false, stat will always return 0;
+     * 
+     */
+    public boolean getBdbExposeSpaceUtilization() {
+        return bdbExposeSpaceUtilization;
+    }
+
+    public void setBdbExposeSpaceUtilization(boolean bdbExposeSpaceUtilization) {
+        this.bdbExposeSpaceUtilization = bdbExposeSpaceUtilization;
     }
 
     /**
@@ -1022,6 +1096,10 @@ public class VoldemortConfig implements Serializable {
         this.clientRoutingTimeoutMs = routingTimeoutMs;
     }
 
+    public TimeoutConfig getTimeoutConfig() {
+        return this.clientTimeoutConfig;
+    }
+
     public int getClientMaxConnectionsPerNode() {
         return clientMaxConnectionsPerNode;
     }
@@ -1152,12 +1230,28 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = statsCacheTtlMs;
     }
 
+    public long getBdbMinimumSharedCache() {
+        return this.bdbMinimumSharedCache;
+    }
+
+    public void setBdbMinimumSharedCache(long minimumSharedCache) {
+        this.bdbMinimumSharedCache = minimumSharedCache;
+    }
+
     public int getSchedulerThreads() {
         return schedulerThreads;
     }
 
     public void setSchedulerThreads(int schedulerThreads) {
         this.schedulerThreads = schedulerThreads;
+    }
+
+    public boolean canInterruptService() {
+        return mayInterruptService;
+    }
+
+    public void setInterruptible(boolean canInterrupt) {
+        this.mayInterruptService = canInterrupt;
     }
 
     public String getReadOnlyDataStorageDirectory() {
@@ -1253,6 +1347,14 @@ public class VoldemortConfig implements Serializable {
 
     public void setNioAdminConnectorSelectors(int nioAdminConnectorSelectors) {
         this.nioAdminConnectorSelectors = nioAdminConnectorSelectors;
+    }
+
+    public int getNioAcceptorBacklog() {
+        return nioAcceptorBacklog;
+    }
+
+    public void setNioAcceptorBacklog(int nioAcceptorBacklog) {
+        this.nioAcceptorBacklog = nioAcceptorBacklog;
     }
 
     public int getAdminSocketBufferSize() {
@@ -1503,6 +1605,7 @@ public class VoldemortConfig implements Serializable {
         this.enableJmxClusterName = enableJmxClusterName;
     }
 
+<<<<<<< HEAD
     public String getMysqlValueType() {
         return mysqlValueType;
     }
@@ -1541,5 +1644,13 @@ public class VoldemortConfig implements Serializable {
 
     public void setMysqlDsMinIdleConnections(int mysqlDsMinIdleConnections) {
         this.mysqlDsMinIdleConnections = mysqlDsMinIdleConnections;
+=======
+    public OpTimeMap testingGetSlowQueueingDelays() {
+        return this.testingSlowQueueingDelays;
+    }
+
+    public OpTimeMap testingGetSlowConcurrentDelays() {
+        return this.testingSlowConcurrentDelays;
+>>>>>>> 5a021db803dcd81e6eeb428aabf02052a9ceddcc
     }
 }

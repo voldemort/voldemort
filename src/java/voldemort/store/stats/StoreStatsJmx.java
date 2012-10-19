@@ -44,6 +44,11 @@ public class StoreStatsJmx {
         return stats.getGetAllAverageCount();
     }
 
+    @JmxGetter(name = "maxGetAllCount", description = "The max number of keys in a GET_ALL request.")
+    public long getMaxGetAllCount() {
+        return stats.getGetAllMaxCount();
+    }
+
     @JmxGetter(name = "numberOfCallsToGet", description = "The number of calls to GET since the last reset.")
     public long getNumberOfCallsToGet() {
         return stats.getCount(Tracked.GET);
@@ -134,22 +139,25 @@ public class StoreStatsJmx {
 
     @JmxGetter(name = "AllOperationThroughputInBytes", description = "Throughput of all operations in bytes.")
     public double getOperationThroghputInBytes() {
-        return stats.getThroughputInBytes(Tracked.GET) + stats.getThroughputInBytes(Tracked.GET_ALL)
-                + stats.getThroughputInBytes(Tracked.PUT);
+        return stats.getThroughputInBytes(Tracked.GET)
+               + stats.getThroughputInBytes(Tracked.GET_ALL)
+               + stats.getThroughputInBytes(Tracked.PUT);
     }
 
     @JmxGetter(name = "percentGetReturningEmptyResponse", description = "The percentage of calls to GET for which no value was found.")
     public double getPercentGetReturningEmptyResponse() {
-        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET), stats.getCount(Tracked.GET));
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET),
+                                 stats.getCount(Tracked.GET));
     }
 
     @JmxGetter(name = "percentGetAllReturningEmptyResponse", description = "The percentage of calls to GET_ALL for which no value was found, taking into account multiple returned key-values.")
     public double getPercentGetAllReturningEmptyResponse() {
-        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET_ALL), stats.getGetAllAggregatedCount());
+        return numEmptyResponses(stats.getNumEmptyResponses(Tracked.GET_ALL),
+                                 stats.getGetAllAggregatedCount());
     }
 
     private double numEmptyResponses(long numEmpty, long total) {
-        return total == 0 ? 0.0d : numEmpty / (float)total;
+        return total == 0 ? 0.0d : numEmpty / (float) total;
     }
 
     @JmxGetter(name = "maxPutLatencyInMs", description = "Maximum latency in ms of PUT")
@@ -172,42 +180,42 @@ public class StoreStatsJmx {
         return stats.getMaxLatencyInMs(Tracked.DELETE);
     }
 
-    @JmxGetter(name = "q95PutLatencyInMs", description="")
+    @JmxGetter(name = "q95PutLatencyInMs", description = "")
     public long getQ95PutLatency() {
         return stats.getQ95LatencyInMs(Tracked.PUT);
     }
 
-    @JmxGetter(name = "q95GetLatencyInMs", description="")
+    @JmxGetter(name = "q95GetLatencyInMs", description = "")
     public long getQ95GetLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "q95GetAllLatencyInMs", description="")
+    @JmxGetter(name = "q95GetAllLatencyInMs", description = "")
     public long getQ95GetAllLatency() {
         return stats.getQ95LatencyInMs(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "q95DeleteLatencyInMs", description="")
+    @JmxGetter(name = "q95DeleteLatencyInMs", description = "")
     public long getQ95DeleteLatency() {
         return stats.getQ95LatencyInMs(Tracked.DELETE);
     }
 
-    @JmxGetter(name = "q99PutLatencyInMs", description="")
+    @JmxGetter(name = "q99PutLatencyInMs", description = "")
     public long getQ99PutLatency() {
         return stats.getQ99LatencyInMs(Tracked.PUT);
     }
 
-    @JmxGetter(name = "q99GetLatencyInMs", description="")
+    @JmxGetter(name = "q99GetLatencyInMs", description = "")
     public long getQ99GetLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET);
     }
 
-    @JmxGetter(name = "q99GetAllLatencyInMs", description="")
+    @JmxGetter(name = "q99GetAllLatencyInMs", description = "")
     public long getQ99GetAllLatency() {
         return stats.getQ99LatencyInMs(Tracked.GET_ALL);
     }
 
-    @JmxGetter(name = "q99DeleteLatencyInMs", description="")
+    @JmxGetter(name = "q99DeleteLatencyInMs", description = "")
     public long getQ99DeleteLatency() {
         return stats.getQ99LatencyInMs(Tracked.DELETE);
     }

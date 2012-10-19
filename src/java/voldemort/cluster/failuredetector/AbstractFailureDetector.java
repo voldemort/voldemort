@@ -43,7 +43,9 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     // simply a wrapper around a ConcurrentHashMap anyway :(
     protected final ConcurrentHashMap<FailureDetectorListener, Object> listeners;
 
-    protected final Map<Node, NodeStatus> nodeStatusMap;
+    // Maintain the list of nodes and their status by IDs (in order to handle
+    // host swaps)
+    protected final Map<Integer, NodeStatus> idNodeStatusMap;
 
     protected final Logger logger = Logger.getLogger(getClass().getName());
 
@@ -53,11 +55,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
 
         this.failureDetectorConfig = failureDetectorConfig;
         listeners = new ConcurrentHashMap<FailureDetectorListener, Object>();
-        nodeStatusMap = new ConcurrentHashMap<Node, NodeStatus>();
+        idNodeStatusMap = new ConcurrentHashMap<Integer, NodeStatus>();
 
-        for(Node node: failureDetectorConfig.getNodes()) {
-            nodeStatusMap.put(node, createNodeStatus(failureDetectorConfig.getTime()
-                                                                          .getMilliseconds()));
+        for(Node node: failureDetectorConfig.getCluster().getNodes()) {
+            idNodeStatusMap.put(node.getId(),
+                                createNodeStatus(failureDetectorConfig.getTime().getMilliseconds()));
         }
     }
 
@@ -91,9 +93,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getAvailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -102,9 +105,10 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public String getUnavailableNodes() {
         List<String> list = new ArrayList<String>();
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(!isAvailable(node))
                 list.add(String.valueOf(node.getId()));
+        }
 
         return StringUtils.join(list, ",");
     }
@@ -113,16 +117,17 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     public int getAvailableNodeCount() {
         int available = 0;
 
-        for(Node node: getConfig().getNodes())
+        for(Node node: getConfig().getCluster().getNodes()) {
             if(isAvailable(node))
                 available++;
+        }
 
         return available;
     }
 
     @JmxGetter(name = "nodeCount", description = "The number of total nodes")
     public int getNodeCount() {
-        return getConfig().getNodes().size();
+        return getConfig().getCluster().getNodes().size();
     }
 
     public void waitForAvailability(Node node) throws InterruptedException {
@@ -211,18 +216,19 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     }
 
     protected NodeStatus getNodeStatus(Node node) {
-        NodeStatus nodeStatus = nodeStatusMap.get(node);
+        NodeStatus nodeStatus = null;
+        NodeStatus currentNodeStatus = idNodeStatusMap.get(node.getId());
 
-        if(nodeStatus == null) {
-            if(logger.isEnabledFor(Level.WARN))
+        if(currentNodeStatus == null) {
+            if(logger.isEnabledFor(Level.WARN)) {
                 logger.warn("creating new node status for node " + node.getId()
                             + " for failure detector");
+            }
 
             nodeStatus = createNodeStatus(failureDetectorConfig.getTime().getMilliseconds());
-            nodeStatusMap.put(node, nodeStatus);
-            if(!failureDetectorConfig.getNodes().contains(node)) {
-                failureDetectorConfig.addNode(node);
-            }
+            idNodeStatusMap.put(node.getId(), nodeStatus);
+        } else {
+            nodeStatus = currentNodeStatus;
         }
 
         return nodeStatus;
@@ -261,4 +267,27 @@ public abstract class AbstractFailureDetector implements FailureDetector {
         }
     }
 
+    private class CompositeNodeStatus {
+
+        private Node node;
+        private NodeStatus status;
+
+        CompositeNodeStatus(Node node, NodeStatus status) {
+            this.node = node;
+            this.status = status;
+        }
+
+        public void setValues(Node node, NodeStatus status) {
+            this.node = node;
+            this.status = status;
+        }
+
+        public Node getNode() {
+            return this.node;
+        }
+
+        public NodeStatus getStatus() {
+            return this.status;
+        }
+    }
 }

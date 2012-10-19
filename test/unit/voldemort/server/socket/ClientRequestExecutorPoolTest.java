@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -68,7 +68,14 @@ public class ClientRequestExecutorPoolTest extends TestCase {
     @Before
     public void setUp() {
         this.port = ServerTestUtils.findFreePort();
-        this.pool = new ClientRequestExecutorPool(maxConnectionsPerNode, 1000, 1000, 32 * 1024);
+        this.pool = new ClientRequestExecutorPool(2,
+                                                  maxConnectionsPerNode,
+                                                  1000,
+                                                  1000,
+                                                  32 * 1024,
+                                                  false,
+                                                  true,
+                                                  0);
         this.dest1 = new SocketDestination("localhost", port, RequestFormatType.VOLDEMORT_V1);
         RequestHandlerFactory handlerFactory = ServerTestUtils.getSocketRequestHandlerFactory(new StoreRepository());
         this.server = ServerTestUtils.getSocketService(useNio,
@@ -112,20 +119,19 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         for(int i = 0; i < maxConnectionsPerNode; i++)
             list.add(pool.checkout(dest1));
 
-        assertEquals(list.size(), pool.getNumberSocketsCreated());
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
+        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
 
         pool.close(dest1);
 
-        assertEquals(list.size(), pool.getNumberOfActiveConnections());
-        assertEquals(0, pool.getNumberSocketsDestroyed());
+        assertEquals(list.size(), pool.getStats().getConnectionsActive(null));
+        assertEquals(0, pool.getStats().getConnectionsDestroyed());
 
         for(ClientRequestExecutor sas: list)
             pool.checkin(dest1, sas);
 
-        assertEquals(0, pool.getNumberOfActiveConnections());
-        assertEquals(list.size(), pool.getNumberSocketsDestroyed());
-        assertEquals(0, pool.getNumberOfCheckedInConnections());
+        assertEquals(0, pool.getStats().getConnectionsActive(null));
+        assertEquals(list.size(), pool.getStats().getConnectionsCreated());
     }
 
     @Test

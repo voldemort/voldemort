@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,24 +16,32 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import junit.framework.TestCase;
 
 import org.junit.After;
 import org.junit.Before;
@@ -46,6 +54,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
@@ -54,6 +63,7 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.server.VoldemortServer;
+import voldemort.store.InvalidMetadataException;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
@@ -67,6 +77,7 @@ import voldemort.store.slop.strategy.HintedHandoffStrategyType;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -81,7 +92,7 @@ import com.google.common.collect.Maps;
 /**
  */
 @RunWith(Parameterized.class)
-public class AdminServiceBasicTest extends TestCase {
+public class AdminServiceBasicTest {
 
     private static int NUM_RUNS = 100;
     private static int TEST_STREAM_KEYS_SIZE = 10000;
@@ -108,34 +119,27 @@ public class AdminServiceBasicTest extends TestCase {
         return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
-    @Override
     @Before
     public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
+        int numServers = 2;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+        Properties serverProperties = new Properties();
+        serverProperties.setProperty("client.max.connections.per.node", "20");
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        storesXmlfile,
+                                                        serverProperties);
 
-        servers = new VoldemortServer[2];
         storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
-        servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
-                                                                                             0,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
-                                                                                             1,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
-
-        adminClient = ServerTestUtils.getAdminClient(cluster);
+        Properties adminProperties = new Properties();
+        adminProperties.setProperty("max_connections", "20");
+        adminClient = new AdminClient(cluster, new AdminClientConfig(adminProperties));
     }
 
     /**
@@ -148,9 +152,8 @@ public class AdminServiceBasicTest extends TestCase {
         return servers[nodeId];
     }
 
-    @Override
     @After
-    public void tearDown() throws IOException, InterruptedException {
+    public void tearDown() throws IOException {
         adminClient.stop();
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);
@@ -602,6 +605,141 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testReplicationMappingWithZonePreference() {
+        List<Node> nodes = Lists.newArrayList();
+        nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
+        nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
+        nodes.add(new Node(2, "localhost", 1, 2, 3, 1, Lists.newArrayList(2, 6, 10)));
+        nodes.add(new Node(3, "localhost", 1, 2, 3, 1, Lists.newArrayList(3, 7, 11)));
+
+        // Test 0 - With rep-factor 1; zone 1
+        StoreDefinition storeDef = ServerTestUtils.getStoreDef("consistent",
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               1,
+                                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+
+        try {
+            adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // With rep-factor 1; zone 0
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+        newCluster = new Cluster("single_zone_cluster", nodes);
+
+        try {
+            adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+            fail("Should have thrown an exception since rep-factor = 1");
+        } catch(VoldemortException e) {}
+
+        // Test 1 - With consistent routing strategy
+        storeDef = ServerTestUtils.getStoreDef("consistent",
+                                               4,
+                                               1,
+                                               1,
+                                               1,
+                                               1,
+                                               RoutingStrategyType.CONSISTENT_STRATEGY);
+
+        // On node 0; zone id 1
+        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.getReplicationMapping(0,
+                                                                                                             newCluster,
+                                                                                                             storeDef,
+                                                                                                             1);
+        {
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
+            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+            partitionTuple.put(2, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, partitionTuple);
+            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
+            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(3, partitionTuple2);
+            // {2={0=[2, 6, 10], 1=[1, 5, 9], 2=[0, 4, 8]}, 3={0=[3, 7, 11]}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        // On node 0; zone id 0
+        replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+        {
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.clear();
+            partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
+            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+            partitionTuple.put(2, Lists.newArrayList(3, 7, 11));
+            partitionTuple.put(3, Lists.newArrayList(2, 6, 10));
+            expectedMapping.put(1, partitionTuple);
+            // {1={0=[1, 5, 9], 1=[0, 4, 8]}, 2=[3, 7, 11], 3=[2, 6, 10]}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        // Test 2 - With zone routing strategy, and zone replication factor 1
+        List<Zone> zones = ServerTestUtils.getZones(2);
+        HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
+        for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
+            zoneReplicationFactors.put(zoneIds, 1);
+        }
+        storeDef = ServerTestUtils.getStoreDef("zone",
+                                               2,
+                                               1,
+                                               1,
+                                               1,
+                                               0,
+                                               0,
+                                               zoneReplicationFactors,
+                                               HintedHandoffStrategyType.PROXIMITY_STRATEGY,
+                                               RoutingStrategyType.ZONE_STRATEGY);
+        newCluster = new Cluster("multi_zone_cluster", nodes, zones);
+
+        {
+            // On node 0, zone 0 - failure case since zoneReplicationFactor is 1
+
+            try {
+                replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+                fail("Should have thrown an exception since  zoneReplicationFactor is 1");
+            } catch(VoldemortException e) {}
+        }
+
+        {
+            // On node 0, zone 1
+            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
+            partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
+            expectedMapping.put(2, partitionTuple);
+            HashMap<Integer, List<Integer>> partitionTuple2 = Maps.newHashMap();
+            partitionTuple2.put(0, Lists.newArrayList(3, 7, 11));
+            expectedMapping.put(3, partitionTuple2);
+            // {2={0=[2, 6, 10], 1=[0, 4, 8]}, 3={0=[3, 7, 11]}}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+
+        {
+            // On node 1, zone 1
+            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef, 1);
+            HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
+            HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
+            partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
+            expectedMapping.put(2, partitionTuple);
+            // {2={1=[1, 5, 9]}}
+            assertEquals(replicationMapping, expectedMapping);
+        }
+    }
+
+    @Test
     public void testDeleteStore() throws Exception {
         AdminClient adminClient = getAdminClient();
 
@@ -721,8 +859,9 @@ public class AdminServiceBasicTest extends TestCase {
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
             if(isKeyPartition(entry.getKey(), 0, testStoreName, deletePartitionsList)) {
-                assertEquals("deleted partitions should be missing.", 0, store.get(entry.getKey(),
-                                                                                   null).size());
+                assertEquals("deleted partitions should be missing.",
+                             0,
+                             store.get(entry.getKey(), null).size());
             }
         }
     }
@@ -982,6 +1121,7 @@ public class AdminServiceBasicTest extends TestCase {
 
     @Test
     public void testGetROStorageFormat() {
+
         Map<String, String> storesToStorageFormat = getAdminClient().getROStorageFormat(0,
                                                                                         Lists.newArrayList("test-readonly-fetchfiles",
                                                                                                            "test-readonly-versions"));
@@ -1120,6 +1260,245 @@ public class AdminServiceBasicTest extends TestCase {
     }
 
     @Test
+    public void testQuery() {
+        HashMap<ByteArray, byte[]> belongToAndInsideServer0 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> belongToAndInsideServer1 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> notBelongServer0ButInsideServer0 = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> belongToServer0ButOutsideBoth = new HashMap<ByteArray, byte[]>();
+        HashMap<ByteArray, byte[]> notBelongToServer0AndOutsideBoth = new HashMap<ByteArray, byte[]>();
+
+        Store<ByteArray, byte[], byte[]> store0 = getStore(0, testStoreName);
+        Store<ByteArray, byte[], byte[]> store1 = getStore(1, testStoreName);
+
+        HashMap<ByteArray, byte[]> entrySet = null;
+        Iterator<ByteArray> keys = null;
+        RoutingStrategy strategy = servers[0].getMetadataStore().getRoutingStrategy(testStoreName);
+        while(true) {
+            ByteArray key;
+            byte[] value;
+            if(keys == null || !keys.hasNext()) {
+                entrySet = ServerTestUtils.createRandomKeyValuePairs(100);
+                keys = entrySet.keySet().iterator();
+            }
+            key = keys.next();
+            value = entrySet.get(key);
+            List<Node> routedNodes = strategy.routeRequest(key.get());
+            boolean keyShouldBeInNode0 = false;
+            boolean keyShouldBeInNode1 = false;
+            for(Node node: routedNodes) {
+                keyShouldBeInNode0 = keyShouldBeInNode0 || (node.getId() == 0);
+                keyShouldBeInNode1 = keyShouldBeInNode1 || (node.getId() == 1);
+            }
+
+            if(belongToAndInsideServer0.size() < 10) {
+                if(keyShouldBeInNode0) {
+                    belongToAndInsideServer0.put(key, value);
+                    store0.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(belongToAndInsideServer1.size() < 10) {
+                if(keyShouldBeInNode1) {
+                    belongToAndInsideServer1.put(key, value);
+                    store1.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(notBelongServer0ButInsideServer0.size() < 5) {
+                if(!keyShouldBeInNode0) {
+                    notBelongServer0ButInsideServer0.put(key, value);
+                    store0.put(key, new Versioned<byte[]>(value), null);
+                }
+            } else if(belongToServer0ButOutsideBoth.size() < 5) {
+                if(keyShouldBeInNode0) {
+                    belongToServer0ButOutsideBoth.put(key, value);
+                }
+            } else if(notBelongToServer0AndOutsideBoth.size() < 5) {
+                if(!keyShouldBeInNode0) {
+                    notBelongToServer0AndOutsideBoth.put(key, value);
+                }
+            } else {
+                break;
+            }
+        }
+
+        ArrayList<ByteArray> belongToAndInsideServer0Keys = new ArrayList<ByteArray>(belongToAndInsideServer0.keySet());
+        ArrayList<ByteArray> belongToAndInsideServer1Keys = new ArrayList<ByteArray>(belongToAndInsideServer1.keySet());
+        ArrayList<ByteArray> notBelongServer0ButInsideServer0Keys = new ArrayList<ByteArray>(notBelongServer0ButInsideServer0.keySet());
+        ArrayList<ByteArray> belongToServer0ButOutsideBothKeys = new ArrayList<ByteArray>(belongToServer0ButOutsideBoth.keySet());
+        ArrayList<ByteArray> notBelongToServer0AndOutsideBothKeys = new ArrayList<ByteArray>(notBelongToServer0AndOutsideBoth.keySet());
+
+        List<ByteArray> queryKeys;
+        Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> results;
+        Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> entry;
+        // test one key on store 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertEquals(queryKeys.get(0), entry.getFirst());
+        assertNull("There should not be exception in response", entry.getSecond().getSecond());
+        assertEquals("There should be only 1 value in versioned list", 1, entry.getSecond()
+                                                                               .getFirst()
+                                                                               .size());
+        assertEquals("Two byte[] should be equal",
+                     0,
+                     ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
+                                       entry.getSecond().getFirst().get(0).getValue()));
+        assertFalse("There should be only one result", results.hasNext());
+
+        // test one key belongs to but not exists in server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToServer0ButOutsideBothKeys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
+        assertNull("There should not be exception", entry.getSecond().getSecond());
+
+        // test one key not exist and does not belong to server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+
+        // test one key that exists on server 0 but does not belong to server 0
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(0));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+
+        // test one key deleted
+        store0.delete(belongToAndInsideServer0Keys.get(4), null);
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(4));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
+        assertNull("There should not be exception", entry.getSecond().getSecond());
+
+        // test empty request
+        queryKeys = new ArrayList<ByteArray>();
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertFalse("Results should be empty", results.hasNext());
+
+        // test null key
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(null);
+        assertEquals(1, queryKeys.size());
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        entry = results.next();
+        assertFalse("There should not be more results", results.hasNext());
+        assertNotNull("Response should be non-null", entry.getSecond());
+        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertTrue("There should be IllegalArgumentException exception",
+                   entry.getSecond().getSecond() instanceof IllegalArgumentException);
+
+        // test multiple keys (3) on store 1
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer1Keys.get(0));
+        queryKeys.add(belongToAndInsideServer1Keys.get(1));
+        queryKeys.add(belongToAndInsideServer1Keys.get(2));
+        results = getAdminClient().queryKeys(1, testStoreName, queryKeys.iterator());
+        assertTrue("Results should not be empty", results.hasNext());
+        Map<ByteArray, List<Versioned<byte[]>>> entries = new HashMap<ByteArray, List<Versioned<byte[]>>>();
+        int resultCount = 0;
+        while(results.hasNext()) {
+            resultCount++;
+            entry = results.next();
+            assertNull("There should not be exception in response", entry.getSecond().getSecond());
+            assertNotNull("Value should not be null for Key: ", entry.getSecond().getFirst());
+            entries.put(entry.getFirst(), entry.getSecond().getFirst());
+        }
+        assertEquals("There should 3 and only 3 results", 3, resultCount);
+        for(ByteArray key: queryKeys) {
+            // this loop and the count ensure one-to-one mapping
+            assertNotNull("This key should exist in the results: " + key, entries.get(key));
+            assertEquals("Two byte[] should be equal for key: " + key,
+                         0,
+                         ByteUtils.compare(belongToAndInsideServer1.get(key),
+                                           entries.get(key).get(0).getValue()));
+        }
+
+        // test multiple keys, mixed situation
+        // key 0: Exists and belongs to
+        // key 1: Exists but does not belong to
+        // key 2: Does not exist but belongs to
+        // key 3: Does not belong and not exist
+        // key 4: Same situation with key0
+        // key 5: Deleted
+        // key 6: Same situation with key2
+        store0.delete(belongToAndInsideServer0Keys.get(5), null);
+        queryKeys = new ArrayList<ByteArray>();
+        queryKeys.add(belongToAndInsideServer0Keys.get(2));
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(1));
+        queryKeys.add(belongToServer0ButOutsideBothKeys.get(1));
+        queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(1));
+        queryKeys.add(belongToAndInsideServer0Keys.get(3));
+        queryKeys.add(belongToAndInsideServer0Keys.get(5));
+        queryKeys.add(notBelongServer0ButInsideServer0Keys.get(2));
+        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        // key 0
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
+                                          entry.getSecond().getFirst().get(0).getValue()));
+        assertNull(entry.getSecond().getSecond());
+        // key 1
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(1).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // key 2
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(2).get(), entry.getFirst().get()));
+        assertEquals(0, entry.getSecond().getFirst().size());
+        assertNull(entry.getSecond().getSecond());
+        // key 3
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(3).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // key 4
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(4).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(4)),
+                                          entry.getSecond().getFirst().get(0).getValue()));
+        assertNull(entry.getSecond().getSecond());
+        // key 5
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(5).get(), entry.getFirst().get()));
+        assertEquals(0, entry.getSecond().getFirst().size());
+        assertNull(entry.getSecond().getSecond());
+        // key 6
+        entry = results.next();
+        assertEquals(0, ByteUtils.compare(queryKeys.get(6).get(), entry.getFirst().get()));
+        assertTrue("There should be InvalidMetadataException exception",
+                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+        // no more keys
+        assertFalse(results.hasNext());
+    }
+
+    @Test
     public void testUpdate() {
         final HashMap<ByteArray, byte[]> entrySet = ServerTestUtils.createRandomKeyValuePairs(TEST_STREAM_KEYS_SIZE);
 
@@ -1174,8 +1553,9 @@ public class AdminServiceBasicTest extends TestCase {
             Store<ByteArray, byte[], byte[]> store = getStore(0, nextSlop.getStoreName());
 
             if(nextSlop.getOperation().equals(Slop.Operation.PUT)) {
-                assertNotSame("entry should be present at store", 0, store.get(nextSlop.getKey(),
-                                                                               null).size());
+                assertNotSame("entry should be present at store",
+                              0,
+                              store.get(nextSlop.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(nextSlop.getValue()),
                              new String(store.get(nextSlop.getKey(), null).get(0).getValue()));

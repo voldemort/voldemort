@@ -20,8 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
@@ -42,7 +42,7 @@ public class BannagePeriodFailureDetectorTest extends AbstractFailureDetectorTes
     public FailureDetector createFailureDetector() throws Exception {
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(BannagePeriodFailureDetector.class.getName())
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
-                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setCluster(cluster)
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
         return create(failureDetectorConfig, true);

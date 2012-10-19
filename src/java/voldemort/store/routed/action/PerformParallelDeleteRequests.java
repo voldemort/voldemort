@@ -93,9 +93,9 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
 
                 public void requestComplete(Object result, long requestTime) {
                     if(logger.isTraceEnabled())
-                        logger.info(pipeline.getOperation().getSimpleName()
-                                    + " response received (" + requestTime + " ms.) from node "
-                                    + node.getId());
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
 
                     Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
                                                                                            key,
@@ -128,6 +128,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                     if(pipeline.isFinished() && response.getValue() instanceof Exception
                        && !(response.getValue() instanceof ObsoleteVersionException)) {
                         if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"

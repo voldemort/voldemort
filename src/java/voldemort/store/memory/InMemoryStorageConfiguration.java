@@ -19,9 +19,11 @@ package voldemort.store.memory;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
@@ -39,8 +41,8 @@ public class InMemoryStorageConfiguration implements StorageConfiguration {
     @SuppressWarnings("unused")
     public InMemoryStorageConfiguration(VoldemortConfig config) {}
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new InMemoryStorageEngine<ByteArray, byte[], byte[]>(name,
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        return new InMemoryStorageEngine<ByteArray, byte[], byte[]>(storeDef.getName(),
                                                                     new ConcurrentHashMap<ByteArray, List<Versioned<byte[]>>>());
     }
 
@@ -50,4 +52,8 @@ public class InMemoryStorageConfiguration implements StorageConfiguration {
 
     public void close() {}
 
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
 }

@@ -80,4 +80,8 @@ public class ServerStoreVerifier implements StoreVerifier {
         store.get(KEY, null);
     }
 
+    public void flushCachedStores() {
+        this.stores.clear();
+    }
+
 }

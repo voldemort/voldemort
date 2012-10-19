@@ -1,3 +1,18 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.store.rebalancing;
 
 import static org.junit.Assert.assertEquals;
@@ -14,7 +29,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
@@ -41,40 +55,40 @@ public class RebootstrappingStoreTest {
     private final static String STORE_NAME = "test";
     private final static String STORES_XML = "test/common/voldemort/config/single-store.xml";
 
-    private final int[][] startCluster = new int[][] { { 0, 1 }, {} };
-
-    private Map<String, String> entries;
     private Cluster cluster;
     private List<VoldemortServer> servers;
     private StoreClient<String, String> storeClient;
 
     @Before
     public void setUp() throws Exception {
-        entries = Maps.newHashMap();
-        entries.put("a", "1");
-        entries.put("b", "2");
-        cluster = ServerTestUtils.getLocalCluster(2, startCluster);
-        servers = Lists.newArrayList();
-        Properties props = new Properties();
         SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                               10000,
                                                                               100000,
                                                                               32 * 1024);
 
-        for(Node node: cluster.getNodes()) {
-            VoldemortConfig config = ServerTestUtils.createServerConfig(false,
-                                                                        node.getId(),
-                                                                        TestUtils.createTempDir()
-                                                                                 .getAbsolutePath(),
-                                                                        null,
-                                                                        STORES_XML,
-                                                                        props);
-            servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory, config, cluster));
+        int numServers = 2;
+        VoldemortServer[] voldemortServers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        voldemortServers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        false,
+                                                        null,
+                                                        STORES_XML,
+                                                        new Properties());
+
+        servers = Lists.newArrayList();
+        for(int i = 0; i < numServers; ++i) {
+            servers.add(voldemortServers[i]);
         }
 
         String bootstrapUrl = cluster.getNodeById(0).getSocketUrl().toString();
         storeClient = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(bootstrapUrl)).getStoreClient(STORE_NAME);
 
+        Map<String, String> entries = Maps.newHashMap();
+        entries.put("a", "1");
+        entries.put("b", "2");
         for(Map.Entry<String, String> entry: entries.entrySet())
             storeClient.put(entry.getKey(), entry.getValue());
     }

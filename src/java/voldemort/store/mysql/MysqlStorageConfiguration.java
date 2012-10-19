@@ -24,6 +24,7 @@ import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
 public class MysqlStorageConfiguration implements StorageConfiguration {
@@ -49,8 +50,8 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         this.valueType = config.getMysqlValueType();
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new MysqlStorageEngine(name, dataSource, valueType);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        return new MysqlStorageEngine(storeDef.getName(), dataSource);
     }
 
     public String getType() {
@@ -65,4 +66,8 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         }
     }
 
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
 }

@@ -1,4 +1,26 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.client.rebalance;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -11,12 +33,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
-
-import junit.framework.TestCase;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
@@ -61,7 +81,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 @RunWith(Parameterized.class)
-public class AdminRebalanceTest extends TestCase {
+public class AdminRebalanceTest {
 
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                   10000,
@@ -91,10 +111,6 @@ public class AdminRebalanceTest extends TestCase {
     }
 
     public void startThreeNodeRW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                {} });
-
-        servers = new VoldemortServer[3];
         storeDef1 = ServerTestUtils.getStoreDef("test",
                                                 1,
                                                 1,
@@ -109,38 +125,34 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 3; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 3;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 2, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
     public void startFourNodeRW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = ServerTestUtils.getStoreDef("test",
                                                 2,
                                                 1,
@@ -155,38 +167,34 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
     public void startFourNodeRO() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = new StoreDefinitionBuilder().setName("test")
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
@@ -211,38 +219,34 @@ public class AdminRebalanceTest extends TestCase {
                                                 .setPreferredWrites(1)
                                                 .setRequiredWrites(1)
                                                 .build();
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
     }
 
     public void startFourNodeRORW() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(4, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
-                { 8, 9, 10, 11 }, {} });
-
-        servers = new VoldemortServer[4];
         storeDef1 = new StoreDefinitionBuilder().setName("test")
                                                 .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
                                                 .setKeySerializer(new SerializerDefinition("string"))
@@ -282,31 +286,31 @@ public class AdminRebalanceTest extends TestCase {
                                                 1,
                                                 RoutingStrategyType.CONSISTENT_STRATEGY);
 
-        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
         FileUtils.writeStringToFile(tempStoreXml,
                                     new StoreDefinitionsMapper().writeStoreList(Lists.newArrayList(storeDef1,
                                                                                                    storeDef2,
                                                                                                    storeDef3,
                                                                                                    storeDef4)));
-        for(int nodeId = 0; nodeId < 4; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(useNio,
-                                                                                                      nodeId,
-                                                                                                      TestUtils.createTempDir()
-                                                                                                               .getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      tempStoreXml.getAbsolutePath(),
-                                                                                                      new Properties()),
-                                                                   cluster);
-        }
 
+        int numServers = 4;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 }, { 8, 9, 10, 11 }, {} };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        tempStoreXml.getAbsolutePath(),
+                                                        new Properties());
+
+        targetCluster = RebalanceUtils.createUpdatedCluster(cluster, 3, Lists.newArrayList(0));
         // Make plan only with RO stores
         RebalanceClusterPlan plan = new RebalanceClusterPlan(cluster,
                                                              targetCluster,
                                                              Lists.newArrayList(storeDef1,
-                                                                                storeDef2),
-                                                             true);
+                                                                                storeDef2), true);
         plans = RebalanceUtils.flattenNodePlans(Lists.newArrayList(plan.getRebalancingTaskQueue()));
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
@@ -348,7 +352,7 @@ public class AdminRebalanceTest extends TestCase {
         return store;
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRW() throws IOException {
 
         try {
@@ -476,8 +480,9 @@ public class AdminRebalanceTest extends TestCase {
 
             // Primary is on Node 0 and not on Node 1
             for(Entry<ByteArray, byte[]> entry: primaryEntriesMoved.entrySet()) {
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
@@ -495,8 +500,9 @@ public class AdminRebalanceTest extends TestCase {
 
             // Secondary is on Node 2 and not on Node 0
             for(Entry<ByteArray, byte[]> entry: secondaryEntriesMoved.entrySet()) {
-                assertSame("entry should be present at store", 1, storeTest2.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest2.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest2.get(entry.getKey(), null).get(0).getValue()));
@@ -515,7 +521,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRW2() throws IOException {
 
         try {
@@ -606,22 +612,25 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 1
-                assertSame("entry should be present at store", 1, storeTest1.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest1.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest1.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -631,15 +640,17 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest00.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest00.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest00.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest30.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
@@ -654,15 +665,17 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 0
-                assertSame("entry should be present at store", 1, storeTest0.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest0.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest0.get(entry.getKey(), null).get(0).getValue()));
 
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -672,8 +685,9 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest30.get(entry.getKey(),
-                                                                                  null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest30.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest30.get(entry.getKey(), null).get(0).getValue()));
@@ -688,8 +702,9 @@ public class AdminRebalanceTest extends TestCase {
 
                 // Test 2
                 // Present on Node 3
-                assertSame("entry should be present at store", 1, storeTest3.get(entry.getKey(),
-                                                                                 null).size());
+                assertSame("entry should be present at store",
+                           1,
+                           storeTest3.get(entry.getKey(), null).size());
                 assertEquals("entry value should match",
                              new String(entry.getValue()),
                              new String(storeTest3.get(entry.getKey(), null).get(0).getValue()));
@@ -710,7 +725,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRO() throws IOException {
         try {
             startFourNodeRO();
@@ -863,7 +878,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceNodeRORW() throws IOException, InterruptedException {
 
         try {
@@ -1064,7 +1079,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testRebalanceStateChange() throws IOException {
 
         try {
@@ -1163,7 +1178,7 @@ public class AdminRebalanceTest extends TestCase {
         }
     }
 
-    @Test
+    @Test(timeout = 60000)
     public void testClusterAndRebalanceStateChange() throws IOException {
 
         try {

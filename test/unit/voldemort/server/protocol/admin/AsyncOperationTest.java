@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import junit.framework.TestCase;
-import voldemort.server.scheduler.SchedulerService;
+import voldemort.common.service.SchedulerService;
 import voldemort.utils.SystemTime;
 
 /**

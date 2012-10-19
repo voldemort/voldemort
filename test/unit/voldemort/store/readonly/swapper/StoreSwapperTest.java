@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 LinkedIn, Inc
+ * Copyright 2011-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,10 @@
 
 package voldemort.store.readonly.swapper;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,8 +28,6 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import junit.framework.TestCase;
 
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -59,7 +61,7 @@ import com.google.common.collect.Maps;
 /**
 *
  */
-public class StoreSwapperTest extends TestCase {
+public class StoreSwapperTest {
 
     private static int NUM_NODES = 3;
     private static String STORE_NAME = "test";
@@ -71,59 +73,69 @@ public class StoreSwapperTest extends TestCase {
     private VoldemortServer[] servers;
     private Cluster cluster;
     private AdminClient adminClient;
-    private StoreDefinition storeDef;
     private File baseDirs[];
 
-    @Override
-    @Before
-    public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(NUM_NODES);
-        servers = new VoldemortServer[NUM_NODES];
-        baseDirs = new File[NUM_NODES];
-        storeDef = new StoreDefinitionBuilder().setName(STORE_NAME)
-                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
-                                               .setKeySerializer(serializerDef)
-                                               .setValueSerializer(serializerDef)
-                                               .setRoutingPolicy(RoutingTier.SERVER)
-                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
-                                               .setReplicationFactor(2)
-                                               .setPreferredReads(1)
-                                               .setRequiredReads(1)
-                                               .setPreferredWrites(1)
-                                               .setRequiredWrites(1)
-                                               .build();
+    protected String constructStoresXml() throws IOException {
+        StoreDefinition storeDef = new StoreDefinitionBuilder().setName(STORE_NAME)
+                                                               .setType(ReadOnlyStorageConfiguration.TYPE_NAME)
+                                                               .setKeySerializer(serializerDef)
+                                                               .setValueSerializer(serializerDef)
+                                                               .setRoutingPolicy(RoutingTier.SERVER)
+                                                               .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
+                                                               .setReplicationFactor(2)
+                                                               .setPreferredReads(1)
+                                                               .setRequiredReads(1)
+                                                               .setPreferredWrites(1)
+                                                               .setRequiredWrites(1)
+                                                               .build();
 
         File storesXml = new File(TestUtils.createTempDir(), "stores.xml");
-
         StoreDefinitionsMapper storeDefMapper = new StoreDefinitionsMapper();
         FileWriter writer = new FileWriter(storesXml);
         writer.write(storeDefMapper.writeStoreList(Lists.newArrayList(storeDef)));
         writer.close();
 
-        File baseTempDir = TestUtils.createTempDir();
+        return storesXml.getAbsolutePath();
+    }
 
+    @Before
+    public void setUp() throws IOException {
+        String storesXmlFile = constructStoresXml();
+
+        servers = new VoldemortServer[NUM_NODES];
         Properties props = new Properties();
         props.put("readonly.backups", "1");
+        cluster = ServerTestUtils.startVoldemortCluster(NUM_NODES,
+                                                        servers,
+                                                        null,
+                                                        socketStoreFactory,
+                                                        false,
+                                                        null,
+                                                        storesXmlFile,
+                                                        props);
+
+        baseDirs = new File[NUM_NODES];
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                   ServerTestUtils.createServerConfig(false,
-                                                                                                      nodeId,
-                                                                                                      baseTempDir.getAbsolutePath(),
-                                                                                                      null,
-                                                                                                      storesXml.getAbsolutePath(),
-                                                                                                      props),
-                                                                   cluster);
-            baseDirs[nodeId] = new File(baseTempDir + "/node-" + nodeId + "/data/read-only/"
-                                        + STORE_NAME);
+            String baseDir = servers[nodeId].getVoldemortConfig().getDataDirectory();
+            baseDirs[nodeId] = new File(baseDir + "/read-only/" + STORE_NAME);
         }
+        /*-
+        for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
+            System.err.println("nodeId: " + nodeId);
+            System.err.println("  basedir: " + baseDirs[nodeId].getAbsolutePath());
+            System.err.println("  datadir: "
+                               + servers[nodeId].getVoldemortConfig().getDataDirectory());
+            System.err.println("  metadir: "
+                               + servers[nodeId].getVoldemortConfig().getMetadataDirectory());
+        }
+         */
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
 
     }
 
-    @Override
     @After
-    public void tearDown() throws IOException, InterruptedException {
+    public void tearDown() throws IOException {
         adminClient.stop();
         for(VoldemortServer server: servers) {
             ServerTestUtils.stopVoldemortServer(server);

@@ -61,4 +61,10 @@ public abstract class ClientStoreVerifier implements StoreVerifier {
 
     protected abstract Store<ByteArray, byte[], byte[]> getStoreInternal(Node node);
 
+    public void flushCachedStores() {
+        synchronized(stores) {
+            this.stores.clear();
+        }
+    }
+
 }

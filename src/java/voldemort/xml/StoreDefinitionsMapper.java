@@ -50,6 +50,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreUtils;
 import voldemort.store.slop.strategy.HintedHandoffStrategyType;
+import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.Utils;
 
@@ -83,6 +84,7 @@ public class StoreDefinitionsMapper {
     public final static String STORE_REQUIRED_READS_ELMT = "required-reads";
     public final static String STORE_PREFERRED_READS_ELMT = "preferred-reads";
     public final static String STORE_RETENTION_POLICY_ELMT = "retention-days";
+    public final static String STORE_RETENTION_FREQ_ELMT = "retention-frequency";
     public final static String STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT = "retention-scan-throttle-rate";
     public final static String STORE_ROUTING_STRATEGY = "routing-strategy";
     public final static String STORE_ZONE_ID_ELMT = "zone-id";
@@ -96,6 +98,7 @@ public class StoreDefinitionsMapper {
     public final static String VIEW_TRANS_ELMT = "view-class";
     public final static String VIEW_SERIALIZER_FACTORY_ELMT = "view-serializer-factory";
     private final static String STORE_VERSION_ATTR = "version";
+    private final static String STORE_MEMORY_FOOTPRINT = "memory-footprint";
 
     private final Schema schema;
 
@@ -220,14 +223,19 @@ public class StoreDefinitionsMapper {
         Element retention = store.getChild(STORE_RETENTION_POLICY_ELMT);
         Integer retentionPolicyDays = null;
         Integer retentionThrottleRate = null;
+        Integer retentionFreqDays = null;
         if(retention != null) {
             retentionPolicyDays = Integer.parseInt(retention.getText());
             Element throttleRate = store.getChild(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT);
             if(throttleRate != null)
                 retentionThrottleRate = Integer.parseInt(throttleRate.getText());
+            Element retentionFreqDaysElement = store.getChild(STORE_RETENTION_FREQ_ELMT);
+            if(retentionFreqDaysElement != null)
+                retentionFreqDays = Integer.parseInt(retentionFreqDaysElement.getText());
         }
 
-        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
+        if(routingStrategyType.compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0
+           && !SystemStoreConstants.isSystemStore(name)) {
             if(zoneCountReads == null || zoneCountWrites == null || zoneReplicationFactor == null) {
                 throw new MappingException("Have not set one of the following correctly for store '"
                                            + name
@@ -248,6 +256,11 @@ public class StoreDefinitionsMapper {
         Integer hintPrefListSize = (null != hintPrefListSizeStr) ? Integer.parseInt(hintPrefListSizeStr)
                                                                 : null;
 
+        String memoryFootprintStr = store.getChildText(STORE_MEMORY_FOOTPRINT);
+        long memoryFootprintMB = 0;
+        if(memoryFootprintStr != null)
+            memoryFootprintMB = Long.parseLong(memoryFootprintStr);
+
         return new StoreDefinitionBuilder().setName(name)
                                            .setType(storeType)
                                            .setDescription(description)
@@ -263,11 +276,13 @@ public class StoreDefinitionsMapper {
                                            .setRequiredWrites(requiredWrites)
                                            .setRetentionPeriodDays(retentionPolicyDays)
                                            .setRetentionScanThrottleRate(retentionThrottleRate)
+                                           .setRetentionFrequencyDays(retentionFreqDays)
                                            .setZoneReplicationFactor(zoneReplicationFactor)
                                            .setZoneCountReads(zoneCountReads)
                                            .setZoneCountWrites(zoneCountWrites)
                                            .setHintedHandoffStrategy(hintedHandoffStrategy)
                                            .setHintPrefListSize(hintPrefListSize)
+                                           .setMemoryFootprintMB(memoryFootprintMB)
                                            .build();
     }
 
@@ -459,6 +474,10 @@ public class StoreDefinitionsMapper {
 
         if(storeDefinition.hasRetentionScanThrottleRate())
             store.addContent(new Element(STORE_RETENTION_SCAN_THROTTLE_RATE_ELMT).setText(Integer.toString(storeDefinition.getRetentionScanThrottleRate())));
+
+        if(storeDefinition.hasMemoryFootprint()) {
+            store.addContent(new Element(STORE_MEMORY_FOOTPRINT).setText(Long.toString(storeDefinition.getMemoryFootprintMB())));
+        }
 
         return store;
     }

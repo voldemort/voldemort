@@ -1,4 +1,21 @@
+/*
+ * Copyright 2012 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.server.gossip;
+
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -10,8 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import junit.framework.TestCase;
-
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,11 +54,12 @@ import voldemort.versioning.Versioned;
  * Tests {@link voldemort.server.gossip.Gossiper}
  */
 @RunWith(Parameterized.class)
-public class GossiperTest extends TestCase {
+public class GossiperTest {
+
+    private static final Logger logger = Logger.getLogger(GossiperTest.class.getName());
 
     private List<VoldemortServer> servers = new ArrayList<VoldemortServer>();
     private Cluster cluster;
-    private Properties props = new Properties();
     private static final int socketBufferSize = 4096;
     private static final int adminSocketBufferSize = 8192;
     private SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
@@ -51,6 +68,8 @@ public class GossiperTest extends TestCase {
                                                                                   socketBufferSize);
     private static String storesXmlfile = "test/common/voldemort/config/stores.xml";
     private final boolean useNio;
+    private CountDownLatch countDownLatch;
+    final private Properties props = new Properties();
 
     public GossiperTest(boolean useNio) {
         this.useNio = useNio;
@@ -61,20 +80,10 @@ public class GossiperTest extends TestCase {
         return Arrays.asList(new Object[][] { { false }, { true } });
     }
 
-    @Override
-    @Before
-    public void setUp() throws IOException {
-        props.put("enable.gossip", "true");
-        props.put("gossip.interval.ms", "250");
-        props.put("socket.buffer.size", String.valueOf(socketBufferSize));
-        props.put("admin.streams.buffer.size", String.valueOf(adminSocketBufferSize));
-
-        // Start all in parallel to avoid exceptions during gossip
-
+    private void attemptParallelClusterStart(ExecutorService executorService) {
+        // Start all servers in parallel to avoid exceptions during gossip.
         cluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 },
                 { 8, 9, 10, 11 } });
-        ExecutorService executorService = Executors.newFixedThreadPool(3);
-        final CountDownLatch countDownLatch = new CountDownLatch(3);
 
         for(int i = 0; i < 3; i++) {
             final int j = i;
@@ -91,12 +100,40 @@ public class GossiperTest extends TestCase {
                                                                                                             storesXmlfile,
                                                                                                             props),
                                                                          cluster));
+                    } catch(IOException ioe) {
+                        logger.error("Caught IOException during parallel server start: "
+                                     + ioe.getMessage());
+                        RuntimeException re = new RuntimeException();
+                        re.initCause(ioe);
+                        throw re;
+                    } finally {
+                        // Ensure setup progresses in face of errors
                         countDownLatch.countDown();
-                    } catch(IOException e) {
-                        throw new RuntimeException();
                     }
                 }
             });
+        }
+    }
+
+    @Before
+    public void setUp() {
+        props.put("enable.gossip", "true");
+        props.put("gossip.interval.ms", "250");
+        props.put("socket.buffer.size", String.valueOf(socketBufferSize));
+        props.put("admin.streams.buffer.size", String.valueOf(adminSocketBufferSize));
+
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
+        countDownLatch = new CountDownLatch(3);
+
+        boolean clusterStarted = false;
+        while(!clusterStarted) {
+            try {
+                attemptParallelClusterStart(executorService);
+                clusterStarted = true;
+            } catch(RuntimeException re) {
+                logger.info("Some server thread threw a RuntimeException. Will print out stacktrace and then try again. Assumption is that the RuntimeException is due to BindException that in turn is due to TOCTOU issue with getLocalCluster");
+                re.printStackTrace();
+            }
         }
 
         try {
@@ -106,7 +143,6 @@ public class GossiperTest extends TestCase {
         }
     }
 
-    @Override
     @After
     public void tearDown() {
         socketStoreFactory.close();
@@ -116,18 +152,20 @@ public class GossiperTest extends TestCase {
         return new AdminClient(newCluster, new AdminClientConfig());
     }
 
-    @Test
-    public void testGossiper() throws Exception {
-        // First create a new cluster:
-        // Allocate ports for all nodes in the new cluster, to match existing
-        // cluster
+    private Cluster attemptStartAdditionalServer() throws IOException {
+        // Set up a new cluster that is one bigger than the original cluster
+
         int originalSize = cluster.getNumberOfNodes();
         int numOriginalPorts = originalSize * 3;
         int ports[] = new int[numOriginalPorts + 3];
         for(int i = 0, j = 0; i < originalSize; i++, j += 3) {
             Node node = cluster.getNodeById(i);
             System.arraycopy(new int[] { node.getHttpPort(), node.getSocketPort(),
-                    node.getAdminPort() }, 0, ports, j, 3);
+                                     node.getAdminPort() },
+                             0,
+                             ports,
+                             j,
+                             3);
         }
 
         System.arraycopy(ServerTestUtils.findFreePorts(3), 0, ports, numOriginalPorts, 3);
@@ -150,13 +188,27 @@ public class GossiperTest extends TestCase {
                                                                                                             storesXmlfile,
                                                                                                             props),
                                                                          newCluster);
+        // This step is only reached if startVoldemortServer does *not* throw a
+        // BindException due to TOCTOU problem with getLocalCluster
         servers.add(newServer);
+        return newCluster;
+    }
 
-        // Wait a while until the new server starts
-        try {
-            Thread.sleep(500);
-        } catch(InterruptedException e) {
-            Thread.currentThread().interrupt();
+    // Protect against this test running forever until the root cause of running
+    // forever is found.
+    @Test(timeout = 1800)
+    public void testGossiper() throws Exception {
+        Cluster newCluster = null;
+
+        boolean startedAdditionalServer = false;
+        while(!startedAdditionalServer) {
+            try {
+                newCluster = attemptStartAdditionalServer();
+                startedAdditionalServer = true;
+            } catch(IOException ioe) {
+                logger.warn("Caught an IOException when attempting to start additional server. Will print stacktrace and then attempt to start additional server again.");
+                ioe.printStackTrace();
+            }
         }
 
         // Get the new cluster.xml
@@ -166,8 +218,7 @@ public class GossiperTest extends TestCase {
                                                                                    MetadataStore.CLUSTER_KEY);
 
         // Increment the version, let what would be the "donor node" know about
-        // it
-        // to seed the Gossip.
+        // it to seed the Gossip.
         Version version = versionedClusterXML.getVersion();
         ((VectorClock) version).incrementVersion(3, ((VectorClock) version).getTimestamp() + 1);
         ((VectorClock) version).incrementVersion(0, ((VectorClock) version).getTimestamp() + 1);
@@ -182,6 +233,7 @@ public class GossiperTest extends TestCase {
         }
 
         // Wait up to five seconds for Gossip to spread
+        final Cluster newFinalCluster = newCluster;
         try {
             TestUtils.assertWithBackoff(5000, new Attempt() {
 
@@ -194,11 +246,11 @@ public class GossiperTest extends TestCase {
                         assertEquals("server " + nodeId + " has heard "
                                              + " the gossip about number of nodes",
                                      clusterAtServer.getNumberOfNodes(),
-                                     newCluster.getNumberOfNodes());
+                                     newFinalCluster.getNumberOfNodes());
                         assertEquals("server " + nodeId + " has heard "
                                              + " the gossip about partitions",
                                      clusterAtServer.getNodeById(nodeId).getPartitionIds(),
-                                     newCluster.getNodeById(nodeId).getPartitionIds());
+                                     newFinalCluster.getNodeById(nodeId).getPartitionIds());
                         serversSeen++;
                     }
                     assertEquals("saw all servers", serversSeen, servers.size());

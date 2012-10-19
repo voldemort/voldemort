@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc
+ * Copyright 2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -42,6 +42,7 @@ import voldemort.store.routed.Response;
 import voldemort.store.slop.HintedHandoff;
 import voldemort.store.slop.Slop;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Versioned;
@@ -129,6 +130,12 @@ public class PerformParallelPutRequests extends
                                                                                            requestTime);
                     responses.put(node.getId(), response);
 
+                    if(logger.isDebugEnabled())
+                        logger.debug("Finished secondary PUT for key "
+                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                                     + System.identityHashCode(key) + "); took " + requestTime
+                                     + " ms on node " + node.getId() + "(" + node.getHost() + ")");
+
                     if(isHintedHandoffEnabled() && pipeline.isFinished()) {
                         if(response.getValue() instanceof UnreachableStoreException) {
                             Slop slop = new Slop(pipelineData.getStoreName(),
@@ -156,6 +163,7 @@ public class PerformParallelPutRequests extends
                     if(pipeline.isFinished() && response.getValue() instanceof Exception
                        && !(response.getValue() instanceof ObsoleteVersionException)) {
                         if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
                             logger.warn("Received invalid metadata problem after a successful "
                                         + pipeline.getOperation().getSimpleName()
                                         + " call on node " + node.getId() + ", store '"
@@ -188,14 +196,12 @@ public class PerformParallelPutRequests extends
 
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
             Response<ByteArray, Object> response = responseEntry.getValue();
-            if(response.getValue() instanceof Exception) {
-                if(response.getValue() instanceof ObsoleteVersionException) {
-                    // ignore this completely here
-                    // this means that a higher version was able
-                    // to write on this node and should be termed as
-                    // clean success.
-                    responses.remove(responseEntry.getKey());
-                } else if(handleResponseError(response, pipeline, failureDetector))
+            // Treat ObsoleteVersionExceptions as success since such an
+            // exception means that a higher version was able to write on the
+            // node.
+            if(response.getValue() instanceof Exception
+               && !(response.getValue() instanceof ObsoleteVersionException)) {
+                if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
                 pipelineData.incrementSuccesses();
@@ -219,14 +225,12 @@ public class PerformParallelPutRequests extends
 
                 for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
                     Response<ByteArray, Object> response = responseEntry.getValue();
-                    if(response.getValue() instanceof Exception) {
-                        if(response.getValue() instanceof ObsoleteVersionException) {
-                            // ignore this completely here
-                            // this means that a higher version was able
-                            // to write on this node and should be termed as
-                            // clean success.
-                            responses.remove(responseEntry.getKey());
-                        } else if(handleResponseError(response, pipeline, failureDetector))
+                    // Treat ObsoleteVersionExceptions as success since such an
+                    // exception means that a higher version was able to write
+                    // on the node.
+                    if(response.getValue() instanceof Exception
+                       && !(response.getValue() instanceof ObsoleteVersionException)) {
+                        if(handleResponseError(response, pipeline, failureDetector))
                             return;
                     } else {
                         pipelineData.incrementSuccesses();

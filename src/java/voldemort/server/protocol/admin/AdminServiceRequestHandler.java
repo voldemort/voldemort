@@ -50,6 +50,7 @@ import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
+import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.StoreOperationFailureException;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.metadata.MetadataStore;
@@ -259,6 +260,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
             case NATIVE_BACKUP:
                 ProtoUtils.writeMessage(outputStream, handleNativeBackup(request.getNativeBackup()));
                 break;
+            case RESERVE_MEMORY:
+                ProtoUtils.writeMessage(outputStream,
+                                        handleReserveMemory(request.getReserveMemory()));
+                break;
             default:
                 throw new VoldemortException("Unkown operation " + request.getType());
         }
@@ -268,70 +273,75 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     private VAdminProto.DeleteStoreRebalanceStateResponse handleDeleteStoreRebalanceState(VAdminProto.DeleteStoreRebalanceStateRequest request) {
         VAdminProto.DeleteStoreRebalanceStateResponse.Builder response = VAdminProto.DeleteStoreRebalanceStateResponse.newBuilder();
+        synchronized(rebalancer) {
+            try {
 
-        try {
+                int nodeId = request.getNodeId();
+                String storeName = request.getStoreName();
 
-            int nodeId = request.getNodeId();
-            String storeName = request.getStoreName();
+                logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
+                            + storeName + " from stealer node " + metadataStore.getNodeId());
+                RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
+                if(info == null) {
+                    throw new VoldemortException("Could not find state for donor node " + nodeId);
+                }
 
-            logger.info("Removing rebalancing state for donor node " + nodeId + " and store "
-                        + storeName);
-            RebalancePartitionsInfo info = metadataStore.getRebalancerState().find(nodeId);
-            if(info == null) {
-                throw new VoldemortException("Could not find state for donor node " + nodeId);
+                HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
+                if(replicaToPartition == null) {
+                    throw new VoldemortException("Could not find state for donor node " + nodeId
+                                                 + " and store " + storeName);
+                }
+
+                info.removeStore(storeName);
+                logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
+                            + storeName + " from stealer node " + metadataStore.getNodeId());
+
+                if(info.getUnbalancedStoreList().isEmpty()) {
+                    metadataStore.deleteRebalancingState(info);
+                    logger.info("Removed entire rebalancing state for donor node " + nodeId
+                                + " from stealer node " + metadataStore.getNodeId());
+                }
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleDeleteStoreRebalanceState failed for request("
+                                     + request.toString() + ")",
+                             e);
             }
-
-            HashMap<Integer, List<Integer>> replicaToPartition = info.getReplicaToAddPartitionList(storeName);
-            if(replicaToPartition == null) {
-                throw new VoldemortException("Could not find state for donor node " + nodeId
-                                             + " and store " + storeName);
-            }
-
-            info.removeStore(storeName);
-            logger.info("Removed rebalancing state for donor node " + nodeId + " and store "
-                        + storeName);
-
-            if(info.getUnbalancedStoreList().isEmpty()) {
-                metadataStore.deleteRebalancingState(info);
-                logger.info("Removed entire rebalancing state for donor node " + nodeId);
-            }
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleDeleteStoreRebalanceState failed for request(" + request.toString()
-                         + ")", e);
         }
         return response.build();
     }
 
     public VAdminProto.RebalanceStateChangeResponse handleRebalanceStateChange(VAdminProto.RebalanceStateChangeRequest request) {
-
         VAdminProto.RebalanceStateChangeResponse.Builder response = VAdminProto.RebalanceStateChangeResponse.newBuilder();
 
-        try {
-            // Retrieve all values first
-            List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
-            for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
-                rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
+        synchronized(rebalancer) {
+            try {
+                // Retrieve all values first
+                List<RebalancePartitionsInfo> rebalancePartitionsInfo = Lists.newArrayList();
+                for(RebalancePartitionInfoMap map: request.getRebalancePartitionInfoListList()) {
+                    rebalancePartitionsInfo.add(ProtoUtils.decodeRebalancePartitionInfoMap(map));
+                }
+
+                Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
+
+                boolean swapRO = request.getSwapRo();
+                boolean changeClusterMetadata = request.getChangeClusterMetadata();
+                boolean changeRebalanceState = request.getChangeRebalanceState();
+                boolean rollback = request.getRollback();
+
+                rebalancer.rebalanceStateChange(cluster,
+                                                rebalancePartitionsInfo,
+                                                swapRO,
+                                                changeClusterMetadata,
+                                                changeRebalanceState,
+                                                rollback);
+            } catch(VoldemortException e) {
+                response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+                logger.error("handleRebalanceStateChange failed for request(" + request.toString()
+                             + ")", e);
             }
-
-            Cluster cluster = new ClusterMapper().readCluster(new StringReader(request.getClusterString()));
-
-            boolean swapRO = request.getSwapRo();
-            boolean changeClusterMetadata = request.getChangeClusterMetadata();
-            boolean changeRebalanceState = request.getChangeRebalanceState();
-            boolean rollback = request.getRollback();
-
-            rebalancer.rebalanceStateChange(cluster,
-                                            rebalancePartitionsInfo,
-                                            swapRO,
-                                            changeClusterMetadata,
-                                            changeRebalanceState,
-                                            rollback);
-        } catch(VoldemortException e) {
-            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-            logger.error("handleRebalanceStateChange failed for request(" + request.toString()
-                         + ")", e);
         }
+
         return response.build();
     }
 
@@ -804,11 +814,9 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                 logger.info(message);
                             }
                         } catch(VoldemortException ve) {
-                            String errorMessage = "File fetcher failed for "
-                                                  + fetchUrl
-                                                  + " and store '"
-                                                  + storeName
-                                                  + "' due to too many push jobs happening at the same time.";
+                            String errorMessage = "File fetcher failed for " + fetchUrl
+                                                  + " and store '" + storeName + "' Reason: \n"
+                                                  + ve.getMessage();
                             updateStatus(errorMessage);
                             logger.error(errorMessage);
                             throw new VoldemortException(errorMessage);
@@ -1452,6 +1460,76 @@ public class AdminServiceRequestHandler implements RequestHandler {
             logger.error("handleFetchStore failed for request(" + request.toString() + ")", e);
         }
 
+        return response.build();
+    }
+
+    public VAdminProto.ReserveMemoryResponse handleReserveMemory(VAdminProto.ReserveMemoryRequest request) {
+        VAdminProto.ReserveMemoryResponse.Builder response = VAdminProto.ReserveMemoryResponse.newBuilder();
+
+        try {
+            String storeName = request.getStoreName();
+            long reserveMB = request.getSizeInMb();
+
+            synchronized(lock) {
+                if(storeRepository.hasLocalStore(storeName)) {
+
+                    logger.info("Setting memory foot print of store '" + storeName + "' to "
+                                + reserveMB + " MB");
+
+                    // update store's metadata (this also has the effect of
+                    // updating the stores.xml file)
+                    List<StoreDefinition> storeDefList = metadataStore.getStoreDefList();
+
+                    for(int i = 0; i < storeDefList.size(); i++) {
+                        StoreDefinition storeDef = storeDefList.get(i);
+                        if(!storeDef.isView() && storeDef.getName().equals(storeName)) {
+                            StoreDefinition newStoreDef = new StoreDefinitionBuilder().setName(storeDef.getName())
+                                                                                      .setType(storeDef.getType())
+                                                                                      .setDescription(storeDef.getDescription())
+                                                                                      .setOwners(storeDef.getOwners())
+                                                                                      .setKeySerializer(storeDef.getKeySerializer())
+                                                                                      .setValueSerializer(storeDef.getValueSerializer())
+                                                                                      .setRoutingPolicy(storeDef.getRoutingPolicy())
+                                                                                      .setRoutingStrategyType(storeDef.getRoutingStrategyType())
+                                                                                      .setReplicationFactor(storeDef.getReplicationFactor())
+                                                                                      .setPreferredReads(storeDef.getPreferredReads())
+                                                                                      .setRequiredReads(storeDef.getRequiredReads())
+                                                                                      .setPreferredWrites(storeDef.getPreferredWrites())
+                                                                                      .setRequiredWrites(storeDef.getRequiredWrites())
+                                                                                      .setRetentionPeriodDays(storeDef.getRetentionDays())
+                                                                                      .setRetentionScanThrottleRate(storeDef.getRetentionScanThrottleRate())
+                                                                                      .setZoneReplicationFactor(storeDef.getZoneReplicationFactor())
+                                                                                      .setZoneCountReads(storeDef.getZoneCountReads())
+                                                                                      .setZoneCountWrites(storeDef.getZoneCountWrites())
+                                                                                      .setHintedHandoffStrategy(storeDef.getHintedHandoffStrategyType())
+                                                                                      .setHintPrefListSize(storeDef.getHintPrefListSize())
+                                                                                      .setMemoryFootprintMB(reserveMB)
+                                                                                      .build();
+
+                            storeDefList.set(i, newStoreDef);
+                            storageService.updateStore(newStoreDef);
+                            break;
+                        }
+                    }
+
+                    // save the changes
+                    try {
+                        metadataStore.put(MetadataStore.STORES_KEY, storeDefList);
+                    } catch(Exception e) {
+                        throw new VoldemortException(e);
+                    }
+
+                } else {
+                    logger.error("Failure to reserve memory. Store '" + storeName
+                                 + "' does not exist");
+                    throw new StoreOperationFailureException(String.format("Store '%s' does not exist on this server",
+                                                                           storeName));
+                }
+            }
+        } catch(VoldemortException e) {
+            response.setError(ProtoUtils.encodeError(errorCodeMapper, e));
+            logger.error("handleReserveMemory failed for request(" + request.toString() + ")", e);
+        }
         return response.build();
     }
 }

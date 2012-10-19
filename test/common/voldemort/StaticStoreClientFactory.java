@@ -65,5 +65,4 @@ public class StaticStoreClientFactory implements StoreClientFactory {
     public FailureDetector getFailureDetector() {
         return failureDetector;
     }
-
 }

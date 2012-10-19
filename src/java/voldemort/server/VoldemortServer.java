@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -33,6 +33,10 @@ import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
+import voldemort.common.service.AbstractService;
+import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
+import voldemort.common.service.VoldemortService;
 import voldemort.server.gossip.GossipService;
 import voldemort.server.http.HttpService;
 import voldemort.server.jmx.JmxService;
@@ -42,11 +46,11 @@ import voldemort.server.protocol.SocketRequestHandlerFactory;
 import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.rebalance.RebalancerService;
-import voldemort.server.scheduler.SchedulerService;
 import voldemort.server.socket.SocketService;
 import voldemort.server.storage.StorageService;
 import voldemort.store.configuration.ConfigurationStorageEngine;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.utils.JNAUtils;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Utils;
@@ -91,6 +95,7 @@ public class VoldemortServer extends AbstractService {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
+
         this.checkHostName();
         this.storeRepository = new StoreRepository();
         // update cluster details in metaDataStore
@@ -147,7 +152,8 @@ public class VoldemortServer extends AbstractService {
         /* Services are given in the order they must be started */
         List<VoldemortService> services = new ArrayList<VoldemortService>();
         SchedulerService scheduler = new SchedulerService(voldemortConfig.getSchedulerThreads(),
-                                                          SystemTime.INSTANCE);
+                                                          SystemTime.INSTANCE,
+                                                          voldemortConfig.canInterruptService());
         StorageService storageService = new StorageService(storeRepository,
                                                            metadata,
                                                            scheduler,
@@ -181,7 +187,8 @@ public class VoldemortServer extends AbstractService {
                                                   voldemortConfig.getSocketBufferSize(),
                                                   voldemortConfig.getNioConnectorSelectors(),
                                                   "nio-socket-server",
-                                                  voldemortConfig.isJmxEnabled()));
+                                                  voldemortConfig.isJmxEnabled(),
+                                                  voldemortConfig.getNioAcceptorBacklog()));
             } else {
                 logger.info("Using BIO Connector.");
                 services.add(new SocketService(socketRequestHandlerFactory,
@@ -214,13 +221,15 @@ public class VoldemortServer extends AbstractService {
                                                                                                      rebalancer);
 
             if(voldemortConfig.getUseNioConnector()) {
+
                 logger.info("Using NIO Connector for Admin Service.");
                 services.add(new NioSocketService(adminRequestHandlerFactory,
                                                   identityNode.getAdminPort(),
                                                   voldemortConfig.getAdminSocketBufferSize(),
                                                   voldemortConfig.getNioAdminConnectorSelectors(),
                                                   "admin-server",
-                                                  voldemortConfig.isJmxEnabled()));
+                                                  voldemortConfig.isJmxEnabled(),
+                                                  voldemortConfig.getNioAcceptorBacklog()));
             } else {
                 logger.info("Using BIO Connector for Admin Service.");
                 services.add(new SocketService(adminRequestHandlerFactory,
@@ -245,6 +254,8 @@ public class VoldemortServer extends AbstractService {
 
     @Override
     protected void startInner() throws VoldemortException {
+        // lock down jvm heap
+        JNAUtils.tryMlockall();
         logger.info("Starting " + services.size() + " services.");
         long start = System.currentTimeMillis();
         for(VoldemortService service: services)
@@ -277,6 +288,8 @@ public class VoldemortServer extends AbstractService {
 
         if(exceptions.size() > 0)
             throw exceptions.get(0);
+        // release lock of jvm heap
+        JNAUtils.tryMunlockall();
     }
 
     public static void main(String[] args) throws Exception {
@@ -350,4 +363,5 @@ public class VoldemortServer extends AbstractService {
             adminClient.stop();
         }
     }
+
 }

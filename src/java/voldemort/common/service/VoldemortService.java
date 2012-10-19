@@ -14,7 +14,8 @@
  * the License.
  */
 
-package voldemort.server;
+package voldemort.common.service;
+
 
 /**
  * A service that runs in the voldemort server

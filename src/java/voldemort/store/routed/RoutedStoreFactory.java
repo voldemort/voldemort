@@ -7,6 +7,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.TimeoutConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetector;
@@ -27,16 +28,16 @@ public class RoutedStoreFactory {
 
     private final ExecutorService threadPool;
 
-    private final long routingTimeoutMs;
+    private final TimeoutConfig timeoutConfig;
 
     private final Logger logger = Logger.getLogger(getClass());
 
     public RoutedStoreFactory(boolean isPipelineRoutedStoreEnabled,
                               ExecutorService threadPool,
-                              long routingTimeoutMs) {
+                              TimeoutConfig timeoutConfig) {
         this.isPipelineRoutedStoreEnabled = isPipelineRoutedStoreEnabled;
         this.threadPool = threadPool;
-        this.routingTimeoutMs = routingTimeoutMs;
+        this.timeoutConfig = timeoutConfig;
     }
 
     public NonblockingStore toNonblockingStore(Store<ByteArray, byte[], byte[]> store) {
@@ -58,6 +59,30 @@ public class RoutedStoreFactory {
                               boolean repairReads,
                               int clientZoneId,
                               FailureDetector failureDetector) {
+        return create(cluster,
+                      storeDefinition,
+                      nodeStores,
+                      nonblockingStores,
+                      slopStores,
+                      nonblockingSlopStores,
+                      repairReads,
+                      clientZoneId,
+                      failureDetector,
+                      false,
+                      0);
+    }
+
+    public RoutedStore create(Cluster cluster,
+                              StoreDefinition storeDefinition,
+                              Map<Integer, Store<ByteArray, byte[], byte[]>> nodeStores,
+                              Map<Integer, NonblockingStore> nonblockingStores,
+                              Map<Integer, Store<ByteArray, Slop, byte[]>> slopStores,
+                              Map<Integer, NonblockingStore> nonblockingSlopStores,
+                              boolean repairReads,
+                              int clientZoneId,
+                              FailureDetector failureDetector,
+                              boolean jmxEnabled,
+                              int jmxId) {
         if(isPipelineRoutedStoreEnabled) {
             return new PipelineRoutedStore(storeDefinition.getName(),
                                            nodeStores,
@@ -68,8 +93,10 @@ public class RoutedStoreFactory {
                                            storeDefinition,
                                            repairReads,
                                            clientZoneId,
-                                           routingTimeoutMs,
-                                           failureDetector);
+                                           timeoutConfig,
+                                           failureDetector,
+                                           jmxEnabled,
+                                           jmxId);
         } else {
             if(storeDefinition.getRoutingStrategyType()
                               .compareTo(RoutingStrategyType.ZONE_STRATEGY) == 0) {
@@ -88,7 +115,7 @@ public class RoutedStoreFactory {
                                              storeDefinition,
                                              repairReads,
                                              threadPool,
-                                             routingTimeoutMs,
+                                             timeoutConfig,
                                              failureDetector,
                                              SystemTime.INSTANCE);
         }
@@ -103,7 +130,6 @@ public class RoutedStoreFactory {
 
         for(Map.Entry<Integer, Store<ByteArray, byte[], byte[]>> entry: nodeStores.entrySet())
             nonblockingStores.put(entry.getKey(), toNonblockingStore(entry.getValue()));
-
 
         return create(cluster,
                       storeDefinition,

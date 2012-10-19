@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 LinkedIn, Inc.
+ * Copyright 2010-2012 LinkedIn, Inc.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -31,12 +31,10 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.server.ServiceType;
-import voldemort.server.VoldemortConfig;
+import voldemort.common.service.ServiceType;
 import voldemort.server.VoldemortServer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.socket.SocketStoreFactory;
@@ -45,7 +43,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 @RunWith(Parameterized.class)
 public class ServerStoreVerifierTest {
 
-    private final String storeDefFile = "test/common/voldemort/config/single-store.xml";
+    private final String storesXmlfile = "test/common/voldemort/config/single-store.xml";
 
     private final Map<Integer, VoldemortServer> serverMap = new HashMap<Integer, VoldemortServer>();
 
@@ -69,23 +67,20 @@ public class ServerStoreVerifierTest {
 
     @Before
     public void setUp() throws IOException {
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0 }, { 1 } });
+        int numServers = 2;
+        VoldemortServer[] servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0 }, { 1 } };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        null,
+                                                        storesXmlfile,
+                                                        new Properties());
 
-        for(int i = 0; i < cluster.getNumberOfNodes(); i++) {
-            Properties properties = new Properties();
-
-            VoldemortConfig config = ServerTestUtils.createServerConfig(useNio,
-                                                                        i,
-                                                                        TestUtils.createTempDir()
-                                                                                 .getAbsolutePath(),
-                                                                        null,
-                                                                        storeDefFile,
-                                                                        properties);
-
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                          config,
-                                                                          cluster);
-            serverMap.put(i, server);
+        for(int i = 0; i < numServers; i++) {
+            serverMap.put(i, servers[i]);
         }
     }
 

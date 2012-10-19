@@ -1,18 +1,24 @@
 package voldemort.server.storage;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.List;
+import java.util.Properties;
 
 import junit.framework.TestCase;
 import voldemort.MockTime;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.cluster.Cluster;
+import voldemort.common.service.SchedulerService;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
-import voldemort.server.scheduler.SchedulerService;
+import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
+import voldemort.store.system.SystemStoreConstants;
+import voldemort.utils.ByteArray;
+import voldemort.versioning.Versioned;
 
 /**
  * Test that the storage service is able to load all stores.
@@ -59,6 +65,55 @@ public class StorageServiceTest extends TestCase {
                            repo.hasNodeStore(def.getName(), node));
                 assertEquals(def.getName(), repo.getNodeStore(def.getName(), node).getName());
             }
+        }
+    }
+
+    public void testMetadataVersionsInit() {
+        Store<ByteArray, byte[], byte[]> versionStore = storeRepository.getLocalStore(SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name());
+        Properties props = new Properties();
+
+        try {
+            ByteArray metadataVersionsKey = new ByteArray(StorageService.VERSIONS_METADATA_STORE.getBytes());
+            List<Versioned<byte[]>> versionList = versionStore.get(metadataVersionsKey, null);
+
+            if(versionList != null && versionList.size() > 0) {
+                byte[] versionsByteArray = versionList.get(0).getValue();
+                if(versionsByteArray != null) {
+                    props.load(new ByteArrayInputStream(versionsByteArray));
+                } else {
+                    fail("Illegal value returned for metadata key: "
+                         + StorageService.VERSIONS_METADATA_STORE);
+                }
+            } else {
+                fail("Illegal value returned for metadata key: "
+                     + StorageService.VERSIONS_METADATA_STORE);
+            }
+
+            // Check if version exists for cluster.xml
+            if(!props.containsKey(StorageService.CLUSTER_VERSION_KEY)) {
+                fail(StorageService.CLUSTER_VERSION_KEY + " not present in "
+                     + StorageService.VERSIONS_METADATA_STORE);
+            }
+
+            // Check if version exists for stores.xml
+            if(!props.containsKey(StorageService.STORES_VERSION_KEY)) {
+                fail(StorageService.STORES_VERSION_KEY + " not present in "
+                     + StorageService.VERSIONS_METADATA_STORE);
+            }
+
+            // Check if version exists for each store
+            for(StoreDefinition def: storeDefs) {
+                if(!props.containsKey(def.getName())) {
+                    fail(def.getName() + " store not present in "
+                         + StorageService.VERSIONS_METADATA_STORE);
+                }
+            }
+        } catch(Exception e) {
+            fail("Error in retrieving : "
+                 + StorageService.VERSIONS_METADATA_STORE
+                 + " key from "
+                 + SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name()
+                 + " store. ");
         }
     }
 }

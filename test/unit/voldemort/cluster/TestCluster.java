@@ -16,8 +16,8 @@
 
 package voldemort.cluster;
 
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -69,7 +69,7 @@ public class TestCluster extends TestCase {
 
         FailureDetectorConfig failureDetectorConfig = new FailureDetectorConfig().setImplementationClassName(failureDetectorClass.getName())
                                                                                  .setBannagePeriod(1000)
-                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setCluster(cluster)
                                                                                  .setStoreVerifier(create(cluster.getNodes()))
                                                                                  .setTime(time);
 

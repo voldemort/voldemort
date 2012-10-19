@@ -29,7 +29,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormat;
-import voldemort.serialization.VoldemortOpCode;
+import voldemort.common.VoldemortOpCode;
 import voldemort.server.RequestRoutingType;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StoreUtils;

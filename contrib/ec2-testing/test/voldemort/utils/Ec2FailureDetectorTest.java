@@ -150,7 +150,7 @@ public class Ec2FailureDetectorTest {
         test(store);
         assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
 
-        for(Node n: failureDetector.getConfig().getNodes())
+        for(Node n: failureDetector.getConfig().getCluster().getNodes())
             assertTrue(failureDetector.isAvailable(n));
 
         // 2. Stop all the nodes, then test enough that we can cause the nodes
@@ -159,19 +159,19 @@ public class Ec2FailureDetectorTest {
         test(store);
         assertEquals(0, failureDetector.getAvailableNodeCount());
 
-        for(Node n: failureDetector.getConfig().getNodes())
+        for(Node n: failureDetector.getConfig().getCluster().getNodes())
             assertFalse(failureDetector.isAvailable(n));
 
         // 3. Now start the cluster up, test, and make sure everything's OK.
         startClusterAsync(hostNames, ec2FailureDetectorTestConfig, nodeIds);
 
-        for(Node n: failureDetector.getConfig().getNodes())
+        for(Node n: failureDetector.getConfig().getCluster().getNodes())
             failureDetector.waitForAvailability(n);
 
         test(store);
         assertEquals(hostNamePairs.size(), failureDetector.getAvailableNodeCount());
 
-        for(Node n: failureDetector.getConfig().getNodes())
+        for(Node n: failureDetector.getConfig().getCluster().getNodes())
             assertTrue(failureDetector.isAvailable(n));
     }
 
@@ -252,7 +252,7 @@ public class Ec2FailureDetectorTest {
             throws Exception {
         Integer offlineNodeId = nodeIds.get(hostName);
 
-        for(Node n: failureDetector.getConfig().getNodes()) {
+        for(Node n: failureDetector.getConfig().getCluster().getNodes()) {
             if(offlineNodeId.equals(n.getId()))
                 return n;
         }

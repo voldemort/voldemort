@@ -20,9 +20,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static voldemort.FailureDetectorTestUtils.recordException;
 import static voldemort.FailureDetectorTestUtils.recordSuccess;
-import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
-import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
 import static voldemort.VoldemortTestConstants.getTenNodeCluster;
+import static voldemort.cluster.failuredetector.FailureDetectorUtils.create;
+import static voldemort.cluster.failuredetector.MutableStoreVerifier.create;
 
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
@@ -48,7 +48,7 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
                                                                                  .setBannagePeriod(BANNAGE_MILLIS)
                                                                                  .setAsyncRecoveryInterval(250)
                                                                                  .setThresholdInterval(500)
-                                                                                 .setNodes(cluster.getNodes())
+                                                                                 .setCluster(cluster)
                                                                                  .setStoreVerifier(storeVerifier)
                                                                                  .setTime(time);
         return create(failureDetectorConfig, true);
@@ -178,6 +178,11 @@ public class ThresholdFailureDetectorTest extends AbstractFailureDetectorTest {
                                         0,
                                         new UnreachableStoreException("intentionalerror",
                                                                       new ConnectException("intentionalerror")));
+
+        /**
+         * Update the failure detector state with the new cluster
+         */
+        failureDetector.getConfig().setCluster(this.cluster);
 
         assertEquals(false, failureDetector.isAvailable(node));
         Thread.sleep(failureDetector.getConfig().getAsyncRecoveryInterval() * 2);

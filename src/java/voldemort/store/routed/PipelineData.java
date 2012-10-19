@@ -73,6 +73,12 @@ public abstract class PipelineData<K, V> {
 
     protected List<Node> replicationSet;
 
+    protected PipelineRoutedStats stats;
+
+    public void setStats(PipelineRoutedStats stats) {
+        this.stats = stats;
+    }
+
     public List<Node> getReplicationSet() {
         return replicationSet;
     }
@@ -117,6 +123,7 @@ public abstract class PipelineData<K, V> {
     }
 
     public void setFatalError(VoldemortException fatalError) {
+        reportException(fatalError);
         this.fatalError = fatalError;
     }
 
@@ -139,6 +146,7 @@ public abstract class PipelineData<K, V> {
      */
 
     public void recordFailure(Exception e) {
+        reportException(e);
         this.failures.add(e);
     }
 
@@ -156,5 +164,11 @@ public abstract class PipelineData<K, V> {
 
     public void setStoreName(String storeName) {
         this.storeName = storeName;
+    }
+
+    public void reportException(Exception e) {
+        if(stats != null) {
+            stats.reportException(e);
+        }
     }
 }

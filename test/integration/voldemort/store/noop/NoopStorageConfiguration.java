@@ -16,9 +16,11 @@
 
 package voldemort.store.noop;
 
+import voldemort.VoldemortException;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.StorageConfiguration;
 import voldemort.store.StorageEngine;
+import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 
 /**
@@ -49,8 +51,8 @@ public class NoopStorageConfiguration implements StorageConfiguration {
         reflect = config.getAllProps().getBoolean(REFLECT_PROPERTY, false);
     }
 
-    public StorageEngine<ByteArray, byte[], byte[]> getStore(String name) {
-        return new NoopStorageEngine(name, reflect);
+    public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef) {
+        return new NoopStorageEngine(storeDef.getName(), reflect);
     }
 
     public String getType() {
@@ -58,4 +60,9 @@ public class NoopStorageConfiguration implements StorageConfiguration {
     }
 
     public void close() {}
+
+    public void update(StoreDefinition storeDef) {
+        throw new VoldemortException("Storage config updates not permitted for "
+                                     + this.getClass().getCanonicalName());
+    }
 }

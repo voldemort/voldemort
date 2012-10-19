@@ -29,6 +29,7 @@ import com.sleepycat.je.CheckpointConfig;
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.Durability;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 
@@ -56,7 +57,7 @@ public class BdbGrowth {
 
         environmentConfig = new EnvironmentConfig();
         environmentConfig.setCacheSize(cacheSize);
-        environmentConfig.setTxnNoSync(true);
+        environmentConfig.setDurability(Durability.COMMIT_NO_SYNC);
         environmentConfig.setConfigParam(EnvironmentConfig.LOG_FILE_MAX, "1000000000");
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_MAX_BATCH_FILES, "100");
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_READ_SIZE, "52428800");

@@ -33,21 +33,24 @@ public class TimeBasedInconsistencyResolver<T> implements InconsistencyResolver<
         } else {
             Versioned<T> max = items.get(0);
             long maxTime = ((VectorClock) items.get(0).getVersion()).getTimestamp();
+            VectorClock maxClock = ((VectorClock) items.get(0).getVersion());
             for(Versioned<T> versioned: items) {
                 VectorClock clock = (VectorClock) versioned.getVersion();
                 if(clock.getTimestamp() > maxTime) {
                     max = versioned;
                     maxTime = ((VectorClock) versioned.getVersion()).getTimestamp();
                 }
+                maxClock = maxClock.merge(clock);
             }
-            return Collections.singletonList(max);
+            Versioned<T> maxTimeClockVersioned = new Versioned<T>(max.getValue(), maxClock);
+            return Collections.singletonList(maxTimeClockVersioned);
         }
     }
 
-
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
+        if(this == o)
+            return true;
         return (o != null && getClass() == o.getClass());
     }
 

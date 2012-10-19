@@ -57,12 +57,11 @@ import com.google.common.collect.Maps;
 public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
     private final Logger logger = Logger.getLogger(DefaultStoreClient.class);
-    private final StoreClientFactory storeFactory;
-
-    private final int metadataRefreshAttempts;
-    private final String storeName;
-    private final InconsistencyResolver<Versioned<V>> resolver;
-    private volatile Store<K, V, Object> store;
+    protected StoreClientFactory storeFactory;
+    protected int metadataRefreshAttempts;
+    protected String storeName;
+    protected InconsistencyResolver<Versioned<V>> resolver;
+    protected volatile Store<K, V, Object> store;
 
     public DefaultStoreClient(String storeName,
                               InconsistencyResolver<Versioned<V>> resolver,
@@ -81,6 +80,9 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
 
         bootStrap();
     }
+
+    // Default constructor invoked from child class
+    public DefaultStoreClient() {}
 
     @JmxOperation(description = "bootstrap metadata from the cluster.")
     public void bootStrap() {
@@ -155,7 +157,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private List<Version> getVersions(K key) {
+    protected List<Version> getVersions(K key) {
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 return store.getVersions(key);
@@ -169,7 +171,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    private Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
+    protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
         if(items.size() == 0)
             return defaultValue;
         else if(items.size() == 1)
@@ -299,7 +301,7 @@ public class DefaultStoreClient<K, V> implements StoreClient<K, V> {
     }
 
     @SuppressWarnings("unused")
-    private Version getVersion(K key) {
+    protected Version getVersion(K key) {
         List<Version> versions = getVersions(key);
         if(versions.size() == 0)
             return null;

@@ -31,6 +31,7 @@ import org.apache.commons.io.IOUtils;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Zone;
 import voldemort.cluster.failuredetector.FailureDetectorConfig;
+import voldemort.common.VoldemortOpCode;
 import voldemort.serialization.DefaultSerializerFactory;
 import voldemort.serialization.SerializerFactory;
 import voldemort.utils.ConfigurationException;
@@ -55,6 +56,7 @@ public class ClientConfig {
     private volatile boolean socketKeepAlive = false;
     private volatile int selectors = 8;
     private volatile long routingTimeoutMs = 15000;
+    private volatile TimeoutConfig timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
     private volatile int socketBufferSize = 64 * 1024;
     private volatile SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private volatile List<String> bootstrapUrls = null;
@@ -66,6 +68,9 @@ public class ClientConfig {
     private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
+    // Flag to control which store client to use. Default = Enhanced
+    private volatile boolean useDefaultClient = false;
+
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
     private volatile int failureDetectorThreshold = FailureDetectorConfig.DEFAULT_THRESHOLD;
@@ -76,6 +81,21 @@ public class ClientConfig {
     private long failureDetectorRequestLengthThreshold = socketTimeoutMs;
 
     private volatile int maxBootstrapRetries = 2;
+    private volatile String clientContextName = "";
+
+    /* 5 second check interval, in ms */
+    private volatile long asyncCheckMetadataIntervalInMs = 5000;
+    /* 12 hr refresh internval, in seconds */
+    private volatile int clientRegistryRefreshIntervalInSecs = 3600 * 12;
+    private volatile int asyncJobThreadPoolSize = 2;
+
+    /* SystemStore client config */
+    private volatile int sysMaxConnectionsPerNode = 2;
+    private volatile int sysRoutingTimeout = 5000;
+    private volatile int sysSocketTimeout = 5000;
+    private volatile int sysConnectionTimeout = 1500;
+    private volatile boolean sysEnableJmx = false;
+    private volatile boolean sysEnablePipelineRoutedStore = true;
 
     public ClientConfig() {}
 
@@ -91,6 +111,12 @@ public class ClientConfig {
     public static final String SOCKET_KEEPALIVE_PROPERTY = "socket_keepalive";
     public static final String SELECTORS_PROPERTY = "selectors";
     public static final String ROUTING_TIMEOUT_MS_PROPERTY = "routing_timeout_ms";
+    public static final String GETALL_ROUTING_TIMEOUT_MS_PROPERTY = "getall_routing_timeout_ms";
+    public static final String PUT_ROUTING_TIMEOUT_MS_PROPERTY = "put_routing_timeout_ms";
+    public static final String GET_ROUTING_TIMEOUT_MS_PROPERTY = "get_routing_timeout_ms";
+    public static final String GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY = "getversions_routing_timeout_ms";
+    public static final String DELETE_ROUTING_TIMEOUT_MS_PROPERTY = "delete_routing_timeout_ms";
+    public static final String ALLOW_PARTIAL_GETALLS_PROPERTY = "allow_partial_getalls";
     public static final String NODE_BANNAGE_MS_PROPERTY = "node_bannage_ms";
     public static final String SOCKET_BUFFER_SIZE_PROPERTY = "socket_buffer_size";
     public static final String SERIALIZER_FACTORY_CLASS_PROPERTY = "serializer_factory_class";
@@ -110,6 +136,17 @@ public class ClientConfig {
     public static final String FAILUREDETECTOR_CATASTROPHIC_ERROR_TYPES_PROPERTY = "failuredetector_catastrophic_error_types";
     public static final String FAILUREDETECTOR_REQUEST_LENGTH_THRESHOLD_PROPERTY = "failuredetector_request_length_threshold";
     public static final String MAX_BOOTSTRAP_RETRIES = "max_bootstrap_retries";
+    public static final String CLIENT_CONTEXT_NAME = "voldemort_client_context_name";
+    public static final String ASYNC_CHECK_METADATA_INTERVAL = "check_metadata_interval_ms";
+    public static final String USE_DEFAULT_CLIENT = "use_default_client";
+    public static final String CLIENT_REGISTRY_REFRESH_INTERVAL = "client_registry_refresh_interval_seconds";
+    public static final String ASYNC_JOB_THREAD_POOL_SIZE = "async_job_thread_pool_size";
+    public static final String SYS_MAX_CONNECTIONS_PER_NODE = "sys_max_connections_per_node";
+    public static final String SYS_ROUTING_TIMEOUT_MS = "sys_routing_timeout_ms";
+    public static final String SYS_CONNECTION_TIMEOUT_MS = "sys_connection_timeout_ms";
+    public static final String SYS_SOCKET_TIMEOUT_MS = "sys_socket_timeout_ms";
+    public static final String SYS_ENABLE_JMX = "sys_enable_jmx";
+    public static final String SYS_ENABLE_PIPELINE_ROUTED_STORE = "sys_enable_pipeline_routed_store";
 
     /**
      * Instantiate the client config using a properties file
@@ -174,6 +211,36 @@ public class ClientConfig {
         if(props.containsKey(ROUTING_TIMEOUT_MS_PROPERTY))
             this.setRoutingTimeout(props.getInt(ROUTING_TIMEOUT_MS_PROPERTY), TimeUnit.MILLISECONDS);
 
+        // By default, make all the timeouts equal to routing timeout
+        timeoutConfig = new TimeoutConfig(routingTimeoutMs, false);
+
+        if(props.containsKey(GETALL_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_ALL_OP_CODE,
+                                              props.getInt(GETALL_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(GET_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_OP_CODE,
+                                              props.getInt(GET_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(PUT_ROUTING_TIMEOUT_MS_PROPERTY)) {
+            long putTimeoutMs = props.getInt(PUT_ROUTING_TIMEOUT_MS_PROPERTY);
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.PUT_OP_CODE, putTimeoutMs);
+            // By default, use the same thing for getVersions() also
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE, putTimeoutMs);
+        }
+
+        // of course, if someone overrides it, we will respect that
+        if(props.containsKey(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.GET_VERSION_OP_CODE,
+                                              props.getInt(GET_VERSIONS_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(DELETE_ROUTING_TIMEOUT_MS_PROPERTY))
+            timeoutConfig.setOperationTimeout(VoldemortOpCode.DELETE_OP_CODE,
+                                              props.getInt(DELETE_ROUTING_TIMEOUT_MS_PROPERTY));
+
+        if(props.containsKey(ALLOW_PARTIAL_GETALLS_PROPERTY))
+            timeoutConfig.setPartialGetAllAllowed(props.getBoolean(ALLOW_PARTIAL_GETALLS_PROPERTY));
+
         if(props.containsKey(SOCKET_BUFFER_SIZE_PROPERTY))
             this.setSocketBufferSize(props.getInt(SOCKET_BUFFER_SIZE_PROPERTY));
 
@@ -201,6 +268,9 @@ public class ClientConfig {
 
         if(props.containsKey(CLIENT_ZONE_ID))
             this.setClientZoneId(props.getInt(CLIENT_ZONE_ID));
+
+        if(props.containsKey(USE_DEFAULT_CLIENT))
+            this.enableDefaultClient(props.getBoolean(USE_DEFAULT_CLIENT));
 
         if(props.containsKey(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY))
             this.setFailureDetectorImplementation(props.getString(FAILUREDETECTOR_IMPLEMENTATION_PROPERTY));
@@ -238,6 +308,110 @@ public class ClientConfig {
 
         if(props.containsKey(MAX_BOOTSTRAP_RETRIES))
             this.setMaxBootstrapRetries(props.getInt(MAX_BOOTSTRAP_RETRIES));
+
+        if(props.containsKey(CLIENT_CONTEXT_NAME)) {
+            this.setClientContextName(props.getString(CLIENT_CONTEXT_NAME));
+        }
+
+        if(props.containsKey(ASYNC_CHECK_METADATA_INTERVAL)) {
+            this.setAsyncMetadataRefreshInMs(props.getLong(ASYNC_CHECK_METADATA_INTERVAL));
+        }
+
+        if(props.containsKey(CLIENT_REGISTRY_REFRESH_INTERVAL)) {
+            this.setClientRegistryUpdateIntervalInSecs(props.getInt(CLIENT_REGISTRY_REFRESH_INTERVAL));
+        }
+
+        if(props.containsKey(ASYNC_JOB_THREAD_POOL_SIZE)) {
+            this.setAsyncJobThreadPoolSize(props.getInt(ASYNC_JOB_THREAD_POOL_SIZE));
+        }
+
+        /* Check for system store paramaters if any */
+        if(props.containsKey(SYS_MAX_CONNECTIONS_PER_NODE)) {
+            this.setSysMaxConnectionsPerNode(props.getInt(SYS_MAX_CONNECTIONS_PER_NODE));
+        }
+
+        if(props.containsKey(SYS_ROUTING_TIMEOUT_MS)) {
+            this.setSysRoutingTimeout(props.getInt(SYS_ROUTING_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_SOCKET_TIMEOUT_MS)) {
+            this.setSysSocketTimeout(props.getInt(SYS_SOCKET_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_CONNECTION_TIMEOUT_MS)) {
+            this.setSysConnectionTimeout(props.getInt(SYS_CONNECTION_TIMEOUT_MS));
+        }
+
+        if(props.containsKey(SYS_ENABLE_JMX)) {
+            this.setSysEnableJmx(props.getBoolean(SYS_ENABLE_JMX));
+        }
+
+        if(props.containsKey(SYS_ENABLE_PIPELINE_ROUTED_STORE)) {
+            this.setSysEnablePipelineRoutedStore(props.getBoolean(SYS_ENABLE_PIPELINE_ROUTED_STORE));
+        }
+
+    }
+
+    private ClientConfig setSysMaxConnectionsPerNode(int maxConnectionsPerNode) {
+        if(maxConnectionsPerNode <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysMaxConnectionsPerNode = maxConnectionsPerNode;
+        return this;
+    }
+
+    public int getSysMaxConnectionsPerNode() {
+        return this.sysMaxConnectionsPerNode;
+    }
+
+    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeout) {
+        if(sysRoutingTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysRoutingTimeout = sysRoutingTimeout;
+        return this;
+    }
+
+    public int getSysRoutingTimeout() {
+        return this.sysRoutingTimeout;
+    }
+
+    private ClientConfig setSysSocketTimeout(int sysSocketTimeout) {
+        if(sysSocketTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysSocketTimeout = sysSocketTimeout;
+        return this;
+    }
+
+    public int getSysSocketTimeout() {
+        return this.sysSocketTimeout;
+    }
+
+    private ClientConfig setSysConnectionTimeout(int sysConnectionTimeout) {
+        if(sysConnectionTimeout <= 0)
+            throw new IllegalArgumentException("Value must be greater than zero.");
+        this.sysConnectionTimeout = sysConnectionTimeout;
+        return this;
+    }
+
+    public int getSysConnectionTimeout() {
+        return this.sysConnectionTimeout;
+    }
+
+    public boolean getSysEnableJmx() {
+        return this.sysEnableJmx;
+    }
+
+    public ClientConfig setSysEnableJmx(boolean sysEnableJmx) {
+        this.sysEnableJmx = sysEnableJmx;
+        return this;
+    }
+
+    public boolean getSysEnablePipelineRoutedStore() {
+        return this.sysEnablePipelineRoutedStore;
+    }
+
+    public ClientConfig setSysEnablePipelineRoutedStore(boolean sysEnablePipelineRoutedStore) {
+        this.sysEnablePipelineRoutedStore = sysEnablePipelineRoutedStore;
+        return this;
     }
 
     public int getMaxConnectionsPerNode() {
@@ -322,6 +496,26 @@ public class ClientConfig {
     public ClientConfig setRoutingTimeout(int routingTimeout, TimeUnit unit) {
         this.routingTimeoutMs = unit.toMillis(routingTimeout);
         return this;
+    }
+
+    /**
+     * Set the timeout configuration for the voldemort operations
+     * 
+     * @param tConfig
+     * @return
+     */
+    public ClientConfig setTimeoutConfig(TimeoutConfig tConfig) {
+        this.timeoutConfig = tConfig;
+        return this;
+    }
+
+    /**
+     * Get the timeouts for voldemort operations
+     * 
+     * @return
+     */
+    public TimeoutConfig getTimeoutConfig() {
+        return timeoutConfig;
     }
 
     /**
@@ -517,7 +711,7 @@ public class ClientConfig {
 
     /**
      * Enable lazy initialization of clients?
-     *
+     * 
      * @param enableLazy If true clients will be lazily initialized
      */
     public ClientConfig setEnableLazy(boolean enableLazy) {
@@ -532,6 +726,15 @@ public class ClientConfig {
 
     public int getClientZoneId() {
         return this.clientZoneId;
+    }
+
+    public ClientConfig enableDefaultClient(boolean enableDefault) {
+        this.useDefaultClient = enableDefault;
+        return this;
+    }
+
+    public boolean isDefaultClientEnabled() {
+        return this.useDefaultClient;
     }
 
     public boolean isPipelineRoutedStoreEnabled() {
@@ -634,4 +837,62 @@ public class ClientConfig {
         return this;
     }
 
+    public String getClientContextName() {
+        return clientContextName;
+    }
+
+    /**
+     * Set the client context name
+     * 
+     * @param clientContextName The name of client context
+     */
+    public ClientConfig setClientContextName(String clientContextName) {
+        this.clientContextName = clientContextName;
+        return this;
+    }
+
+    public long getAsyncMetadataRefreshInMs() {
+        return asyncCheckMetadataIntervalInMs;
+    }
+
+    /**
+     * Set the interval on which client checks for metadata change on servers
+     * 
+     * @param asyncCheckMetadataInterval The metadata change interval
+     */
+    public ClientConfig setAsyncMetadataRefreshInMs(long asyncCheckMetadataInterval) {
+
+        this.asyncCheckMetadataIntervalInMs = asyncCheckMetadataInterval;
+        return this;
+    }
+
+    public int getClientRegistryUpdateIntervalInSecs() {
+        return this.clientRegistryRefreshIntervalInSecs;
+    }
+
+    /**
+     * Set the interval on which client refreshes its corresponding entry of the
+     * client registry on the servers
+     * 
+     * @param clientRegistryRefreshIntervalInSecs The refresh interval in
+     *        seconds
+     */
+    public ClientConfig setClientRegistryUpdateIntervalInSecs(int clientRegistryRefrshInterval) {
+        this.clientRegistryRefreshIntervalInSecs = clientRegistryRefrshInterval;
+        return this;
+    }
+
+    public int getAsyncJobThreadPoolSize() {
+        return asyncJobThreadPoolSize;
+    }
+
+    /**
+     * Set the # of threads for the async. job thread pool
+     * 
+     * @param asyncJobThreadPoolSize The max # of threads in the async job
+     */
+    public ClientConfig setAsyncJobThreadPoolSize(int asyncJobThreadPoolSize) {
+        this.asyncJobThreadPoolSize = asyncJobThreadPoolSize;
+        return this;
+    }
 }

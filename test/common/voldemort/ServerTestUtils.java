@@ -1,12 +1,12 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
- *
+ * Copyright 2008-2012 LinkedIn, Inc
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,7 +34,7 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.http.client.HttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.log4j.Logger;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -82,10 +83,12 @@ import com.google.common.collect.Lists;
 
 /**
  * Helper functions for testing with real server implementations
- *
- *
+ * 
+ * 
  */
 public class ServerTestUtils {
+
+    private static final Logger logger = Logger.getLogger(ServerTestUtils.class.getName());
 
     public static StoreRepository getStores(String storeName, String clusterXml, String storesXml) {
         StoreRepository repository = new StoreRepository();
@@ -147,7 +150,8 @@ public class ServerTestUtils {
                                                  bufferSize,
                                                  coreConnections,
                                                  "client-request-service",
-                                                 false);
+                                                 false,
+                                                 -1);
         } else {
             socketService = new SocketService(requestHandlerFactory,
                                               port,
@@ -211,7 +215,9 @@ public class ServerTestUtils {
         return context;
     }
 
-    public static HttpStore getHttpStore(String storeName, RequestFormatType format, int port,
+    public static HttpStore getHttpStore(String storeName,
+                                         RequestFormatType format,
+                                         int port,
                                          final HttpClient httpClient) {
         return new HttpStore(storeName,
                              "localhost",
@@ -222,7 +228,11 @@ public class ServerTestUtils {
     }
 
     /**
-     * Return a free port as chosen by new ServerSocket(0)
+     * Return a free port as chosen by new ServerSocket(0).
+     * 
+     * There is no guarantee that the port returned will be free when the caller
+     * attempts to bind to the port. This is a time-of-check-to-time-of-use
+     * (TOCTOU) issue that cannot be avoided.
      */
     public static int findFreePort() {
         return findFreePorts(1)[0];
@@ -230,8 +240,13 @@ public class ServerTestUtils {
 
     /**
      * Return an array of free ports as chosen by new ServerSocket(0)
+     * 
+     * There is no guarantee that the ports returned will be free when the
+     * caller attempts to bind to some returned port. This is a
+     * time-of-check-to-time-of-use (TOCTOU) issue that cannot be avoided.
      */
     public static int[] findFreePorts(int n) {
+        logger.info("findFreePorts cannot guarantee that ports identified as free will still be free when used. This is effectively a TOCTOU issue. Expect intermittent BindException when \"free\" ports are used.");
         int[] ports = new int[n];
         ServerSocket[] sockets = new ServerSocket[n];
         try {
@@ -288,7 +303,7 @@ public class ServerTestUtils {
     /**
      * Update a cluster by replacing the specified server with a new host, i.e.
      * new ports since they are all localhost
-     *
+     * 
      * @param original The original cluster to be updated
      * @param serverIds The ids of the server to be replaced with new hosts
      * @return updated cluster
@@ -328,7 +343,7 @@ public class ServerTestUtils {
     /**
      * Returns a list of zones with their proximity list being in increasing
      * order
-     *
+     * 
      * @param numberOfZones The number of zones to return
      * @return List of zones
      */
@@ -352,7 +367,7 @@ public class ServerTestUtils {
      * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
      * zones. It is important that <b>numberOfNodes</b> be divisible by
      * <b>numberOfZones</b>
-     *
+     * 
      * @param numberOfNodes Number of nodes in the cluster
      * @param partitionsPerNode Number of partitions in one node
      * @param numberOfZones Number of zones
@@ -595,7 +610,7 @@ public class ServerTestUtils {
                                                      String clusterFile,
                                                      String storeFile,
                                                      Properties properties) throws IOException {
-        Props props = new Props(properties);
+        Props props = new Props();
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
         props.put("bdb.cache.size", 1 * 1024 * 1024);
@@ -603,6 +618,7 @@ public class ServerTestUtils {
         props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
         props.put("enable.mysql.engine", "true");
+        props.loadProperties(properties);
 
         VoldemortConfig config = new VoldemortConfig(props);
         config.setMysqlDatabaseName("voldemort");
@@ -660,7 +676,29 @@ public class ServerTestUtils {
     public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
                                                        VoldemortConfig config,
                                                        Cluster cluster) {
+
+        // TODO: Some tests that use this method fail intermittently with the
+        // following output:
+        //
+        // A successor version version() to this version() exists for key
+        // cluster.xml
+        // voldemort.versioning.ObsoleteVersionException: A successor version
+        // version() to this version() exists for key cluster.xml"
+        //
+        // Need to trace through the constructor VoldemortServer(VoldemortConfig
+        // config, Cluster cluster) to understand how this error is possible,
+        // and why it only happens intermittently.
         VoldemortServer server = new VoldemortServer(config, cluster);
+        server.start();
+
+        ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
+        // wait till server start or throw exception
+        return server;
+    }
+
+    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
+                                                       VoldemortConfig config) {
+        VoldemortServer server = new VoldemortServer(config);
         server.start();
 
         ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
@@ -696,4 +734,78 @@ public class ServerTestUtils {
         if(!success)
             throw new RuntimeException("Failed to connect with server:" + node);
     }
+
+    protected static Cluster internalStartVoldemortCluster(int numServers,
+                                                           VoldemortServer[] voldemortServers,
+                                                           int[][] partitionMap,
+                                                           SocketStoreFactory socketStoreFactory,
+                                                           boolean useNio,
+                                                           String clusterFile,
+                                                           String storeFile,
+                                                           Properties properties)
+            throws IOException {
+        Cluster cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
+        for(int i = 0; i < numServers; i++) {
+            voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                       ServerTestUtils.createServerConfig(useNio,
+                                                                                                          i,
+                                                                                                          TestUtils.createTempDir()
+                                                                                                                   .getAbsolutePath(),
+                                                                                                          clusterFile,
+                                                                                                          storeFile,
+                                                                                                          properties),
+                                                                       cluster);
+        }
+        return cluster;
+    }
+
+    /**
+     * This method wraps up work that is done in many different tests to set up
+     * some number of Voldemort servers in a cluster. This method masks an
+     * intermittent TOCTOU problem with the ports identified by
+     * {@link #findFreePorts(int)} not actually being free when a server needs
+     * to bind to them.
+     * 
+     * @param numServers
+     * @param voldemortServers
+     * @param partitionMap
+     * @param socketStoreFactory
+     * @param useNio
+     * @param clusterFile
+     * @param storeFile
+     * @param properties
+     * @return Cluster object that was used to successfully start all of the
+     *         servers.
+     * @throws IOException
+     */
+    public static Cluster startVoldemortCluster(int numServers,
+                                                VoldemortServer[] voldemortServers,
+                                                int[][] partitionMap,
+                                                SocketStoreFactory socketStoreFactory,
+                                                boolean useNio,
+                                                String clusterFile,
+                                                String storeFile,
+                                                Properties properties) throws IOException {
+        boolean started = false;
+        Cluster cluster = null;
+
+        while(!started) {
+            try {
+                cluster = internalStartVoldemortCluster(numServers,
+                                                        voldemortServers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        useNio,
+                                                        clusterFile,
+                                                        storeFile,
+                                                        properties);
+                started = true;
+            } catch(BindException be) {
+                logger.debug("Caught BindException when starting cluster. Will retry.");
+            }
+        }
+
+        return cluster;
+    }
+
 }

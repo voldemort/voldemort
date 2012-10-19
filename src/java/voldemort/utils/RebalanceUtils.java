@@ -50,6 +50,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
@@ -488,11 +489,21 @@ public class RebalanceUtils {
                                                      HashMap<Integer, List<Integer>> replicaToPartitionList,
                                                      Cluster cluster,
                                                      StoreDefinition storeDef) {
-        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                         cluster)
-                                                                  .getPartitionList(key);
-        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        return checkKeyBelongsToPartition(keyPartitions, nodePartitions, replicaToPartitionList);
+        boolean checkResult = false;
+        if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
+           || storeDef.getRoutingStrategyType()
+                      .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
+            checkResult = true;
+        } else {
+            List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                             cluster)
+                                                                      .getPartitionList(key);
+            List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
+            checkResult = checkKeyBelongsToPartition(keyPartitions,
+                                                     nodePartitions,
+                                                     replicaToPartitionList);
+        }
+        return checkResult;
     }
 
     /**
@@ -1397,6 +1408,7 @@ public class RebalanceUtils {
         for(StoreDefinition storeDef: storeDefs) {
             if(storeDef.getName().compareTo(storeName) == 0) {
                 def = storeDef;
+                break;
             }
         }
 
