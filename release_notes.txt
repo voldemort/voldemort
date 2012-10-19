@@ -1,3 +1,22 @@
+Release 1.1.0.on 10/19/2012
+
+Changes made since release 1.1.0
+
+IMPORTANT NOTE : This release has significant changes to the BDB storage layer.
+Users are required to read the bin/PREUPGRADE_FOR_1_1_X_README file
+thoroughly before attempting to upgrade to 1.1.0. The necessary data 
+conversion will be done through bin/voldemort-convert-bdb.sh
+
+* Upgrading to JE 4.1.17
+* New data format that handles conflicting updates in Voldemort more
+  efficiently
+* Move data off heap and only use it for Index
+* When scanning, evict whatever you bring in right away.
+* Partition based scan api to dramatically speed up rebalancing & restore
+  using Partition aware scans (you exactly scan whatever you want to fetch)
+* Flexible knobs to control scheduling of DataCleanupJob
+
+
 Release 1.0.0 on 10/17/2012
 
 NOTE: The large version number jump from 0.96 to 1.0.0 is to

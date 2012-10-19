@@ -14,7 +14,7 @@ This section describes the data formats themselves.
 
 1) Base Format (Base)
 --------------------- 
-This is the format used by Voldemort up until 1.x, relying on BDB JE for 
+This is the format used by Voldemort up until 1.1.x, relying on BDB JE for 
 duplicate handling
 
 Disadvantages:
@@ -27,7 +27,7 @@ Disadvantages:
 
 2) New duplicate format (NewDup)
 -------------------------------- 
-This format is supported from release 1.x, where Voldemort storage layer 
+This format is supported from release 1.1.x, where Voldemort storage layer 
 handles duplicates and BDB JE version is bumped up to JE 4.1.17 
 
 Advantages:
@@ -41,11 +41,11 @@ Advantages:
    of an additional delete()
 -- General speed up due to elimination of duplicates
 
-This format is the minimum requirement to be able to upgrade to 1.x & higher
+This format is the minimum requirement to be able to upgrade to 1.1.x & higher
 
 3) Partition Scan format (PidScan)
 ----------------------------------
-This is a super set of 'NewDup' format, supported 1.x upwards. In addition to
+This is a super set of 'NewDup' format, supported 1.1.x upwards. In addition to
 eliminating duplicates and upgrading to JE 4.1.17, it adds a 2 byte prefix  
 representing the partition id to each key. 
 
@@ -60,7 +60,7 @@ Note : We have not seen the extra 2 bytes cause any overhead to online
 performance 
 
 IMPORTANT: IT IS REQUIRED TO CONVERT TO EITHER 'NewDup' or 'PidScan' TO RUN 
-VOLDEMORT WITH BDB, STARTING RELEASE 1.x
+VOLDEMORT WITH BDB, STARTING RELEASE 1.1.x
 
 Running the Conversion Utility
 ------------------------------
@@ -88,7 +88,7 @@ $./voldemort-convert-bdb.sh --src   <Required: Path to source bdb environment>
                                     Default:60>
                       --btree-nodemax <Optional: Btree fan out, Default: 512>
                       
-We recommend you run the following to move to release 1.x & up.
+We recommend you run the following to move to release 1.1.x & up.
 
 $./voldemort-convert-bdb.sh --src   /path/to/src/env
                       --dest  /path/to/dest/env 
