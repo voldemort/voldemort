@@ -18,6 +18,7 @@ Changes made since release 0.96
   * Added a client-registry for publishing client info and config values
   * Updated LazyClientStore to try to bootstrap during Init
   * Modified Failure Detector to work on a shared cluster object reference
+  * ClientConfig defaults to use DefaultStoreClient
 * Avro: schema evolution and read only support
   * Added new Avro serializer type that supports schema evolution
   * Added Avro support to read only stores
