@@ -294,7 +294,10 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                            failureDetectorRef,
                                                                            isJmxEnabled,
                                                                            this.jmxId);
+
         store = new LoggingStore(store);
+
+        Store<K, V, T> finalStore = (Store<K, V, T>) store;
 
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
@@ -305,35 +308,42 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
                                                                      + JmxUtils.getJmxId(jmxId)));
         }
 
-        if(storeDef.getKeySerializer().hasCompression()
-           || storeDef.getValueSerializer().hasCompression()) {
-            store = new CompressingStore(store,
-                                         getCompressionStrategy(storeDef.getKeySerializer()),
-                                         getCompressionStrategy(storeDef.getValueSerializer()));
+        if(this.config.isEnableCompressionLayer()) {
+            if(storeDef.getKeySerializer().hasCompression()
+               || storeDef.getValueSerializer().hasCompression()) {
+                store = new CompressingStore(store,
+                                             getCompressionStrategy(storeDef.getKeySerializer()),
+                                             getCompressionStrategy(storeDef.getValueSerializer()));
+            }
         }
 
-        Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
-        Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
+        if(this.config.isEnableSerializationLayer()) {
+            Serializer<K> keySerializer = (Serializer<K>) serializerFactory.getSerializer(storeDef.getKeySerializer());
+            Serializer<V> valueSerializer = (Serializer<V>) serializerFactory.getSerializer(storeDef.getValueSerializer());
 
-        if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
-            throw new SerializationException("Transforms serializer must be specified with a view ");
+            if(storeDef.isView() && (storeDef.getTransformsSerializer() == null))
+                throw new SerializationException("Transforms serializer must be specified with a view ");
 
-        Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
-                                                                                                                                       : new SerializerDefinition("identity"));
+            Serializer<T> transformsSerializer = (Serializer<T>) serializerFactory.getSerializer(storeDef.getTransformsSerializer() != null ? storeDef.getTransformsSerializer()
+                                                                                                                                           : new SerializerDefinition("identity"));
 
-        Store<K, V, T> serializedStore = SerializingStore.wrap(store,
-                                                               keySerializer,
-                                                               valueSerializer,
-                                                               transformsSerializer);
+            finalStore = SerializingStore.wrap(store,
+                                               keySerializer,
+                                               valueSerializer,
+                                               transformsSerializer);
+        }
 
         // Add inconsistency resolving decorator, using their inconsistency
         // resolver (if they gave us one)
-        InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
-                                                                                : resolver;
-        serializedStore = new InconsistencyResolvingStore<K, V, T>(serializedStore,
-                                                                   new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
-                                                                                                     secondaryResolver));
-        return serializedStore;
+        if(this.config.isEnableInconsistencyResolvingLayer()) {
+            InconsistencyResolver<Versioned<V>> secondaryResolver = resolver == null ? new TimeBasedInconsistencyResolver()
+                                                                                    : resolver;
+            finalStore = new InconsistencyResolvingStore<K, V, T>(finalStore,
+                                                                  new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
+                                                                                                    secondaryResolver));
+        }
+
+        return finalStore;
     }
 
     protected ClientConfig getConfig() {

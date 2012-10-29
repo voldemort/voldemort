@@ -60,7 +60,6 @@ public class ClientConfig {
     private volatile List<String> bootstrapUrls = null;
     private volatile RequestFormatType requestFormatType = RequestFormatType.VOLDEMORT_V1;
     private volatile RoutingTier routingTier = RoutingTier.CLIENT;
-    private volatile boolean enableJmx = true;
     private volatile boolean enableLazy = true;
 
     private volatile boolean enablePipelineRoutedStore = true;
@@ -106,6 +105,12 @@ public class ClientConfig {
     private volatile int sysConnectionTimeoutMs = 1500;
     private volatile boolean sysEnableJmx = false;
     private volatile boolean sysEnablePipelineRoutedStore = true;
+
+    /* Voldemort client component config */
+    private volatile boolean enableJmx = true;
+    private volatile boolean enableCompressionLayer = true;
+    private volatile boolean enableSerializationLayer = true;
+    private volatile boolean enableInconsistencyResolvingLayer = true;
 
     public ClientConfig() {}
 
@@ -157,6 +162,9 @@ public class ClientConfig {
     public static final String SYS_SOCKET_TIMEOUT_MS = "sys_socket_timeout_ms";
     public static final String SYS_ENABLE_JMX = "sys_enable_jmx";
     public static final String SYS_ENABLE_PIPELINE_ROUTED_STORE = "sys_enable_pipeline_routed_store";
+    public static final String ENABLE_COMPRESSION_LAYER = "enable_compression_layer";
+    public static final String ENABLE_SERIALIZATION_LAYER = "enable_serialization_layer";
+    public static final String ENABLE_INCONSISTENCY_RESOLVING_LAYER = "enable_inconsistency_resolving_layer";
 
     /**
      * Instantiate the client config using a properties file
@@ -358,6 +366,18 @@ public class ClientConfig {
 
         if(props.containsKey(SYS_ENABLE_PIPELINE_ROUTED_STORE)) {
             this.setSysEnablePipelineRoutedStore(props.getBoolean(SYS_ENABLE_PIPELINE_ROUTED_STORE));
+        }
+
+        if(props.containsKey(ENABLE_COMPRESSION_LAYER)) {
+            this.setEnableCompressionLayer(props.getBoolean(ENABLE_COMPRESSION_LAYER));
+        }
+
+        if(props.containsKey(ENABLE_SERIALIZATION_LAYER)) {
+            this.setEnableSerializationLayer(props.getBoolean(ENABLE_SERIALIZATION_LAYER));
+        }
+
+        if(props.containsKey(ENABLE_INCONSISTENCY_RESOLVING_LAYER)) {
+            this.setEnableInconsistencyResolvingLayer(props.getBoolean(ENABLE_INCONSISTENCY_RESOLVING_LAYER));
         }
 
     }
@@ -1055,6 +1075,33 @@ public class ClientConfig {
      */
     public ClientConfig setAsyncJobThreadPoolSize(int asyncJobThreadPoolSize) {
         this.asyncJobThreadPoolSize = asyncJobThreadPoolSize;
+        return this;
+    }
+
+    public boolean isEnableCompressionLayer() {
+        return enableCompressionLayer;
+    }
+
+    public ClientConfig setEnableCompressionLayer(boolean enableCompressionLayer) {
+        this.enableCompressionLayer = enableCompressionLayer;
+        return this;
+    }
+
+    public boolean isEnableSerializationLayer() {
+        return enableSerializationLayer;
+    }
+
+    public ClientConfig setEnableSerializationLayer(boolean enableSerializationLayer) {
+        this.enableSerializationLayer = enableSerializationLayer;
+        return this;
+    }
+
+    public boolean isEnableInconsistencyResolvingLayer() {
+        return enableInconsistencyResolvingLayer;
+    }
+
+    public ClientConfig setEnableInconsistencyResolvingLayer(boolean enableInconsistencyResolvingLayer) {
+        this.enableInconsistencyResolvingLayer = enableInconsistencyResolvingLayer;
         return this;
     }
 }
