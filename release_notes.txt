@@ -53,6 +53,7 @@ Changes made since release 0.96
   * Fixed some intermittent BindException failures across many unit tests
   * Fixed some intermittent rebalance test failures
   * Wrapped long running tests with timeouts
+  * Fixed socketChannel leak in ClientRequestExecutorFactory.create()
 
 
 Release 0.96 on 09/05/2012
