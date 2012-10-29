@@ -1,6 +1,13 @@
-Release 1.1.0.on 10/19/2012
+Release 1.1.1 on 10/30/2012
 
-Changes made since release 1.1.0
+Changed made since release 1.1.0
+* Fixed connection leak in ClientRequestExecutorFactory
+* Changed client to default to DefaultStoreClient
+
+
+Release 1.1.0 on 10/19/2012
+
+Changes made since release 1.0.0
 
 IMPORTANT NOTE : This release has significant changes to the BDB storage layer.
 Users are required to read the bin/PREUPGRADE_FOR_1_1_X_README file

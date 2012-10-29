@@ -162,6 +162,13 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         try {
             clientRequestExecutor = queuedPool.checkout(destination);
         } catch(Exception e) {
+            // If this exception caught here is from the nonBlockingPut call
+            // within KeyedResourcePool.attemptGrow(), then there is the chance
+            // a ClientRequestExector resource will be leaked. Cannot safely
+            // deal with this here since clientRequestExecutor is not assigned
+            // in this catch. Even if it was, clientRequestExecutore.close()
+            // checks in the SocketDestination resource and so is not safe to
+            // call.
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
         } finally {

@@ -25,8 +25,6 @@ import java.util.concurrent.TimeUnit;
 
 import junit.framework.TestCase;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
@@ -73,7 +71,7 @@ public class ClientRegistryTest extends TestCase {
                                                                                                                           .getValueSerializer());
     private long startTime;
 
-    @Before
+    @Override
     public void setUp() throws Exception {
 
         if(null == servers) {
@@ -98,7 +96,7 @@ public class ClientRegistryTest extends TestCase {
         startTime = System.currentTimeMillis();
     }
 
-    @After
+    @Override
     public void tearDown() throws Exception {
         this.clearRegistryContent();
     }
@@ -116,6 +114,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
@@ -182,6 +181,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
@@ -270,6 +270,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
@@ -375,6 +376,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[0])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -385,6 +387,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[0])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -514,6 +517,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -524,6 +528,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -609,6 +614,7 @@ public class ClientRegistryTest extends TestCase {
                                                       .setBootstrapUrls(SERVER_LOCAL_URL
                                                                         + serverPorts[1])
                                                       .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                      .enableDefaultClient(false)
                                                       .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                       .setEnableLazy(false);
         SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -619,6 +625,7 @@ public class ClientRegistryTest extends TestCase {
                                                        .setBootstrapUrls(SERVER_LOCAL_URL
                                                                          + serverPorts[1])
                                                        .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                       .enableDefaultClient(false)
                                                        .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                        .setEnableLazy(false);
         SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);
@@ -662,6 +669,7 @@ public class ClientRegistryTest extends TestCase {
                                                           .setBootstrapUrls(SERVER_LOCAL_URL
                                                                             + serverPorts[1])
                                                           .setClientContextName(CLIENT_CONTEXT_NAME)
+                                                          .enableDefaultClient(false)
                                                           .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                           .setEnableLazy(false);
             SocketStoreClientFactory socketFactory1 = new SocketStoreClientFactory(clientConfig);
@@ -672,6 +680,7 @@ public class ClientRegistryTest extends TestCase {
                                                            .setBootstrapUrls(SERVER_LOCAL_URL
                                                                              + serverPorts[1])
                                                            .setClientContextName(CLIENT_CONTEXT_NAME2)
+                                                           .enableDefaultClient(false)
                                                            .setClientRegistryUpdateIntervalInSecs(CLIENT_REGISTRY_REFRESH_INTERVAL)
                                                            .setEnableLazy(false);
             SocketStoreClientFactory socketFactory2 = new SocketStoreClientFactory(clientConfig2);

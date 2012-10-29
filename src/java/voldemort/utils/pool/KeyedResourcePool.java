@@ -446,6 +446,8 @@ public class KeyedResourcePool<K, V> {
                         }
                     }
                 } catch(Exception e) {
+                    // If nonBlockingPut throws an exception, then we could leak
+                    // the resource created by objectFactory.create().
                     this.size.decrementAndGet();
                     throw e;
                 }
