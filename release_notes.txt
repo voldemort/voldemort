@@ -1,6 +1,13 @@
+Release 1.1.2 on 10/31/2012
+
+Changes made since release 1.1.1
+* Reverted a change to voldemort.versioning.Versioned.getVersion() so
+  that a Version is returned as our clients expect.
+
+
 Release 1.1.1 on 10/30/2012
 
-Changed made since release 1.1.0
+Changes made since release 1.1.0
 * Fixed connection leak in ClientRequestExecutorFactory
 * Changed client to default to DefaultStoreClient
 

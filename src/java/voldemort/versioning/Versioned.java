@@ -44,7 +44,6 @@ public final class Versioned<T> implements Serializable {
         this.object = object;
     }
 
-    // public VectorClock getVersion() {
     public Version getVersion() {
         return version;
     }
