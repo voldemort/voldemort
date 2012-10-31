@@ -8,7 +8,7 @@ import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-/*
+/*-
  *  Defines a generic on-disk binary data format for versioned voldemort data
  * -----------------------------------------
  *    FORMAT_VERSION                       : 1 byte
@@ -38,7 +38,7 @@ public class StoreBinaryFormat {
     public static byte[] toByteArray(List<Versioned<byte[]>> values) {
         int size = 1;
         for(Versioned<byte[]> v: values) {
-            size += v.getVersion().sizeInBytes();
+            size += ((VectorClock) v.getVersion()).sizeInBytes();
             size += ByteUtils.SIZE_OF_INT;
             size += v.getValue().length;
         }
@@ -46,7 +46,7 @@ public class StoreBinaryFormat {
         int pos = 1;
         bytes[0] = VERSION;
         for(Versioned<byte[]> v: values) {
-            pos += v.getVersion().toBytes(bytes, pos);
+            pos += ((VectorClock) v.getVersion()).toBytes(bytes, pos);
             int len = v.getValue().length;
             ByteUtils.writeInt(bytes, len, pos);
             pos += ByteUtils.SIZE_OF_INT;
