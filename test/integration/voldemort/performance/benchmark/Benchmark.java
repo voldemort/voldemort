@@ -358,7 +358,8 @@ public class Benchmark {
             }
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
             // this.storeClient = socketFactory.getStoreClient(storeName);
-            this.storeClient = new RESTClient<Object, Object>();
+            this.storeClient = new RESTClient<Object, Object>(clientConfig.getBootstrapUrls()[0],
+                                                              storeName);
             StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
             this.keyType = findKeyType(storeDef);
             benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);
