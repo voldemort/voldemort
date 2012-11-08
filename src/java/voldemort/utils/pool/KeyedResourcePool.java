@@ -124,14 +124,12 @@ public class KeyedResourcePool<K, V> {
 
         long startNs = System.nanoTime();
         Pool<V> resourcePool = getResourcePoolForKey(key);
-        // Always attempt to grow. This protects against running out of
-        // resources because they were destroyed.
-        attemptGrow(key, resourcePool);
-
         V resource = null;
         try {
             checkNotClosed();
-            resource = attemptCheckout(resourcePool);
+            // Must attempt a non blocking checkout before blockingGet to ensure
+            // resources are created for the pool.
+            resource = attemptNonBlockingCheckout(key, resourcePool);
 
             if(resource == null) {
                 long timeRemainingNs = resourcePoolConfig.getTimeout(TimeUnit.NANOSECONDS)
@@ -155,23 +153,23 @@ public class KeyedResourcePool<K, V> {
     }
 
     /**
-     * Get a free resource if one exists. This method does not block. It either
-     * returns null or a resource.
+     * Get a free resource if one exists. If there are no free resources,
+     * attempt to create a new resource (up to the max allowed for the pool).
+     * This method does not block per se. However, creating a resource may be
+     * (relatively) expensive. This method either returns null or a resource.
+     * 
+     * This method is the only way in which new resources are created for the
+     * pool. So, non blocking checkouts must be attempted to populate the
+     * resource pool.
      */
-    protected V attemptCheckout(Pool<V> pool) throws Exception {
+    protected V attemptNonBlockingCheckout(K key, Pool<V> pool) throws Exception {
         V resource = pool.nonBlockingGet();
+        if(resource == null) {
+            if(pool.attemptGrow(key, this.objectFactory)) {
+                resource = pool.nonBlockingGet();
+            }
+        }
         return resource;
-    }
-
-    /**
-     * Attempt to create a new object and add it to the pool--this only happens
-     * if there is room for the new object. This method does not block. This
-     * method returns true if it adds a resource to the pool. (Returning true
-     * does not guarantee subsequent checkout will succeed because concurrent
-     * checkouts may occur.)
-     */
-    protected boolean attemptGrow(K key, Pool<V> pool) throws Exception {
-        return pool.attemptGrow(key, this.objectFactory);
     }
 
     /**

@@ -103,24 +103,17 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
 
         Queue<AsyncResourceRequest<V>> requestQueue = getRequestQueueForKey(key);
         if(requestQueue.isEmpty()) {
-            // Optimistically attempt non-blocking checkout iff requestQueue is
-            // empty.
+            // Attempt non-blocking checkout iff requestQueue is empty.
+
             Pool<V> resourcePool = getResourcePoolForKey(key);
-            try {
-                attemptGrow(key, resourcePool);
-            } catch(Exception e) {
-                resourceRequest.handleException(e);
-                return;
-            }
-
             V resource = null;
-
             try {
-                resource = attemptCheckout(resourcePool);
+                resource = attemptNonBlockingCheckout(key, resourcePool);
             } catch(Exception e) {
                 destroyResource(key, resourcePool, resource);
                 resource = null;
                 resourceRequest.handleException(e);
+                return;
             }
             if(resource != null) {
                 resourceRequest.useResource(resource);
@@ -173,9 +166,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         V resource = null;
 
         try {
-            // Always attempt to grow to deal with destroyed resources.
-            attemptGrow(key, resourcePool);
-            resource = attemptCheckout(resourcePool);
+            // Must attempt non-blocking checkout to ensure resources are
+            // created for the pool.
+            resource = attemptNonBlockingCheckout(key, resourcePool);
         } catch(Exception e) {
             destroyResource(key, resourcePool, resource);
             resource = null;

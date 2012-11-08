@@ -335,8 +335,8 @@ public class QueuedKeyedResourcePoolTest extends KeyedResourcePoolTest {
 
         try {
             waitForThreadsEnd.await();
-            assertEquals(POOL_SIZE, this.queuedPool.getTotalResourceCount());
-            assertEquals(POOL_SIZE, this.queuedPool.getCheckedInResourceCount());
+            assertEquals(this.queuedPool.getCheckedInResourceCount(),
+                         this.queuedPool.getTotalResourceCount());
             assertEquals(0, this.queuedPool.getRegisteredResourceRequestCount());
 
             assertEquals(numEnqueuers * numEnqueues, TestResourceRequest.usedResourceCount.get());
