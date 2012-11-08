@@ -243,11 +243,13 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
      * @param requestQueue The queue for which all resource requests are to be
      *        destroyed.
      */
-    private synchronized void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
-        AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
-        while(resourceRequest != null) {
-            destroyRequest(resourceRequest);
-            resourceRequest = requestQueue.poll();
+    private void destroyRequestQueue(Queue<AsyncResourceRequest<V>> requestQueue) {
+        if(requestQueue != null) {
+            AsyncResourceRequest<V> resourceRequest = requestQueue.poll();
+            while(resourceRequest != null) {
+                destroyRequest(resourceRequest);
+                resourceRequest = requestQueue.poll();
+            }
         }
     }
 
@@ -283,9 +285,14 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
     @Override
     public void reset(K key) {
         // First, destroy enqueued resource requests (if any exist).
-        Queue<AsyncResourceRequest<V>> requestQueue = requestQueueMap.get(key);
-        if(requestQueue != null) {
-            destroyRequestQueue(requestQueue);
+        Queue<AsyncResourceRequest<V>> requestQueueToDestroy = requestQueueMap.get(key);
+        if(requestQueueToDestroy != null) {
+            // Swap in a new requestQueue so that the current requestQueue can
+            // be destroyed without the need of any synchronization primitives
+            Queue<AsyncResourceRequest<V>> newRequestQueue = new ConcurrentLinkedQueue<AsyncResourceRequest<V>>();
+            if(requestQueueMap.replace(key, requestQueueToDestroy, newRequestQueue)) {
+                destroyRequestQueue(requestQueueToDestroy);
+            }
         }
 
         // Second, destroy resources in the pool.
