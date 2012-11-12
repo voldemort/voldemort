@@ -17,8 +17,8 @@ public class RequestCounter {
     private final int durationMS;
     private final Time time;
     private final Histogram histogram;
-    private volatile int q95LatencyMs;
-    private volatile int q99LatencyMs;
+    private volatile long q95LatencyMs;
+    private volatile long q99LatencyMs;
     private boolean useHistogram;
 
     /**
@@ -233,11 +233,11 @@ public class RequestCounter {
         return getValidAccumulator().getAllMaxCount;
     }
 
-    public int getQ95LatencyMs() {
+    public long getQ95LatencyMs() {
         return q95LatencyMs;
     }
 
-    public int getQ99LatencyMs() {
+    public long getQ99LatencyMs() {
         return q99LatencyMs;
     }
 
