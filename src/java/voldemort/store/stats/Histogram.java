@@ -52,6 +52,7 @@ public class Histogram {
      * @param step The size (width) of each bucket
      */
     public Histogram(int nBuckets, int step) {
+        logger.info("Constructing a histogram with " + nBuckets + " buckets.");
         this.nBuckets = nBuckets;
         this.step = step;
         this.upperBound = step * nBuckets;
@@ -87,9 +88,9 @@ public class Histogram {
         } else {
             index = data / step;
         }
-        if(index >= nBuckets) {
+        if(index < 0 || index >= nBuckets) {
             // This is dead code. Defend against code changes in future.
-            logger.error(data + " can't be bucketed because index overflowed number of buckets!");
+            logger.error(data + " can't be bucketed because index is not in range [0,nBuckets).");
             return;
         }
         buckets[(int) index]++;

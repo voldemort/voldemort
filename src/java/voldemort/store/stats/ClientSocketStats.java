@@ -22,6 +22,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.log4j.Logger;
+
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.socket.clientrequest.ClientRequestExecutor;
 import voldemort.utils.JmxUtils;
@@ -73,6 +75,7 @@ public class ClientSocketStats {
     private final Histogram resourceRequestQueueLengthHistogram = new Histogram(250, 1);
 
     private final int jmxId;
+    private static final Logger logger = Logger.getLogger(ClientSocketStats.class.getName());
 
     /**
      * To construct a per node stats object
@@ -91,6 +94,9 @@ public class ClientSocketStats {
         this.destination = destination;
         this.pool = pool;
         this.jmxId = jmxId;
+
+        logger.info("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
+                    + ") with parent object(" + System.identityHashCode(parent) + ")");
     }
 
     /**
@@ -104,6 +110,9 @@ public class ClientSocketStats {
         this.destination = null;
         this.pool = null;
         this.jmxId = jmxId;
+
+        logger.info("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
+                    + ") with parent object(" + System.identityHashCode(parent) + ")");
     }
 
     /* get per node stats, create one if not exist */

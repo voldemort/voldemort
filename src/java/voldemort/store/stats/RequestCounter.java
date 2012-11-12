@@ -2,6 +2,8 @@ package voldemort.store.stats;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.log4j.Logger;
+
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 
@@ -14,41 +16,43 @@ import voldemort.utils.Time;
 public class RequestCounter {
 
     private final AtomicReference<Accumulator> values;
-    private final int durationMS;
+    private final long durationMs;
     private final Time time;
     private final Histogram histogram;
     private volatile long q95LatencyMs;
     private volatile long q99LatencyMs;
     private boolean useHistogram;
 
+    private static final Logger logger = Logger.getLogger(RequestCounter.class.getName());
+
     /**
-     * @param durationMS specifies for how long you want to maintain this
+     * @param durationMs specifies for how long you want to maintain this
      *        counter (in milliseconds).
      */
-    public RequestCounter(int durationMS) {
-        this(durationMS, SystemTime.INSTANCE, false);
+    public RequestCounter(long durationMs) {
+        this(durationMs, SystemTime.INSTANCE, false);
     }
 
     /**
-     * @param durationMS specifies for how long you want to maintain this
+     * @param durationMs specifies for how long you want to maintain this
      *        counter (in milliseconds). useHistogram indicates that this
      *        counter should also use a histogram.
      */
-    public RequestCounter(int durationMS, boolean useHistogram) {
-        this(durationMS, SystemTime.INSTANCE, useHistogram);
+    public RequestCounter(long durationMs, boolean useHistogram) {
+        this(durationMs, SystemTime.INSTANCE, useHistogram);
     }
 
     /**
      * For testing request expiration via an injected time provider
      */
-    RequestCounter(int durationMS, Time time) {
-        this(durationMS, time, false);
+    RequestCounter(long durationMs, Time time) {
+        this(durationMs, time, false);
     }
 
-    RequestCounter(int durationMS, Time time, boolean useHistogram) {
+    RequestCounter(long durationMs, Time time, boolean useHistogram) {
         this.time = time;
         this.values = new AtomicReference<Accumulator>(new Accumulator());
-        this.durationMS = durationMS;
+        this.durationMs = durationMs;
         this.q95LatencyMs = 0;
         this.q99LatencyMs = 0;
         this.useHistogram = useHistogram;
@@ -98,8 +102,8 @@ public class RequestCounter {
         return String.format("%.4f", getAverageTimeInMs());
     }
 
-    public int getDuration() {
-        return durationMS;
+    public long getDuration() {
+        return durationMs;
     }
 
     public long getMaxLatencyInMs() {
@@ -111,11 +115,16 @@ public class RequestCounter {
             return;
         Accumulator accum = values.get();
         long now = time.getMilliseconds();
-        if(now - accum.startTimeMS > durationMS) {
+        if(now - accum.startTimeMS > durationMs) {
+            long startTimeNs = System.nanoTime();
             // Reset the histogram
             q95LatencyMs = histogram.getQuantile(0.95);
             q99LatencyMs = histogram.getQuantile(0.99);
             histogram.reset();
+            // TODO: Make this DEBUG level
+            logger.info("Histogram (" + System.identityHashCode(histogram)
+                        + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
+                        + " ns.");
         }
     }
 
@@ -127,7 +136,7 @@ public class RequestCounter {
         /*
          * if still in the window, just return it
          */
-        if(now - accum.startTimeMS <= durationMS) {
+        if(now - accum.startTimeMS <= durationMs) {
             return accum;
         }
 
@@ -192,6 +201,8 @@ public class RequestCounter {
             if(values.compareAndSet(oldv, newv))
                 return;
         }
+        // TODO: Make this DEBUG level
+        logger.info("addRequest lost data because three retries was insufficient.");
     }
 
     /**
@@ -262,6 +273,11 @@ public class RequestCounter {
             this(RequestCounter.this.time.getMilliseconds(), 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
+        /**
+         * This method resets startTimeMS.
+         * 
+         * @return
+         */
         public Accumulator newWithTotal() {
             return new Accumulator(RequestCounter.this.time.getMilliseconds(),
                                    0,

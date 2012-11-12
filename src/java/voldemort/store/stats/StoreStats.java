@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 /**
  * Some convenient statistics to track about the store
  * 
@@ -13,6 +15,8 @@ public class StoreStats {
 
     private final StoreStats parent;
     private final Map<Tracked, RequestCounter> counters;
+
+    private static final Logger logger = Logger.getLogger(StoreStats.class.getName());
 
     public StoreStats() {
         this(null);
@@ -29,6 +33,9 @@ public class StoreStats {
             counters.put(tracked, new RequestCounter(300000, true));
         }
         this.parent = parent;
+
+        logger.info("Constructed StoreStats object (" + System.identityHashCode(this)
+                    + ") with parent object(" + System.identityHashCode(parent) + ")");
     }
 
     /**
