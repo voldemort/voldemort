@@ -324,6 +324,8 @@ public class ClientSocketStats {
         if(parent == null && statsMap != null) {
             int monitoringInterval = this.monitoringInterval.get();
             if(monitoringCount % (monitoringInterval + 1) == monitoringInterval) {
+                long startTimeNs = System.nanoTime();
+
                 // reset all children
                 Iterator<SocketDestination> it = statsMap.keySet().iterator();
                 while(it.hasNext()) {
@@ -332,6 +334,10 @@ public class ClientSocketStats {
                 }
                 // reset itself
                 resetForInterval();
+
+                logger.info("ClientSocketStats(" + System.identityHashCode(this)
+                            + ")::checkMonitoringInterval: reset self and all children in "
+                            + (startTimeNs - System.nanoTime()) + " ns.");
             }
         }
     }
