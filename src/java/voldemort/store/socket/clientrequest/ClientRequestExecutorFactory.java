@@ -166,7 +166,16 @@ public class ClientRequestExecutorFactory implements
                         logger.warn(e, e);
                 }
             }
+            duration = System.currentTimeMillis() - startTime;
 
+            if(duration > 0) {
+                if(logger.isInfoEnabled()) {
+                    logger.info("Created socket " + numCreated + " for " + dest.getHost() + ":"
+                                + dest.getPort() + " using protocol "
+                                + dest.getRequestFormatType().getCode() + " after " + duration
+                                + " ms.");
+                }
+            }
             if(logger.isDebugEnabled())
                 logger.debug("Created socket " + numCreated + " for " + dest.getHost() + ":"
                              + dest.getPort() + " using protocol "

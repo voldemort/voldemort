@@ -405,6 +405,7 @@ public class KeyedResourcePool<K, V> {
 
         final private AtomicInteger size = new AtomicInteger(0);
         final private AtomicInteger blockingGets = new AtomicInteger(0);
+        final private AtomicInteger createsInFlight = new AtomicInteger(0);
         final private int maxPoolSize;
         final private BlockingQueue<V> queue;
 
@@ -435,13 +436,29 @@ public class KeyedResourcePool<K, V> {
 
             if(this.size.incrementAndGet() <= this.maxPoolSize) {
                 try {
-                    V resource = objectFactory.create(key);
+                    V resource = null;
+                    int currentCreatesInFlight = 0;
+                    try {
+                        currentCreatesInFlight = createsInFlight.getAndIncrement();
+                        resource = objectFactory.create(key);
+                    } finally {
+                        createsInFlight.decrementAndGet();
+                    }
                     if(resource != null) {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
                             objectFactory.destroy(key, resource);
+                            logger.info("attemptGrow established new connection for key "
+                                        + key.toString() + " with " + currentCreatesInFlight
+                                        + " other connection establishments in flight."
+                                        + " And then promptly destroyed the new connection.");
                             return false;
                         }
+                        logger.info("attemptGrow established new connection for key "
+                                    + key.toString() + " with " + currentCreatesInFlight
+                                    + " other connection establishments in flight."
+                                    + " After checking in to KeyedResourcePool, there are "
+                                    + queue.size() + " destinations checked in.");
                     }
                 } catch(Exception e) {
                     // If nonBlockingPut throws an exception, then we could leak
