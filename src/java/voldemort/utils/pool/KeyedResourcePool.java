@@ -448,17 +448,21 @@ public class KeyedResourcePool<K, V> {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
                             objectFactory.destroy(key, resource);
+                            if (currentCreatesInFlight>0) {
                             logger.info("attemptGrow established new connection for key "
                                         + key.toString() + " with " + currentCreatesInFlight
                                         + " other connection establishments in flight."
                                         + " And then promptly destroyed the new connection.");
+                            }
                             return false;
                         }
+                        if (currentCreatesInFlight>0) {
                         logger.info("attemptGrow established new connection for key "
                                     + key.toString() + " with " + currentCreatesInFlight
                                     + " other connection establishments in flight."
                                     + " After checking in to KeyedResourcePool, there are "
                                     + queue.size() + " destinations checked in.");
+                        }
                     }
                 } catch(Exception e) {
                     // If nonBlockingPut throws an exception, then we could leak
