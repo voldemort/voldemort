@@ -180,6 +180,10 @@ public class RequestCounter {
                            long numEmptyResponses,
                            long bytes,
                            long getAllAggregatedCount) {
+        // TODO: Remove this instrumentation
+        final long infoCutoffNs = 100 * 1000; // 100 us cut off for INFO display
+        long startTimeNs = System.nanoTime();
+
         long timeMs = timeNS / Time.NS_PER_MS;
         if(this.useHistogram) {
             histogram.insert(timeMs);
@@ -198,8 +202,15 @@ public class RequestCounter {
                                                oldv.getAllAggregatedCount + getAllAggregatedCount,
                                                getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
                                                                                           : oldv.getAllMaxCount);
-            if(values.compareAndSet(oldv, newv))
+            if(values.compareAndSet(oldv, newv)) {
+                long durationNs = System.nanoTime() - startTimeNs;
+                if(durationNs > infoCutoffNs) {
+                    logger.info("addRequest (histogram.insert and accumulator update) took more than "
+                                + infoCutoffNs + " ns: " + durationNs + " ns.");
+                }
+
                 return;
+            }
         }
         // TODO: Make this DEBUG level
         logger.info("addRequest lost data because three retries was insufficient.");
