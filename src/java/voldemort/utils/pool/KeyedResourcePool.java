@@ -237,8 +237,6 @@ public class KeyedResourcePool<K, V> {
         }
     }
 
-    // This method may be made protected in the future for the benefit of
-    // classes which extend from KeyedResourcePool.
     protected boolean isOpenAndValid(K key, V resource) throws Exception {
         if(isOpen.get() && objectFactory.validate(key, resource)) {
             return true;
@@ -405,7 +403,6 @@ public class KeyedResourcePool<K, V> {
 
         final private AtomicInteger size = new AtomicInteger(0);
         final private AtomicInteger blockingGets = new AtomicInteger(0);
-        final private AtomicInteger createsInFlight = new AtomicInteger(0);
         final private int maxPoolSize;
         final private BlockingQueue<V> queue;
 
@@ -436,32 +433,22 @@ public class KeyedResourcePool<K, V> {
 
             if(this.size.incrementAndGet() <= this.maxPoolSize) {
                 try {
-                    V resource = null;
-                    int currentCreatesInFlight = 0;
-                    try {
-                        currentCreatesInFlight = createsInFlight.getAndIncrement();
-                        resource = objectFactory.create(key);
-                    } finally {
-                        createsInFlight.decrementAndGet();
-                    }
+                    V resource = objectFactory.create(key);
                     if(resource != null) {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
                             objectFactory.destroy(key, resource);
-                            if(currentCreatesInFlight > 0) {
-                                logger.info("attemptGrow established new connection for key "
-                                            + key.toString() + " with " + currentCreatesInFlight
-                                            + " other connection establishments in flight."
-                                            + " And then promptly destroyed the new connection.");
-                            }
+                            logger.info("attemptGrow established new connection for key "
+                                        + key.toString()
+                                        + " and immediately destroyed the new connection "
+                                        + "because there were too many connections already established.");
                             return false;
                         }
-                        if(currentCreatesInFlight > 0) {
-                            logger.info("attemptGrow established new connection for key "
-                                        + key.toString() + " with " + currentCreatesInFlight
-                                        + " other connection establishments in flight."
-                                        + " After checking in to KeyedResourcePool, there are "
-                                        + queue.size() + " destinations checked in.");
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("attemptGrow established new connection for key "
+                                         + key.toString() + ". "
+                                         + " After checking in to KeyedResourcePool, there are "
+                                         + queue.size() + " destinations checked in.");
                         }
                     }
                 } catch(Exception e) {

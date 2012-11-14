@@ -156,8 +156,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
      */
 
     public ClientRequestExecutor checkout(SocketDestination destination) {
-        // time checkout
-        long start = System.nanoTime();
+        // timing instrumentation (stats only)
+        long startTimeNs = 0;
+        if(stats != null) {
+            startTimeNs = System.nanoTime();
+        }
+
         ClientRequestExecutor clientRequestExecutor;
         try {
             clientRequestExecutor = queuedPool.checkout(destination);
@@ -172,9 +176,9 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
             throw new UnreachableStoreException("Failure while checking out socket for "
                                                 + destination + ": ", e);
         } finally {
-            long end = System.nanoTime();
             if(stats != null) {
-                stats.recordCheckoutTimeUs(destination, (end - start) / Time.NS_PER_US);
+                stats.recordCheckoutTimeUs(destination, (System.nanoTime() - startTimeNs)
+                                                        / Time.NS_PER_US);
                 stats.recordCheckoutQueueLength(destination,
                                                 queuedPool.getBlockingGetsCount(destination));
             }

@@ -95,8 +95,8 @@ public class ClientSocketStats {
         this.pool = pool;
         this.jmxId = jmxId;
 
-        logger.info("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
-                    + ") with parent object(" + System.identityHashCode(parent) + ")");
+        logger.debug("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
+                     + ") with parent object(" + System.identityHashCode(parent) + ")");
     }
 
     /**
@@ -111,8 +111,8 @@ public class ClientSocketStats {
         this.pool = null;
         this.jmxId = jmxId;
 
-        logger.info("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
-                    + ") with parent object(" + System.identityHashCode(parent) + ")");
+        logger.debug("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
+                     + ") with parent object(" + System.identityHashCode(parent) + ")");
     }
 
     /* get per node stats, create one if not exist */
@@ -324,7 +324,11 @@ public class ClientSocketStats {
         if(parent == null && statsMap != null) {
             int monitoringInterval = this.monitoringInterval.get();
             if(monitoringCount % (monitoringInterval + 1) == monitoringInterval) {
-                long startTimeNs = System.nanoTime();
+                // timing instrumentation (debug only)
+                long startTimeNs = 0;
+                if(logger.isDebugEnabled()) {
+                    startTimeNs = System.nanoTime();
+                }
 
                 // reset all children
                 Iterator<SocketDestination> it = statsMap.keySet().iterator();
@@ -335,9 +339,12 @@ public class ClientSocketStats {
                 // reset itself
                 resetForInterval();
 
-                logger.info("ClientSocketStats(" + System.identityHashCode(this)
-                            + ")::checkMonitoringInterval: reset self and all children in "
-                            + (startTimeNs - System.nanoTime()) + " ns.");
+                // timing instrumentation (debug only)
+                if(logger.isDebugEnabled()) {
+                    logger.debug("ClientSocketStats(" + System.identityHashCode(this)
+                                 + ")::checkMonitoringInterval: reset self and all children in "
+                                 + (System.nanoTime() - startTimeNs) + " ns.");
+                }
             }
         }
     }

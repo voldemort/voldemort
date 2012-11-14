@@ -34,8 +34,8 @@ public class StoreStats {
         }
         this.parent = parent;
 
-        logger.info("Constructed StoreStats object (" + System.identityHashCode(this)
-                    + ") with parent object(" + System.identityHashCode(parent) + ")");
+        logger.debug("Constructed StoreStats object (" + System.identityHashCode(this)
+                     + ") with parent object (" + System.identityHashCode(parent) + ")");
     }
 
     /**

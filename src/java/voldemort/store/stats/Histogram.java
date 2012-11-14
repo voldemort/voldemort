@@ -52,12 +52,13 @@ public class Histogram {
      * @param step The size (width) of each bucket
      */
     public Histogram(int nBuckets, int step) {
-        logger.info("Constructing a histogram with " + nBuckets + " buckets.");
         this.nBuckets = nBuckets;
         this.step = step;
         this.upperBound = step * nBuckets;
         this.buckets = new int[nBuckets];
         reset();
+
+        logger.debug("Constructed a histogram with " + nBuckets + " buckets.");
     }
 
     /**
@@ -89,7 +90,8 @@ public class Histogram {
             index = data / step;
         }
         if(index < 0 || index >= nBuckets) {
-            // This is dead code. Defend against code changes in future.
+            // This should be dead code. Defending against code changes in
+            // future.
             logger.error(data + " can't be bucketed because index is not in range [0,nBuckets).");
             return;
         }
@@ -100,7 +102,7 @@ public class Histogram {
 
     /**
      * Find the a value <em>n</em> such that the percentile falls within [
-     * <em>n</em>, <em>n + step</em>). This method does a <em>LINEAR</em> prove
+     * <em>n</em>, <em>n + step</em>). This method does a <em>LINEAR</em> probe
      * of the histogram. I.e., this method is O(nBuckets).
      * 
      * @param quantile The percentile to find

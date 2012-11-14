@@ -116,15 +116,23 @@ public class RequestCounter {
         Accumulator accum = values.get();
         long now = time.getMilliseconds();
         if(now - accum.startTimeMS > durationMs) {
-            long startTimeNs = System.nanoTime();
+            // timing instrumentation (debug only)
+            long startTimeNs = 0;
+            if(logger.isDebugEnabled()) {
+                startTimeNs = System.nanoTime();
+            }
+
             // Reset the histogram
             q95LatencyMs = histogram.getQuantile(0.95);
             q99LatencyMs = histogram.getQuantile(0.99);
             histogram.reset();
-            // TODO: Make this DEBUG level
-            logger.info("Histogram (" + System.identityHashCode(histogram)
-                        + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
-                        + " ns.");
+
+            // timing instrumentation (debug only)
+            if(logger.isDebugEnabled()) {
+                logger.debug("Histogram (" + System.identityHashCode(histogram)
+                             + ") : reset, Q95, & Q99 took " + (System.nanoTime() - startTimeNs)
+                             + " ns.");
+            }
         }
     }
 
@@ -180,9 +188,11 @@ public class RequestCounter {
                            long numEmptyResponses,
                            long bytes,
                            long getAllAggregatedCount) {
-        // TODO: Remove this instrumentation
-        final long infoCutoffNs = 100 * 1000; // 100 us cut off for INFO display
-        long startTimeNs = System.nanoTime();
+        // timing instrumentation (trace only)
+        long startTimeNs = 0;
+        if(logger.isTraceEnabled()) {
+            startTimeNs = System.nanoTime();
+        }
 
         long timeMs = timeNS / Time.NS_PER_MS;
         if(this.useHistogram) {
@@ -203,17 +213,22 @@ public class RequestCounter {
                                                getAllAggregatedCount > oldv.getAllMaxCount ? getAllAggregatedCount
                                                                                           : oldv.getAllMaxCount);
             if(values.compareAndSet(oldv, newv)) {
-                long durationNs = System.nanoTime() - startTimeNs;
-                if(durationNs > infoCutoffNs) {
-                    logger.info("addRequest (histogram.insert and accumulator update) took more than "
-                                + infoCutoffNs + " ns: " + durationNs + " ns.");
+                // timing instrumentation (trace only)
+                if(logger.isTraceEnabled()) {
+                    logger.trace("addRequest (histogram.insert and accumulator update) took "
+                                 + (System.nanoTime() - startTimeNs) + " ns.");
                 }
-
+                // Return since data has been accumulated
                 return;
             }
         }
-        // TODO: Make this DEBUG level
-        logger.info("addRequest lost data because three retries was insufficient.");
+        logger.info("addRequest lost timing instrumentation data because three retries was insufficient to update the accumulator.");
+
+        // timing instrumentation (trace only)
+        if(logger.isTraceEnabled()) {
+            logger.trace("addRequest (histogram.insert and accumulator update) took "
+                         + (System.nanoTime() - startTimeNs) + " ns.");
+        }
     }
 
     /**
