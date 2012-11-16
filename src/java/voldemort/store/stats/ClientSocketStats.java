@@ -59,7 +59,9 @@ public class ClientSocketStats {
     private QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> pool;
 
     // monitoringInterval <= connectionCheckouts + resourceRequests
-    private final AtomicInteger monitoringInterval = new AtomicInteger(10000);
+    // 1 qps => monitoring interval of just over a day (~27 hours)
+    // 1000 qps => monitoring interval of 1 minute and 40 seconds
+    private final AtomicInteger monitoringInterval = new AtomicInteger(100000);
     // Connection lifecycle
     private final AtomicInteger connectionsCreated = new AtomicInteger(0);
     private final AtomicInteger connectionsDestroyed = new AtomicInteger(0);
