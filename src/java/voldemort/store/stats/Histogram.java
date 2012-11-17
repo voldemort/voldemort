@@ -58,7 +58,9 @@ public class Histogram {
         this.buckets = new int[nBuckets];
         reset();
 
-        logger.debug("Constructed a histogram with " + nBuckets + " buckets.");
+        if(logger.isDebugEnabled()) {
+            logger.debug("Constructed a histogram with " + nBuckets + " buckets.");
+        }
     }
 
     /**

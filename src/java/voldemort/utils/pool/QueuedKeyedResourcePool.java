@@ -340,7 +340,9 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
                 // FYI: .size() is not constant time in the next call. ;)
                 return requestQueue.size();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getRegisteredResourceRequestCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;

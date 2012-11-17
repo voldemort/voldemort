@@ -117,12 +117,12 @@ public class AsyncRecoveryFailureDetector extends AbstractFailureDetector implem
 
                     if(logger.isDebugEnabled())
                         logger.debug("Verified previously unavailable node " + node.getId()
-                                     + ", will mark as available...");
+                                     + "is now available.");
 
                     nodeRecovered(node);
                 } catch(UnreachableStoreException e) {
-                    if(logger.isEnabledFor(Level.WARN))
-                        logger.warn("Node " + node.getId() + " still unavailable", e);
+                    if(logger.isInfoEnabled())
+                        logger.info("Node " + node.getId() + " still unavailable.");
                 } catch(Exception e) {
                     if(logger.isEnabledFor(Level.ERROR))
                         logger.error("Node " + node.getId() + " unavailable due to error", e);

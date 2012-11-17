@@ -298,7 +298,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.size.get();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getTotalResourceCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getTotalResourceCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -331,7 +333,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.queue.size();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getCheckedInResourceCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -364,7 +368,9 @@ public class KeyedResourcePool<K, V> {
                 Pool<V> resourcePool = getResourcePoolForExistingKey(key);
                 return resourcePool.blockingGets.get();
             } catch(IllegalArgumentException iae) {
-                logger.debug("getBlockingGetsCount called on invalid key: ", iae);
+                if(logger.isDebugEnabled()) {
+                    logger.debug("getBlockingGetsCount called on invalid key: ", iae);
+                }
             }
         }
         return 0;
@@ -438,10 +444,12 @@ public class KeyedResourcePool<K, V> {
                         if(!nonBlockingPut(resource)) {
                             this.size.decrementAndGet();
                             objectFactory.destroy(key, resource);
-                            logger.info("attemptGrow established new connection for key "
-                                        + key.toString()
-                                        + " and immediately destroyed the new connection "
-                                        + "because there were too many connections already established.");
+                            if(logger.isInfoEnabled()) {
+                                logger.info("attemptGrow established new connection for key "
+                                            + key.toString()
+                                            + " and immediately destroyed the new connection "
+                                            + "because there were too many connections already established.");
+                            }
                             return false;
                         }
                         if(logger.isDebugEnabled()) {

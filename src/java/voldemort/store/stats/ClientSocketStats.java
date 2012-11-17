@@ -97,8 +97,11 @@ public class ClientSocketStats {
         this.pool = pool;
         this.jmxId = jmxId;
 
-        logger.debug("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
-                     + ") with parent object(" + System.identityHashCode(parent) + ")");
+        if(logger.isDebugEnabled()) {
+            logger.debug("Constructed ClientSocketStatsStats object ("
+                         + System.identityHashCode(this) + ") with parent object("
+                         + System.identityHashCode(parent) + ")");
+        }
     }
 
     /**
@@ -113,8 +116,11 @@ public class ClientSocketStats {
         this.pool = null;
         this.jmxId = jmxId;
 
-        logger.debug("Constructed ClientSocketStatsStats object (" + System.identityHashCode(this)
-                     + ") with parent object(" + System.identityHashCode(parent) + ")");
+        if(logger.isDebugEnabled()) {
+            logger.debug("Constructed ClientSocketStatsStats object ("
+                         + System.identityHashCode(this) + ") with parent object("
+                         + System.identityHashCode(parent) + ")");
+        }
     }
 
     /* get per node stats, create one if not exist */

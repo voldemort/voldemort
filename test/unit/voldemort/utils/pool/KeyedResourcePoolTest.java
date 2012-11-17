@@ -297,7 +297,6 @@ public class KeyedResourcePoolTest {
         try {
             waitForCheckers.await();
             assertEquals(this.pool.getCheckedInResourceCount(), this.pool.getTotalResourceCount());
-            // assertEquals(POOL_SIZE, this.pool.getCheckedInResourceCount());
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
