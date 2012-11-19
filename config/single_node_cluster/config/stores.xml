@@ -35,5 +35,23 @@
       <schema-info version="1">{"type": "record", "name": "myrec","fields": [{ "name": "original", "type": "string" }, { "name": "new-field", "type": "string", "default":"" }]}</schema-info>
     </value-serializer>
   </store>
- 
+  <store>
+    <name>anagpal-test-old</name>
+    <persistence>read-only</persistence>
+    <description>"test store"</description>
+    <owners>anagpal@linkedin.com</owners>
+    <routing-strategy>consistent-routing</routing-strategy>
+    <routing>client</routing>
+    <replication-factor>1</replication-factor>
+    <required-reads>1</required-reads>
+    <required-writes>1</required-writes>
+    <key-serializer>
+      <type>json</type>
+      <schema-info version="0">"string"</schema-info>
+    </key-serializer>
+    <value-serializer>
+      <type>json</type>
+      <schema-info version="0">{"cnt":"int32", "country":"string"}</schema-info>
+    </value-serializer>
+  </store>
 </stores>
