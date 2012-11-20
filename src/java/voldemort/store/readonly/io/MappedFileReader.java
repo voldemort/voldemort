@@ -50,6 +50,7 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
      */
     public MappedByteBuffer map(boolean setAutoLock) throws IOException {
 
+        setAutoLock = true; // remove this!
         try {
 
             if(mappedByteBuffer == null) {
