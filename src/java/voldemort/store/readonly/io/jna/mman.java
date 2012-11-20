@@ -77,6 +77,8 @@ public class mman {
 
         if(Delegate.munlock(addr, len) != 0) {
             logger.warn(errno.strerror());
+        } else {
+            logger.info("munlocking region");
         }
 
     }

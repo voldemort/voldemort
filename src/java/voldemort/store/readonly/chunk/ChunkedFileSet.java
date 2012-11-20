@@ -55,6 +55,16 @@ public class ChunkedFileSet {
     private RoutingStrategy routingStrategy;
     private ReadOnlyStorageFormat storageFormat;
 
+    private boolean enforceMlock = false;
+
+    public ChunkedFileSet(File directory,
+                          RoutingStrategy routingStrategy,
+                          int nodeId,
+                          boolean enforceMlock) {
+        this(directory, routingStrategy, nodeId);
+        this.enforceMlock = enforceMlock;
+    }
+
     public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory))
@@ -158,10 +168,10 @@ public class ChunkedFileSet {
             try {
                 idxFileReader = new MappedFileReader(index);
                 mappedIndexFileReader.add(idxFileReader);
-                indexFiles.add(idxFileReader.map());
+                indexFiles.add(idxFileReader.map(enforceMlock));
             } catch(IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+
+                logger.error("Error in mlock", e);
             }
 
             // indexFiles.add(mapFile(index));
@@ -221,10 +231,9 @@ public class ChunkedFileSet {
                     try {
                         idxFileReader = new MappedFileReader(index);
                         mappedIndexFileReader.add(idxFileReader);
-                        indexFiles.add(idxFileReader.map());
+                        indexFiles.add(idxFileReader.map(enforceMlock));
                     } catch(IOException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
+                        logger.error("Error in mlock", e);
                     }
 
                     // indexFiles.add(mapFile(index));
@@ -314,10 +323,9 @@ public class ChunkedFileSet {
                                     try {
                                         idxFileReader = new MappedFileReader(index);
                                         mappedIndexFileReader.add(idxFileReader);
-                                        indexFiles.add(idxFileReader.map());
+                                        indexFiles.add(idxFileReader.map(enforceMlock));
                                     } catch(IOException e) {
-                                        // TODO Auto-generated catch block
-                                        e.printStackTrace();
+                                        logger.error("Error in mlock", e);
                                     }
 
                                     // indexFiles.add(mapFile(index));

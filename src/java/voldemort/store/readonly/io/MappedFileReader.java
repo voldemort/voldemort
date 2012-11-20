@@ -10,8 +10,6 @@ import java.nio.channels.FileChannel;
 
 import org.apache.log4j.Logger;
 
-import voldemort.store.readonly.io.jna.fcntl;
-
 /**
  * Facade around a MappedByteBuffer but we also support mlock on the mapped
  * pages, and closing all dependent resources.
@@ -21,12 +19,7 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
 
     private static final Logger log = Logger.getLogger(MappedFileReader.class);
 
-    public static boolean DEFAULT_AUTO_LOCK = true;
-
     protected FileInputStream in;
-
-    // TODO expose this as a server side config
-    protected boolean autoLock = DEFAULT_AUTO_LOCK;
 
     protected MappedByteBuffer mappedByteBuffer = null;
 
@@ -55,18 +48,13 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
     /**
      * Read from this mapped file.
      */
-    public MappedByteBuffer map() throws IOException {
+    public MappedByteBuffer map(boolean setAutoLock) throws IOException {
 
         try {
 
-            // in JDK 1.6 and earlier the max mmap we could have was 2GB so to
-            // route around this problem we create a number of smaller mmap
-            // files , one per 2GB region and then use a composite channel
-            // buffer
-
             if(mappedByteBuffer == null) {
 
-                if(autoLock) {
+                if(setAutoLock) {
                     closer.add(new MemLock(file, in.getFD(), offset, length));
                 }
 
@@ -80,6 +68,11 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
 
         } catch(IOException e) {
 
+            log.error(String.format("Failed to map %s of length %,d at %,d",
+                                    file.getPath(),
+                                    length,
+                                    offset), e);
+
             throw new IOException(String.format("Failed to map %s of length %,d at %,d",
                                                 file.getPath(),
                                                 length,
@@ -87,14 +80,6 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
 
         }
 
-    }
-
-    public boolean getAutoLock() {
-        return this.autoLock;
-    }
-
-    public void setAutoLock(boolean autoLock) {
-        this.autoLock = autoLock;
     }
 
     @Override
@@ -123,10 +108,6 @@ public class MappedFileReader extends BaseMappedFile implements Closeable {
         public void close() throws IOException {
 
             super.close();
-
-            if(fadvise) {
-                fcntl.posix_fadvise(fd, offset, length, fcntl.POSIX_FADV_RANDOM);
-            }
 
         }
 

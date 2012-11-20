@@ -69,6 +69,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private volatile boolean isOpen;
     private int deleteBackupMs = 0;
     private long lastSwapped;
+    private boolean enforceMlock = false;
 
     /**
      * Create an instance of the store
@@ -124,6 +125,22 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         this.fileModificationLock = new ReentrantReadWriteLock();
         this.isOpen = false;
         open(null);
+    }
+
+    /*
+     * Overload constructor to accept the mlock config
+     */
+    public ReadOnlyStorageEngine(String name,
+                                 SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
+                                 File storeDir,
+                                 int numBackups,
+                                 int deleteBackupMs,
+                                 boolean enforceMlock) {
+
+        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, deleteBackupMs);
+        this.enforceMlock = enforceMlock;
     }
 
     /**
@@ -186,7 +203,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                         + versionDir.getAbsolutePath());
             Utils.symlink(versionDir.getAbsolutePath(), storeDir.getAbsolutePath() + File.separator
                                                         + "latest");
-            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId);
+            this.fileSet = new ChunkedFileSet(versionDir, routingStrategy, nodeId, enforceMlock);
             this.lastSwapped = System.currentTimeMillis();
             this.isOpen = true;
         } finally {

@@ -2,6 +2,7 @@ package voldemort.store.readonly.io.jna;
 
 import java.io.IOException;
 
+import org.apache.log4j.Logger;
 
 import com.sun.jna.Native;
 
@@ -13,6 +14,8 @@ public class fcntl {
     public static final int POSIX_FADV_WILLNEED = 3; /* fadvise.h */
     public static final int POSIX_FADV_DONTNEED = 4; /* fadvise.h */
     public static final int POSIX_FADV_NOREUSE = 5; /* fadvise.h */
+
+    private static final Logger logger = Logger.getLogger(fcntl.class);
 
     /**
      * <b>posix documentation</b>
@@ -145,8 +148,9 @@ public class fcntl {
 
         int result = Delegate.posix_fallocate(fd, offset, len);
 
-        if(result != 0)
-            throw new IOException(errno.strerror(result));
+        if(result != 0) {
+            logger.warn(errno.strerror(result));
+        }
 
         return result;
 

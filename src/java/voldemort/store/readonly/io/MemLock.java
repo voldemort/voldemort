@@ -42,7 +42,7 @@ public class MemLock implements Closeable {
 
         int fd = voldemort.store.readonly.io.Native.getFd(descriptor);
 
-        pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED | mman.MAP_LOCKED, fd, offset);
+        pa = mman.mmap(length, mman.PROT_READ, mman.MAP_SHARED, fd, offset);
 
         // even though technically we have specified MAP_LOCKED this isn't
         // supported on OpenSolaris or older Linux kernels (or OS X).

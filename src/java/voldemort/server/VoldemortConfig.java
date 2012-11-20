@@ -203,6 +203,9 @@ public class VoldemortConfig implements Serializable {
     private boolean rebalancingOptimization;
     private boolean usePartitionScanForRebalance;
 
+    // flag to indicate if we will mlock and pin index pages in memory
+    private boolean useMlock;
+
     public VoldemortConfig(Properties props) {
         this(new Props(props));
     }
@@ -266,6 +269,8 @@ public class VoldemortConfig implements Serializable {
                                                      REPORTING_INTERVAL_BYTES);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
+
+        this.setUseMlock(props.getBoolean("readonly.mlock.index", false));
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");
@@ -1918,5 +1923,13 @@ public class VoldemortConfig implements Serializable {
 
     public OpTimeMap testingGetSlowConcurrentDelays() {
         return this.testingSlowConcurrentDelays;
+    }
+
+    public boolean isUseMlock() {
+        return useMlock;
+    }
+
+    public void setUseMlock(boolean useMlock) {
+        this.useMlock = useMlock;
     }
 }
