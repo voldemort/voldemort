@@ -20,6 +20,8 @@ public class mman {
     public static final int MAP_SHARED = 0x01; /* Share changes. */
     public static final int MAP_PRIVATE = 0x02; /* Changes are private. */
 
+    public static final int MAP_ALIGN = 0x200; /* addr specifies alignment */
+
     public static final int MAP_LOCKED = 0x02000; /* Lock the mapping. */
 
     // http://linux.die.net/man/2/mmap
@@ -60,9 +62,12 @@ public class mman {
 
     public static void mlock(Pointer addr, long len) throws IOException {
 
-        if(Delegate.mlock(addr, len) != 0) {
+        int res = Delegate.mlock(addr, len);
+        if(res != 0) {
+            String error = errno.strerror();
             logger.warn("Mlock failed probably because of insufficient privileges");
-            logger.warn(errno.strerror());
+            logger.warn(error);
+            logger.warn(res);
         } else {
             logger.info("Mlock successfull");
 
@@ -112,8 +117,12 @@ public class mman {
         FileInputStream in = new FileInputStream(file);
         int fd = voldemort.store.readonly.io.Native.getFd(in.getFD());
 
+        logger.info("File descriptor is: " + fd);
+
         // mmap a large file...
-        Pointer addr = mmap(file.length(), PROT_READ, mman.MAP_SHARED | mman.MAP_LOCKED, fd, 0);
+        Pointer addr = mmap(file.length(), PROT_READ, mman.MAP_SHARED | mman.MAP_ALIGN, fd, 0L);
+
+        logger.info("mmap address is: " + Pointer.nativeValue(addr));
 
         // try to mlock it directly
         mlock(addr, file.length());
@@ -122,5 +131,4 @@ public class mman {
         munmap(addr, file.length());
 
     }
-
 }
