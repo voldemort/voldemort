@@ -18,4 +18,4 @@ REM
 
 SET BASE_DIR=%~dp0..
 
-call %BASE_DIR%/bin/run-class.bat voldemort.performance.benchmark.Benchmark %*
+call "%BASE_DIR%/bin/run-class.bat" voldemort.performance.benchmark.Benchmark %*

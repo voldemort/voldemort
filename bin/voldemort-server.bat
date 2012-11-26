@@ -16,10 +16,10 @@ REM  See the License for the specific language governing permissions and
 REM  limitations under the License.
 REM
 
-set Count=0
-for %%a in (%*) do set /a Count+=1
-if %Count% geq 2 goto :continue
-echo USAGE: bin/voldemort-server.bat [voldemort_home] [voldemort_config_dir]
+set argC=0
+for %%a in (%*) do set /a argC+=1
+if %argC% leq 2 goto :continue
+echo USAGE: bin/voldemort-server.bat [voldemort_home_dir] [voldemort_config_dir]
 goto :eof
 :continue
 
@@ -28,10 +28,12 @@ setlocal
 SET BASE_DIR=%~dp0..
 SET CLASSPATH=.
 
-for %%j in (%BASE_DIR%\lib\*.jar) do (call :append_classpath "%%j")
-for %%j in (%BASE_DIR%\contrib\*\lib\*.jar) do (call :append_classpath "%%j")
-for %%j in (%BASE_DIR%\dist\*.jar) do (call :append_classpath "%%j")
-set CLASSPATH=%CLASSPATH%:%BASE_DIR%\dist\resources
+set VOLDEMORT_CONFIG_DIR=%1%/config
+rem call %VOLDEMORT_CONFIG_DIR%/voldemort-env.bat
+
+for %%j in ("%BASE_DIR%\dist\*.jar") do (call :append_classpath "%%j")
+for %%j in ("%BASE_DIR%\lib\*.jar") do (call :append_classpath "%%j")
+set CLASSPATH=%CLASSPATH%:"%BASE_DIR%\dist\resources"
 goto :run
 
 :append_classpath
@@ -40,7 +42,7 @@ goto :eof
 
 :run
 if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx2G -server -Dcom.sun.management.jmxremote"
-java -Dlog4j.configuration=src/java/log4j.properties %VOLD_OPTS% -cp %CLASSPATH% voldemort.server.VoldemortServer %*
+java %VOLD_OPTS% -cp %CLASSPATH% voldemort.server.VoldemortServer %*
 
 endlocal
 :eof

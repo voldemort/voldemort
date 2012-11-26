@@ -16,9 +16,9 @@ REM  See the License for the specific language governing permissions and
 REM  limitations under the License.
 REM
 
-set Count=0
-for %%a in (%*) do set /a Count+=1
-if %Count% geq 1 goto :continue
+set argC=0
+for %%a in (%*) do set /a argC+=1
+if %argC% geq 1 goto :continue
 echo %0 java-class-name [options]
 goto :eof
 :continue
@@ -26,10 +26,11 @@ goto :eof
 SET BASE_DIR=%~dp0..
 SET CLASSPATH=.
 
-for %%j in (%BASE_DIR%\lib\*.jar) do (call :append_classpath "%%j")
-for %%j in (%BASE_DIR%\contrib\*\lib\*.jar) do (call :append_classpath "%%j")
-for %%j in (%BASE_DIR%\dist\*.jar) do (call :append_classpath "%%j")
-set CLASSPATH=%CLASSPATH%;%BASE_DIR%\dist\resources
+set VOLDEMORT_CONFIG_DIR=%1%/config
+
+for %%j in ("%BASE_DIR%\dist\*.jar") do (call :append_classpath "%%j")
+for %%j in ("%BASE_DIR%\lib\*.jar") do (call :append_classpath "%%j")
+set CLASSPATH=%CLASSPATH%;"%BASE_DIR%\dist\resources"
 goto :run
 
 :append_classpath
@@ -38,7 +39,7 @@ goto :eof
 
 :run
 if "%VOLD_OPTS%" == "" set "VOLD_OPTS=-Xmx2G -server -Dcom.sun.management.jmxremote"
-java -Dlog4j.configuration=%BASE_DIR%\src\java\log4j.properties %VOLD_OPTS% -cp %CLASSPATH% %*
+java -Dlog4j.configuration=%VOLDEMORT_CONFIG_DIR%\log4j.properties %VOLD_OPTS% -cp %CLASSPATH% %*
 
 endlocal
 :eof

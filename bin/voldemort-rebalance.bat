@@ -18,4 +18,4 @@ REM
 
 SET BASE_DIR=%~dp0..
 
-%BASE_DIR%/bin/run-class.bat voldemort.client.rebalance.RebalanceCLI %*
+call "%BASE_DIR%/bin/run-class.bat" voldemort.client.rebalance.RebalanceCLI %*
