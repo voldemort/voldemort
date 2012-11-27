@@ -7,6 +7,7 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 
 import com.sun.jna.Native;
+import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
 public class mman {
@@ -37,7 +38,12 @@ public class mman {
         // we don't really have a need to change the recommended pointer.
         Pointer addr = new Pointer(0);
 
-        Pointer result = Delegate.mmap(addr, len, prot, flags, fildes, off);
+        Pointer result = Delegate.mmap(addr,
+                                       new NativeLong(len),
+                                       prot,
+                                       flags,
+                                       fildes,
+                                       new NativeLong(off));
 
         if(Pointer.nativeValue(result) == -1) {
 
@@ -50,7 +56,7 @@ public class mman {
 
     public static int munmap(Pointer addr, long len) throws IOException {
 
-        int result = Delegate.munmap(addr, len);
+        int result = Delegate.munmap(addr, new NativeLong(len));
 
         if(result != 0) {
             logger.warn(errno.strerror());
@@ -62,7 +68,7 @@ public class mman {
 
     public static void mlock(Pointer addr, long len) throws IOException {
 
-        int res = Delegate.mlock(addr, len);
+        int res = Delegate.mlock(addr, new NativeLong(len));
         if(res != 0) {
             String error = errno.strerror();
             logger.warn("Mlock failed probably because of insufficient privileges");
@@ -80,7 +86,7 @@ public class mman {
      */
     public static void munlock(Pointer addr, long len) throws IOException {
 
-        if(Delegate.munlock(addr, len) != 0) {
+        if(Delegate.munlock(addr, new NativeLong(len)) != 0) {
             logger.warn(errno.strerror());
         } else {
             logger.info("munlocking region");
@@ -91,17 +97,17 @@ public class mman {
     static class Delegate {
 
         public static native Pointer mmap(Pointer addr,
-                                          long len,
+                                          NativeLong len,
                                           int prot,
                                           int flags,
                                           int fildes,
-                                          long off);
+                                          NativeLong off);
 
-        public static native int munmap(Pointer addr, long len);
+        public static native int munmap(Pointer addr, NativeLong len);
 
-        public static native int mlock(Pointer addr, long len);
+        public static native int mlock(Pointer addr, NativeLong len);
 
-        public static native int munlock(Pointer addr, long len);
+        public static native int munlock(Pointer addr, NativeLong len);
 
         static {
             Native.register("c");
