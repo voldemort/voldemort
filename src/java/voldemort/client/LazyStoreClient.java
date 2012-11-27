@@ -61,7 +61,6 @@ public class LazyStoreClient<K, V> implements StoreClient<K, V> {
                 storeClient = initStoreClient();
             } catch(Exception e) {
                 storeClient = null;
-                e.printStackTrace();
                 logger.info("Could not bootstrap right away. Trying on the next call ... ");
             }
         }

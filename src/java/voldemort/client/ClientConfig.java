@@ -68,8 +68,8 @@ public class ClientConfig {
     private volatile boolean enablePipelineRoutedStore = true;
     private volatile int clientZoneId = Zone.DEFAULT_ZONE_ID;
 
-    // Flag to control which store client to use. Default = Enhanced
-    private volatile boolean useDefaultClient = false;
+    // Flag to control which store client to use. Default = old client
+    private volatile boolean useDefaultClient = true;
 
     private volatile String failureDetectorImplementation = FailureDetectorConfig.DEFAULT_IMPLEMENTATION_CLASS_NAME;
     private volatile long failureDetectorBannagePeriod = FailureDetectorConfig.DEFAULT_BANNAGE_PERIOD;
