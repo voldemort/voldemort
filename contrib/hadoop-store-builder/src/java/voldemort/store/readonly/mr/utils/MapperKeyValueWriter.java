@@ -120,12 +120,6 @@ public class MapperKeyValueWriter {
         List<Integer> partitionList = routingStrategy.getPartitionList(keyBytes);
         Node[] partitionToNode = routingStrategy.getPartitionToNode();
 
-        System.out.println("num partitions the key maps to is :" + partitionList.size());
-
-        for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
-            System.out.println("key is hashed to node:"
-                               + partitionToNode[partitionList.get(replicaType)]);
-        }
         for(int replicaType = 0; replicaType < partitionList.size(); replicaType++) {
 
             // Node id
