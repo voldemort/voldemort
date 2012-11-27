@@ -270,7 +270,8 @@ public class VoldemortConfig implements Serializable {
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
 
-        this.setUseMlock(props.getBoolean("readonly.mlock.index", false));
+        // TODO probably turn to false by default?
+        this.setUseMlock(props.getBoolean("readonly.mlock.index", true));
 
         this.mysqlUsername = props.getString("mysql.user", "root");
         this.mysqlPassword = props.getString("mysql.password", "");

@@ -110,6 +110,22 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                  int nodeId,
                                  File storeDir,
                                  int numBackups) {
+        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, 0, false);
+    }
+
+    /*
+     * Overload constructor to accept the mlock config
+     */
+    public ReadOnlyStorageEngine(String name,
+                                 SearchStrategy searchStrategy,
+                                 RoutingStrategy routingStrategy,
+                                 int nodeId,
+                                 File storeDir,
+                                 int numBackups,
+                                 int deleteBackupMs,
+                                 boolean enforceMlock) {
+
+        this.enforceMlock = enforceMlock;
         this.storeDir = storeDir;
         this.numBackups = numBackups;
         this.name = Utils.notNull(name);
@@ -125,22 +141,6 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         this.fileModificationLock = new ReentrantReadWriteLock();
         this.isOpen = false;
         open(null);
-    }
-
-    /*
-     * Overload constructor to accept the mlock config
-     */
-    public ReadOnlyStorageEngine(String name,
-                                 SearchStrategy searchStrategy,
-                                 RoutingStrategy routingStrategy,
-                                 int nodeId,
-                                 File storeDir,
-                                 int numBackups,
-                                 int deleteBackupMs,
-                                 boolean enforceMlock) {
-
-        this(name, searchStrategy, routingStrategy, nodeId, storeDir, numBackups, deleteBackupMs);
-        this.enforceMlock = enforceMlock;
     }
 
     /**

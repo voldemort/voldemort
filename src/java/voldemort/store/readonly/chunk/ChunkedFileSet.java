@@ -61,11 +61,8 @@ public class ChunkedFileSet {
                           RoutingStrategy routingStrategy,
                           int nodeId,
                           boolean enforceMlock) {
-        this(directory, routingStrategy, nodeId);
-        this.enforceMlock = enforceMlock;
-    }
 
-    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+        this.enforceMlock = enforceMlock;
         this.baseDir = directory;
         if(!Utils.isReadableDir(directory))
             throw new VoldemortException(directory.getAbsolutePath()
@@ -114,6 +111,11 @@ public class ChunkedFileSet {
         this.numChunks = indexFileSizes.size();
         logger.trace("Opened chunked file set for " + baseDir + " with " + indexFileSizes.size()
                      + " chunks and format  " + storageFormat);
+    }
+
+    public ChunkedFileSet(File directory, RoutingStrategy routingStrategy, int nodeId) {
+        this(directory, routingStrategy, nodeId, false);
+
     }
 
     public DataFileChunkSet toDataFileChunkSet() {
