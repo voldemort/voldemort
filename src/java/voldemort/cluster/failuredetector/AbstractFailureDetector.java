@@ -186,11 +186,11 @@ public abstract class AbstractFailureDetector implements FailureDetector {
     protected void setUnavailable(Node node, UnreachableStoreException e) {
         NodeStatus nodeStatus = getNodeStatus(node);
 
-        if(logger.isEnabledFor(Level.WARN)) {
+        if(logger.isDebugEnabled()) {
             if(e != null)
-                logger.warn("Node " + node.getId() + " set as unavailable", e);
+                logger.debug("Node " + node.getId() + " set as unavailable", e);
             else
-                logger.warn("Node " + node.getId() + " set as unavailable");
+                logger.debug("Node " + node.getId() + " set as unavailable");
         }
 
         // We need to distinguish the case where we're newly unavailable and the

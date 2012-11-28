@@ -16,12 +16,13 @@
 
 package voldemort.server.socket;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import junit.framework.TestCase;
 
 import org.junit.After;
 import org.junit.Before;
@@ -45,7 +46,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
  * 
  */
 @RunWith(Parameterized.class)
-public class ClientRequestExecutorPoolTest extends TestCase {
+public class ClientRequestExecutorPoolTest {
 
     private int port;
     private int maxConnectionsPerNode = 3;
@@ -64,7 +65,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         return Arrays.asList(new Object[][] { { true }, { false } });
     }
 
-    @Override
     @Before
     public void setUp() {
         this.port = ServerTestUtils.findFreePort();
@@ -88,7 +88,6 @@ public class ClientRequestExecutorPoolTest extends TestCase {
         this.server.start();
     }
 
-    @Override
     @After
     public void tearDown() {
         this.pool.close();
