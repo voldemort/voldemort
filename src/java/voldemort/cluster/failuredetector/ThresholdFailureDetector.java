@@ -145,6 +145,10 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
         String catastrophicError = getCatastrophicError(e);
         NodeStatus nodeStatus = getNodeStatus(node);
 
+        boolean invokeSetAvailable = false;
+        boolean invokeSetUnavailable = false;
+        // Protect all logic to decide on available/unavailable w/in
+        // synchronized section
         synchronized(nodeStatus) {
             if(currentTime >= nodeStatus.getStartMillis() + getConfig().getThresholdInterval()) {
                 // We've passed into a new interval, so reset our counts
@@ -165,7 +169,7 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                         logger.trace("Node " + node.getId() + " experienced catastrophic error: "
                                      + catastrophicError);
 
-                    setUnavailable(node, e);
+                    invokeSetUnavailable = true;
                 } else if(nodeStatus.getFailure() >= getConfig().getThresholdCountMinimum()) {
                     long percentage = (nodeStatus.getSuccess() * 100) / nodeStatus.getTotal();
 
@@ -173,11 +177,19 @@ public class ThresholdFailureDetector extends AsyncRecoveryFailureDetector {
                         logger.trace("Node " + node.getId() + " percentage: " + percentage + "%");
 
                     if(percentage >= getConfig().getThreshold())
-                        setAvailable(node);
+                        invokeSetAvailable = true;
                     else
-                        setUnavailable(node, e);
+                        invokeSetUnavailable = true;
                 }
             }
+        }
+        // Actually call set(Un)Available outside of synchronized section. This
+        // ensures that side effects are not w/in a sync section (e.g., alerting
+        // all the failure detector listeners).
+        if(invokeSetAvailable) {
+            setAvailable(node);
+        } else if(invokeSetUnavailable) {
+            setUnavailable(node, e);
         }
     }
 

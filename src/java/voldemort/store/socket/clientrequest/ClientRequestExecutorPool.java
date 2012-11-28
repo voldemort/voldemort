@@ -55,7 +55,6 @@ import voldemort.utils.pool.ResourcePoolConfig;
  * Upon successful construction of this object, a new Thread is started. It is
  * terminated upon calling {@link #close()}.
  */
-
 public class ClientRequestExecutorPool implements SocketStoreFactory {
 
     private final QueuedKeyedResourcePool<SocketDestination, ClientRequestExecutor> queuedPool;
@@ -204,7 +203,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
-        queuedPool.reset(destination);
+        // TODO: Lazily destroy connections instead of actively destroying
+        // connections. Commenting out the next line changes to the lazy
+        // behavior. The other option is to change this behavior w/in
+        // QueuedKeyedResourcePool (i.e., instead of over-riding reset, just let
+        // KeyedResourcePool.reset be invoked directly).
+        // queuedPool.reset(destination);
     }
 
     /**
