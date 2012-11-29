@@ -47,7 +47,7 @@ public class mman {
 
         if(Pointer.nativeValue(result) == -1) {
 
-            logger.warn(errno.strerror());
+            logger.debug(errno.strerror());
         }
 
         return result;
@@ -59,7 +59,7 @@ public class mman {
         int result = Delegate.munmap(addr, new NativeLong(len));
 
         if(result != 0) {
-            logger.warn(errno.strerror());
+            logger.debug(errno.strerror());
         }
 
         return result;
@@ -72,8 +72,8 @@ public class mman {
         if(res != 0) {
             String error = errno.strerror();
             logger.warn("Mlock failed probably because of insufficient privileges");
-            logger.warn(error);
-            logger.warn(res);
+            logger.debug(error);
+            logger.debug(res);
         } else {
             logger.info("Mlock successfull");
 
