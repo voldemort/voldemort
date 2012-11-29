@@ -82,11 +82,13 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
         this.insufficientZonesEvent = insufficientZonesEvent;
     }
 
+    @Override
     public void execute(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
         int attempts = Math.min(preferred, nodes.size());
+
         final Map<Integer, Response<ByteArray, Object>> responses = new ConcurrentHashMap<Integer, Response<ByteArray, Object>>();
-        final CountDownLatch latch = new CountDownLatch(attempts);
+        final CountDownLatch attemptsLatch = new CountDownLatch(attempts);
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -96,54 +98,16 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             final Node node = nodes.get(i);
             pipelineData.incrementNodeIndex();
 
-            final long startMs = logger.isDebugEnabled() ? System.currentTimeMillis() : -1;
-
-            NonblockingStoreCallback callback = new NonblockingStoreCallback() {
-
-                public void requestComplete(Object result, long requestTime) {
-                    if(logger.isTraceEnabled())
-                        logger.trace(pipeline.getOperation().getSimpleName()
-                                     + " response received (" + requestTime + " ms.) from node "
-                                     + node.getId());
-
-                    Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
-                                                                                           key,
-                                                                                           result,
-                                                                                           requestTime);
-                    if(logger.isDebugEnabled())
-                        logger.debug("Finished " + pipeline.getOperation().getSimpleName()
-                                     + " for key " + ByteUtils.toHexString(key.get())
-                                     + " (keyRef: " + System.identityHashCode(key)
-                                     + "); started at " + startMs + " took " + requestTime
-                                     + " ms on node " + node.getId() + "(" + node.getHost() + ")");
-
-                    responses.put(node.getId(), response);
-                    latch.countDown();
-
-                    // Note errors that come in after the pipeline has finished.
-                    // These will *not* get a chance to be called in the loop of
-                    // responses below.
-                    if(pipeline.isFinished() && response.getValue() instanceof Exception) {
-                        if(response.getValue() instanceof InvalidMetadataException) {
-                            pipelineData.reportException((InvalidMetadataException) response.getValue());
-                            logger.warn("Received invalid metadata problem after a successful "
-                                        + pipeline.getOperation().getSimpleName()
-                                        + " call on node " + node.getId() + ", store '"
-                                        + pipelineData.getStoreName() + "'");
-                        } else {
-                            handleResponseError(response, pipeline, failureDetector);
-                        }
-                    }
-                }
-
-            };
+            NonblockingStoreCallback callback = new Callback(pipeline,
+                                                             node,
+                                                             responses,
+                                                             attemptsLatch);
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting " + pipeline.getOperation().getSimpleName()
                              + " request on node " + node.getId());
 
             NonblockingStore store = nonblockingStores.get(node.getId());
-
             if(pipeline.getOperation() == Operation.GET)
                 store.submitGetRequest(key, transforms, callback, timeoutMs);
             else if(pipeline.getOperation() == Operation.GET_VERSIONS)
@@ -154,8 +118,10 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                 + pipeline.getOperation());
         }
 
+        // TODO: Wait on attemptsLatch and processiong responses could be
+        // refactored to use PerformParallelPut.waitForResponses.
         try {
-            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            attemptsLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -167,10 +133,12 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                     return;
             } else {
                 pipelineData.incrementSuccesses();
-                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
-                pipelineData.getResponses().add(rCast);
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+
+                // TODO: What about these two operations!? ARe they needed?
+                Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
+                pipelineData.getResponses().add(rCast);
             }
         }
 
@@ -198,11 +166,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
 
                 pipeline.abort();
             }
-
         } else {
-
             if(pipelineData.getZonesRequired() != null) {
-
                 int zonesSatisfied = pipelineData.getZoneResponses().size();
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
                     pipeline.addEvent(completeEvent);
@@ -224,13 +189,63 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                                                           + zonesSatisfied
                                                                                           + " succeeded"));
                     }
-
                 }
-
             } else {
                 pipeline.addEvent(completeEvent);
             }
         }
     }
 
+    public class Callback implements NonblockingStoreCallback {
+
+        final Pipeline pipeline;
+        final Node node;
+        final Map<Integer, Response<ByteArray, Object>> responses;
+        final CountDownLatch attemptsLatch;
+
+        Callback(Pipeline pipeline,
+                 Node node,
+                 Map<Integer, Response<ByteArray, Object>> responses,
+                 CountDownLatch attemptsLatch) {
+            this.pipeline = pipeline;
+            this.node = node;
+            this.responses = responses;
+            this.attemptsLatch = attemptsLatch;
+        }
+
+        @Override
+        public void requestComplete(Object result, long requestTime) {
+            if(logger.isTraceEnabled())
+                logger.trace(pipeline.getOperation().getSimpleName() + " response received ("
+                             + requestTime + " ms.) from node " + node.getId());
+
+            Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                                   key,
+                                                                                   result,
+                                                                                   requestTime);
+            if(logger.isDebugEnabled())
+                logger.debug("Finished " + pipeline.getOperation().getSimpleName() + " for key "
+                             + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                             + System.identityHashCode(key) + "); took " + requestTime
+                             + " ms on node " + node.getId() + "(" + node.getHost() + ")");
+
+            responses.put(node.getId(), response);
+            attemptsLatch.countDown();
+
+            // TODO: Must move heavy-weight ops out of callback
+            // Note errors that come in after the pipeline has finished.
+            // These will *not* get a chance to be called in the loop of
+            // responses below.
+            if(pipeline.isFinished() && response.getValue() instanceof Exception) {
+                if(response.getValue() instanceof InvalidMetadataException) {
+                    pipelineData.reportException((InvalidMetadataException) response.getValue());
+                    logger.warn("Received invalid metadata problem after a successful "
+                                + pipeline.getOperation().getSimpleName() + " call on node "
+                                + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
+                } else {
+                    handleResponseError(response, pipeline, failureDetector);
+                }
+            }
+        }
+    }
 }
