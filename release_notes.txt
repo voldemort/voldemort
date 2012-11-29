@@ -1,3 +1,18 @@
+Release 1.1.4 on 11/29/2012
+
+Changes made since release 1.1.3
+* Added BDB parameters to control LRU behavior in cache & proactive cleaner migration
+* Added a mlock fix for pinning the indexes of RO stores in memory
+
+
+Release 1.1.3 on 11/28/2012
+
+Changes made since release 1.1.2
+* Fixed a bug in the build and push job, specifically the Mapper
+  that caused collisions
+* Added retry mechanism with the HDFS fetcher for hftp
+
+
 Release 1.1.2 on 10/31/2012
 
 Changes made since release 1.1.1
