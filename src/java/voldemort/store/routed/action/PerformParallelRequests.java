@@ -136,7 +136,7 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
 
-                // TODO: What about these two operations!? ARe they needed?
+                // TODO: Are the next two lines necessary!?!?!? YES, they are.
                 Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
             }

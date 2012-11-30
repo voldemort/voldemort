@@ -197,7 +197,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
 
-                // TODO: Are the next two lines necessary!?!?!?
+                // TODO: Are the next two lines necessary!?!?!? YES, they are.
                 Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
 
