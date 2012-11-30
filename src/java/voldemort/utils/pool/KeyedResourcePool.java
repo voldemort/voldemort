@@ -272,9 +272,9 @@ public class KeyedResourcePool<K, V> {
     }
 
     /**
-     * Reset a specific resource pool. Destroys all the resources in the pool.
-     * This method does not affect whether the pool is "open" in the sense of
-     * permitting new resources to be added to it.
+     * Reset a specific resource pool. Destroys all of the idle resources in the
+     * pool. This method does not affect whether the pool is "open" in the sense
+     * of permitting new resources to be added to it.
      * 
      * @param key The key for the pool to reset.
      */

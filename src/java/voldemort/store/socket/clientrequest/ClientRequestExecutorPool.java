@@ -203,12 +203,7 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
-        // TODO: Lazily destroy connections instead of actively destroying
-        // connections. Commenting out the next line changes to the lazy
-        // behavior. The other option is to change this behavior w/in
-        // QueuedKeyedResourcePool (i.e., instead of over-riding reset, just let
-        // KeyedResourcePool.reset be invoked directly).
-        // queuedPool.reset(destination);
+        queuedPool.reset(destination);
     }
 
     /**

@@ -275,30 +275,6 @@ public class QueuedKeyedResourcePool<K, V> extends KeyedResourcePool<K, V> {
         internalClose();
     }
 
-    /**
-     * Reset a specific resource pool and resource request queue. First,
-     * "destroy" all registered resource requests. Second, destroy all resources
-     * in the pool.
-     * 
-     * @param key The key for the pool to reset.
-     */
-    @Override
-    public void reset(K key) {
-        // First, destroy enqueued resource requests (if any exist).
-        Queue<AsyncResourceRequest<V>> requestQueueToDestroy = requestQueueMap.get(key);
-        if(requestQueueToDestroy != null) {
-            // Swap in a new requestQueue so that the current requestQueue can
-            // be destroyed without the need of any synchronization primitives
-            Queue<AsyncResourceRequest<V>> newRequestQueue = new ConcurrentLinkedQueue<AsyncResourceRequest<V>>();
-            if(requestQueueMap.replace(key, requestQueueToDestroy, newRequestQueue)) {
-                destroyRequestQueue(requestQueueToDestroy);
-            }
-        }
-
-        // Second, destroy resources in the pool.
-        super.reset(key);
-    }
-
     /*
      * Get the queue of work for the given key. If no queue exists, create one.
      */
