@@ -215,6 +215,7 @@ public class PerformParallelPutRequests extends
                 pipelineData.incrementSuccesses();
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+
                 responses.remove(responseEntry.getKey());
             }
         }
@@ -261,7 +262,6 @@ public class PerformParallelPutRequests extends
                              + requestTime + " ms on node " + node.getId() + "(" + node.getHost()
                              + ")");
 
-            // TODO: Must move heavy-weight ops out of callback
             if(isHintedHandoffEnabled() && pipeline.isFinished()) {
                 if(response.getValue() instanceof UnreachableStoreException) {
                     Slop slop = new Slop(pipelineData.getStoreName(),
@@ -272,16 +272,10 @@ public class PerformParallelPutRequests extends
                                          node.getId(),
                                          new Date());
                     pipelineData.addFailedNode(node);
+                    // TODO: Should not have blocking operation in callback
                     hintedHandoff.sendHintSerial(node, versionedCopy.getVersion(), slop);
                 }
             }
-            /*-
-            if(isHintedHandoffEnabled() && pipeline.isFinished()) {
-                if(response.getValue() instanceof UnreachableStoreException) {
-                    new Thread(new DoHintedHandoff());
-                }
-            }
-             */
 
             attemptsLatch.countDown();
             blocksLatch.countDown();
@@ -290,7 +284,6 @@ public class PerformParallelPutRequests extends
                 logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
                              + " for " + blocksLatch.getCount() + " more ");
 
-            // TODO: Must move heavy-weight ops out of callback
             // Note errors that come in after the pipeline has finished.
             // These will *not* get a chance to be called in the loop of
             // responses below.
@@ -302,99 +295,12 @@ public class PerformParallelPutRequests extends
                                 + pipeline.getOperation().getSimpleName() + " call on node "
                                 + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
                 } else {
-                    handleResponseError(response, pipeline, failureDetector);
-                }
-            }
-            /*-
-            if(pipeline.isFinished() && response.getValue() instanceof Exception
-               && !(response.getValue() instanceof ObsoleteVersionException)) {
-                new Thread(new DoErrorHandling(response));
-            }
-             */
-
-            /*-
-            if(pipeline.isFinished() && response.getValue() instanceof Exception) {
-                logger.error("OMG DoExceptionHandling.run() invoked!");
-                new Thread(new DoExceptionHandling(response));
-            }
-             */
-        }
-
-        public class DoHintedHandoff implements Runnable {
-
-            DoHintedHandoff() {}
-
-            @Override
-            public void run() {
-                // TODO: remove logger.error...
-                logger.error("OMG DoHintedHandoff.run() invoked!");
-                Slop slop = new Slop(pipelineData.getStoreName(),
-                                     Slop.Operation.PUT,
-                                     key,
-                                     versionedCopy.getValue(),
-                                     transforms,
-                                     node.getId(),
-                                     new Date());
-                pipelineData.addFailedNode(node);
-                hintedHandoff.sendHintSerial(node, versionedCopy.getVersion(), slop);
-            }
-        }
-
-        public class DoErrorHandling implements Runnable {
-
-            Response<ByteArray, Object> response;
-
-            DoErrorHandling(Response<ByteArray, Object> response) {
-                this.response = response;
-            }
-
-            @Override
-            public void run() {
-                // TODO: remove logger.error...
-                logger.error("OMG DoErrorHandling.run() invoked!");
-                if(response.getValue() instanceof InvalidMetadataException) {
-                    pipelineData.reportException((InvalidMetadataException) response.getValue());
-                    logger.warn("Received invalid metadata problem after a successful "
-                                + pipeline.getOperation().getSimpleName() + " call on node "
-                                + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
-                } else {
+                    // TODO: Should not have operation that acquires locks and
+                    // may do blocking operations in callback
                     handleResponseError(response, pipeline, failureDetector);
                 }
             }
         }
 
-        public class DoExceptionHandling implements Runnable {
-
-            Response<ByteArray, Object> response;
-
-            DoExceptionHandling(Response<ByteArray, Object> response) {
-                this.response = response;
-            }
-
-            @Override
-            public void run() {
-                // TODO: remove logger.error...
-                logger.error("OMG DoExceptionHandling.run() invoked!");
-                if(response.getValue() instanceof UnreachableStoreException
-                   && isHintedHandoffEnabled()) {
-                    Slop slop = new Slop(pipelineData.getStoreName(),
-                                         Slop.Operation.PUT,
-                                         key,
-                                         versionedCopy.getValue(),
-                                         transforms,
-                                         node.getId(),
-                                         new Date());
-                    pipelineData.addFailedNode(node);
-                    hintedHandoff.sendHintSerial(node, versionedCopy.getVersion(), slop);
-                } else if(response.getValue() instanceof InvalidMetadataException) {
-                    pipelineData.reportException((InvalidMetadataException) response.getValue());
-                    logger.warn("Received invalid metadata problem after a successful "
-                                + pipeline.getOperation().getSimpleName() + " call on node "
-                                + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
-                } else {
-                    handleResponseError(response, pipeline, failureDetector);
-                }
-            }
-        }
     }
 }

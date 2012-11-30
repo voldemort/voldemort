@@ -71,7 +71,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         this.hintedHandoff = hintedHandoff;
     }
 
-    // TODO: This is almost identical to PerformParallelPutRequests.execute
     @Override
     public void execute(final Pipeline pipeline) {
         List<Node> nodes = pipelineData.getNodes();
@@ -159,8 +158,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         }
     }
 
-    // TODO: except for start time, this is same as
-    // PerformParallelPutRequests.waitForResponses
     private void waitForResponses(long startTimeNs,
                                   CountDownLatch latch,
                                   final Map<Integer, Response<ByteArray, Object>> responses,
@@ -179,8 +176,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         }
     }
 
-    // TODO: except for two lines, this is same as
-    // PerformParallelPutRequests.processResponses
     private void processResponses(final Map<Integer, Response<ByteArray, Object>> responses,
                                   final Pipeline pipeline) {
         for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
@@ -197,7 +192,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
 
-                // TODO: Are the next two lines necessary!?!?!? YES, they are.
                 Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
 
@@ -206,8 +200,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
         }
     }
 
-    // TODO: Almost identical to PerformParallelPutRequests.Callback. Anyway to
-    // refactor into common code?
     public class Callback implements NonblockingStoreCallback {
 
         final Pipeline pipeline;
@@ -240,7 +232,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                                                                    requestTime);
             responses.put(node.getId(), response);
 
-            // TODO: Must move heavy-weight ops out of callback
             if(enableHintedHandoff && pipeline.isFinished()
                && response.getValue() instanceof UnreachableStoreException) {
                 Slop slop = new Slop(pipelineData.getStoreName(),
@@ -251,6 +242,7 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                      node.getId(),
                                      new Date());
                 pipelineData.addFailedNode(node);
+                // TODO: Should not have blocking operation in callback
                 hintedHandoff.sendHintSerial(node, version, slop);
             }
 
@@ -261,7 +253,6 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                 logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
                              + " for " + blocksLatch.getCount() + " more ");
 
-            // TODO: Must move heavy-weight ops out of callback
             // Note errors that come in after the pipeline has finished.
             // These will *not* get a chance to be called in the loop of
             // responses below.
@@ -273,6 +264,8 @@ public class PerformParallelDeleteRequests<V, PD extends BasicPipelineData<V>> e
                                 + pipeline.getOperation().getSimpleName() + " call on node "
                                 + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
                 } else {
+                    // TODO: Should not have operation that acquires locks and
+                    // may do blocking operations in callback
                     handleResponseError(response, pipeline, failureDetector);
                 }
             }

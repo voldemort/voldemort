@@ -181,7 +181,6 @@ public class PerformParallelGetAllRequests
             responses.put(node.getId(), response);
             attemptsLatch.countDown();
 
-            // TODO: Must move heavy-weight ops out of callback
             // Note errors that come in after the pipeline has finished.
             // These will *not* get a chance to be called in the loop of
             // responses below.
@@ -192,6 +191,8 @@ public class PerformParallelGetAllRequests
                                 + pipeline.getOperation().getSimpleName() + " call on node "
                                 + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
                 } else {
+                    // TODO: Should not have operation that acquires locks and
+                    // may do blocking operations in callback
                     handleResponseError(response, pipeline, failureDetector);
                 }
 

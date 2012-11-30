@@ -118,8 +118,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                                 + pipeline.getOperation());
         }
 
-        // TODO: Wait on attemptsLatch and processiong responses could be
-        // refactored to use PerformParallelPut.waitForResponses.
         try {
             attemptsLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
@@ -136,7 +134,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                 failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
                 pipelineData.getZoneResponses().add(response.getNode().getZoneId());
 
-                // TODO: Are the next two lines necessary!?!?!? YES, they are.
                 Response<ByteArray, V> rCast = Utils.uncheckedCast(response);
                 pipelineData.getResponses().add(rCast);
             }
@@ -232,7 +229,6 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
             responses.put(node.getId(), response);
             attemptsLatch.countDown();
 
-            // TODO: Must move heavy-weight ops out of callback
             // Note errors that come in after the pipeline has finished.
             // These will *not* get a chance to be called in the loop of
             // responses below.
@@ -243,6 +239,8 @@ public class PerformParallelRequests<V, PD extends BasicPipelineData<V>> extends
                                 + pipeline.getOperation().getSimpleName() + " call on node "
                                 + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
                 } else {
+                    // TODO: Should not have operation that acquires locks and
+                    // may do blocking operations in callback
                     handleResponseError(response, pipeline, failureDetector);
                 }
             }
