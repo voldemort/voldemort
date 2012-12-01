@@ -165,8 +165,10 @@ public class KeyedResourcePool<K, V> {
     protected V attemptNonBlockingCheckout(K key, Pool<V> pool) throws Exception {
         V resource = pool.nonBlockingGet();
         if(resource == null) {
-            if(pool.attemptGrow(key, this.objectFactory)) {
+            while(pool.attemptGrow(key, this.objectFactory)) {
                 resource = pool.nonBlockingGet();
+                if(resource != null)
+                    break;
             }
         }
         return resource;
