@@ -37,6 +37,7 @@ import voldemort.common.service.SchedulerService;
 import voldemort.server.VoldemortServer;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
+import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.SystemTime;
 
 /**
@@ -65,7 +66,8 @@ public class AsyncMetadataVersionManagerTest {
     private SchedulerService scheduler;
     private AsyncMetadataVersionManager asyncCheckMetadata;
     private boolean callbackDone = false;
-    private long updatedStoresVersion;
+    private long updatedClusterVersion;
+    private long updatedStoreVersion;
 
     @Before
     public void setUp() throws Exception {
@@ -124,24 +126,23 @@ public class AsyncMetadataVersionManagerTest {
             Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
                 public Void call() throws Exception {
-                    callback();
+                    callbackForClusterChange();
                     return null;
                 }
             };
 
             // Write a base version of 100
-            String existingVersions = this.sysVersionStore.getSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE)
-                                                          .getValue();
-            existingVersions += storeVersionKey + "=100";
-            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE,
-                                             existingVersions);
+            Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysVersionStore);
+            versionProps.setProperty(storeVersionKey, Integer.toString(100));
+            MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
 
             // Giving enough time to complete the above put.
             Thread.sleep(500);
 
             // Starting the Version Metadata Manager
             this.asyncCheckMetadata = new AsyncMetadataVersionManager(this.repository,
-                                                                      rebootstrapCallback);
+                                                                      rebootstrapCallback,
+                                                                      null);
             scheduler.schedule(asyncCheckMetadata.getClass().getName(),
                                asyncCheckMetadata,
                                new Date(),
@@ -158,12 +159,8 @@ public class AsyncMetadataVersionManagerTest {
             // Manager to detect
             this.newVersion = 101;
             System.err.println("Incrementing the version for : " + storeVersionKey);
-            existingVersions = this.sysVersionStore.getSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE)
-                                                   .getValue();
-            existingVersions = existingVersions.replaceAll(storeVersionKey + "=100",
-                                                           storeVersionKey + "=101");
-            this.sysVersionStore.putSysStore(AsyncMetadataVersionManager.VERSIONS_METADATA_STORE,
-                                             existingVersions);
+            versionProps.setProperty(storeVersionKey, Long.toString(this.newVersion));
+            MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
 
             maxRetries = 0;
             while(maxRetries < 3 && !callbackDone) {
@@ -171,21 +168,99 @@ public class AsyncMetadataVersionManagerTest {
                 maxRetries++;
             }
 
-            assertEquals(this.updatedStoresVersion, this.newVersion);
+            assertEquals(this.updatedClusterVersion, this.newVersion);
         } catch(Exception e) {
             e.printStackTrace();
             fail("Failed to start the Metadata Version Manager : " + e.getMessage());
         }
     }
 
-    private void callback() {
+    /*
+     * Validates that the AsyncMetadataVersionManager correctly identifies the
+     * store specific version update. This is done by initializing the base
+     * metadata version (for a particular store), starting the
+     * AsyncMetadataVersionManager and then updating the version to a new value.
+     * For the test to succeed the callback has to be invoked correctly by the
+     * asynchronous manager.
+     */
+    @Test
+    public void testStoreDefinitionChangeTracker() {
+        String storeVersionKey = "users";
+        Callable<Void> rebootstrapCallback = new Callable<Void>() {
+
+            public Void call() throws Exception {
+                callbackForStoreChange();
+                return null;
+            }
+        };
+
+        try {
+            // Write a base version of 100
+            Properties versionProps = MetadataVersionStoreUtils.getProperties(this.sysVersionStore);
+            versionProps.setProperty(storeVersionKey, Integer.toString(100));
+            MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
+
+            // Giving enough time to complete the above put.
+            Thread.sleep(500);
+
+            // Starting the Version Metadata Manager
+            this.asyncCheckMetadata = new AsyncMetadataVersionManager(this.repository,
+                                                                      rebootstrapCallback,
+                                                                      storeVersionKey);
+            scheduler.schedule(asyncCheckMetadata.getClass().getName(),
+                               asyncCheckMetadata,
+                               new Date(),
+                               500);
+
+            // Wait until the Version Manager is active
+            int maxRetries = 0;
+            while(maxRetries < 3 && !asyncCheckMetadata.isActive) {
+                Thread.sleep(500);
+                maxRetries++;
+            }
+
+            // Updating the version metadata here for the Version Metadata
+            // Manager to detect
+            this.newVersion = 101;
+            System.err.println("Incrementing the version for : " + storeVersionKey);
+            versionProps.setProperty(storeVersionKey, Long.toString(this.newVersion));
+            MetadataVersionStoreUtils.setProperties(this.sysVersionStore, versionProps);
+
+            maxRetries = 0;
+            while(maxRetries < 3 && !callbackDone) {
+                Thread.sleep(2000);
+                maxRetries++;
+            }
+
+            assertEquals(false, (this.updatedStoreVersion == 0));
+            assertEquals(this.updatedStoreVersion, this.newVersion);
+        } catch(Exception e) {
+            e.printStackTrace();
+            fail("Failed to start the Metadata Version Manager : " + e.getMessage());
+        }
+    }
+
+    private void callbackForClusterChange() {
         try {
             Long clusterVersion = this.asyncCheckMetadata.getClusterMetadataVersion();
             if(clusterVersion != null) {
-                this.updatedStoresVersion = clusterVersion;
+                this.updatedClusterVersion = clusterVersion;
             }
         } catch(Exception e) {
-            fail("Error in updating stores.xml version: " + e.getMessage());
+            fail("Error in updating cluster.xml version: " + e.getMessage());
+        } finally {
+            this.callbackDone = true;
+        }
+    }
+
+    private void callbackForStoreChange() {
+        try {
+            Long storeVersion = this.asyncCheckMetadata.getStoreMetadataVersion();
+            if(storeVersion != null) {
+                this.updatedStoreVersion = storeVersion;
+            }
+        } catch(Exception e) {
+            fail("Error in updating store version: " + e.getMessage());
         } finally {
             this.callbackDone = true;
         }
