@@ -320,7 +320,7 @@ public class E2EClientRequestExecutorPoolAndFailureDetectorTest {
         final int NUM_GETTERS_END = 100;
         final int NUM_GETTERS_STEP = 25;
 
-        final int NUM_OPS = 10 * 1000;
+        final int NUM_OPS = 2 * 1000;
 
         for(int putters = NUM_PUTTERS_START; putters <= NUM_PUTTERS_END; putters += NUM_PUTTERS_STEP) {
             for(int getters = NUM_GETTERS_START; getters <= NUM_GETTERS_END; getters += NUM_GETTERS_STEP) {
