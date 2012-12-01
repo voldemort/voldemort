@@ -25,6 +25,7 @@ import org.apache.thrift.TBase;
 import voldemort.serialization.avro.AvroGenericSerializer;
 import voldemort.serialization.avro.AvroReflectiveSerializer;
 import voldemort.serialization.avro.AvroSpecificSerializer;
+import voldemort.serialization.avro.versioned.AvroVersionedGenericSerializer;
 import voldemort.serialization.json.JsonTypeDefinition;
 import voldemort.serialization.json.JsonTypeSerializer;
 import voldemort.serialization.protobuf.ProtoBufSerializer;
@@ -50,6 +51,12 @@ public class DefaultSerializerFactory implements SerializerFactory {
     private static final String AVRO_SPECIFIC_TYPE_NAME = "avro-specific";
     private static final String AVRO_REFLECTIVE_TYPE_NAME = "avro-reflective";
 
+    // New serialization types for avro versioning support
+    // We cannot change existing serializer classes since
+    // this will break existing clients while looking for the version byte
+
+    private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
+
     public Serializer<?> getSerializer(SerializerDefinition serializerDef) {
         String name = serializerDef.getName();
         if(name.equals(JAVA_SERIALIZER_TYPE_NAME)) {
@@ -72,13 +79,24 @@ public class DefaultSerializerFactory implements SerializerFactory {
         } else if(name.equals(PROTO_BUF_TYPE_NAME)) {
             return new ProtoBufSerializer<Message>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(THRIFT_TYPE_NAME)) {
-            return new ThriftSerializer<TBase<?,?>>(serializerDef.getCurrentSchemaInfo());
+            return new ThriftSerializer<TBase<?, ?>>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_GENERIC_TYPE_NAME)) {
             return new AvroGenericSerializer(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_SPECIFIC_TYPE_NAME)) {
             return new AvroSpecificSerializer<SpecificRecord>(serializerDef.getCurrentSchemaInfo());
         } else if(name.equals(AVRO_REFLECTIVE_TYPE_NAME)) {
             return new AvroReflectiveSerializer<Object>(serializerDef.getCurrentSchemaInfo());
+        } else if(name.equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+            if(serializerDef.hasVersion()) {
+                Map<Integer, String> versions = new HashMap<Integer, String>();
+                for(Map.Entry<Integer, String> entry: serializerDef.getAllSchemaInfoVersions()
+                                                                   .entrySet())
+                    versions.put(entry.getKey(), entry.getValue());
+                return new AvroVersionedGenericSerializer(versions);
+            } else {
+                return new AvroVersionedGenericSerializer(serializerDef.getCurrentSchemaInfo());
+            }
+
         } else {
             throw new IllegalArgumentException("No known serializer type: "
                                                + serializerDef.getName());

@@ -170,7 +170,8 @@ public class ZenStoreClient<K, V> extends DefaultStoreClient<K, V> {
             };
 
             asyncMetadataManager = new AsyncMetadataVersionManager(this.sysRepository,
-                                                                   rebootstrapCallback);
+                                                                   rebootstrapCallback,
+                                                                   this.storeName);
 
             // schedule the job to run every 'checkInterval' period, starting
             // now

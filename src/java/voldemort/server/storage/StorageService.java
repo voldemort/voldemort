@@ -55,6 +55,8 @@ import voldemort.common.service.SchedulerService;
 import voldemort.common.service.ServiceType;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
+import voldemort.serialization.SerializerDefinition;
+import voldemort.serialization.avro.versioned.SchemaEvolutionValidator;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
@@ -329,6 +331,25 @@ public class StorageService extends AbstractService {
         List<StoreDefinition> storeDefs = new ArrayList<StoreDefinition>(this.metadata.getStoreDefList());
         logger.info("Initializing stores:");
 
+        logger.info("Validating schemas:");
+        String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
+
+        for(StoreDefinition storeDef: storeDefs) {
+            SerializerDefinition keySerDef = storeDef.getKeySerializer();
+            SerializerDefinition valueSerDef = storeDef.getValueSerializer();
+
+            if(keySerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+
+                SchemaEvolutionValidator.checkSchemaCompatibility(keySerDef);
+
+            }
+
+            if(valueSerDef.getName().equals(AVRO_GENERIC_VERSIONED_TYPE_NAME)) {
+
+                SchemaEvolutionValidator.checkSchemaCompatibility(valueSerDef);
+
+            }
+        }
         // first initialize non-view stores
         for(StoreDefinition def: storeDefs)
             if(!def.isView())
