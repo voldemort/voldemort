@@ -15,79 +15,17 @@
  */
 package voldemort.utils.pool;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertFalse;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.Before;
-import org.junit.Test;
-
-public class KeyedResourcePoolStressTest {
-
-    protected static final int POOL_SIZE = 100;
-    protected static final long TIMEOUT_MS = 500;
-    protected static final long NUM_TESTS = 5000;
+public class KeyedResourcePoolBaseTest {
 
     protected TestResourceFactory factory;
     protected KeyedResourcePool<String, TestResource> pool;
     protected ResourcePoolConfig config;
-
-    @Before
-    public void setUp() {
-        factory = new TestResourceFactory();
-        config = new ResourcePoolConfig().setMaxPoolSize(POOL_SIZE)
-                                         .setTimeout(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        this.pool = new KeyedResourcePool<String, TestResource>(factory, config);
-    }
-
-    @Test
-    public void testAttemptGrow() {
-        ExecutorService service = Executors.newFixedThreadPool(POOL_SIZE);
-        for(int i = 0; i < NUM_TESTS; i++) {
-            if(i % 100 == 0) {
-                System.out.println("Test run: " + i);
-            }
-            final CountDownLatch checkouts = new CountDownLatch(POOL_SIZE);
-            List<Callable<Boolean>> tasks = new ArrayList<Callable<Boolean>>(POOL_SIZE);
-            for(int t = 0; t < POOL_SIZE; t++) {
-                tasks.add(new Callable<Boolean>() {
-
-                    @Override
-                    public Boolean call() throws Exception {
-                        try {
-                            TestResource resource = pool.checkout("a");
-                            checkouts.countDown();
-                            checkouts.await();
-                            resource.invalidate();
-                            pool.checkin("a", resource);
-                            return true;
-                        } catch(Exception e) {
-                            checkouts.countDown();
-                            throw e;
-                        }
-                    }
-                });
-            }
-            try {
-                List<Future<Boolean>> futures = service.invokeAll(tasks);
-                for(Future<Boolean> future: futures) {
-                    assertTrue(future.get());
-                }
-            } catch(Exception e) {
-                fail("Unexpected exception - " + e.getMessage());
-            }
-        }
-    }
 
     protected static class TestResource {
 
@@ -178,6 +116,66 @@ public class KeyedResourcePoolStressTest {
         @Override
         public void close() {}
 
+    }
+
+    // TestResourceRequest is only need for the QueuedResourcePool tests, but it
+    // is easier/cleaner to define here with the other test resources.
+    protected static class TestResourceRequest implements AsyncResourceRequest<TestResource> {
+
+        private AtomicBoolean usedResource;
+        private AtomicBoolean handledTimeout;
+        private AtomicBoolean handledException;
+
+        static AtomicInteger usedResourceCount = new AtomicInteger(0);
+        static AtomicInteger handledTimeoutCount = new AtomicInteger(0);
+        static AtomicInteger handledExceptionCount = new AtomicInteger(0);
+
+        long deadlineNs;
+        final Queue<TestResource> doneQueue;
+
+        TestResourceRequest(long deadlineNs, Queue<TestResource> doneQueue) {
+            this.usedResource = new AtomicBoolean(false);
+            this.handledTimeout = new AtomicBoolean(false);
+            this.handledException = new AtomicBoolean(false);
+            this.deadlineNs = deadlineNs;
+            this.doneQueue = doneQueue;
+        }
+
+        @Override
+        public void useResource(TestResource tr) {
+            // System.err.println("useResource " +
+            // Thread.currentThread().getName());
+            assertFalse(this.handledTimeout.get());
+            assertFalse(this.handledException.get());
+            usedResource.set(true);
+            usedResourceCount.getAndIncrement();
+            doneQueue.add(tr);
+        }
+
+        @Override
+        public void handleTimeout() {
+            // System.err.println("handleTimeout " +
+            // Thread.currentThread().getName());
+            assertFalse(this.usedResource.get());
+            assertFalse(this.handledException.get());
+            handledTimeout.set(true);
+            handledTimeoutCount.getAndIncrement();
+        }
+
+        @Override
+        public void handleException(Exception e) {
+            // System.err.println("handleException " +
+            // Thread.currentThread().getName());
+            assertFalse(this.usedResource.get());
+            assertFalse(this.handledTimeout.get());
+            handledException.set(true);
+            handledExceptionCount.getAndIncrement();
+        }
+
+        @Override
+        public long getDeadlineNs() {
+            return deadlineNs;
+        }
     }
 
 }
