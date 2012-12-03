@@ -30,7 +30,7 @@ import org.junit.Test;
 
 import voldemort.utils.Time;
 
-public class KeyedResourcePoolTest extends KeyedResourcePoolBaseTest {
+public class KeyedResourcePoolTest extends KeyedResourcePoolTestBase {
 
     protected static int POOL_SIZE = 5;
     protected static long TIMEOUT_MS = 500;

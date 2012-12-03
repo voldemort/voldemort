@@ -312,12 +312,12 @@ public class E2EClientRequestExecutorPoolAndFailureDetectorTest {
         final int CONNECTIONS_PER_NODE_END = 20;
         final int CONNECTIONS_PER_NODE_STEP = 5;
 
-        final int NUM_PUTTERS_START = 100;
-        final int NUM_PUTTERS_END = 100;
+        final int NUM_PUTTERS_START = 50;
+        final int NUM_PUTTERS_END = 50;
         final int NUM_PUTTERS_STEP = 25;
 
-        final int NUM_GETTERS_START = 100;
-        final int NUM_GETTERS_END = 100;
+        final int NUM_GETTERS_START = 50;
+        final int NUM_GETTERS_END = 50;
         final int NUM_GETTERS_STEP = 25;
 
         final int NUM_OPS = 1000;

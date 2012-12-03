@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 
-public class KeyedResourcePoolContentionTest extends KeyedResourcePoolBaseTest {
+public class KeyedResourcePoolContentionTest extends KeyedResourcePoolTestBase {
 
     protected static int POOL_SIZE = 5;
     protected static long TIMEOUT_MS = 500;

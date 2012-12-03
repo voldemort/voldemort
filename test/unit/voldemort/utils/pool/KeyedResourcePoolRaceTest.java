@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
 
-public class KeyedResourcePoolRaceTest extends KeyedResourcePoolBaseTest {
+public class KeyedResourcePoolRaceTest extends KeyedResourcePoolTestBase {
 
     protected static final int POOL_SIZE = 100;
     protected static final long TIMEOUT_MS = 500;
