@@ -91,7 +91,6 @@ public class PerformParallelPutRequests extends
         return enableHintedHandoff;
     }
 
-    @Override
     public void execute(final Pipeline pipeline) {
         Node master = pipelineData.getMaster();
         final Versioned<byte[]> versionedCopy = pipelineData.getVersionedCopy();
@@ -117,12 +116,65 @@ public class PerformParallelPutRequests extends
             final Node node = nodes.get(i);
             pipelineData.incrementNodeIndex();
 
-            NonblockingStoreCallback callback = new Callback(pipeline,
-                                                             node,
-                                                             versionedCopy,
-                                                             responses,
-                                                             attemptsLatch,
-                                                             blocksLatch);
+            NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+
+                public void requestComplete(Object result, long requestTime) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
+
+                    Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
+                                                                                           key,
+                                                                                           result,
+                                                                                           requestTime);
+                    responses.put(node.getId(), response);
+
+                    if(logger.isDebugEnabled())
+                        logger.debug("Finished secondary PUT for key "
+                                     + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                                     + System.identityHashCode(key) + "); took " + requestTime
+                                     + " ms on node " + node.getId() + "(" + node.getHost() + ")");
+
+                    if(isHintedHandoffEnabled() && pipeline.isFinished()) {
+                        if(response.getValue() instanceof UnreachableStoreException) {
+                            Slop slop = new Slop(pipelineData.getStoreName(),
+                                                 Slop.Operation.PUT,
+                                                 key,
+                                                 versionedCopy.getValue(),
+                                                 transforms,
+                                                 node.getId(),
+                                                 new Date());
+                            pipelineData.addFailedNode(node);
+                            hintedHandoff.sendHintSerial(node, versionedCopy.getVersion(), slop);
+                        }
+                    }
+
+                    attemptsLatch.countDown();
+                    blocksLatch.countDown();
+
+                    if(logger.isTraceEnabled())
+                        logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
+                                     + " for " + blocksLatch.getCount() + " more ");
+
+                    // Note errors that come in after the pipeline has finished.
+                    // These will *not* get a chance to be called in the loop of
+                    // responses below.
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception
+                       && !(response.getValue() instanceof ObsoleteVersionException)) {
+                        if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
+                            logger.warn("Received invalid metadata problem after a successful "
+                                        + pipeline.getOperation().getSimpleName()
+                                        + " call on node " + node.getId() + ", store '"
+                                        + pipelineData.getStoreName() + "'");
+                        } else {
+                            handleResponseError(response, pipeline, failureDetector);
+                        }
+                    }
+                }
+
+            };
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting " + pipeline.getOperation().getSimpleName()
@@ -131,11 +183,63 @@ public class PerformParallelPutRequests extends
             NonblockingStore store = nonblockingStores.get(node.getId());
             store.submitPutRequest(key, versionedCopy, transforms, callback, timeoutMs);
         }
-        waitForResponses(blocksLatch, responses, pipeline);
+
+        try {
+            long ellapsedNs = System.nanoTime() - pipelineData.getStartTimeNs();
+            long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+            if(remainingNs > 0)
+                blocksLatch.await(remainingNs, TimeUnit.NANOSECONDS);
+        } catch(InterruptedException e) {
+            if(logger.isEnabledFor(Level.WARN))
+                logger.warn(e, e);
+        }
+
+        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+            Response<ByteArray, Object> response = responseEntry.getValue();
+            // Treat ObsoleteVersionExceptions as success since such an
+            // exception means that a higher version was able to write on the
+            // node.
+            if(response.getValue() instanceof Exception
+               && !(response.getValue() instanceof ObsoleteVersionException)) {
+                if(handleResponseError(response, pipeline, failureDetector))
+                    return;
+            } else {
+                pipelineData.incrementSuccesses();
+                failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                responses.remove(responseEntry.getKey());
+            }
+        }
 
         boolean quorumSatisfied = true;
         if(pipelineData.getSuccesses() < required) {
-            waitForResponses(attemptsLatch, responses, pipeline);
+            long ellapsedNs = System.nanoTime() - pipelineData.getStartTimeNs();
+            long remainingNs = (timeoutMs * Time.NS_PER_MS) - ellapsedNs;
+            if(remainingNs > 0) {
+                try {
+                    attemptsLatch.await(remainingNs, TimeUnit.NANOSECONDS);
+                } catch(InterruptedException e) {
+                    if(logger.isEnabledFor(Level.WARN))
+                        logger.warn(e, e);
+                }
+
+                for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+                    Response<ByteArray, Object> response = responseEntry.getValue();
+                    // Treat ObsoleteVersionExceptions as success since such an
+                    // exception means that a higher version was able to write
+                    // on the node.
+                    if(response.getValue() instanceof Exception
+                       && !(response.getValue() instanceof ObsoleteVersionException)) {
+                        if(handleResponseError(response, pipeline, failureDetector))
+                            return;
+                    } else {
+                        pipelineData.incrementSuccesses();
+                        failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
+                        pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                        responses.remove(responseEntry.getKey());
+                    }
+                }
+            }
 
             if(pipelineData.getSuccesses() < required) {
                 pipelineData.setFatalError(new InsufficientOperationalNodesException(required
@@ -156,12 +260,36 @@ public class PerformParallelPutRequests extends
 
         if(quorumSatisfied) {
             if(pipelineData.getZonesRequired() != null) {
-                int zonesSatisfied = pipelineData.getZoneResponses().size();
 
+                int zonesSatisfied = pipelineData.getZoneResponses().size();
                 if(zonesSatisfied >= (pipelineData.getZonesRequired() + 1)) {
                     pipeline.addEvent(completeEvent);
                 } else {
-                    waitForResponses(attemptsLatch, responses, pipeline);
+                    long timeMs = (System.nanoTime() - pipelineData.getStartTimeNs())
+                                  / Time.NS_PER_MS;
+
+                    if((timeoutMs - timeMs) > 0) {
+                        try {
+                            attemptsLatch.await(timeoutMs - timeMs, TimeUnit.MILLISECONDS);
+                        } catch(InterruptedException e) {
+                            if(logger.isEnabledFor(Level.WARN))
+                                logger.warn(e, e);
+                        }
+
+                        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
+                            Response<ByteArray, Object> response = responseEntry.getValue();
+                            if(response.getValue() instanceof Exception) {
+                                if(handleResponseError(response, pipeline, failureDetector))
+                                    return;
+                            } else {
+                                pipelineData.incrementSuccesses();
+                                failureDetector.recordSuccess(response.getNode(),
+                                                              response.getRequestTime());
+                                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
+                                responses.remove(responseEntry.getKey());
+                            }
+                        }
+                    }
 
                     if(pipelineData.getZoneResponses().size() >= (pipelineData.getZonesRequired() + 1)) {
                         pipeline.addEvent(completeEvent);
@@ -177,130 +305,10 @@ public class PerformParallelPutRequests extends
                         pipeline.abort();
                     }
                 }
+
             } else {
                 pipeline.addEvent(completeEvent);
             }
         }
-    }
-
-    private void waitForResponses(CountDownLatch latch,
-                                  final Map<Integer, Response<ByteArray, Object>> responses,
-                                  final Pipeline pipeline) {
-        long elapsedNs = System.nanoTime() - pipelineData.getStartTimeNs();
-        long remainingNs = (timeoutMs * Time.NS_PER_MS) - elapsedNs;
-        if(remainingNs > 0) {
-            try {
-                latch.await(remainingNs, TimeUnit.NANOSECONDS);
-            } catch(InterruptedException e) {
-                if(logger.isEnabledFor(Level.WARN))
-                    logger.warn(e, e);
-            }
-
-            processResponses(responses, pipeline);
-        }
-    }
-
-    private void processResponses(final Map<Integer, Response<ByteArray, Object>> responses,
-                                  final Pipeline pipeline) {
-        for(Entry<Integer, Response<ByteArray, Object>> responseEntry: responses.entrySet()) {
-            Response<ByteArray, Object> response = responseEntry.getValue();
-            // Treat ObsoleteVersionExceptions as success since such an
-            // exception means that a higher version was able to write on the
-            // node.
-            if(response.getValue() instanceof Exception
-               && !(response.getValue() instanceof ObsoleteVersionException)) {
-                if(handleResponseError(response, pipeline, failureDetector))
-                    return;
-            } else {
-                pipelineData.incrementSuccesses();
-                failureDetector.recordSuccess(response.getNode(), response.getRequestTime());
-                pipelineData.getZoneResponses().add(response.getNode().getZoneId());
-
-                responses.remove(responseEntry.getKey());
-            }
-        }
-    }
-
-    public class Callback implements NonblockingStoreCallback {
-
-        final Pipeline pipeline;
-        final Node node;
-        final Versioned<byte[]> versionedCopy;
-        final Map<Integer, Response<ByteArray, Object>> responses;
-        final CountDownLatch attemptsLatch;
-        final CountDownLatch blocksLatch;
-
-        Callback(Pipeline pipeline,
-                 Node node,
-                 Versioned<byte[]> versionedCopy,
-                 Map<Integer, Response<ByteArray, Object>> responses,
-                 CountDownLatch attemptsLatch,
-                 CountDownLatch blocksLatch) {
-            this.pipeline = pipeline;
-            this.node = node;
-            this.versionedCopy = versionedCopy;
-            this.responses = responses;
-            this.attemptsLatch = attemptsLatch;
-            this.blocksLatch = blocksLatch;
-        }
-
-        @Override
-        public void requestComplete(Object result, long requestTime) {
-            if(logger.isTraceEnabled())
-                logger.trace(pipeline.getOperation().getSimpleName() + " response received ("
-                             + requestTime + " ms.) from node " + node.getId());
-
-            Response<ByteArray, Object> response = new Response<ByteArray, Object>(node,
-                                                                                   key,
-                                                                                   result,
-                                                                                   requestTime);
-            responses.put(node.getId(), response);
-
-            if(logger.isDebugEnabled())
-                logger.debug("Finished secondary PUT for key " + ByteUtils.toHexString(key.get())
-                             + " (keyRef: " + System.identityHashCode(key) + "); took "
-                             + requestTime + " ms on node " + node.getId() + "(" + node.getHost()
-                             + ")");
-
-            if(isHintedHandoffEnabled() && pipeline.isFinished()) {
-                if(response.getValue() instanceof UnreachableStoreException) {
-                    Slop slop = new Slop(pipelineData.getStoreName(),
-                                         Slop.Operation.PUT,
-                                         key,
-                                         versionedCopy.getValue(),
-                                         transforms,
-                                         node.getId(),
-                                         new Date());
-                    pipelineData.addFailedNode(node);
-                    // TODO: Should not have blocking operation in callback
-                    hintedHandoff.sendHintSerial(node, versionedCopy.getVersion(), slop);
-                }
-            }
-
-            attemptsLatch.countDown();
-            blocksLatch.countDown();
-
-            if(logger.isTraceEnabled())
-                logger.trace(attemptsLatch.getCount() + " attempts remaining. Will block "
-                             + " for " + blocksLatch.getCount() + " more ");
-
-            // Note errors that come in after the pipeline has finished.
-            // These will *not* get a chance to be called in the loop of
-            // responses below.
-            if(pipeline.isFinished() && response.getValue() instanceof Exception
-               && !(response.getValue() instanceof ObsoleteVersionException)) {
-                if(response.getValue() instanceof InvalidMetadataException) {
-                    pipelineData.reportException((InvalidMetadataException) response.getValue());
-                    logger.warn("Received invalid metadata problem after a successful "
-                                + pipeline.getOperation().getSimpleName() + " call on node "
-                                + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
-                } else {
-                    // TODO: Should not have operation that acquires locks and
-                    // may do blocking operations in callback
-                    handleResponseError(response, pipeline, failureDetector);
-                }
-            }
-        }
-
     }
 }

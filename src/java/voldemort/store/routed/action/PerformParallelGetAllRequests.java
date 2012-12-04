@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2012 LinkedIn, Inc
+ * Copyright 2010 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -37,7 +37,6 @@ import voldemort.store.routed.Pipeline;
 import voldemort.store.routed.Pipeline.Event;
 import voldemort.store.routed.Response;
 import voldemort.utils.ByteArray;
-import voldemort.utils.Utils;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -63,12 +62,11 @@ public class PerformParallelGetAllRequests
         this.nonblockingStores = nonblockingStores;
     }
 
-    @Override
+    @SuppressWarnings("unchecked")
     public void execute(final Pipeline pipeline) {
         int attempts = pipelineData.getNodeToKeysMap().size();
-
         final Map<Integer, Response<Iterable<ByteArray>, Object>> responses = new ConcurrentHashMap<Integer, Response<Iterable<ByteArray>, Object>>();
-        final CountDownLatch attemptsLatch = new CountDownLatch(attempts);
+        final CountDownLatch latch = new CountDownLatch(attempts);
 
         if(logger.isTraceEnabled())
             logger.trace("Attempting " + attempts + " " + pipeline.getOperation().getSimpleName()
@@ -80,11 +78,37 @@ public class PerformParallelGetAllRequests
             final Node node = entry.getKey();
             final Collection<ByteArray> keys = entry.getValue();
 
-            NonblockingStoreCallback callback = new Callback(pipeline,
-                                                             node,
-                                                             keys,
-                                                             responses,
-                                                             attemptsLatch);
+            NonblockingStoreCallback callback = new NonblockingStoreCallback() {
+
+                public void requestComplete(Object result, long requestTime) {
+                    if(logger.isTraceEnabled())
+                        logger.trace(pipeline.getOperation().getSimpleName()
+                                     + " response received (" + requestTime + " ms.) from node "
+                                     + node.getId());
+
+                    Response<Iterable<ByteArray>, Object> response = new Response<Iterable<ByteArray>, Object>(node,
+                                                                                                               keys,
+                                                                                                               result,
+                                                                                                               requestTime);
+                    responses.put(node.getId(), response);
+                    latch.countDown();
+
+                    // Note errors that come in after the pipeline has finished.
+                    // These will *not* get a chance to be called in the loop of
+                    // responses below.
+                    if(pipeline.isFinished() && response.getValue() instanceof Exception)
+                        if(response.getValue() instanceof InvalidMetadataException) {
+                            pipelineData.reportException((InvalidMetadataException) response.getValue());
+                            logger.warn("Received invalid metadata problem after a successful "
+                                        + pipeline.getOperation().getSimpleName()
+                                        + " call on node " + node.getId() + ", store '"
+                                        + pipelineData.getStoreName() + "'");
+                        } else {
+                            handleResponseError(response, pipeline, failureDetector);
+                        }
+                }
+
+            };
 
             if(logger.isTraceEnabled())
                 logger.trace("Submitting " + pipeline.getOperation().getSimpleName()
@@ -95,7 +119,7 @@ public class PerformParallelGetAllRequests
         }
 
         try {
-            attemptsLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            latch.await(timeoutMs, TimeUnit.MILLISECONDS);
         } catch(InterruptedException e) {
             if(logger.isEnabledFor(Level.WARN))
                 logger.warn(e, e);
@@ -106,7 +130,7 @@ public class PerformParallelGetAllRequests
                 if(handleResponseError(response, pipeline, failureDetector))
                     return;
             } else {
-                Map<ByteArray, List<Versioned<byte[]>>> values = Utils.uncheckedCast(response.getValue());
+                Map<ByteArray, List<Versioned<byte[]>>> values = (Map<ByteArray, List<Versioned<byte[]>>>) response.getValue();
 
                 for(ByteArray key: response.getKey()) {
                     MutableInt successCount = pipelineData.getSuccessCount(key);
@@ -146,56 +170,5 @@ public class PerformParallelGetAllRequests
         }
 
         pipeline.addEvent(completeEvent);
-    }
-
-    public class Callback implements NonblockingStoreCallback {
-
-        final Pipeline pipeline;
-        final Node node;
-        final Collection<ByteArray> keys;
-        final Map<Integer, Response<Iterable<ByteArray>, Object>> responses;
-        final CountDownLatch attemptsLatch;
-
-        Callback(Pipeline pipeline,
-                 Node node,
-                 Collection<ByteArray> keys,
-                 Map<Integer, Response<Iterable<ByteArray>, Object>> responses,
-                 CountDownLatch attemptsLatch) {
-            this.pipeline = pipeline;
-            this.node = node;
-            this.keys = keys;
-            this.responses = responses;
-            this.attemptsLatch = attemptsLatch;
-        }
-
-        @Override
-        public void requestComplete(Object result, long requestTime) {
-            if(logger.isTraceEnabled())
-                logger.trace(pipeline.getOperation().getSimpleName() + " response received ("
-                             + requestTime + " ms.) from node " + node.getId());
-
-            Response<Iterable<ByteArray>, Object> response = new Response<Iterable<ByteArray>, Object>(node,
-                                                                                                       keys,
-                                                                                                       result,
-                                                                                                       requestTime);
-            responses.put(node.getId(), response);
-            attemptsLatch.countDown();
-
-            // Note errors that come in after the pipeline has finished.
-            // These will *not* get a chance to be called in the loop of
-            // responses below.
-            if(pipeline.isFinished() && response.getValue() instanceof Exception)
-                if(response.getValue() instanceof InvalidMetadataException) {
-                    pipelineData.reportException((InvalidMetadataException) response.getValue());
-                    logger.warn("Received invalid metadata problem after a successful "
-                                + pipeline.getOperation().getSimpleName() + " call on node "
-                                + node.getId() + ", store '" + pipelineData.getStoreName() + "'");
-                } else {
-                    // TODO: Should not have operation that acquires locks and
-                    // may do blocking operations in callback
-                    handleResponseError(response, pipeline, failureDetector);
-                }
-
-        }
     }
 }
