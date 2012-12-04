@@ -306,11 +306,11 @@ public class E2EClientRequestExecutorPoolAndFailureDetectorTest {
 
         final int NUM_SELECTORS_START = 2;
         final int NUM_SELECTORS_END = 4;
-        final int NUM_SELECTORS_STEP = 1;
+        final int NUM_SELECTORS_STEP = 2;
 
-        final int CONNECTIONS_PER_NODE_START = 5;
+        final int CONNECTIONS_PER_NODE_START = 10;
         final int CONNECTIONS_PER_NODE_END = 20;
-        final int CONNECTIONS_PER_NODE_STEP = 5;
+        final int CONNECTIONS_PER_NODE_STEP = 10;
 
         final int NUM_PUTTERS_START = 50;
         final int NUM_PUTTERS_END = 50;

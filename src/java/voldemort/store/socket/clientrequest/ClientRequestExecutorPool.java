@@ -200,6 +200,12 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
         }
     }
 
+    /**
+     * Reset the pool of resources for a specific destination. Idle resources
+     * will be destroyed. Checked out resources that are subsequently checked in
+     * will be destroyed. Newly created resources can be checked in to
+     * reestablish resources for the specific destination.
+     */
     @Override
     public void close(SocketDestination destination) {
         factory.setLastClosedTimestamp(destination);
@@ -207,7 +213,8 @@ public class ClientRequestExecutorPool implements SocketStoreFactory {
     }
 
     /**
-     * Close the socket pool
+     * Permanently close the ClientRequestExecutor pool. Resources subsequently
+     * checked in will be destroyed.
      */
     @Override
     public void close() {
