@@ -137,8 +137,7 @@ public class AdminClient {
     private static final String CLUSTER_VERSION_KEY = "cluster.xml";
     private static final int DEFAULT_ZONE_ID = 0;
 
-    public final static List<String> restoreStoreEngineBlackList = Arrays.asList(MysqlStorageConfiguration.TYPE_NAME,
-                                                                                 ReadOnlyStorageConfiguration.TYPE_NAME,
+    public final static List<String> restoreStoreEngineBlackList = Arrays.asList(ReadOnlyStorageConfiguration.TYPE_NAME,
                                                                                  ViewStorageConfiguration.TYPE_NAME);
 
     private Cluster currentCluster;
