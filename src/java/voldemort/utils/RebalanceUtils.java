@@ -359,10 +359,19 @@ public class RebalanceUtils {
         HashMap<Integer, Integer> numPartitionsPerZone = Maps.newHashMap();
         HashMap<Integer, Integer> numNodesPerZone = Maps.newHashMap();
         HashMap<Integer, Integer> numDonorNodesPerZone = Maps.newHashMap();
+        HashMap<Integer, Integer> numStealerNodesPerZone = Maps.newHashMap();
 
         for(Node node: targetCluster.getNodes()) {
             if(node.getPartitionIds().isEmpty()) {
                 newNodeIds.add(node.getId());
+
+                if(numStealerNodesPerZone.containsKey(node.getZoneId())) {
+                    int currentNumStealerNodesInZone = numNodesPerZone.get(node.getZoneId());
+                    currentNumStealerNodesInZone += 1;
+                    numStealerNodesPerZone.put(node.getZoneId(), currentNumStealerNodesInZone);
+                } else {
+                    numStealerNodesPerZone.put(node.getZoneId(), 1);
+                }
             } else {
                 donorNodeIds.add(node.getId());
 
@@ -409,6 +418,10 @@ public class RebalanceUtils {
         for(int zone: numDonorNodesPerZone.keySet()) {
             System.out.println(zone + " : " + numDonorNodesPerZone.get(zone));
         }
+        System.out.println("numStealerNodesPerZone");
+        for(int zone: numStealerNodesPerZone.keySet()) {
+            System.out.println(zone + " : " + numStealerNodesPerZone.get(zone));
+        }
 
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
         int totalPrimaryPartitionsMoved = 0;
@@ -419,14 +432,22 @@ public class RebalanceUtils {
         }
 
         // Go over every new node and give it some partitions
-        int donorIndexRotationOffset = 0; // Offset used to distributed steals
-                                          // evenly over all donor nodes.
+        int donorIndexRotationOffset = 0; // Offset used to distribute partition
+                                          // steals evenly over all donor nodes.
+        int nextDonorIndexRotationOffset = 0;
         for(int newNodeId: newNodeIds) {
 
             Node newNode = targetCluster.getNodeById(newNodeId);
             int partitionsToSteal = (int) Math.floor(numPartitionsPerZone.get(newNode.getZoneId())
                                                      * 1.0
                                                      / numNodesPerZone.get(newNode.getZoneId()));
+            donorIndexRotationOffset += nextDonorIndexRotationOffset;
+            if(partitionsToSteal * numNodesPerZone.get(newNode.getZoneId())
+               + (donorIndexRotationOffset % numStealerNodesPerZone.get(newNode.getZoneId()))
+               + numDonorNodesPerZone.get(newNode.getZoneId()) < numPartitionsPerZone.get(newNode.getZoneId())) {
+                partitionsToSteal++;
+            }
+            nextDonorIndexRotationOffset = partitionsToSteal;
 
             System.out.println("newNodeId (" + newNodeId + ") has partitionsToSteal of "
                                + partitionsToSteal);
@@ -495,7 +516,6 @@ public class RebalanceUtils {
                 partitionsToSteal -= partitionsDonated;
 
             }
-            donorIndexRotationOffset++;
         }
 
         return Pair.create(returnCluster, totalPrimaryPartitionsMoved);
