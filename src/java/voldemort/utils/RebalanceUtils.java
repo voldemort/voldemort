@@ -265,6 +265,12 @@ public class RebalanceUtils {
         Cluster minCluster = targetCluster;
         int minMoves = Integer.MAX_VALUE;
         double minStdDev = Double.MAX_VALUE;
+
+        // TODO: What is the purpose of multiple tries and measuring std dev of
+        // uniformly random key distributions? I think the tries logic can be
+        // removed from this method/tool since I do not believe this logic
+        // serves any purpose.
+
         for(int numTries = 0; numTries < tries; numTries++) {
             Pair<Cluster, Integer> minClusterMove = RebalanceUtils.generateMinCluster(currentCluster,
                                                                                       targetCluster,
@@ -348,9 +354,6 @@ public class RebalanceUtils {
     public static Pair<Cluster, Integer> generateMinCluster(final Cluster currentCluster,
                                                             final Cluster targetCluster,
                                                             final List<StoreDefinition> storeDefs) {
-        int currentNumNodes = currentCluster.getNumberOfNodes();
-        int targetNumNodes = targetCluster.getNumberOfNodes();
-
         // Find all the new nodes added + clone to a new list of nodes
         List<Integer> newNodeIds = Lists.newArrayList();
         List<Integer> donorNodeIds = Lists.newArrayList();
@@ -365,6 +368,7 @@ public class RebalanceUtils {
             if(node.getPartitionIds().isEmpty()) {
                 newNodeIds.add(node.getId());
 
+                // Update the number of stealer nodes per zone
                 if(numStealerNodesPerZone.containsKey(node.getZoneId())) {
                     int currentNumStealerNodesInZone = numNodesPerZone.get(node.getZoneId());
                     currentNumStealerNodesInZone += 1;
@@ -375,7 +379,7 @@ public class RebalanceUtils {
             } else {
                 donorNodeIds.add(node.getId());
 
-                // Update the number of nodes
+                // Update the number of donor nodes per zone
                 if(numDonorNodesPerZone.containsKey(node.getZoneId())) {
                     int currentNumDonorNodesInZone = numNodesPerZone.get(node.getZoneId());
                     currentNumDonorNodesInZone += 1;
@@ -387,7 +391,7 @@ public class RebalanceUtils {
             }
             allNodes.add(updateNode(node, Lists.newArrayList(node.getPartitionIds())));
 
-            // Update the number of partitions
+            // Update the number of partitions per zone
             if(numPartitionsPerZone.containsKey(node.getZoneId())) {
                 int currentNumPartitionsInZone = numPartitionsPerZone.get(node.getZoneId());
                 currentNumPartitionsInZone += node.getNumberOfPartitions();
@@ -396,7 +400,7 @@ public class RebalanceUtils {
                 numPartitionsPerZone.put(node.getZoneId(), node.getNumberOfPartitions());
             }
 
-            // Update the number of nodes
+            // Update the number of nodes per zone
             if(numNodesPerZone.containsKey(node.getZoneId())) {
                 int currentNumNodesInZone = numNodesPerZone.get(node.getZoneId());
                 currentNumNodesInZone += 1;
@@ -426,95 +430,147 @@ public class RebalanceUtils {
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
         int totalPrimaryPartitionsMoved = 0;
 
+        // TODO: Will any other rebalancing code break if we do a rebalance
+        // without adding any new nodes?
+        /*-
+        int currentNumNodes = currentCluster.getNumberOfNodes();
+        int targetNumNodes = targetCluster.getNumberOfNodes();
         if(currentNumNodes == targetNumNodes) {
+
             // Number of nodes is the same, done!
             return Pair.create(returnCluster, totalPrimaryPartitionsMoved);
         }
+         */
 
-        // Go over every new node and give it some partitions
-        int donorIndexRotationOffset = 0; // Offset used to distribute partition
-                                          // steals evenly over all donor nodes.
-        int nextDonorIndexRotationOffset = 0;
-        for(int newNodeId: newNodeIds) {
+        // Set up a target number of partitions per node per zone
+        HashMap<Integer, List<Integer>> numPartitionsPerNodePerZone = Maps.newHashMap();
+        for(Integer zoneId: numNodesPerZone.keySet()) {
+            int numNodesInZone = numNodesPerZone.get(zoneId);
+            int numPartitionsInZone = numPartitionsPerZone.get(zoneId);
+            int floorPartitionsPerNodeInZone = numPartitionsInZone / numNodesInZone;
+            int numNodesInZoneWithCeil = numPartitionsInZone
+                                         - (numNodesInZone * floorPartitionsPerNodeInZone);
 
-            Node newNode = targetCluster.getNodeById(newNodeId);
-            int partitionsToSteal = (int) Math.floor(numPartitionsPerZone.get(newNode.getZoneId())
-                                                     * 1.0
-                                                     / numNodesPerZone.get(newNode.getZoneId()));
-            donorIndexRotationOffset += nextDonorIndexRotationOffset;
-            if(partitionsToSteal * numNodesPerZone.get(newNode.getZoneId())
-               + (donorIndexRotationOffset % numStealerNodesPerZone.get(newNode.getZoneId()))
-               + numDonorNodesPerZone.get(newNode.getZoneId()) < numPartitionsPerZone.get(newNode.getZoneId())) {
-                partitionsToSteal++;
+            ArrayList<Integer> partitionsOnNode = new ArrayList<Integer>(numNodesInZone);
+            for(int i = 0; i < numNodesInZoneWithCeil; i++) {
+                partitionsOnNode.add(i, floorPartitionsPerNodeInZone + 1);
             }
-            nextDonorIndexRotationOffset = partitionsToSteal;
+            for(int i = numNodesInZoneWithCeil; i < numNodesInZone; i++) {
+                partitionsOnNode.add(i, floorPartitionsPerNodeInZone);
+            }
+            numPartitionsPerNodePerZone.put(zoneId, partitionsOnNode);
+        }
 
-            System.out.println("newNodeId (" + newNodeId + ") has partitionsToSteal of "
+        // Assign target number of partitions per node to specific node IDs and
+        // separate Nodes into donorNodes and stealerNodes
+        List<Node> donorNodes = Lists.newArrayList();
+        List<Node> stealerNodes = Lists.newArrayList();
+
+        HashMap<Integer, Integer> numPartitionsOnNode = Maps.newHashMap();
+        HashMap<Integer, Integer> numNodesAssignedInZone = Maps.newHashMap();
+        for(Integer zoneId: numPartitionsPerNodePerZone.keySet()) {
+            numNodesAssignedInZone.put(zoneId, 0);
+        }
+        for(Node node: allNodes) {
+            int zoneId = node.getZoneId();
+
+            int offset = numNodesAssignedInZone.get(zoneId);
+            numNodesAssignedInZone.put(zoneId, offset + 1);
+
+            int numPartitions = numPartitionsPerNodePerZone.get(zoneId).get(offset);
+            numPartitionsOnNode.put(node.getId(), numPartitions);
+
+            if(numPartitions < node.getNumberOfPartitions()) {
+                donorNodes.add(node);
+            } else if(numPartitions > node.getNumberOfPartitions()) {
+                stealerNodes.add(node);
+            }
+        }
+
+        for(Node node: donorNodes) {
+            System.out.println("Donor Node: " + node.getId() + ", zoneId " + node.getZoneId()
+                               + ", numPartitions " + node.getNumberOfPartitions()
+                               + ", target number of partitions "
+                               + numPartitionsOnNode.get(node.getId()));
+        }
+        for(Node node: stealerNodes) {
+            System.out.println("Stealer Node: " + node.getId() + ", zoneId " + node.getZoneId()
+                               + ", numPartitions " + node.getNumberOfPartitions()
+                               + ", target number of partitions "
+                               + numPartitionsOnNode.get(node.getId()));
+        }
+
+        // Go over every stealerNode and steal partitions from donor nodes
+        for(Node stealerNode: stealerNodes) {
+            int partitionsToSteal = numPartitionsOnNode.get(stealerNode.getId())
+                                    - stealerNode.getNumberOfPartitions();
+
+            System.out.println("Node (" + stealerNode.getId() + ") in zone ("
+                               + stealerNode.getZoneId() + ") has partitionsToSteal of "
                                + partitionsToSteal);
-            int nodesStolenFrom = 0;
-            for(int index = 0; index < donorNodeIds.size(); index++) {
-                int donorNodeId = donorNodeIds.get((index + donorIndexRotationOffset)
-                                                   % donorNodeIds.size());
 
-                Node donorNode = currentCluster.getNodeById(donorNodeId);
+            while(partitionsToSteal > 0) {
+                // Repeatedly loop over donor nodes to distribute stealing
+                for(Node donorNode: donorNodes) {
+                    Node currentDonorNode = returnCluster.getNodeById(donorNode.getId());
 
-                // Only steal from nodes in same zone
-                if(donorNode.getZoneId() != newNode.getZoneId()) {
-                    continue;
-                }
-
-                // Done stealing
-                if(partitionsToSteal <= 0)
-                    break;
-
-                // One of the valid donor nodes
-                int partitionsToDonate = Math.max((int) Math.floor(partitionsToSteal
-                                                                   / (numDonorNodesPerZone.get(newNode.getZoneId()) - nodesStolenFrom)),
-                                                  1);
-
-                System.out.println("donorNodeId (" + donorNodeId + ") has partitionsToDonate of "
-                                   + partitionsToDonate);
-
-                nodesStolenFrom++;
-
-                // Donor node can't donate since itself has few partitions
-                if(returnCluster.getNodeById(donorNodeId).getNumberOfPartitions() <= partitionsToDonate) {
-                    System.out.println("donorNodeId ("
-                                       + donorNodeId
-                                       + ") cannot donate any more partitions because getNumberof Partitions ("
-                                       + returnCluster.getNodeById(donorNodeId)
-                                                      .getNumberOfPartitions()
-                                       + ") is less than partitions to Donate ("
-                                       + partitionsToDonate + ")");
-
-                    continue;
-                }
-
-                List<Integer> donorPartitions = Lists.newArrayList(returnCluster.getNodeById(donorNodeId)
-                                                                                .getPartitionIds());
-                Collections.shuffle(donorPartitions, new Random(System.currentTimeMillis()));
-
-                // Go over every donor partition till we satisfy the
-                // partitionsToDonate number
-                int partitionsDonated = 0;
-                for(int donorPartition: donorPartitions) {
-                    if(partitionsDonated == partitionsToDonate)
-                        break;
-                    Cluster intermediateCluster = createUpdatedCluster(returnCluster,
-                                                                       newNodeId,
-                                                                       Lists.newArrayList(donorPartition));
-                    if(RebalanceUtils.getCrossZoneMoves(intermediateCluster,
-                                                        new RebalanceClusterPlan(returnCluster,
-                                                                                 intermediateCluster,
-                                                                                 storeDefs,
-                                                                                 true)) == 0) {
-                        returnCluster = intermediateCluster;
-                        partitionsDonated++;
-                        totalPrimaryPartitionsMoved++;
+                    // Only steal from donor nodes within same zone
+                    if(currentDonorNode.getZoneId() != stealerNode.getZoneId()) {
+                        continue;
                     }
-                }
-                partitionsToSteal -= partitionsDonated;
+                    // Only steal from donor nodes with extra partitions
+                    if(currentDonorNode.getNumberOfPartitions() == numPartitionsOnNode.get(currentDonorNode.getId())) {
+                        continue;
+                    }
 
+                    List<Integer> donorPartitions = Lists.newArrayList(currentDonorNode.getPartitionIds());
+                    Collections.shuffle(donorPartitions, new Random(System.currentTimeMillis()));
+
+                    for(int donorPartition: donorPartitions) {
+                        long startTimeNs = System.nanoTime();
+                        Cluster intermediateCluster = createUpdatedCluster(returnCluster,
+                                                                           stealerNode.getId(),
+                                                                           Lists.newArrayList(donorPartition));
+                        System.out.println("createUpdatedCluster took "
+                                           + (System.nanoTime() - startTimeNs) + " ns.");
+
+                        startTimeNs = System.nanoTime();
+                        // TODO: how is it possible for the call to
+                        // getCrossZoneMoves to return a non-zero value!? The
+                        // plan to actually move partitions appears to be
+                        // generating unnecessary cross zone moves. The cost of
+                        // calling getCrossZoneMoves grows significantly with
+                        // cluster size. E.g., for an 11 node cluster, the call
+                        // takes ~230 ms, whereas for a 39 node cluster the call
+                        // takes ~10 s (40x longer). Worse, larger clusters have
+                        // more partitions to move and so this call is made more
+                        // times.
+                        int crossZoneMoves = RebalanceUtils.getCrossZoneMoves(intermediateCluster,
+                                                                              new RebalanceClusterPlan(returnCluster,
+                                                                                                       intermediateCluster,
+                                                                                                       storeDefs,
+                                                                                                       true));
+                        System.out.println("getCrossZoneMoves took "
+                                           + (System.nanoTime() - startTimeNs) + " ns.");
+                        if(crossZoneMoves == 0) {
+                            returnCluster = intermediateCluster;
+                            totalPrimaryPartitionsMoved++;
+                            partitionsToSteal--;
+                            System.out.println("Stealer node " + stealerNode.getId()
+                                               + ", donor node " + currentDonorNode.getId()
+                                               + ", partition stolen " + donorPartition);
+                            break;
+                        } else {
+                            System.out.println("Stealer node " + stealerNode.getId()
+                                               + ", donor node " + currentDonorNode.getId()
+                                               + ", attempted to steal partition " + donorPartition
+                                               + " however,  getCrossZoneMoves did NOT return 0!");
+                        }
+                    }
+
+                    if(partitionsToSteal == 0)
+                        break;
+                }
             }
         }
 
