@@ -82,6 +82,22 @@ public class HdfsFetcher implements FileFetcher {
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";
 
+    /* Additional constructor invoked from ReadOnlyStoreManagementServlet */
+    public HdfsFetcher(VoldemortConfig config) {
+        this(null,
+             null,
+             config.getReportingIntervalBytes(),
+             config.getFetcherBufferSize(),
+             config.getMinBytesPerSecond(),
+             config.getReadOnlyKeytabPath(),
+             config.getReadOnlyKerberosUser());
+
+        this.voldemortConfig = config;
+
+        logger.info("Created hdfs fetcher with no dynamic throttler, buffer size " + bufferSize
+                    + ", reporting interval bytes " + reportingIntervalBytes);
+    }
+
     public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
         this(dynThrottleLimit,
              null,
@@ -159,7 +175,15 @@ public class HdfsFetcher implements FileFetcher {
 
             final Path path = new Path(sourceFileUrl);
 
-            if(hadoopConfigPath.length() > 0) {
+            boolean isHftpBasedFetch = sourceFileUrl.length() > 4
+                                       && sourceFileUrl.substring(0, 4).equals("hftp");
+            logger.info("URL : " + sourceFileUrl + " and hftp protocol enabled = "
+                        + isHftpBasedFetch);
+            logger.info("Hadoop path = " + hadoopConfigPath + " , keytab path = "
+                        + HdfsFetcher.keytabPath + " , kerberos principal = "
+                        + HdfsFetcher.kerberosPrincipal);
+
+            if(hadoopConfigPath.length() > 0 && !isHftpBasedFetch) {
 
                 config.addResource(new Path(hadoopConfigPath + "/core-site.xml"));
                 config.addResource(new Path(hadoopConfigPath + "/hdfs-site.xml"));
@@ -167,11 +191,11 @@ public class HdfsFetcher implements FileFetcher {
                 String security = config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION);
 
                 if(security == null || !security.equals("kerberos")) {
-                    logger.info("Security isn't turned on in the conf: "
-                                + CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION
-                                + " = "
-                                + config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION));
-                    logger.info("Fix that.  Exiting.");
+                    logger.error("Security isn't turned on in the conf: "
+                                 + CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION
+                                 + " = "
+                                 + config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION));
+                    logger.error("Please make sure that the Hadoop config directory path is valid.");
                     return null;
                 } else {
                     logger.info("Security is turned on in the conf. Trying to authenticate ...");
@@ -181,7 +205,12 @@ public class HdfsFetcher implements FileFetcher {
 
             try {
 
-                if(HdfsFetcher.keytabPath.length() > 0) {
+                if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
+
+                    if(!new File(HdfsFetcher.keytabPath).exists()) {
+                        logger.error("Invalid keytab file path. Please provide a valid keytab path");
+                        return null;
+                    }
 
                     // First login using the specified principal and keytab file
                     UserGroupInformation.setConfiguration(config);
@@ -222,8 +251,8 @@ public class HdfsFetcher implements FileFetcher {
 
             } catch(IOException e) {
                 e.printStackTrace();
-                logger.error("Error in authenticating or getting the Filesystem object !!! Exiting !!!");
-                System.exit(-1);
+                logger.error("Error in authenticating or getting the Filesystem object !!!");
+                return null;
             }
 
             CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
@@ -576,7 +605,10 @@ public class HdfsFetcher implements FileFetcher {
         HdfsFetcher.keytabPath = keytabLocation;
         HdfsFetcher.kerberosPrincipal = kerberosUser;
 
-        if(hadoopPath.length() > 0) {
+        boolean isHftpBasedFetch = url.length() > 4 && url.substring(0, 4).equals("hftp");
+        logger.info("URL : " + url + " and hftp protocol enabled = " + isHftpBasedFetch);
+
+        if(hadoopPath.length() > 0 && !isHftpBasedFetch) {
             config.set("hadoop.security.group.mapping",
                        "org.apache.hadoop.security.ShellBasedUnixGroupsMapping");
 
@@ -599,7 +631,7 @@ public class HdfsFetcher implements FileFetcher {
         try {
 
             // Get the filesystem object
-            if(keytabLocation.length() > 0) {
+            if(keytabLocation.length() > 0 && !isHftpBasedFetch) {
                 UserGroupInformation.setConfiguration(config);
                 UserGroupInformation.loginUserFromKeytab(kerberosUser, keytabLocation);
 
@@ -631,7 +663,7 @@ public class HdfsFetcher implements FileFetcher {
 
         } catch(IOException e) {
             e.printStackTrace();
-            System.err.println("Error !!! Exiting !!!");
+            System.err.println("Error in getting Hadoop filesystem object !!! Exiting !!!");
             System.exit(-1);
         }
 
