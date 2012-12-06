@@ -99,6 +99,11 @@ public class VoldemortConfig implements Serializable {
     private String mysqlDatabaseName;
     private String mysqlHost;
     private int mysqlPort;
+    private String mysqlValueType;
+    private int mysqlDsInitialPoolSize;
+    private boolean mysqlDsPoolPreparedStatements;
+    private int mysqlDsMaxActiveConnections;
+    private int mysqlDsMinIdleConnections;
 
     private int readOnlyBackups;
     private String readOnlyStorageDir;
@@ -278,6 +283,11 @@ public class VoldemortConfig implements Serializable {
         this.mysqlHost = props.getString("mysql.host", "localhost");
         this.mysqlPort = props.getInt("mysql.port", 3306);
         this.mysqlDatabaseName = props.getString("mysql.database", "voldemort");
+        this.mysqlValueType = props.getString("mysql.valuetype", "MEDIUMBLOB");
+        this.mysqlDsInitialPoolSize = props.getInt("mysql.ds.initialpoolsize", 0);
+        this.mysqlDsPoolPreparedStatements = props.getBoolean("mysql.ds.poolpreparedstatements", false);
+        this.mysqlDsMaxActiveConnections = props.getInt("mysql.ds.maxactiveconnections", 8);
+        this.mysqlDsMinIdleConnections = props.getInt("mysql.ds.minidleconnections", 0);
 
         this.testingSlowQueueingDelays = new OpTimeMap(0);
         this.testingSlowQueueingDelays.setOpTime(VoldemortOpCode.GET_OP_CODE,
@@ -489,6 +499,20 @@ public class VoldemortConfig implements Serializable {
                                              + this.schedulerThreads + " set.");
         if(enableServerRouting && !enableSocketServer)
             throw new ConfigurationException("Server-side routing is enabled, this requires the socket server to also be enabled.");
+        if(mysqlDsInitialPoolSize < 0)
+            throw new ConfigurationException("mysql.ds.initialpoolsize must be 0 or more.");
+        if(!validateMysqlValueType())
+            throw new ConfigurationException("mysql.valuetype must be one of TINYBLOB, BLOB, MEDIUMBLOB and LONGBLOB.");
+    }
+
+    private boolean validateMysqlValueType() {
+        String[] array = { "TINYBLOB", "BLOB", "MEDIUMBLOB", "LONGBLOB" };
+        for(String word: array) {
+            if(mysqlValueType.equalsIgnoreCase(word)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int getIntEnvVariable(String name) {
@@ -1932,5 +1956,45 @@ public class VoldemortConfig implements Serializable {
 
     public void setUseMlock(boolean useMlock) {
         this.useMlock = useMlock;
+    }
+
+    public String getMysqlValueType() {
+        return mysqlValueType;
+    }
+
+    public void setMysqlValueType(String mysqlValueType) {
+        this.mysqlValueType = mysqlValueType;
+    }
+
+    public int getMysqlDsInitialPoolSize() {
+        return mysqlDsInitialPoolSize;
+    }
+
+    public void setMysqlDsInitialPoolSize(int mysqlDsInitialPoolSize) {
+        this.mysqlDsInitialPoolSize = mysqlDsInitialPoolSize;
+    }
+
+    public boolean isMysqlDsPoolPreparedStatements() {
+        return mysqlDsPoolPreparedStatements;
+    }
+
+    public void setMysqlDsPoolPreparedStatements(boolean mysqlDsPoolPreparedStatements) {
+        this.mysqlDsPoolPreparedStatements = mysqlDsPoolPreparedStatements;
+    }
+
+    public int getMysqlDsMaxActiveConnections() {
+        return mysqlDsMaxActiveConnections;
+    }
+
+    public void setMysqlDsMaxActiveConnections(int mysqlDsMaxActiveConnections) {
+        this.mysqlDsMaxActiveConnections = mysqlDsMaxActiveConnections;
+    }
+
+    public int getMysqlDsMinIdleConnections() {
+        return mysqlDsMinIdleConnections;
+    }
+
+    public void setMysqlDsMinIdleConnections(int mysqlDsMinIdleConnections) {
+        this.mysqlDsMinIdleConnections = mysqlDsMinIdleConnections;
     }
 }
