@@ -1,12 +1,12 @@
 /*
  * Copyright 2008-2009 LinkedIn, Inc
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -33,6 +33,7 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
     public static final String TYPE_NAME = "mysql";
 
     private BasicDataSource dataSource;
+    private final String valueType;
 
     public MysqlStorageConfiguration(VoldemortConfig config) {
         BasicDataSource ds = new BasicDataSource();
@@ -41,7 +42,13 @@ public class MysqlStorageConfiguration implements StorageConfiguration {
         ds.setUsername(config.getMysqlUsername());
         ds.setPassword(config.getMysqlPassword());
         ds.setDriverClassName("com.mysql.jdbc.Driver");
+        ds.setValidationQuery("select 1");
+        ds.setInitialSize(config.getMysqlDsInitialPoolSize());
+        ds.setPoolPreparedStatements(config.isMysqlDsPoolPreparedStatements());
+        ds.setMaxActive(config.getMysqlDsMaxActiveConnections());
+        ds.setMinIdle(config.getMysqlDsMinIdleConnections());
         this.dataSource = ds;
+        this.valueType = config.getMysqlValueType();
     }
 
     public StorageEngine<ByteArray, byte[], byte[]> getStore(StoreDefinition storeDef,
