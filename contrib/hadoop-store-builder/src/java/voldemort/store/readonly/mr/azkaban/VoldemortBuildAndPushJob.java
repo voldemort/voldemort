@@ -98,6 +98,11 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
     private static final String AVRO_GENERIC_VERSIONED_TYPE_NAME = "avro-generic-versioned";
 
+    // new properties for the push job
+
+    private final String hdfsFetcherPort;
+    private final String hdfsFetcherProtocol;
+
     /* Informed stuff */
     private final String informedURL = "http://informed.corp.linkedin.com/_post";
     private final List<Future> informedResults;
@@ -133,6 +138,12 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         this.log = Logger.getLogger(name);
         this.informedResults = Lists.newArrayList();
         this.informedExecutor = Executors.newFixedThreadPool(2);
+
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
+
+        log.info("voldemort.fetcher.protocol is set to : " + hdfsFetcherProtocol);
+        log.info("voldemort.fetcher.port is set to : " + hdfsFetcherPort);
 
         isAvroJob = props.getBoolean("build.type.avro", false);
 

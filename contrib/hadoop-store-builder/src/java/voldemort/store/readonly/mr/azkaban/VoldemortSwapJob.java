@@ -43,16 +43,23 @@ public class VoldemortSwapJob extends AbstractJob {
 
     private final Props _props;
     private VoldemortSwapConf swapConf;
+    private String hdfsFetcherProtocol;
+    private String hdfsFetcherPort;
 
     public VoldemortSwapJob(String id, Props props) throws IOException {
         super(id);
         _props = props;
+
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
         swapConf = new VoldemortSwapConf(_props);
     }
 
     public VoldemortSwapJob(String id, Props props, VoldemortSwapConf conf) throws IOException {
         super(id);
         _props = props;
+        this.hdfsFetcherProtocol = props.getString("voldemort.fetcher.protocol", "hftp");
+        this.hdfsFetcherPort = props.getString("voldemort.fetcher.port", "50070");
         swapConf = conf;
     }
 
@@ -150,17 +157,6 @@ public class VoldemortSwapJob extends AbstractJob {
         dataDir = dataPath.makeQualified(FileSystem.get(conf)).toString();
 
         /*
-         * Set the protocol according to config: webhdfs if its enabled
-         * Otherwise use hftp.
-         */
-        Configuration hadoopConfig = new Configuration();
-        String protocolName = hadoopConfig.get("dfs.webhdfs.enabled");
-        String protocolPort = "";
-        if(hadoopConfig.get("dfs.http.address").split(":").length >= 2)
-            protocolPort = hadoopConfig.get("dfs.http.address").split(":")[1];
-        protocolName = (protocolName == null) ? "hftp" : "webhdfs";
-
-        /*
          * Replace the default protocol and port with the one derived as above
          */
         String existingProtocol = "";
@@ -171,12 +167,10 @@ public class VoldemortSwapJob extends AbstractJob {
             existingPort = pathComponents[2].split("/")[0];
         }
         info("Existing protocol = " + existingProtocol + " and port = " + existingPort);
-        if(protocolName.length() > 0 && protocolPort.length() > 0) {
-            dataDir = dataDir.replaceFirst(existingProtocol, protocolName);
-            dataDir = dataDir.replaceFirst(existingPort, protocolPort);
+        if(hdfsFetcherProtocol.length() > 0 && hdfsFetcherPort.length() > 0) {
+            dataDir = dataDir.replaceFirst(existingProtocol, this.hdfsFetcherProtocol);
+            dataDir = dataDir.replaceFirst(existingPort, this.hdfsFetcherPort);
         }
-        info("dfs.webhdfs.enabled = " + hadoopConfig.get("dfs.webhdfs.enabled")
-             + " and new protocol = " + protocolName + " and port = " + protocolPort);
 
         // Create admin client
         AdminClient client = new AdminClient(cluster,
