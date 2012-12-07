@@ -10,6 +10,8 @@ rseed = int(random.randint(00000000001,99999999999))
 # Setup and argument parser
 parser = argparse.ArgumentParser(description='Build a voldemort cluster.xml.')
 # Add supported arguments
+parser.add_argument('-f', '--file', type=str, dest='file',
+                    help='the file of the list of hosts')
 parser.add_argument('-N', '--name', type=str, default='voldemort', dest='name',
                     help='the name you want to give the cluster')
 parser.add_argument('-n', '--nodes', type=int, default=2, dest='nodes',
@@ -44,7 +46,11 @@ if args.zones:
     sys.exit(1)
 
 # Store arguments
-nodes = args.nodes
+if args.file:
+  hostList = open(agrs.file).readlines()
+  nodes = len(hostList)
+else:
+  nodes = args.nodes
 partitions = args.partitions
 name = args.name
 http_port = args.http_port
@@ -73,7 +79,10 @@ for i in xrange(nodes):
 
   print "  <server>"
   print "    <id>%d</id>" % i
-  print "    <host>host%d</host>" % i
+  if args.file:
+    print "    <host>%s</host>" % hostList[i]
+  else:
+    print "    <host>host%d</host>" % i
   print "    <http-port>%d</http-port>" % http_port
   print "    <socket-port>%d</socket-port>" % sock_port
   print "    <admin-port>%d</admin-port>" % admin_port
