@@ -44,4 +44,4 @@ if [ -z "$VOLD_OPTS" ]; then
 fi
 
 export CLASSPATH
-java -Djava.net.preferIPv4Stack=true -Djava.security.krb5.realm=GRID.LINKEDIN.COM -Djava.security.krb5.kdc=esv4-ns.grid.linkedin.com -Dlog4j.configuration=$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
+java -Dlog4j.configuration=$base_dir/src/java/log4j.properties $VOLD_OPTS -cp $CLASSPATH $@
