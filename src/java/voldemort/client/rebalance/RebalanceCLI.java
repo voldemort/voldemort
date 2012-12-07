@@ -73,6 +73,11 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("number-partitions");
+            parser.accepts("generate-max-contiguous-partitions",
+                           "Limit the number of contiguous partition IDs allowed within a zone.")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("num-contiguous");
             parser.accepts("analyze", "Analyze how balanced given cluster is.");
             parser.accepts("entropy",
                            "True - if we want to run the entropy calculator. False - if we want to store keys")
@@ -149,6 +154,9 @@ public class RebalanceCLI {
             int generateRandomNumPartitions = CmdUtils.valueOf(options,
                                                                "generate-random-num-partitions",
                                                                0);
+            int generateMaxContiguousPartitionsPerZone = CmdUtils.valueOf(options,
+                                                                          "generate-max-contiguous-partitions",
+                                                                          -1);
 
             RebalanceClientConfig config = new RebalanceClientConfig();
             config.setMaxParallelRebalancing(parallelism);
@@ -237,7 +245,8 @@ public class RebalanceCLI {
                                                       config.getMaxTriesRebalancing(),
                                                       generatePrimariesWithinZone,
                                                       generatePermitXZoneMoves,
-                                                      generateRandomNumPartitions);
+                                                      generateRandomNumPartitions,
+                                                      generateMaxContiguousPartitionsPerZone);
                     return;
                 }
 
@@ -288,6 +297,8 @@ public class RebalanceCLI {
         stream.println("\t (iii) --generate-primaries-within-zone [ Keep primaries within same zone, default true ] ");
         stream.println("\t (iv) --generate-permit-xzone-moves [ Allow non-primary partitions to move across zones, default true ] ");
         stream.println("\t (v) --generate-random-num-partitions num-partitions [ Allow number of partitions per node to vary by (roughly) num-partitions, default 0 ] ");
+        stream.println("\t (vi) --generate-max-contiguous-partitions num-contiguous [ Max allowed contiguous partition IDs within a zone, default of -1 which is no limit ] ");
+
         stream.println();
         stream.println("ANALYZE");
         stream.println("a) --current-cluster <path> --current-stores <path> --analyze [ Analyzes a cluster xml for balance]");
