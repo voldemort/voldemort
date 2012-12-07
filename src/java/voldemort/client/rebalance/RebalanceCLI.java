@@ -60,6 +60,20 @@ public class RebalanceCLI {
                   .describedAs("num-tries");
             parser.accepts("generate",
                            "Optimize the target cluster which has new nodes with empty partitions");
+            parser.accepts("generate-primaries-within-zone",
+                           "Keep primary partitions within the same zone")
+                  .withRequiredArg()
+                  .ofType(Boolean.class);
+            parser.accepts("generate-permit-xzone-moves",
+                           "Allow non-primary partitions to move across zones.")
+                  .withRequiredArg()
+                  .ofType(Boolean.class);
+            parser.accepts("generate-random-num-partitions",
+                           "Vary number of partitions per node by some amount.")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("number-partitions");
+            parser.accepts("analyze", "Analyze how balanced given cluster is.");
             parser.accepts("entropy",
                            "True - if we want to run the entropy calculator. False - if we want to store keys")
                   .withRequiredArg()
@@ -126,6 +140,16 @@ public class RebalanceCLI {
                                                                "stealer-based",
                                                                RebalanceClientConfig.STEALER_BASED_REBALANCING);
 
+            boolean generatePrimariesWithinZone = CmdUtils.valueOf(options,
+                                                                   "generate-primaries-within-zone",
+                                                                   true);
+            boolean generatePermitXZoneMoves = CmdUtils.valueOf(options,
+                                                                "generate-permit-xzone-moves",
+                                                                true);
+            int generateRandomNumPartitions = CmdUtils.valueOf(options,
+                                                               "generate-random-num-partitions",
+                                                               0);
+
             RebalanceClientConfig config = new RebalanceClientConfig();
             config.setMaxParallelRebalancing(parallelism);
             config.setDeleteAfterRebalancingEnabled(deleteAfterRebalancing);
@@ -191,6 +215,11 @@ public class RebalanceCLI {
 
                 }
 
+                if(options.has("analyze")) {
+                    RebalanceUtils.analyzeBalance(currentCluster, storeDefs);
+                    return;
+                }
+
                 if(!options.has("target-cluster")) {
                     System.err.println("Missing required arguments: target-cluster");
                     printHelp(System.err, parser);
@@ -205,7 +234,10 @@ public class RebalanceCLI {
                                                       targetCluster,
                                                       storeDefs,
                                                       config.getOutputDirectory(),
-                                                      config.getMaxTriesRebalancing());
+                                                      config.getMaxTriesRebalancing(),
+                                                      generatePrimariesWithinZone,
+                                                      generatePermitXZoneMoves,
+                                                      generateRandomNumPartitions);
                     return;
                 }
 
@@ -253,6 +285,12 @@ public class RebalanceCLI {
                        + " Uses target cluster i.e. current-cluster + new nodes ( with empty partitions ) ]");
         stream.println("\t (i)  --output-dir [ Output directory is where we store the optimized cluster ]");
         stream.println("\t (ii) --tries [ Number of optimization cycles ] ");
+        stream.println("\t (iii) --generate-primaries-within-zone [ Keep primaries within same zone, default true ] ");
+        stream.println("\t (iv) --generate-permit-xzone-moves [ Allow non-primary partitions to move across zones, default true ] ");
+        stream.println("\t (v) --generate-random-num-partitions num-partitions [ Allow number of partitions per node to vary by (roughly) num-partitions, default 0 ] ");
+        stream.println();
+        stream.println("ANALYZE");
+        stream.println("a) --current-cluster <path> --current-stores <path> --analyze [ Analyzes a cluster xml for balance]");
         stream.println();
         stream.println("ENTROPY");
         stream.println("a) --current-cluster <path> --current-stores <path> --entropy <true / false> --output-dir <path> [ Runs the entropy calculator if "

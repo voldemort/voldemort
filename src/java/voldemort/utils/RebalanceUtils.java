@@ -252,12 +252,24 @@ public class RebalanceUtils {
      *        metadata ( if not null )
      * @param tries Number of times we'll try to optimize the metadata
      *        generation
+     * @param keepPrimaryPartitionsInSameZone Checks zone IDs of donor and
+     *        stealer nodes and only allow moves within same zone.
+     * @param permitCrossZoneMoves Expensive check to prevent primary partition
+     *        moves that result in other partitions moving across zones.
+     * @param varyNumPartitionsPerNode Allows number of partitions per node
+     *        within a zone to vary by +-[0,varyNumPartitionsPerNode]. A value
+     *        of zero means that all nodes within a zone should have a similar
+     *        (within one) number of primary partitions.
+     * 
      */
     public static void generateMinCluster(final Cluster currentCluster,
                                           final Cluster targetCluster,
                                           final List<StoreDefinition> storeDefs,
                                           final String outputDir,
-                                          final int tries) {
+                                          final int tries,
+                                          final boolean keepPrimaryPartitionsInSameZone,
+                                          final boolean permitCrossZoneMoves,
+                                          final int varyNumPartitionsPerNode) {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
 
@@ -266,15 +278,13 @@ public class RebalanceUtils {
         int minMoves = Integer.MAX_VALUE;
         double minStdDev = Double.MAX_VALUE;
 
-        // TODO: What is the purpose of multiple tries and measuring std dev of
-        // uniformly random key distributions? I think the tries logic can be
-        // removed from this method/tool since I do not believe this logic
-        // serves any purpose.
-
         for(int numTries = 0; numTries < tries; numTries++) {
             Pair<Cluster, Integer> minClusterMove = RebalanceUtils.generateMinCluster(currentCluster,
                                                                                       targetCluster,
-                                                                                      storeDefs);
+                                                                                      storeDefs,
+                                                                                      keepPrimaryPartitionsInSameZone,
+                                                                                      permitCrossZoneMoves,
+                                                                                      varyNumPartitionsPerNode);
 
             double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(minClusterMove.getFirst(),
                                                                                                                                                  uniqueStores,
@@ -339,6 +349,29 @@ public class RebalanceUtils {
     }
 
     /**
+     * Outputs an analysis of how balanced the cluster is given the store defs
+     * and a random sampling of keys.
+     * 
+     * @param currentCluster Current cluster metadata
+     * @param storeDefs List of store definitions
+     */
+    public static void analyzeBalance(final Cluster currentCluster,
+                                      final List<StoreDefinition> storeDefs) {
+
+        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
+
+        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
+        KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(currentCluster,
+                                                                                                                      uniqueStores,
+                                                                                                                      keys));
+        System.out.println();
+        System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
+                                                                             storeDefs,
+                                                                             keys));
+        return;
+    }
+
+    /**
      * Takes the current cluster metadata and target cluster metadata ( which
      * contains all the nodes of current cluster + new nodes with empty
      * partitions ), and generates a new cluster with some partitions moved to
@@ -348,12 +381,23 @@ public class RebalanceUtils {
      * @param targetCluster Target cluster metadata ( which contains old nodes +
      *        new nodes [ empty partitions ])
      * @param storeDefs List of store definitions
+     * @param keepPrimaryPartitionsInSameZone Checks zone IDs of donor and
+     *        stealer nodes and only allow moves within same zone.
+     * @param permitCrossZoneMoves Expensive check to prevent primary partition
+     *        moves that result in other partitions moving across zones.
+     * @param varyNumPartitionsPerNode Allows number of partitions per node
+     *        within a zone to vary by +-[0,varyNumPartitionsPerNode]. A value
+     *        of zero means that all nodes within a zone should have a similar
+     *        (within one) number of primary partitions.
      * @return Return a pair of cluster metadata and number of primary
      *         partitions that have moved
      */
     public static Pair<Cluster, Integer> generateMinCluster(final Cluster currentCluster,
                                                             final Cluster targetCluster,
-                                                            final List<StoreDefinition> storeDefs) {
+                                                            final List<StoreDefinition> storeDefs,
+                                                            final boolean keepPrimaryPartitionsInSameZone,
+                                                            final boolean permitCrossZoneMoves,
+                                                            final int varyNumPartitionsPerNode) {
         // Find all the new nodes added + clone to a new list of nodes
         List<Integer> newNodeIds = Lists.newArrayList();
         List<Integer> donorNodeIds = Lists.newArrayList();
@@ -430,18 +474,6 @@ public class RebalanceUtils {
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
         int totalPrimaryPartitionsMoved = 0;
 
-        // TODO: Will any other rebalancing code break if we do a rebalance
-        // without adding any new nodes?
-        /*-
-        int currentNumNodes = currentCluster.getNumberOfNodes();
-        int targetNumNodes = targetCluster.getNumberOfNodes();
-        if(currentNumNodes == targetNumNodes) {
-
-            // Number of nodes is the same, done!
-            return Pair.create(returnCluster, totalPrimaryPartitionsMoved);
-        }
-         */
-
         // Set up a target number of partitions per node per zone
         HashMap<Integer, List<Integer>> numPartitionsPerNodePerZone = Maps.newHashMap();
         for(Integer zoneId: numNodesPerZone.keySet()) {
@@ -459,6 +491,38 @@ public class RebalanceUtils {
                 partitionsOnNode.add(i, floorPartitionsPerNodeInZone);
             }
             numPartitionsPerNodePerZone.put(zoneId, partitionsOnNode);
+        }
+
+        if(varyNumPartitionsPerNode > 0) {
+            // Add randomness to # of partitions per node in zone.
+            Random r = new Random();
+            for(Integer zoneId: numPartitionsPerNodePerZone.keySet()) {
+                int totalRandom = 0;
+                for(int i = 0; i < numPartitionsPerNodePerZone.get(zoneId).size(); i++) {
+                    int current = numPartitionsPerNodePerZone.get(zoneId).get(i);
+                    int randomVal = r.nextInt(varyNumPartitionsPerNode * 2 + 1);
+                    // Shift randomVal down to be centered around 0, so it may
+                    // be -ive. Limit how negative randomVal may be to ensure at
+                    // least one partition is assigned.
+                    randomVal = Math.max(-current + 1, randomVal - varyNumPartitionsPerNode);
+                    numPartitionsPerNodePerZone.get(zoneId).set(i, current + randomVal);
+                    totalRandom += randomVal;
+                }
+                while(totalRandom > 0) {
+                    int id = r.nextInt(numPartitionsPerNodePerZone.get(zoneId).size());
+                    int current = numPartitionsPerNodePerZone.get(zoneId).get(id);
+                    if(current > 1) { // Leave at least one partition on node
+                        numPartitionsPerNodePerZone.get(zoneId).set(id, current - 1);
+                        totalRandom--;
+                    }
+                }
+                while(totalRandom < 0) {
+                    int id = r.nextInt(numPartitionsPerNodePerZone.get(zoneId).size());
+                    int current = numPartitionsPerNodePerZone.get(zoneId).get(id);
+                    numPartitionsPerNodePerZone.get(zoneId).set(id, current + 1);
+                    totalRandom++;
+                }
+            }
         }
 
         // Assign target number of partitions per node to specific node IDs and
@@ -515,7 +579,9 @@ public class RebalanceUtils {
                     Node currentDonorNode = returnCluster.getNodeById(donorNode.getId());
 
                     // Only steal from donor nodes within same zone
-                    if(currentDonorNode.getZoneId() != stealerNode.getZoneId()) {
+
+                    if(keepPrimaryPartitionsInSameZone
+                       && (currentDonorNode.getZoneId() != stealerNode.getZoneId())) {
                         continue;
                     }
                     // Only steal from donor nodes with extra partitions
@@ -527,31 +593,26 @@ public class RebalanceUtils {
                     Collections.shuffle(donorPartitions, new Random(System.currentTimeMillis()));
 
                     for(int donorPartition: donorPartitions) {
-                        long startTimeNs = System.nanoTime();
                         Cluster intermediateCluster = createUpdatedCluster(returnCluster,
                                                                            stealerNode.getId(),
                                                                            Lists.newArrayList(donorPartition));
-                        System.out.println("createUpdatedCluster took "
-                                           + (System.nanoTime() - startTimeNs) + " ns.");
 
-                        startTimeNs = System.nanoTime();
-                        // TODO: how is it possible for the call to
-                        // getCrossZoneMoves to return a non-zero value!? The
-                        // plan to actually move partitions appears to be
-                        // generating unnecessary cross zone moves. The cost of
-                        // calling getCrossZoneMoves grows significantly with
-                        // cluster size. E.g., for an 11 node cluster, the call
-                        // takes ~230 ms, whereas for a 39 node cluster the call
-                        // takes ~10 s (40x longer). Worse, larger clusters have
-                        // more partitions to move and so this call is made more
-                        // times.
-                        int crossZoneMoves = RebalanceUtils.getCrossZoneMoves(intermediateCluster,
+                        int crossZoneMoves = 0;
+                        if(!permitCrossZoneMoves) {
+                            // getCrossZoneMoves can be a *slow* call. E.g., for
+                            // an 11 node cluster, the call takes ~230 ms,
+                            // whereas for a 39 node cluster the call takes ~10
+                            // s (40x longer). Also, unclear how useful this
+                            // constraint is in practice.
+                            long startTimeNs = System.nanoTime();
+                            crossZoneMoves = RebalanceUtils.getCrossZoneMoves(intermediateCluster,
                                                                               new RebalanceClusterPlan(returnCluster,
                                                                                                        intermediateCluster,
                                                                                                        storeDefs,
                                                                                                        true));
-                        System.out.println("getCrossZoneMoves took "
-                                           + (System.nanoTime() - startTimeNs) + " ns.");
+                            System.out.println("getCrossZoneMoves took "
+                                               + (System.nanoTime() - startTimeNs) + " ns.");
+                        }
                         if(crossZoneMoves == 0) {
                             returnCluster = intermediateCluster;
                             totalPrimaryPartitionsMoved++;
