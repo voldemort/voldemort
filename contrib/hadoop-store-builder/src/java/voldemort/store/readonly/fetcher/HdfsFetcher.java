@@ -66,7 +66,7 @@ public class HdfsFetcher implements FileFetcher {
     private static final Logger logger = Logger.getLogger(HdfsFetcher.class);
 
     private static String keytabPath = "";
-    private static String kerberosPrincipal = "voldemrt";
+    private static String kerberosPrincipal = VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL;
 
     private final Long maxBytesPerSecond, reportingIntervalBytes;
     private final int bufferSize;
@@ -76,8 +76,6 @@ public class HdfsFetcher implements FileFetcher {
     private long minBytesPerSecond = 0;
     private DynamicThrottleLimit globalThrottleLimit = null;
     private static final int NUM_RETRIES = 3;
-    private String keytabLocation = "";
-    private String kerberosUser = "voldemrt";
     private VoldemortConfig voldemortConfig = null;
 
     public static final String FS_DEFAULT_NAME = "fs.default.name";

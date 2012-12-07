@@ -57,6 +57,10 @@ public class VoldemortConfig implements Serializable {
     public static final long REPORTING_INTERVAL_BYTES = 25 * 1024 * 1024;
     public static final int DEFAULT_BUFFER_SIZE = 64 * 1024;
 
+    // Kerberos support for read-only fetches (constants)
+    public static String DEFAULT_KERBEROS_PRINCIPAL = "voldemrt";
+    public static String DEFAULT_KEYTAB_PATH = "/voldemrt.headless.keytab";
+
     private int nodeId;
 
     private String voldemortHome;
@@ -274,8 +278,9 @@ public class VoldemortConfig implements Serializable {
                                                       DEFAULT_BUFFER_SIZE);
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
                                                   this.metadataDirectory
-                                                          + "/voldemrt.headless.keytab");
-        this.readOnlyKerberosUser = props.getString("readonly.kerberos.user", "voldemrt");
+                                                          + VoldemortConfig.DEFAULT_KEYTAB_PATH);
+        this.readOnlyKerberosUser = props.getString("readonly.kerberos.user",
+                                                    VoldemortConfig.DEFAULT_KERBEROS_PRINCIPAL);
         this.setHadoopConfigPath(props.getString("readonly.hadoop.config.path",
                                                  this.metadataDirectory + "/hadoop-conf"));
 
