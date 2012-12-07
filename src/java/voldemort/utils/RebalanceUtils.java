@@ -368,6 +368,99 @@ public class RebalanceUtils {
         System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
                                                                              storeDefs,
                                                                              keys));
+
+        System.out.println();
+        System.out.println("PARTITION DUMP");
+
+        Map<Integer, Integer> aggNodeIdToPartitionCount = Maps.newHashMap();
+        List<Integer> nodeIds = new ArrayList<Integer>();
+
+        for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
+            System.out.println();
+            System.out.println("Store exemplar: " + storeDefinition.getName());
+            System.out.println("\tReplication factor: " + storeDefinition.getReplicationFactor());
+            System.out.println("\tRouting strategy: " + storeDefinition.getRoutingStrategyType());
+            System.out.println("\tThere are " + uniqueStores.get(storeDefinition)
+                               + " other similar stores.");
+
+            // Pairs of Integers are of <replica_type, partition_id>
+            Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = getNodeIdToAllPartitions(currentCluster,
+                                                                                                       storeDefinition,
+                                                                                                       true);
+            // Get sorted NodeIds
+            if(nodeIds.size() == 0) {
+                nodeIds.addAll(nodeIdToAllPartitions.keySet());
+                java.util.Collections.sort(nodeIds);
+            }
+
+            if(aggNodeIdToPartitionCount.size() == 0) {
+                for(Integer nodeId: nodeIds) {
+                    aggNodeIdToPartitionCount.put(nodeId, 0);
+                }
+            }
+
+            Map<Integer, Integer> nodeIdToPartitionCount = Maps.newHashMap();
+
+            // Print out all partitions, by replica type, per node
+            System.out.println();
+            System.out.println("\tDetailed Dump:");
+            for(Integer nodeId: nodeIds) {
+                System.out.println("\tNode ID: " + nodeId);
+                nodeIdToPartitionCount.put(nodeId, 0);
+                Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
+                int replicaType = 0;
+                while(partitionPairs.size() > 0) {
+                    List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
+                    for(Pair<Integer, Integer> pair: partitionPairs) {
+                        if(pair.getFirst() == replicaType) {
+                            replicaPairs.add(pair);
+                        }
+                    }
+                    List<Integer> partitions = new ArrayList<Integer>();
+                    for(Pair<Integer, Integer> pair: replicaPairs) {
+                        partitionPairs.remove(pair);
+                        partitions.add(pair.getSecond());
+                    }
+                    java.util.Collections.sort(partitions);
+                    System.out.println("\t\t" + replicaType + " : " + partitions.size() + " : "
+                                       + partitions.toString());
+                    nodeIdToPartitionCount.put(nodeId, nodeIdToPartitionCount.get(nodeId)
+                                                       + partitions.size());
+                    replicaType++;
+                }
+            }
+
+            System.out.println();
+            System.out.println("\tSummary Dump:");
+            for(Integer nodeId: nodeIds) {
+                System.out.println("\tNode ID: " + nodeId + " : "
+                                   + nodeIdToPartitionCount.get(nodeId));
+                aggNodeIdToPartitionCount.put(nodeId,
+                                              aggNodeIdToPartitionCount.get(nodeId)
+                                                      + (nodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
+            }
+
+        }
+
+        System.out.println();
+        System.out.println("AGGREGATE PARTITION COUNT (across all stores)");
+        int minVal = Integer.MAX_VALUE;
+        int maxVal = Integer.MIN_VALUE;
+        int aggCount = 0;
+        for(Integer nodeId: nodeIds) {
+            int curCount = aggNodeIdToPartitionCount.get(nodeId);
+            System.out.println("\tNode ID: " + nodeId + " : " + curCount);
+            aggCount += curCount;
+            if(curCount > maxVal)
+                maxVal = curCount;
+            if(curCount < minVal)
+                minVal = curCount;
+        }
+        System.out.println("\tMin: " + minVal);
+        System.out.println("\tAvg: " + aggCount / aggNodeIdToPartitionCount.size());
+        System.out.println("\tMax: " + maxVal);
+        System.out.println("\t\tMax/Min: " + maxVal * 1.0 / minVal);
+
         return;
     }
 
