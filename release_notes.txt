@@ -1,4 +1,4 @@
-Release 1.1.4 on 11/28/2012
+Release 1.1.5 on 12/10/2012
 
 This is a special release based off of release 0.96.li7. Its purpose is to 
 isolate the client-registry branch from the other changes made since 0.96.li7 
@@ -7,91 +7,166 @@ and to make the same available to all the Voldemort clients within LinkedIn.
 Changes made since 0.96.li7
 * Made DefaultStoreClient as default
 * Removed logging stack trace in LazyStoreClient
+* Added the Avro schema evolution mechanism (from 1.0.0)
+* Added store tracking autobootstrapper mechanism (from 1.0.0)
 
-Release 0.96.li7 (LinkedIn release) on 09/21/2012
+Release 1.1.4 on 11/29/2012
 
-Changes made since 0.96.li6
-* Added server side system stores for managing metadata
-* Added system store client for interacting with System Stores
-* Added a new routing strategy to route to all with local preference
-* Added a auto-bootstrap mechanism triggered by metadata changes
-* Added a client-registry for publishing client info and config values
-* Added a new Voldemort client : ZenStoreClient to work with the system stores
-* Enhanced Admin tool to work with the new system stores
-* Updated LazyClientStore to try to bootstrap during Init
-* Modified Failure Detector to work on a shared cluster object reference
-* New tests for testing the auto-bootstrap and system store functionality
+Changes made since release 1.1.3
+* Added BDB parameters to control LRU behavior in cache & proactive cleaner migration
+* Added a mlock fix for pinning the indexes of RO stores in memory
 
-Release 0.96.li6 (LinkedIn release) on 09/19/2012
 
-Changes made since 0.96.li5
-* Changed getall return behavior to comply with javadoc
+Release 1.1.3 on 11/28/2012
 
-Release 0.96.li5 (LinkedIn release) on 09/06/2012
+Changes made since release 1.1.2
+* Fixed a bug in the build and push job, specifically the Mapper
+  that caused collisions
+* Added retry mechanism with the HDFS fetcher for hftp
 
-Changes made since 0.96.li2
-* Added server config to control socket backlog
-* Added "--query-keys" option to query multiple keys of multiple stores from
-* specific node
-* Added control to DataCleanupJob Frequency
-* Improved messages in request tracing
-* Cleaned up help/usage messages within the client shell
-* Unified jmxid as the factory across the board
-* Fixed a bug that caused unnecessary serial requests in getall
-* Fixed a bug that prevented "--fetch-keys" and "--fetch-entries" in admin
-* tool from showing multiple store results
-* Fixed problem in sample config that prevented the server from starting
-* Fixed random rebalance test failures
 
-Release 0.96.li2 (LinkedIn release) on 08/01/2012
+Release 1.1.2 on 10/31/2012
 
-Changes made since 0.96.li1
-* HFTP performance issue bug fix (fix in byte buffer and copy process)
-* Added mechanism to isolate BDB cache usage among stores
-* Enhanced debug logging (for traffic analysis).
-* Python client bug fixes (from pull request)
-* Tooling improvement (generate_cluster_xml.py)
+Changes made since release 1.1.1
+* Reverted a change to voldemort.versioning.Versioned.getVersion() so
+  that a Version is returned as our clients expect.
 
-Release 0.96.li1 (LinkedIn release) on 07/12/2012
 
-Changes made since 0.95.li9
-* Reuploaded the jar
+Release 1.1.1 on 10/30/2012
 
-Changes made since 0.95.li4
-* Added configurable option to interrupt service being unscheduled
-* Added rollback capability to the Admin tool
-* Added tracking functionality for scan permit owner
-* Added zoned option for restore from replicas
-* Enabled NIO connector by default
-* Added client side MBeans for multiple socket pool metrics
-* Shortened some long tests and created new target called "junit-long" that
-* includes them
-* Finer timeouts and partial getalls
-* Refactored to share VodemortOpCode between classes
-* Fixed a donor-based rebalancing bug and added a unit test
-* Fixed a bug that will return null during concurrent read and writes
-* Added jmxId to Mbean name for failureDetector and storefactory
-* Prevent preferred reads from crossing zones
-* Added additional debug messages
+Changes made since release 1.1.0
+* Fixed connection leak in ClientRequestExecutorFactory
+* Changed client to default to DefaultStoreClient
 
-Release 0.95.li4 (LinkedIn release) on 04/13/2012
 
-Changes made since 0.95.li3
-* Added error count Mbeans
-* Concurrency bug fix in Donor based rebalancing
+Release 1.1.0 on 10/19/2012
 
-Release 0.95.li3 (LinkedIn release) on 03/22/2012
+Changes made since release 1.0.0
 
-Changes made since 0.95.li2
- * HOTFIX - DDS-2536: Fixed FailureDetector to handle host swap
+IMPORTANT NOTE : This release has significant changes to the BDB storage layer.
+Users are required to read the bin/PREUPGRADE_FOR_1_1_X_README file
+thoroughly before attempting to upgrade to 1.1.0. The necessary data 
+conversion will be done through bin/voldemort-convert-bdb.sh
 
-Release 0.95.li2 (LinkedIn release) on 03/21/2012
+* Upgrading to JE 4.1.17
+* New data format that handles conflicting updates in Voldemort more
+  efficiently
+* Move data off heap and only use it for Index
+* When scanning, evict whatever you bring in right away.
+* Partition based scan api to dramatically speed up rebalancing & restore
+  using Partition aware scans (you exactly scan whatever you want to fetch)
+* Flexible knobs to control scheduling of DataCleanupJob
 
-Changes made since 0.95.li1
- * Hot fix for SNA-10109. Replaced exception by log message in Histogram
- * Replaced int by long to avoid overflow in Histogram and RequestCounter
 
-Release 0.90.1 on 10/10/2011
+Release 1.0.0 on 10/17/2012
+
+NOTE: The large version number jump from 0.96 to 1.0.0 is to
+standardize on a version number of the sort MAJOR.MINOR.PATCH.  This
+change is part of our effort to treat internal and open source
+releases in a much more similar manner. Along these lines, release
+notes for internal releases (like this one) are committed on the
+master branch. We hope this improves transparency as we work towards
+the next open source release.
+
+Changes made since release 0.96
+
+* Auto bootstrapping: ZenStoreClient and System stores
+  * Added server side system stores for managing metadata
+  * ZenStoreClient interacts with system stores
+  * ZenStoreClient auto bootstraps whenever cluster.xml or stores.xml changes
+  * Added a new routing strategy to route to all with local preference
+  * Added a client-registry for publishing client info and config values
+  * Updated LazyClientStore to try to bootstrap during Init
+  * Modified Failure Detector to work on a shared cluster object reference
+* Avro: schema evolution and read only support
+  * Added new Avro serializer type that supports schema evolution
+  * Added Avro support to read only stores
+  * Added LinkedIn build-and-push Azkaban jobs to build read only stores to contrib
+  * Added a schema backwards compatibility check to VoldemortAdminTool and on server startup to prevent mishaps due to bad schemas
+* Non-blocking IO: Fixed design flaw that blocked in the face of slow servers
+  * Asynchronous operations no longer do a blocking checkout to get a SocketDestination
+  * Added additional stats collection for better visibility into request queues
+* Minor features
+  * Enhanced VoldemortAdminTool to update store metadata version
+  * Enhanced VoldemortAdminTool to work with the new system stores
+  * Added feature to voldemort-shell.sh to dump byte & object arrays
+  * Added a SlowStorageEngine for testing degraded mode performance
+  * Added mechanism to isolate BDB cache usage among stores
+  * Enhanced debug logging (for traffic analysis).
+  * Python client bug fixes (from pull request)
+  * Improved messages in request tracing
+  * Cleaned up help/usage messages within the client shell
+  * Added server config to control socket backlog
+  * Added "--query-keys" option to query multiple keys of multiple stores from specific node
+  * Added control to DataCleanupJob Frequency
+  * Unified jmxid as the factory across the board
+* Tools
+  * bin/generate_cluster_xml.py to generate cluster.xml
+  * bin/repeat-junit.sh and bin/repeat-junit-test.sh to repeatedly run tests
+* Bug fixes
+  * Changed getall return behavior to comply with javadoc
+  * Fixed a bug that caused unnecessary serial requests in getall
+  * HFTP performance issue bug fix (fix in byte buffer and copy process)
+  * Fixed a bug that prevented "--fetch-keys" and "--fetch-entries" in admin tool from showing multiple store results
+  * Fixed problem in sample config that prevented the server from starting
+  * Fixed some intermittent BindException failures across many unit tests
+  * Fixed some intermittent rebalance test failures
+  * Wrapped long running tests with timeouts
+
+
+Release 0.96 on 09/05/2012
+
+Changes made since 0.90.1
+
+ * Monitoring:
+     * Append cluster name to various mbeans for better stats display
+     * Implement average throughput in bytes
+     * Add BDB JE stats 
+     * Add 95th and 99th latency tracking 
+     * Add stats for ClientRequestExecutorPool
+     * Add error/exception count and max getall count
+     * BDB+ Data cleanup Monitoring changes
+ * Rebalancing:
+     * Donor-based rebalancing and post cleanup (see https://github.com/voldemort/voldemort/wiki/Voldemort-Donor-Based-Rebalancing for more details)
+     * Rebalancing integration testing framework (under test/integration/voldemort/rebalance/)
+     * Generate multiple cluster.xml files based on the number specified when running the tool and choose the cluster with the smallest std dev as the final-cluster.xml
+     * Add status output to log for updateEntries (used by rebalancing)
+ * Read-only pipeline:
+     * Add hftp and webhdfs support
+     * Read-only bandwidth dynamic throttler
+     * Add minimum throttle limit per store
+     * Add rollback capability to the Admin tool
+ * Voldemort-backed stack and index linked list impl
+ * Change client requests to not process responses after timeout
+ * Modified client request executor timeout to not factor in the NIO selector timeout
+ * Added BDB native backup capabalities, checksum verification and incremental backups (well tested, but not yet used in production)
+ * Add additional client-side tracing for debugging and consistency analytics
+ * Clean up logging during exception at client-side
+ * Security exception handling
+ * Add snappy to CompressionStrategyFactory
+ * Add configurable option to interrupt service being unscheduled
+ * Add logging support for tracking ScanPermit owners (for debugging purposes)
+ * Add a jmx terminate operation for async jobs
+ * Add zone option for restore from replicas
+ * Changing the enable.nio.connector to true by default
+ * Better disconnection handling for python client
+ * Split junit tests into a long and a short test suites
+ * Add separate timeouts for different operations (put, get, delete, and getAll
+ * Allow getAll to return partial results upon timeout
+ * Improved cluster generation tool
+ * Added log4j properties folder for junit test
+ * Bug fixes:
+     * httpclient 3.x to httpclient 4.x
+     * Fix NPE in listing read-only store versions
+     * Fixed 2 failure detector bugs during rebalancing or node swapping
+     * Fixed a thread leak issue in StreamingSlopPusher
+     * Fixed a NIO bug
+     * Fixed a bug in TimeBasedInconsistency resolver.
+     * Fixed race condition in client socket close
+     * Fixed a potential deadlock issue in ScanPermitWrapper
+     * Fixed a bug where a read returns null (on rare occations) when being concurrent with a write
+     * Fixed a performance bug in HdfsFetcher when hftp is used
+
 
 Changes made since 0.90
 
