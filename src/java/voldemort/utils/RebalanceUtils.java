@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2012 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -240,7 +240,6 @@ public class RebalanceUtils {
         }
     }
 
-    // TODO: Add/fix param to header comments
     /**
      * Outputs an optimized cluster based on the existing cluster and the new
      * nodes that are being added.
@@ -261,7 +260,13 @@ public class RebalanceUtils {
      *        within a zone to vary by +-[0,varyNumPartitionsPerNode]. A value
      *        of zero means that all nodes within a zone should have a similar
      *        (within one) number of primary partitions.
-     * 
+     * @param enableRandomSwaps Tries randomly swapping partitions within zones
+     *        to improve balance of cluster.
+     * @param swapAttempts Number of random swaps to attempt
+     * @param swapSuccesses Early termination condition on random swapping: once
+     *        swapSuccesses attempts are successful, stop randomly swapping
+     *        partitions.
+     * @param maxContiguousPartitionsPerZone
      */
     public static void balanceTargetCluster(final Cluster currentCluster,
                                             final Cluster targetCluster,
@@ -317,11 +322,12 @@ public class RebalanceUtils {
             int currentMoves = xzonePartitionsMoved + numPartPerZone.getSecond();
 
             if(enableRandomSwaps) {
-                Pair<Cluster, Integer> shuffleCluster = RebalanceUtils.shufflePartitions(nextCluster,
-                                                                                         swapAttempts,
-                                                                                         swapSuccesses,
-                                                                                         uniqueStores,
-                                                                                         keys);
+                Pair<Cluster, Integer> shuffleCluster = RebalanceUtils.randomShufflePartitions(nextCluster,
+                                                                                               swapAttempts,
+                                                                                               swapSuccesses,
+                                                                                               storeDefs,
+                                                                                               uniqueStores,
+                                                                                               keys);
                 nextCluster = shuffleCluster.getFirst();
                 currentMoves += shuffleCluster.getSecond();
             }
@@ -374,7 +380,7 @@ public class RebalanceUtils {
                                                                              keys));
         System.out.println("=========================\n");
 
-        analyzeBalance(minCluster, storeDefs);
+        analyzeBalance(minCluster, storeDefs, true);
 
         // If output directory exists, output the optimized cluster
         if(outputDir != null) {
@@ -395,8 +401,9 @@ public class RebalanceUtils {
      * @param currentCluster Current cluster metadata
      * @param storeDefs List of store definitions
      */
-    public static void analyzeBalance(final Cluster currentCluster,
-                                      final List<StoreDefinition> storeDefs) {
+    public static double analyzeBalance(final Cluster currentCluster,
+                                        final List<StoreDefinition> storeDefs,
+                                        boolean verbose) {
 
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
 
@@ -404,24 +411,30 @@ public class RebalanceUtils {
         KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(currentCluster,
                                                                                                                       uniqueStores,
                                                                                                                       keys));
-        System.out.println();
-        System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                             storeDefs,
-                                                                             keys));
+        if(verbose) {
+            System.out.println();
+            System.out.println(KeyDistributionGenerator.printOverallDistribution(currentCluster,
+                                                                                 storeDefs,
+                                                                                 keys));
 
-        System.out.println();
-        System.out.println("PARTITION DUMP");
+            System.out.println();
+            System.out.println("PARTITION DUMP");
+        }
 
         Map<Integer, Integer> aggNodeIdToPartitionCount = Maps.newHashMap();
         List<Integer> nodeIds = new ArrayList<Integer>();
 
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
-            System.out.println();
-            System.out.println("Store exemplar: " + storeDefinition.getName());
-            System.out.println("\tReplication factor: " + storeDefinition.getReplicationFactor());
-            System.out.println("\tRouting strategy: " + storeDefinition.getRoutingStrategyType());
-            System.out.println("\tThere are " + uniqueStores.get(storeDefinition)
-                               + " other similar stores.");
+            if(verbose) {
+                System.out.println();
+                System.out.println("Store exemplar: " + storeDefinition.getName());
+                System.out.println("\tReplication factor: "
+                                   + storeDefinition.getReplicationFactor());
+                System.out.println("\tRouting strategy: "
+                                   + storeDefinition.getRoutingStrategyType());
+                System.out.println("\tThere are " + uniqueStores.get(storeDefinition)
+                                   + " other similar stores.");
+            }
 
             // Pairs of Integers are of <replica_type, partition_id>
             Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = getNodeIdToAllPartitions(currentCluster,
@@ -442,10 +455,14 @@ public class RebalanceUtils {
             Map<Integer, Integer> nodeIdToPartitionCount = Maps.newHashMap();
 
             // Print out all partitions, by replica type, per node
-            System.out.println();
-            System.out.println("\tDetailed Dump:");
+            if(verbose) {
+                System.out.println();
+                System.out.println("\tDetailed Dump:");
+            }
             for(Integer nodeId: nodeIds) {
-                System.out.println("\tNode ID: " + nodeId);
+                if(verbose) {
+                    System.out.println("\tNode ID: " + nodeId);
+                }
                 nodeIdToPartitionCount.put(nodeId, 0);
                 Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
                 int replicaType = 0;
@@ -462,19 +479,25 @@ public class RebalanceUtils {
                         partitions.add(pair.getSecond());
                     }
                     java.util.Collections.sort(partitions);
-                    System.out.println("\t\t" + replicaType + " : " + partitions.size() + " : "
-                                       + partitions.toString());
+                    if(verbose) {
+                        System.out.println("\t\t" + replicaType + " : " + partitions.size() + " : "
+                                           + partitions.toString());
+                    }
                     nodeIdToPartitionCount.put(nodeId, nodeIdToPartitionCount.get(nodeId)
                                                        + partitions.size());
                     replicaType++;
                 }
             }
 
-            System.out.println();
-            System.out.println("\tSummary Dump:");
+            if(verbose) {
+                System.out.println();
+                System.out.println("\tSummary Dump:");
+            }
             for(Integer nodeId: nodeIds) {
-                System.out.println("\tNode ID: " + nodeId + " : "
-                                   + nodeIdToPartitionCount.get(nodeId));
+                if(verbose) {
+                    System.out.println("\tNode ID: " + nodeId + " : "
+                                       + nodeIdToPartitionCount.get(nodeId));
+                }
                 aggNodeIdToPartitionCount.put(nodeId,
                                               aggNodeIdToPartitionCount.get(nodeId)
                                                       + (nodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
@@ -482,26 +505,32 @@ public class RebalanceUtils {
 
         }
 
-        System.out.println();
-        System.out.println("AGGREGATE PARTITION COUNT (across all stores)");
+        if(verbose) {
+            System.out.println();
+            System.out.println("AGGREGATE PARTITION COUNT (across all stores)");
+        }
         int minVal = Integer.MAX_VALUE;
         int maxVal = Integer.MIN_VALUE;
         int aggCount = 0;
         for(Integer nodeId: nodeIds) {
             int curCount = aggNodeIdToPartitionCount.get(nodeId);
-            System.out.println("\tNode ID: " + nodeId + " : " + curCount);
+            if(verbose) {
+                System.out.println("\tNode ID: " + nodeId + " : " + curCount);
+            }
             aggCount += curCount;
             if(curCount > maxVal)
                 maxVal = curCount;
             if(curCount < minVal)
                 minVal = curCount;
         }
-        System.out.println("\tMin: " + minVal);
-        System.out.println("\tAvg: " + aggCount / aggNodeIdToPartitionCount.size());
-        System.out.println("\tMax: " + maxVal);
-        System.out.println("\t\tMax/Min: " + maxVal * 1.0 / minVal);
-
-        return;
+        double maxMinRatio = maxVal * 1.0 / minVal;
+        if(verbose) {
+            System.out.println("\tMin: " + minVal);
+            System.out.println("\tAvg: " + aggCount / aggNodeIdToPartitionCount.size());
+            System.out.println("\tMax: " + maxVal);
+            System.out.println("\t\tMax/Min: " + maxMinRatio);
+        }
+        return maxMinRatio;
     }
 
     /**
@@ -1062,11 +1091,17 @@ public class RebalanceUtils {
      * @param keys Input for testing value of a specific swap.
      * @return
      */
-    public static Pair<Cluster, Integer> shufflePartitions(final Cluster targetCluster,
-                                                           final int swapAttempts,
-                                                           final int swapSuccesses,
-                                                           HashMap<StoreDefinition, Integer> uniqueStores,
-                                                           List<ByteArray> keys) {
+    public static Pair<Cluster, Integer> randomShufflePartitions(final Cluster targetCluster,
+                                                                 final int swapAttempts,
+                                                                 final int swapSuccesses,
+                                                                 List<StoreDefinition> storeDefs,
+                                                                 HashMap<StoreDefinition, Integer> uniqueStores,
+                                                                 List<ByteArray> keys) {
+        // IDEA: If randomShuffle does not work well enough, it may be worth
+        // trying a "greedy" shuffle. I.e., one in which every pair-wise
+        // partition swap within a zone is considered, and the one swap that
+        // yields the most improvement is chosen. This could be repeated some
+        // number of times.
         List<Node> allNodes = Lists.newArrayList();
         Set<Integer> zoneIds = new HashSet<Integer>();
 
@@ -1078,31 +1113,27 @@ public class RebalanceUtils {
         Cluster returnCluster = updateCluster(targetCluster, allNodes);
         int totalPrimaryPartitionsMoved = 0;
 
-        double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(returnCluster,
-                                                                                                                                             uniqueStores,
-                                                                                                                                             keys));
+        double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs, false);
 
-        for(Integer zoneId: zoneIds) {
-            int successes = 0;
-            for(int i = 0; i < swapAttempts; i++) {
+        int successes = 0;
+        for(int i = 0; i < swapAttempts; i++) {
+            for(Integer zoneId: zoneIds) {
                 Pair<Cluster, Integer> shuffleResults = swapRandomPartitionsWithinZone(returnCluster,
                                                                                        zoneId);
-                double nextStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(shuffleResults.getFirst(),
-                                                                                                                                                  uniqueStores,
-                                                                                                                                                  keys));
-                if(nextStdDev < currentStdDev) {
-                    ++successes;
-                    System.out.println("Swap improved std dev: " + currentStdDev + " -> "
-                                       + nextStdDev + " (improvement " + successes
+                double nextMaxMinRatio = analyzeBalance(shuffleResults.getFirst(), storeDefs, false);
+                if(nextMaxMinRatio < currentMaxMinRatio) {
+                    successes++;
+                    System.out.println("Swap improved max-min ratio: " + currentMaxMinRatio
+                                       + " -> " + nextMaxMinRatio + " (improvement " + successes
                                        + " on swap attempt " + i + " in zone " + zoneId + ")");
                     returnCluster = shuffleResults.getFirst();
-                    currentStdDev = nextStdDev;
+                    currentMaxMinRatio = nextMaxMinRatio;
                     totalPrimaryPartitionsMoved += shuffleResults.getSecond();
-                    if(successes >= swapSuccesses) {
-                        // Enough successes, move on to next zone.
-                        break;
-                    }
                 }
+            }
+            if(successes >= swapSuccesses) {
+                // Enough successes, move on.
+                break;
             }
         }
 
@@ -2191,6 +2222,7 @@ public class RebalanceUtils {
 
         return Executors.newFixedThreadPool(numThreads, new ThreadFactory() {
 
+            @Override
             public Thread newThread(Runnable r) {
                 Thread thread = new Thread(r);
                 thread.setName(r.getClass().getName());
