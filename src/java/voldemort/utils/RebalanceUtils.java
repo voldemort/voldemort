@@ -286,7 +286,8 @@ public class RebalanceUtils {
         List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Cluster minCluster = targetCluster;
         int minMoves = Integer.MAX_VALUE;
-        double minStdDev = Double.MAX_VALUE;
+        // double minStdDev = Double.MAX_VALUE;
+        double minMaxMinRatio = Double.MAX_VALUE;
 
         Cluster nextCluster;
         int xzonePartitionsMoved;
@@ -332,22 +333,26 @@ public class RebalanceUtils {
                 currentMoves += shuffleCluster.getSecond();
             }
 
+            /*-
             double currentStdDev = KeyDistributionGenerator.getStdDeviation(KeyDistributionGenerator.generateOverallDistributionWithUniqueStores(nextCluster,
                                                                                                                                                  uniqueStores,
                                                                                                                                                  keys));
-            System.out.println("Optimization number " + numTries + ": "
-                               + numPartPerZone.getSecond() + " moves, " + currentStdDev
-                               + " std dev");
-            System.out.println("Current min moves: " + minMoves + "; current min std dev: "
-                               + minStdDev);
+             */
 
-            if(currentStdDev <= minStdDev) {
+            double currentMaxMinRatio = analyzeBalance(nextCluster, storeDefs, false);
+            System.out.println("Optimization number " + numTries + ": "
+                               + numPartPerZone.getSecond() + " moves, " + currentMaxMinRatio
+                               + " max/min ratio");
+            System.out.println("Current min moves: " + minMoves + "; current max/min ratio: "
+                               + minMaxMinRatio);
+
+            if(currentMaxMinRatio <= minMaxMinRatio) {
                 if(currentMoves > minMoves) {
                     System.out.println("Warning: the newly chosen cluster requires "
                                        + (currentMoves - minMoves) + " addition moves!");
                 }
                 minMoves = currentMoves;
-                minStdDev = currentStdDev;
+                minMaxMinRatio = currentMaxMinRatio;
                 minCluster = nextCluster;
 
                 System.out.println("Current distribution");
