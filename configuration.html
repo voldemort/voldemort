@@ -697,7 +697,7 @@ Here is a list of all the configuration options supported:
 </tr>
 <tr>
 	<td>failuredetector_implementation</td>
-	<td>BannagePeriodFailureDetector</td>
+	<td>ThresholdFailureDetector</td>
 	<td>Class name of the failure detector that the client will use. We support BannagePeriodFailureDetector and ThresholdFailureDetector</td>
 </tr>
 <tr>
@@ -707,17 +707,17 @@ Here is a list of all the configuration options supported:
 </tr>
 <tr>
 	<td>failuredetector_threshold_countminimum</td>
-	<td>10</td>
+	<td>30</td>
 	<td>ThresholdFailureDetector : Minimum number of failures that must occur before the success ratio is checked against the threshold</td>
 </tr>
 <tr>
 	<td>failuredetector_threshold_interval</td>
-	<td>10000</td>
+	<td>30000</td>
 	<td>ThresholdFailureDetector : Millisecond interval for which the threshold is valid; it is 'reset' after this period is exceeded</td>
 </tr>
 <tr>
 	<td>failuredetector_threshold</td>
-	<td>80</td>
+	<td>95</td>
 	<td>ThresholdFailureDector : The integer percentage representation of the threshold that must be met or exceeded</td>
 </tr>
 </table>
