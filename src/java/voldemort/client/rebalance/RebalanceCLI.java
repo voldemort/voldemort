@@ -76,6 +76,8 @@ public class RebalanceCLI {
                   .describedAs("num-tries");
             parser.accepts("generate",
                            "Optimize the target cluster which has new nodes with empty partitions");
+            // TODO: Switch Boolean command line arguments to be "--enable-foo"
+            // style, without any arg required.
             parser.accepts("generate-primaries-within-zone",
                            "Keep primary partitions within the same zone")
                   .withRequiredArg()
@@ -102,6 +104,26 @@ public class RebalanceCLI {
                   .withRequiredArg()
                   .ofType(Integer.class)
                   .describedAs("num-successes");
+            parser.accepts("generate-enable-greedy-swaps",
+                           "Enable attempts to improve balance by greedily swapping (random) partitions within a zone")
+                  .withRequiredArg()
+                  .ofType(Boolean.class);
+            parser.accepts("generate-greedy-swap-attempts",
+                           "Number of greedy (random) swaps to attempt.")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("num-attempts");
+            parser.accepts("generate-greedy-max-partitions-per-node",
+                           "Max number of partitions per-node to evaluate swapping with other partitions within the zone.")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("max-partitions-per-node");
+            parser.accepts("generate-greedy-max-partitions-per-zone",
+                           "Max number of (random) partitions per-zone to evaluate swapping with partitions from node being evaluated.")
+                  .withRequiredArg()
+                  .ofType(Integer.class)
+                  .describedAs("max-partitions-per-zone");
+
             parser.accepts("generate-max-contiguous-partitions",
                            "Limit the number of contiguous partition IDs allowed within a zone.")
                   .withRequiredArg()
@@ -185,13 +207,25 @@ public class RebalanceCLI {
                                                                0);
             boolean generateEnableRandomSwaps = CmdUtils.valueOf(options,
                                                                  "generate-enable-random-swaps",
-                                                                 true);
+                                                                 false);
             int generateRandomSwapAttempts = CmdUtils.valueOf(options,
                                                               "generate-random-swap-attempts",
                                                               100);
             int generateRandomSwapSuccesses = CmdUtils.valueOf(options,
                                                                "generate-random-swap-successes",
                                                                100);
+            boolean generateEnableGreedySwaps = CmdUtils.valueOf(options,
+                                                                 "generate-enable-greedy-swaps",
+                                                                 false);
+            int generateGreedySwapAttempts = CmdUtils.valueOf(options,
+                                                              "generate-greedy-swap-attempts",
+                                                              5);
+            int generateGreedyMaxPartitionsPerNode = CmdUtils.valueOf(options,
+                                                                      "generate-greedy-max-partitions-per-node",
+                                                                      5);
+            int generateGreedyMaxPartitionsPerZone = CmdUtils.valueOf(options,
+                                                                      "generate-greedy-max-partitions-per-zone",
+                                                                      25);
             int generateMaxContiguousPartitionsPerZone = CmdUtils.valueOf(options,
                                                                           "generate-max-contiguous-partitions",
                                                                           -1);
@@ -292,6 +326,10 @@ public class RebalanceCLI {
                                                         generateEnableRandomSwaps,
                                                         generateRandomSwapAttempts,
                                                         generateRandomSwapSuccesses,
+                                                        generateEnableGreedySwaps,
+                                                        generateGreedySwapAttempts,
+                                                        generateGreedyMaxPartitionsPerNode,
+                                                        generateGreedyMaxPartitionsPerZone,
                                                         generateMaxContiguousPartitionsPerZone);
                     return;
                 }
@@ -320,6 +358,7 @@ public class RebalanceCLI {
         System.exit(exitCode);
     }
 
+    // TODO: Clean this up to avoid explicitly stating the default value.
     public static void printHelp(PrintStream stream, OptionParser parser) throws IOException {
         stream.println("Commands supported");
         stream.println("------------------");
@@ -345,8 +384,9 @@ public class RebalanceCLI {
         stream.println("\t (iv) --generate-permit-xzone-moves [ Allow non-primary partitions to move across zones, default true ] ");
         stream.println("\t (v) --generate-random-num-partitions num-partitions [ Allow number of partitions per node to vary by (roughly) num-partitions, default 0 ] ");
         stream.println("\t (vi) --generate-enable-random-swaps [ Attempt to randomly swap partitions within a zone to improve balance, default true ] ");
-        stream.println("\t (vii) --generate-random-swamp-attempts num-attempts [ Number of random swamps to attempt in hopes of improving balance, default 100 ] ");
-        stream.println("\t (viii) --generate-random-swamp-successes num-successes [ Stop after num-successes successful random swap atttempts, default 100 ] ");
+        stream.println("\t (vii) --generate-random-swap-attempts num-attempts [ Number of random swamps to attempt in hopes of improving balance, default 100 ] ");
+        stream.println("\t (viii) --generate-random-swap-successes num-successes [ Stop after num-successes successful random swap atttempts, default 100 ] ");
+        // TODO: Add documentation for greedy swap
         stream.println("\t (ix) --generate-max-contiguous-partitions num-contiguous [ Max allowed contiguous partition IDs within a zone, default of -1 which is no limit ] ");
 
         stream.println();
