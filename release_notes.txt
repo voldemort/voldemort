@@ -1,3 +1,12 @@
+Release 1.1.6 on 12/12/2012
+
+This is a special release based off of release 0.96.li7. Its purpose is to 
+isolate the client-registry branch from the other changes made since 0.96.li7 
+and to make the same available to all the Voldemort clients within LinkedIn.
+
+Changes made since 1.1.5
+* Correcting the ivy dependency of je to version 4.0.92
+
 Release 1.1.5 on 12/10/2012
 
 This is a special release based off of release 0.96.li7. Its purpose is to 
