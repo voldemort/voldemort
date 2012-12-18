@@ -25,18 +25,17 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
+import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.server.protocol.StreamRequestHandler.StreamRequestDirection;
 import voldemort.server.protocol.StreamRequestHandler.StreamRequestHandlerState;
 import voldemort.utils.ByteUtils;
-import voldemort.utils.SelectorManagerWorker;
 
 /**
  * AsyncRequestHandler manages a Selector, SocketChannel, and RequestHandler
@@ -60,16 +59,16 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
 
     private StreamRequestHandler streamRequestHandler;
 
-    private MutableInt serverConnectionCount;
+    private NioSelectorManagerStats nioStats;
 
     public AsyncRequestHandler(Selector selector,
                                SocketChannel socketChannel,
                                RequestHandlerFactory requestHandlerFactory,
                                int socketBufferSize,
-                               MutableInt serverConnectionCount) {
-        super(selector, socketChannel, socketBufferSize);
+                               NioSelectorManagerStats nioStats) {
+        super(selector, socketChannel, socketBufferSize, nioStats.getServerCommBufferStats());
         this.requestHandlerFactory = requestHandlerFactory;
-        this.serverConnectionCount = serverConnectionCount;
+        this.nioStats = nioStats;
     }
 
     @Override
@@ -130,8 +129,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         DataInputStream dataInputStream = new DataInputStream(inputStream);
         DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
 
-        streamRequestHandler = requestHandler.handleRequest(dataInputStream,
-							    dataOutputStream);
+        streamRequestHandler = requestHandler.handleRequest(dataInputStream, dataOutputStream);
 
         if(logger.isDebugEnabled()) {
             logger.debug("AsyncRequestHandler:read finished request from "
@@ -386,7 +384,7 @@ public class AsyncRequestHandler extends SelectorManagerWorker {
         if(!isClosed.compareAndSet(false, true))
             return;
 
-        serverConnectionCount.decrement();
+        nioStats.removeConnection();
         closeInternal();
     }
 }

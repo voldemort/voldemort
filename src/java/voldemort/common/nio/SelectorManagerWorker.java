@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.common.nio;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+
+import voldemort.utils.ByteUtils;
 
 /**
  * SelectorManagerWorker manages a Selector, SocketChannel, and IO streams
@@ -62,13 +64,16 @@ public abstract class SelectorManagerWorker implements Runnable {
 
     public SelectorManagerWorker(Selector selector,
                                  SocketChannel socketChannel,
-                                 int socketBufferSize) {
+                                 int socketBufferSize,
+                                 CommBufferSizeStats commBufferStats) {
         this.selector = selector;
         this.socketChannel = socketChannel;
         this.socketBufferSize = socketBufferSize;
         this.resizeThreshold = socketBufferSize * 2; // This is arbitrary...
-        this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize));
-        this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize));
+        this.inputStream = new ByteBufferBackedInputStream(ByteBuffer.allocate(socketBufferSize),
+                                                           commBufferStats.getCommReadBufferSizeTracker());
+        this.outputStream = new ByteBufferBackedOutputStream(ByteBuffer.allocate(socketBufferSize),
+                                                             commBufferStats.getCommWriteBufferSizeTracker());
         this.createTimestamp = System.nanoTime();
         this.isClosed = new AtomicBoolean(false);
 
@@ -162,6 +167,10 @@ public abstract class SelectorManagerWorker implements Runnable {
                     logger.warn(e.getMessage(), e);
             }
         }
+
+        // close the streams, so we account for comm buffer frees
+        inputStream.close();
+        outputStream.close();
     }
 
     public boolean isClosed() {

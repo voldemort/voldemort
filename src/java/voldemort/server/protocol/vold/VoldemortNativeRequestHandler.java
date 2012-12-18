@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
 import voldemort.common.VoldemortOpCode;
+import voldemort.common.nio.ByteBufferBackedInputStream;
 import voldemort.server.RequestRoutingType;
 import voldemort.server.StoreRepository;
 import voldemort.server.protocol.AbstractRequestHandler;
@@ -21,7 +22,6 @@ import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.Store;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteBufferBackedInputStream;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;

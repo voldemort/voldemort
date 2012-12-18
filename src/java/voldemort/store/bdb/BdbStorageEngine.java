@@ -77,8 +77,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
     private final Environment environment;
     private final AtomicBoolean isOpen;
     private final LockMode readLockMode;
-    private final BdbEnvironmentStats bdbEnvironmentStats;
     private final AtomicBoolean isTruncating = new AtomicBoolean(false);
+
+    protected final BdbEnvironmentStats bdbEnvironmentStats;
     protected final boolean minimizeScanImpact;
 
     public BdbStorageEngine(String name,
@@ -91,6 +92,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         this.isOpen = new AtomicBoolean(true);
         this.readLockMode = config.getLockMode();
         this.bdbEnvironmentStats = new BdbEnvironmentStats(environment,
+                                                           database,
                                                            config.getStatsCacheTtlMs(),
                                                            config.getExposeSpaceUtil());
         this.minimizeScanImpact = config.getMinimizeScanImpact();
@@ -108,6 +110,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbEntriesIterator(cursor, this);
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         }
@@ -121,6 +124,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbKeysIterator(cursor, this);
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         }
@@ -150,6 +154,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 environment.truncateDatabase(transaction, this.getName(), false);
                 succeeded = true;
             } catch(DatabaseException e) {
+                this.bdbEnvironmentStats.reportException(e);
                 logger.error(e);
                 throw new VoldemortException("Failed to truncate Bdb store " + getName(), e);
 
@@ -191,6 +196,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                                                    this.bdbDatabase.getConfig());
             return true;
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             throw new StorageInitializationException("Failed to reinitialize BdbStorageEngine for store:"
                                                              + getName() + " after truncation.",
                                                      e);
@@ -239,11 +245,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 return Collections.emptyList();
             }
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             if(logger.isTraceEnabled()) {
-                logger.trace("Completed GET from key " + key + " (keyRef: "
+                logger.trace("Completed GET (" + getName() + ") from key " + key + " (keyRef: "
                              + System.identityHashCode(key) + ") in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
@@ -269,7 +276,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 String keyStr = "";
                 for(ByteArray key: keys)
                     keyStr += key + " ";
-                logger.trace("Completed GETALL from keys " + keyStr + " in "
+                logger.trace("Completed GETALL (" + getName() + ") from keys " + keyStr + " in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }
@@ -337,6 +344,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             succeeded = true;
 
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
@@ -345,7 +353,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             else
                 attemptAbort(transaction);
             if(logger.isTraceEnabled()) {
-                logger.trace("Completed PUT to key " + key + " (keyRef: "
+                logger.trace("Completed PUT (" + getName() + ") to key " + key + " (keyRef: "
                              + System.identityHashCode(key) + " value " + value + " in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
@@ -415,13 +423,15 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                 return numDeletedVersions > 0;
             }
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         } finally {
             attemptCommit(transaction);
             if(logger.isTraceEnabled()) {
-                logger.trace("Completed DELETE of key " + ByteUtils.toHexString(key.get())
-                             + " (keyRef: " + System.identityHashCode(key) + ") in "
+                logger.trace("Completed DELETE (" + getName() + ") of key "
+                             + ByteUtils.toHexString(key.get()) + " (keyRef: "
+                             + System.identityHashCode(key) + ") in "
                              + (System.nanoTime() - startTimeNs) + " ns at "
                              + System.currentTimeMillis());
             }
@@ -450,6 +460,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             if(this.isOpen.compareAndSet(true, false))
                 this.getBdbDatabase().close();
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException("Shutdown failed.", e);
         }
@@ -459,7 +470,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         try {
             if(transaction != null)
                 transaction.abort();
-        } catch(Exception e) {
+        } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error("Abort failed!", e);
         }
     }
@@ -469,6 +481,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             if(transaction != null)
                 transaction.commit();
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error("Transaction commit failed!", e);
             attemptAbort(transaction);
             throw new PersistenceFailureException(e);
@@ -481,6 +494,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             config.setFast(setFast);
             return this.getBdbDatabase().getStats(config);
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new VoldemortException(e);
         }
@@ -552,6 +566,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                     this.cache.add(Pair.create(key, val));
                 return true;
             } catch(DatabaseException e) {
+                bdbEngine.bdbEnvironmentStats.reportException(e);
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }
@@ -600,6 +615,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                     current = new ByteArray(keyEntry.getData());
                 return true;
             } catch(DatabaseException e) {
+                bdbEngine.bdbEnvironmentStats.reportException(e);
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }

@@ -79,6 +79,7 @@ public class VoldemortConfig implements Serializable {
     private int bdbCleanerMinFileUtilization;
     private int bdbCleanerMinUtilization;
     private int bdbCleanerLookAheadCacheSize;
+    private long bdbCleanerBytesInterval;
     private boolean bdbCheckpointerHighPriority;
     private int bdbCleanerMaxBatchFiles;
     private boolean bdbReadUncommitted;
@@ -236,12 +237,15 @@ public class VoldemortConfig implements Serializable {
                                                                       + File.separator + "bdb");
         this.bdbMaxLogFileSize = props.getBytes("bdb.max.logfile.size", 60 * 1024 * 1024);
         this.bdbBtreeFanout = props.getInt("bdb.btree.fanout", 512);
-        this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 20 * 1024 * 1024);
+        this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 200 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
         this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
         this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
+        // by default, wake up the cleaner everytime we write one whole log file
+        this.bdbCleanerBytesInterval = props.getLong("bdb.cleaner.interval.bytes",
+                                                     this.bdbMaxLogFileSize);
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
         this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
@@ -791,6 +795,24 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
+     * 
+     * Amount of bytes written before the Cleaner wakes up to check for
+     * utilization
+     * 
+     * <ul>
+     * <li>property: "bdb.cleaner.interval.bytes"</li>
+     * <li>default: logfile size</li>
+     * </ul>
+     */
+    public long getBdbCleanerBytesInterval() {
+        return bdbCleanerBytesInterval;
+    }
+
+    public final void setCleanerBytesInterval(long bdbCleanerBytesInterval) {
+        this.bdbCleanerBytesInterval = bdbCleanerBytesInterval;
+    }
+
+    /**
      * Buffer size used by cleaner to fetch BTree nodes during cleaning.
      * 
      * <ul>
@@ -1086,7 +1108,7 @@ public class VoldemortConfig implements Serializable {
      * 
      * <ul>
      * <li>Property : "bdb.checkpoint.interval.bytes"</li>
-     * <li>Default : 20MB</li>
+     * <li>Default : 200MB</li>
      * </ul>
      * 
      * @return

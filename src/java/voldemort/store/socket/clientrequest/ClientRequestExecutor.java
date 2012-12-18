@@ -28,7 +28,8 @@ import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Level;
 
-import voldemort.utils.SelectorManagerWorker;
+import voldemort.common.nio.CommBufferSizeStats;
+import voldemort.common.nio.SelectorManagerWorker;
 import voldemort.utils.Time;
 
 /**
@@ -55,7 +56,8 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
     public ClientRequestExecutor(Selector selector,
                                  SocketChannel socketChannel,
                                  int socketBufferSize) {
-        super(selector, socketChannel, socketBufferSize);
+        // Not tracking or exposing the comm buffer statistics for now
+        super(selector, socketChannel, socketBufferSize, new CommBufferSizeStats());
         isExpired = false;
     }
 
@@ -106,7 +108,7 @@ public class ClientRequestExecutor extends SelectorManagerWorker {
         if(timeoutMs == -1) {
             this.expiration = -1;
         } else {
-            if (elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
+            if(elapsedNs > (Time.NS_PER_MS * timeoutMs)) {
                 this.expiration = System.nanoTime();
             } else {
                 this.expiration = System.nanoTime() + (Time.NS_PER_MS * timeoutMs) - elapsedNs;

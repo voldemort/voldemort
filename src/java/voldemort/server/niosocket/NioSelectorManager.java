@@ -23,11 +23,12 @@ import java.nio.channels.SocketChannel;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.log4j.Level;
 
+import voldemort.common.nio.CommBufferSizeStats;
+import voldemort.common.nio.SelectorManager;
 import voldemort.server.protocol.RequestHandlerFactory;
-import voldemort.utils.SelectorManager;
+import voldemort.store.stats.Histogram;
 
 /**
  * SelectorManager handles the non-blocking polling of IO events using the
@@ -100,7 +101,7 @@ public class NioSelectorManager extends SelectorManager {
 
     private final int socketBufferSize;
 
-    private MutableInt numActiveConnections;
+    private final NioSelectorManagerStats stats;
 
     public NioSelectorManager(InetSocketAddress endpoint,
                               RequestHandlerFactory requestHandlerFactory,
@@ -109,7 +110,7 @@ public class NioSelectorManager extends SelectorManager {
         this.socketChannelQueue = new ConcurrentLinkedQueue<SocketChannel>();
         this.requestHandlerFactory = requestHandlerFactory;
         this.socketBufferSize = socketBufferSize;
-        this.numActiveConnections = new MutableInt(0);
+        this.stats = new NioSelectorManagerStats();
     }
 
     public void accept(SocketChannel socketChannel) {
@@ -123,6 +124,9 @@ public class NioSelectorManager extends SelectorManager {
     @Override
     protected void processEvents() {
         try {
+            // update stats
+            stats.updateSelectStats(selectCount, selectTimeMs, processingTimeMs);
+
             SocketChannel socketChannel = null;
 
             while((socketChannel = socketChannelQueue.poll()) != null) {
@@ -160,11 +164,11 @@ public class NioSelectorManager extends SelectorManager {
                                                                              socketChannel,
                                                                              requestHandlerFactory,
                                                                              socketBufferSize,
-                                                                             numActiveConnections);
+                                                                             stats);
 
                     if(!isClosed.get()) {
                         socketChannel.register(selector, SelectionKey.OP_READ, attachment);
-                        numActiveConnections.increment();
+                        stats.addConnection();
                     }
                 } catch(ClosedSelectorException e) {
                     if(logger.isDebugEnabled())
@@ -190,7 +194,7 @@ public class NioSelectorManager extends SelectorManager {
      * @return
      */
     public Integer getNumActiveConnections() {
-        return numActiveConnections.toInteger();
+        return stats.getNumActiveConnections();
     }
 
     /**
@@ -200,5 +204,21 @@ public class NioSelectorManager extends SelectorManager {
      */
     public Integer getNumQueuedConnections() {
         return socketChannelQueue.size();
+    }
+
+    public Histogram getSelectTimeMsHistogram() {
+        return stats.getSelectTimeMsHistogram();
+    }
+
+    public Histogram getSelectCountHistogram() {
+        return stats.getSelectCountHistogram();
+    }
+
+    public Histogram getProcessingTimeMsHistogram() {
+        return stats.getProcessingTimeMsHistogram();
+    }
+
+    public CommBufferSizeStats getCommBufferSizeStats() {
+        return stats.getServerCommBufferStats();
     }
 }

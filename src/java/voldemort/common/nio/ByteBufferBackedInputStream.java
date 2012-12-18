@@ -14,11 +14,13 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.common.nio;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+
+import org.apache.commons.lang.mutable.MutableLong;
 
 import voldemort.annotations.concurrency.NotThreadsafe;
 
@@ -38,16 +40,34 @@ public class ByteBufferBackedInputStream extends InputStream {
 
     private ByteBuffer buffer;
 
+    /**
+     * Reference to a size tracking object, that tracks the size of the buffer
+     * in bytes
+     */
+    private MutableLong sizeTracker;
+
     public ByteBufferBackedInputStream(ByteBuffer buffer) {
         this.buffer = buffer;
+        this.sizeTracker = null;
+    }
+
+    public ByteBufferBackedInputStream(ByteBuffer buffer, MutableLong sizeTracker) {
+        this.buffer = buffer;
+        this.sizeTracker = sizeTracker;
+        this.sizeTracker.add(buffer.capacity());
     }
 
     public ByteBuffer getBuffer() {
         return buffer;
     }
 
-    public void setBuffer(ByteBuffer buffer) {
-        this.buffer = buffer;
+    public void setBuffer(ByteBuffer newBuffer) {
+        // update the size tracker with the new buffer size
+        if((sizeTracker != null && this.buffer != null && newBuffer != null)) {
+            sizeTracker.add(newBuffer.capacity());
+            sizeTracker.subtract(this.buffer.capacity());
+        }
+        this.buffer = newBuffer;
     }
 
     @Override
@@ -68,4 +88,9 @@ public class ByteBufferBackedInputStream extends InputStream {
         return len;
     }
 
+    public void close() {
+        if(sizeTracker != null && this.buffer != null) {
+            sizeTracker.subtract(this.buffer.capacity());
+        }
+    }
 }

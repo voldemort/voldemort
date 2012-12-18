@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.common.nio;
 
 import java.io.IOException;
 import java.nio.channels.ClosedSelectorException;
@@ -98,6 +98,23 @@ public class SelectorManager implements Runnable {
 
     protected final Logger logger = Logger.getLogger(getClass());
 
+    // statistics about the current select loop
+    /**
+     * Number of connections selected (meaning they have some data to be
+     * read/written) in the current processing loop
+     */
+    protected int selectCount = -1;
+    /**
+     * Amount of time taken to process all the connections selected in this
+     * processing loop
+     */
+    protected long processingTimeMs = -1;
+    /**
+     * Amount of time spent in the select() call. This is an indicator of how
+     * busy the thread is
+     */
+    protected long selectTimeMs = -1;
+
     public SelectorManager() {
         try {
             this.selector = Selector.open();
@@ -172,7 +189,10 @@ public class SelectorManager implements Runnable {
                 processEvents();
 
                 try {
+                    selectTimeMs = System.currentTimeMillis();
                     int selected = selector.select(SELECTOR_POLL_MS);
+                    selectTimeMs = System.currentTimeMillis() - selectTimeMs;
+                    selectCount = selected;
 
                     if(isClosed.get()) {
                         if(logger.isInfoEnabled())
@@ -182,6 +202,7 @@ public class SelectorManager implements Runnable {
                     }
 
                     if(selected > 0) {
+                        processingTimeMs = System.currentTimeMillis();
                         Iterator<SelectionKey> i = selector.selectedKeys().iterator();
 
                         while(i.hasNext()) {
@@ -194,6 +215,7 @@ public class SelectorManager implements Runnable {
                                 worker.run();
                             }
                         }
+                        processingTimeMs = System.currentTimeMillis() - processingTimeMs;
                     }
                 } catch(ClosedSelectorException e) {
                     if(logger.isDebugEnabled())
@@ -217,5 +239,4 @@ public class SelectorManager implements Runnable {
             }
         }
     }
-
 }

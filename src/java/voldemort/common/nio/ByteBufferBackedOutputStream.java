@@ -14,13 +14,16 @@
  * the License.
  */
 
-package voldemort.utils;
+package voldemort.common.nio;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+import org.apache.commons.lang.mutable.MutableLong;
+
 import voldemort.annotations.concurrency.NotThreadsafe;
+import voldemort.utils.ByteUtils;
 
 /**
  * ByteBufferBackedOutputStream serves two purposes:
@@ -46,17 +49,36 @@ public class ByteBufferBackedOutputStream extends OutputStream {
 
     private boolean wasExpanded;
 
+    /**
+     * Reference to a size tracking object, that tracks the size of the buffer
+     * in bytes
+     */
+    private MutableLong sizeTracker;
+
     public ByteBufferBackedOutputStream(ByteBuffer buffer) {
         this.buffer = buffer;
         wasExpanded = false;
+        this.sizeTracker = null;
+    }
+
+    public ByteBufferBackedOutputStream(ByteBuffer buffer, MutableLong sizeTracker) {
+        this.buffer = buffer;
+        wasExpanded = false;
+        this.sizeTracker = sizeTracker;
+        this.sizeTracker.add(buffer.capacity());
     }
 
     public ByteBuffer getBuffer() {
         return buffer;
     }
 
-    public void setBuffer(ByteBuffer buffer) {
-        this.buffer = buffer;
+    public void setBuffer(ByteBuffer newBuffer) {
+        // update the size tracker with the new buffer size
+        if((sizeTracker != null && this.buffer != null && newBuffer != null)) {
+            sizeTracker.add(newBuffer.capacity());
+            sizeTracker.subtract(this.buffer.capacity());
+        }
+        this.buffer = newBuffer;
         wasExpanded = false;
     }
 
@@ -78,8 +100,13 @@ public class ByteBufferBackedOutputStream extends OutputStream {
         if(need <= 0)
             return;
 
-        int newCapacity = buffer.capacity() + need;
-        buffer = ByteUtils.expand(buffer, newCapacity * 2);
+        int newCapacity = (buffer.capacity() + need) * 2;
+        // update the size tracker with the new buffer size
+        if(sizeTracker != null) {
+            sizeTracker.add(newCapacity);
+            sizeTracker.subtract(this.buffer.capacity());
+        }
+        buffer = ByteUtils.expand(buffer, newCapacity);
         wasExpanded = true;
     }
 
@@ -87,4 +114,9 @@ public class ByteBufferBackedOutputStream extends OutputStream {
         return wasExpanded;
     }
 
+    public void close() {
+        if(sizeTracker != null && this.buffer != null) {
+            sizeTracker.subtract(this.buffer.capacity());
+        }
+    }
 }

@@ -113,6 +113,8 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                                          Boolean.toString(config.getBdbCleanerLazyMigration()));
         environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BACKGROUND_PROACTIVE_MIGRATION,
                                          Boolean.toString(config.getBdbProactiveBackgroundMigration()));
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_BYTES_INTERVAL,
+                                         Long.toString(config.getBdbCleanerBytesInterval()));
 
         environmentConfig.setLockTimeout(config.getBdbLockTimeoutMs(), TimeUnit.MILLISECONDS);
         if(config.getBdbCacheModeEvictLN()) {
@@ -313,22 +315,6 @@ public class BdbStorageConfiguration implements StorageConfiguration {
                 throw new VoldemortException(e);
             }
         }
-    }
-
-    @JmxOperation(description = "Obtain the number of k-v entries in the store")
-    public long getEntryCount(String storeName) throws Exception {
-        Environment storeEnv = environments.get(storeName);
-        if(storeEnv != null) {
-            Database storeDb = null;
-            try {
-                storeDb = storeEnv.openDatabase(null, storeName, databaseConfig);
-                return storeDb.count();
-            } finally {
-                if(storeDb != null)
-                    storeDb.close();
-            }
-        }
-        return 0;
     }
 
     public void close() {

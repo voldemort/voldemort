@@ -36,10 +36,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import voldemort.common.nio.SelectorManager;
 import voldemort.store.socket.SocketDestination;
 import voldemort.store.stats.ClientSocketStats;
 import voldemort.utils.DaemonThreadFactory;
-import voldemort.utils.SelectorManager;
 import voldemort.utils.Time;
 import voldemort.utils.pool.ResourceFactory;
 

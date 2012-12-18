@@ -69,6 +69,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbPartitionEntriesIterator(cursor, partition, this);
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         }
@@ -83,6 +84,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
                 cursor.setCacheMode(CacheMode.EVICT_BIN);
             return new BdbPartitionKeysIterator(cursor, partition, this);
         } catch(DatabaseException e) {
+            this.bdbEnvironmentStats.reportException(e);
             logger.error(e);
             throw new PersistenceFailureException(e);
         }
@@ -191,6 +193,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
                     this.cache.add(Pair.create(key, val));
                 return true;
             } catch(DatabaseException e) {
+                bdbEngine.bdbEnvironmentStats.reportException(e);
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }
@@ -262,6 +265,7 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
                 current = new ByteArray(StoreBinaryFormat.extractKey(keyEntry.getData()));
                 return true;
             } catch(DatabaseException e) {
+                bdbEngine.bdbEnvironmentStats.reportException(e);
                 logger.error(e);
                 throw new PersistenceFailureException(e);
             }

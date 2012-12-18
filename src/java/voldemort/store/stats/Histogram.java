@@ -21,7 +21,23 @@ public class Histogram {
     private final int[] buckets;
     private final int[] bounds;
     private int size;
+    private long sum;
     private static final Logger logger = Logger.getLogger(Histogram.class);
+
+    private long resetIntervalMs = -1;
+    private long lastResetTimeMs;
+
+    /**
+     * Initialize an empty histogram
+     * 
+     * @param nBuckets The number of buckets to use
+     * @param step The size of each bucket
+     */
+    public Histogram(int nBuckets, int step, long resetIntervalMs) {
+        this(nBuckets, step);
+        this.resetIntervalMs = resetIntervalMs;
+        this.lastResetTimeMs = System.currentTimeMillis();
+    }
 
     /**
      * Initialize an empty histogram
@@ -51,6 +67,8 @@ public class Histogram {
     public synchronized void reset() {
         Arrays.fill(buckets, 0);
         size = 0;
+        sum = 0;
+        this.lastResetTimeMs = System.currentTimeMillis();
     }
 
     /**
@@ -60,12 +78,14 @@ public class Histogram {
      * @param data The value to insert into the histogram
      */
     public synchronized void insert(long data) {
+        resetIfNeeded();
         int index = findBucket(data);
         if(index == -1) {
             logger.error(data + " can't be bucketed, is invalid!");
             return;
         }
         buckets[index]++;
+        sum += data;
         size++;
     }
 
@@ -77,6 +97,7 @@ public class Histogram {
      * @return Lower bound associated with the percentile
      */
     public synchronized int getQuantile(double quantile) {
+        resetIfNeeded();
         int total = 0;
         for(int i = 0; i < nBuckets; i++) {
             total += buckets[i];
@@ -86,6 +107,20 @@ public class Histogram {
             }
         }
         return 0;
+    }
+
+    /**
+     * Obtain the average of the data in the histogram
+     * 
+     * Note: Caller is responsible for making sure 'sum' does not overflow
+     * within the reset interval
+     * 
+     * @return the average over the current samples
+     */
+    public synchronized double getAverage() {
+        if(size == 0)
+            return 0.0;
+        return (sum * 1.0) / size;
     }
 
     private int findBucket(long needle) {
@@ -118,6 +153,14 @@ public class Histogram {
             return 1;
         } else {
             return -1;
+        }
+    }
+
+    private void resetIfNeeded() {
+        if(resetIntervalMs > -1) {
+            if((System.currentTimeMillis() - lastResetTimeMs) >= this.resetIntervalMs) {
+                this.reset();
+            }
         }
     }
 }
