@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import voldemort.VoldemortException;
 import voldemort.annotations.Experimental;
 import voldemort.annotations.jmx.JmxGetter;
-import voldemort.annotations.jmx.JmxOperation;
 import voldemort.utils.CachedCallable;
 
 import com.sleepycat.je.Database;
@@ -351,12 +350,12 @@ public class BdbEnvironmentStats {
         return numEnvironmentFailureExceptions.longValue();
     }
 
-    @JmxOperation(description = "Obtain the number of k-v entries in the store")
+    @JmxGetter(name = "getEntryCount", description = "Obtain the number of k-v entries in the store")
     public long getEntryCount() throws Exception {
         return entryCount.call();
     }
 
-    @JmxOperation(description = "Obtain statistics about the BTree Index for a store")
+    @JmxGetter(name = "getBtreeStats", description = "Obtain statistics about the BTree Index for a store")
     public String getBtreeStats() throws Exception {
         return btreeStats.call().toString();
     }

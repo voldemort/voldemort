@@ -54,7 +54,8 @@ public class ByteBufferBackedInputStream extends InputStream {
     public ByteBufferBackedInputStream(ByteBuffer buffer, MutableLong sizeTracker) {
         this.buffer = buffer;
         this.sizeTracker = sizeTracker;
-        this.sizeTracker.add(buffer.capacity());
+        if(buffer != null)
+            this.sizeTracker.add(buffer.capacity());
     }
 
     public ByteBuffer getBuffer() {

@@ -65,7 +65,8 @@ public class ByteBufferBackedOutputStream extends OutputStream {
         this.buffer = buffer;
         wasExpanded = false;
         this.sizeTracker = sizeTracker;
-        this.sizeTracker.add(buffer.capacity());
+        if(buffer != null)
+            this.sizeTracker.add(buffer.capacity());
     }
 
     public ByteBuffer getBuffer() {
