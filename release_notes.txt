@@ -1,3 +1,15 @@
+Release 1.1.7 on 01/03/2013
+
+Changes made since release 1.1.4
+* Upgrading Hadoop jar to 1.0.2
+* Added support for Kerberos authentication in HdfsFetcher
+* Extra config parameters for Kerberos config and keytab file
+
+NOTE: Release 1.1.5 and 1.1.6 are special client side releases
+not based off of master. 1.1.5 was rolled back to to a weird bug.
+1.1.6 is a special client side release including Auto-
+bootstrapper and Versioned Avro support.
+
 Release 1.1.4 on 11/29/2012
 
 Changes made since release 1.1.3
