@@ -16,6 +16,7 @@
 
 package voldemort.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.client.rebalance.RebalanceClusterPlan;
@@ -31,6 +33,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.cluster.Zone;
 import voldemort.store.StoreDefinition;
+import voldemort.xml.ClusterMapper;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -85,8 +88,9 @@ public class RebalanceClusterUtils {
                                             final int greedySwapMaxPartitionsPerZone,
                                             final int maxContiguousPartitionsPerZone) {
         Pair<Double, String> analysis = analyzeBalanceVerbose(currentCluster, storeDefs);
-        RebalanceUtils.dumpAnalysisToFile(outputDir, RebalanceUtils.initialClusterFileName
-                                                     + ".analysis", analysis.getSecond());
+        dumpAnalysisToFile(outputDir,
+                           RebalanceUtils.initialClusterFileName + ".analysis",
+                           analysis.getSecond());
 
         Cluster minCluster = targetCluster;
         double minMaxMinRatio = Double.MAX_VALUE;
@@ -138,12 +142,11 @@ public class RebalanceClusterUtils {
                 minMaxMinRatio = currentMaxMinRatio;
                 minCluster = nextCluster;
 
-                RebalanceUtils.dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName
-                                                            + numTries, minCluster);
-                RebalanceUtils.dumpAnalysisToFile(outputDir,
-                                                  RebalanceUtils.finalClusterFileName + numTries
-                                                          + ".analysis",
-                                                  analysis.getSecond());
+                dumpClusterToFile(outputDir,
+                                  RebalanceUtils.finalClusterFileName + numTries,
+                                  minCluster);
+                dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName + numTries
+                                              + ".analysis", analysis.getSecond());
             }
             System.out.println("-------------------------\n");
         }
@@ -153,9 +156,10 @@ public class RebalanceClusterUtils {
         analysis = analyzeBalanceVerbose(minCluster, storeDefs);
         System.out.println(analysis.getSecond());
 
-        RebalanceUtils.dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
-        RebalanceUtils.dumpAnalysisToFile(outputDir, RebalanceUtils.finalClusterFileName
-                                                     + ".analysis", analysis.getSecond());
+        dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
+        dumpAnalysisToFile(outputDir,
+                           RebalanceUtils.finalClusterFileName + ".analysis",
+                           analysis.getSecond());
         return;
     }
 
@@ -229,6 +233,8 @@ public class RebalanceClusterUtils {
         List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Set<Integer> nodeIds = currentCluster.getNodeIds();
 
+        // TODO: Move cluster xml string builder stuff into Cluster.java or
+        // ClusterUtils.java
         builder.append("CLUSTER XML SUMMARY\n");
         Map<Integer, Integer> zoneIdToPartitionCount = Maps.newHashMap();
         Map<Integer, Integer> zoneIdToNodeCount = Maps.newHashMap();
@@ -242,6 +248,7 @@ public class RebalanceClusterUtils {
                                                + node.getNumberOfPartitions());
             zoneIdToNodeCount.put(node.getZoneId(), zoneIdToNodeCount.get(node.getZoneId()) + 1);
         }
+        // TODO: Dump partitions in each zone.
         builder.append("\n");
         builder.append("Number of partitions per zone:\n");
         for(Zone zone: currentCluster.getZones()) {
@@ -250,6 +257,7 @@ public class RebalanceClusterUtils {
         }
         builder.append("\n");
         builder.append("Number of nodes per zone:\n");
+        // TODO: Dump Nodes in each zone.
         for(Zone zone: currentCluster.getZones()) {
             builder.append("\tZone: " + zone.getId() + " - " + zoneIdToNodeCount.get(zone.getId())
                            + "\n");
@@ -480,7 +488,7 @@ public class RebalanceClusterUtils {
         List<Node> stealerNodeKeys = new ArrayList<Node>(stealerNodes.keySet());
 
         // Go over every stealerNode and steal partitions from donor nodes
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         Collections.shuffle(stealerNodeKeys, new Random(System.currentTimeMillis()));
         for(Node stealerNode: stealerNodeKeys) {
@@ -642,8 +650,8 @@ public class RebalanceClusterUtils {
                 } else {
                     if(contiguousPartitions.size() > maxContiguousPartitionsPerZone) {
                         System.out.println("Contiguous partitions: " + contiguousPartitions);
-                        partitionsToRemoveFromThisZone.addAll(RebalanceUtils.removeItemsToSplitListEvenly(contiguousPartitions,
-                                                                                                          maxContiguousPartitionsPerZone));
+                        partitionsToRemoveFromThisZone.addAll(removeItemsToSplitListEvenly(contiguousPartitions,
+                                                                                           maxContiguousPartitionsPerZone));
                     }
                     contiguousPartitions.clear();
                 }
@@ -653,7 +661,7 @@ public class RebalanceClusterUtils {
             System.out.println("\t\tPartitions to remove: " + partitionsToRemoveFromThisZone);
         }
 
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         Random r = new Random();
         for(int zoneId: returnCluster.getZoneIds()) {
@@ -732,7 +740,7 @@ public class RebalanceClusterUtils {
             }
         }
 
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
         Random r = new Random();
 
         for(Integer stealerZoneId: stealerZoneIds) {
@@ -776,7 +784,7 @@ public class RebalanceClusterUtils {
                                          final int partitionIdA,
                                          final int nodeIdB,
                                          final int partitionIdB) {
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         // Swap partitions between nodes!
         returnCluster = RebalanceUtils.createUpdatedCluster(returnCluster,
@@ -801,7 +809,7 @@ public class RebalanceClusterUtils {
                                                          final int zoneId) {
         List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
 
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
         Random r = new Random();
 
         // Select random stealer node
@@ -852,12 +860,13 @@ public class RebalanceClusterUtils {
                                                   final int randomSwapSuccesses,
                                                   List<StoreDefinition> storeDefs) {
         Set<Integer> zoneIds = targetCluster.getZoneIds();
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
+            // TODO: randomize zoneId order each time
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
                 double nextMaxMinRatio = analyzeBalance(shuffleResults, storeDefs);
@@ -907,7 +916,7 @@ public class RebalanceClusterUtils {
                                                          List<StoreDefinition> storeDefs) {
         List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
 
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
         int nodeIdA = -1;
         int nodeIdB = -1;
@@ -979,7 +988,7 @@ public class RebalanceClusterUtils {
 
         System.out.println("GreedyRandom : nodeIdsInZone:" + nodeIdsInZone);
 
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
         int nodeIdA = -1;
         int nodeIdB = -1;
@@ -1061,11 +1070,12 @@ public class RebalanceClusterUtils {
                                                   final int greedySwapMaxPartitionsPerZone,
                                                   List<StoreDefinition> storeDefs) {
         Set<Integer> zoneIds = targetCluster.getZoneIds();
-        Cluster returnCluster = RebalanceUtils.copyCluster(targetCluster);
+        Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
 
         for(int i = 0; i < greedyAttempts; i++) {
+            // TODO: randomize zoneId order each time
             for(Integer zoneId: zoneIds) {
                 System.out.println("Greedy swap attempt: zone " + zoneId + " , attempt " + i
                                    + " of " + greedyAttempts);
@@ -1121,6 +1131,68 @@ public class RebalanceClusterUtils {
             return false;
         }
         return true;
+    }
+
+    /**
+     * This method breaks the inputList into distinct lists that are no longer
+     * than maxContiguous in length. It does so by removing elements from the
+     * inputList. This method removes the minimum necessary items to achieve the
+     * goal. This method chooses items to remove that minimize the length of the
+     * maximum remaining run. E.g. given an inputList of 20 elements and
+     * maxContiguous=8, this method will return the 2 elements that break the
+     * inputList into 3 runs of 6 items. (As opposed to 2 elements that break
+     * the inputList into two runs of eight items and one run of two items.
+     * 
+     * @param inputList The list to be broken into separate runs.
+     * @param maxContiguous The upper limit on sub-list size
+     * @return A list of Integers to be removed from inputList to achieve the
+     *         maxContiguous goal.
+     */
+    public static List<Integer> removeItemsToSplitListEvenly(final List<Integer> inputList,
+                                                             int maxContiguous) {
+        List<Integer> itemsToRemove = new ArrayList<Integer>();
+        int contiguousCount = inputList.size();
+        if(contiguousCount > maxContiguous) {
+            // Determine how many items must be removed to ensure no contig run
+            // longer than maxContiguous
+            int numToRemove = contiguousCount / (maxContiguous + 1);
+            // Breaking in numToRemove places results in numToRemove+1 runs.
+            int numRuns = numToRemove + 1;
+            // Num items left to break into numRuns
+            int numItemsLeft = contiguousCount - numToRemove;
+            // Determine minimum length of each run after items are removed.
+            int floorOfEachRun = numItemsLeft / numRuns;
+            // Determine how many runs need one extra element to evenly
+            // distribute numItemsLeft among all numRuns
+            int numOfRunsWithExtra = numItemsLeft - (floorOfEachRun * numRuns);
+
+            int offset = 0;
+            for(int i = 0; i < numToRemove; ++i) {
+                offset += floorOfEachRun;
+                if(i < numOfRunsWithExtra)
+                    offset++;
+                itemsToRemove.add(inputList.get(offset));
+                offset++;
+            }
+        }
+        return itemsToRemove;
+    }
+
+    public static void dumpClusterToFile(String outputDir, String fileName, Cluster cluster) {
+        if(outputDir != null) {
+            try {
+                FileUtils.writeStringToFile(new File(outputDir, fileName),
+                                            new ClusterMapper().writeCluster(cluster));
+            } catch(Exception e) {}
+        }
+    }
+
+    public static void dumpAnalysisToFile(String outputDir, String fileName, String analysis) {
+        if(outputDir != null) {
+            try {
+                FileUtils.writeStringToFile(new File(outputDir, fileName), analysis);
+            } catch(Exception e) {}
+        }
     }
 
 }

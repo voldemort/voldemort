@@ -234,9 +234,9 @@ public class Entropy {
                                     // entropy returns distinct keys from each
                                     // node - record the key only if this node
                                     // holds the primary partition of the key
-                                    if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
-                                                                         .subList(0, 1))
-                                                     .contains(node.getId())) {
+                                    if(NodeUtils.getNodeIds(strategy.routeRequest(key.get())
+                                                                    .subList(0, 1))
+                                                .contains(node.getId())) {
                                         writer.write(key.length());
                                         writer.write(key.get());
                                     }
@@ -263,9 +263,9 @@ public class Entropy {
                                 // entropy returns distinct keys from each
                                 // node - record the key only if this node
                                 // holds the primary partition of the key
-                                if(RebalanceUtils.getNodeIds(strategy.routeRequest(key.get())
-                                                                     .subList(0, 1))
-                                                 .contains(nodeId)) {
+                                if(NodeUtils.getNodeIds(strategy.routeRequest(key.get()).subList(0,
+                                                                                                 1))
+                                            .contains(nodeId)) {
                                     int targetPartition = strategy.getPartitionList(key.get())
                                                                   .get(0);
                                     int partitionCount = partitionMap.get(targetPartition);

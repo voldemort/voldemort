@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -47,7 +46,6 @@ import voldemort.client.rebalance.RebalanceNodePlan;
 import voldemort.client.rebalance.RebalancePartitionsInfo;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
@@ -108,7 +106,7 @@ public class RebalanceUtils {
                 // preference list before, a copy of the
                 // data will already exist - Don't copy
                 // it!
-                if(!RebalanceUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
+                if(!ClusterUtils.containsPreferenceList(cluster, preferenceList, stealerNodeId)) {
                     partitionList.add(partition);
                 }
             }
@@ -238,68 +236,6 @@ public class RebalanceUtils {
                                              + donorId + " )");
             }
         }
-    }
-
-    public static void dumpClusterToFile(String outputDir, String fileName, Cluster cluster) {
-        if(outputDir != null) {
-            try {
-                FileUtils.writeStringToFile(new File(outputDir, fileName),
-                                            new ClusterMapper().writeCluster(cluster));
-            } catch(Exception e) {}
-        }
-    }
-
-    public static void dumpAnalysisToFile(String outputDir, String fileName, String analysis) {
-        if(outputDir != null) {
-            try {
-                FileUtils.writeStringToFile(new File(outputDir, fileName), analysis);
-            } catch(Exception e) {}
-        }
-    }
-
-    /**
-     * This method breaks the inputList into distinct lists that are no longer
-     * than maxContiguous in length. It does so by removing elements from the
-     * inputList. This method removes the minimum necessary items to achieve the
-     * goal. This method chooses items to remove that minimize the length of the
-     * maximum remaining run. E.g. given an inputList of 20 elements and
-     * maxContiguous=8, this method will return the 2 elements that break the
-     * inputList into 3 runs of 6 items. (As opposed to 2 elements that break
-     * the inputList into two runs of eight items and one run of two items.
-     * 
-     * @param inputList The list to be broken into separate runs.
-     * @param maxContiguous The upper limit on sub-list size
-     * @return A list of Integers to be removed from inputList to achieve the
-     *         maxContiguous goal.
-     */
-    public static List<Integer> removeItemsToSplitListEvenly(final List<Integer> inputList,
-                                                             int maxContiguous) {
-        List<Integer> itemsToRemove = new ArrayList<Integer>();
-        int contiguousCount = inputList.size();
-        if(contiguousCount > maxContiguous) {
-            // Determine how many items must be removed to ensure no contig run
-            // longer than maxContiguous
-            int numToRemove = contiguousCount / (maxContiguous + 1);
-            // Breaking in numToRemove places results in numToRemove+1 runs.
-            int numRuns = numToRemove + 1;
-            // Num items left to break into numRuns
-            int numItemsLeft = contiguousCount - numToRemove;
-            // Determine minimum length of each run after items are removed.
-            int floorOfEachRun = numItemsLeft / numRuns;
-            // Determine how many runs need one extra element to evenly
-            // distribute numItemsLeft among all numRuns
-            int numOfRunsWithExtra = numItemsLeft - (floorOfEachRun * numRuns);
-
-            int offset = 0;
-            for(int i = 0; i < numToRemove; ++i) {
-                offset += floorOfEachRun;
-                if(i < numOfRunsWithExtra)
-                    offset++;
-                itemsToRemove.add(inputList.get(offset));
-                offset++;
-            }
-        }
-        return itemsToRemove;
     }
 
     /**
@@ -507,8 +443,8 @@ public class RebalanceUtils {
     public static Cluster getClusterWithNewNodes(Cluster currentCluster, Cluster targetCluster) {
         ArrayList<Node> newNodes = new ArrayList<Node>();
         for(Node node: targetCluster.getNodes()) {
-            if(!containsNode(currentCluster, node.getId())) {
-                newNodes.add(updateNode(node, new ArrayList<Integer>()));
+            if(!ClusterUtils.containsNode(currentCluster, node.getId())) {
+                newNodes.add(NodeUtils.updateNode(node, new ArrayList<Integer>()));
             }
         }
         return updateCluster(currentCluster, newNodes);
@@ -538,55 +474,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * Creates a new cluster object that is a copy of currentCluster.
-     * 
-     * @param currentCluster The current cluster metadata
-     * @return New cluster metadata which is copy of currentCluster
-     */
-    public static Cluster copyCluster(Cluster currentCluster) {
-        return new Cluster(currentCluster.getName(),
-                           new ArrayList<Node>(currentCluster.getNodes()),
-                           new ArrayList<Zone>(currentCluster.getZones()));
-    }
-
-    /**
-     * Given a cluster and a node id checks if the node exists
-     * 
-     * @param cluster The cluster metadata to check in
-     * @param nodeId The node id to search for
-     * @return True if cluster contains the node id, else false
-     */
-    public static boolean containsNode(Cluster cluster, int nodeId) {
-        try {
-            cluster.getNodeById(nodeId);
-            return true;
-        } catch(VoldemortException e) {
-            return false;
-        }
-    }
-
-    /**
-     * Given a preference list and a node id, check if any one of the partitions
-     * is on the node in picture
-     * 
-     * @param cluster Cluster metadata
-     * @param preferenceList Preference list of partition ids
-     * @param nodeId Node id which we are checking for
-     * @return True if the preference list contains a node whose id = nodeId
-     */
-    public static boolean containsPreferenceList(Cluster cluster,
-                                                 List<Integer> preferenceList,
-                                                 int nodeId) {
-
-        for(int partition: preferenceList) {
-            if(RebalanceUtils.getNodeByPartitionId(cluster, partition).getId() == nodeId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Updates the existing cluster such that we remove partitions mentioned
      * from the stealer node and add them to the donor node
      * 
@@ -609,7 +496,7 @@ public class RebalanceUtils {
         for(int donatedPartition: donatedPartitions) {
 
             // Gets the donor Node that owns this donated partition
-            Node donorNode = RebalanceUtils.getNodeByPartitionId(updatedCluster, donatedPartition);
+            Node donorNode = ClusterUtils.getNodeByPartitionId(updatedCluster, donatedPartition);
             Node stealerNode = updatedCluster.getNodeById(stealerNodeId);
 
             if(donorNode == stealerNode) {
@@ -618,8 +505,8 @@ public class RebalanceUtils {
             }
 
             // Update the list of partitions for this node
-            donorNode = RebalanceUtils.removePartitionToNode(donorNode, donatedPartition);
-            stealerNode = RebalanceUtils.addPartitionToNode(stealerNode, donatedPartition);
+            donorNode = NodeUtils.removePartitionToNode(donorNode, donatedPartition);
+            stealerNode = NodeUtils.addPartitionToNode(stealerNode, donatedPartition);
 
             // Sort the nodes
             updatedCluster = updateCluster(updatedCluster,
@@ -628,99 +515,6 @@ public class RebalanceUtils {
         }
 
         return updatedCluster;
-    }
-
-    /**
-     * Creates a replica of the node with the new partitions list
-     * 
-     * @param node The node whose replica we are creating
-     * @param partitionsList The new partitions list
-     * @return Replica of node with new partitions list
-     */
-    public static Node updateNode(Node node, List<Integer> partitionsList) {
-        return new Node(node.getId(),
-                        node.getHost(),
-                        node.getHttpPort(),
-                        node.getSocketPort(),
-                        node.getAdminPort(),
-                        node.getZoneId(),
-                        partitionsList);
-    }
-
-    /**
-     * Add a partition to the node provided
-     * 
-     * @param node The node to which we'll add the partition
-     * @param donatedPartition The partition to add
-     * @return The new node with the new partition
-     */
-    public static Node addPartitionToNode(final Node node, Integer donatedPartition) {
-        return addPartitionToNode(node, Sets.newHashSet(donatedPartition));
-    }
-
-    /**
-     * Remove a partition from the node provided
-     * 
-     * @param node The node from which we're removing the partition
-     * @param donatedPartition The partitions to remove
-     * @return The new node without the partition
-     */
-    public static Node removePartitionToNode(final Node node, Integer donatedPartition) {
-        return removePartitionToNode(node, Sets.newHashSet(donatedPartition));
-    }
-
-    /**
-     * Add the set of partitions to the node provided
-     * 
-     * @param node The node to which we'll add the partitions
-     * @param donatedPartitions The list of partitions to add
-     * @return The new node with the new partitions
-     */
-    public static Node addPartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
-        List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
-        deepCopy.addAll(donatedPartitions);
-        Collections.sort(deepCopy);
-        return updateNode(node, deepCopy);
-    }
-
-    /**
-     * Remove the set of partitions from the node provided
-     * 
-     * @param node The node from which we're removing the partitions
-     * @param donatedPartitions The list of partitions to remove
-     * @return The new node without the partitions
-     */
-    public static Node removePartitionToNode(final Node node, final Set<Integer> donatedPartitions) {
-        List<Integer> deepCopy = new ArrayList<Integer>(node.getPartitionIds());
-        deepCopy.removeAll(donatedPartitions);
-        return updateNode(node, deepCopy);
-    }
-
-    /**
-     * Given the cluster metadata returns a mapping of partition to node
-     * 
-     * @param currentCluster Cluster metadata
-     * @return Map of partition id to node id
-     */
-    public static Map<Integer, Integer> getCurrentPartitionMapping(Cluster currentCluster) {
-
-        Map<Integer, Integer> partitionToNode = new LinkedHashMap<Integer, Integer>();
-
-        for(Node node: currentCluster.getNodes()) {
-            for(Integer partition: node.getPartitionIds()) {
-                // Check if partition is on another node
-                Integer previousRegisteredNodeId = partitionToNode.get(partition);
-                if(previousRegisteredNodeId != null) {
-                    throw new IllegalArgumentException("Partition id " + partition
-                                                       + " found on two nodes : " + node.getId()
-                                                       + " and " + previousRegisteredNodeId);
-                }
-
-                partitionToNode.put(partition, node.getId());
-            }
-        }
-
-        return partitionToNode;
     }
 
     /**
@@ -816,7 +610,7 @@ public class RebalanceUtils {
                                                                        .getPartitionIds());
 
         List<Integer> currentList = new ArrayList<Integer>();
-        if(containsNode(currentCluster, stealNodeId))
+        if(ClusterUtils.containsNode(currentCluster, stealNodeId))
             currentList = currentCluster.getNodeById(stealNodeId).getPartitionIds();
 
         // remove all current partitions from targetList
@@ -845,7 +639,7 @@ public class RebalanceUtils {
                                                                                                     true);
 
         Map<Integer, Set<Pair<Integer, Integer>>> stealerNodeToStolenPartitionTuples = Maps.newHashMap();
-        for(int stealerId: getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
+        for(int stealerId: NodeUtils.getNodeIds(Lists.newArrayList(targetCluster.getNodes()))) {
             Set<Pair<Integer, Integer>> clusterStealerReplicas = currentNodeIdToReplicas.get(stealerId);
             Set<Pair<Integer, Integer>> targetStealerReplicas = targetNodeIdToReplicas.get(stealerId);
 
@@ -899,7 +693,7 @@ public class RebalanceUtils {
                                                                                                    cluster);
 
         final Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToReplicas = new HashMap<Integer, Set<Pair<Integer, Integer>>>();
-        final Map<Integer, Integer> partitionToNodeIdMap = getCurrentPartitionMapping(cluster);
+        final Map<Integer, Integer> partitionToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
 
         // Map initialization.
         for(Node node: cluster.getNodes()) {
@@ -942,36 +736,6 @@ public class RebalanceUtils {
     }
 
     /**
-     * Given the initial and final cluster dumps it into the output directory
-     * 
-     * @param initialCluster Initial cluster metadata
-     * @param finalCluster Final cluster metadata
-     * @param outputDir Output directory where to dump this file
-     * @throws IOException
-     */
-    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
-
-        // Create the output directory if it doesn't exist
-        if(!outputDir.exists()) {
-            Utils.mkdirs(outputDir);
-        }
-
-        // Get the file paths
-        File initialClusterFile = new File(outputDir, initialClusterFileName);
-        File finalClusterFile = new File(outputDir, finalClusterFileName);
-
-        // Write the output
-        ClusterMapper mapper = new ClusterMapper();
-        try {
-            FileUtils.writeStringToFile(initialClusterFile, mapper.writeCluster(initialCluster));
-            FileUtils.writeStringToFile(finalClusterFile, mapper.writeCluster(finalCluster));
-        } catch(IOException e) {
-            logger.error("Error writing cluster metadata to file");
-        }
-
-    }
-
-    /**
      * Print log to the following logger ( Info level )
      * 
      * @param taskId Task id
@@ -995,22 +759,6 @@ public class RebalanceUtils {
         } else {
             logger.error("Task id " + Integer.toString(taskId) + "] " + message, e);
         }
-    }
-
-    /**
-     * Returns the Node associated to the provided partition.
-     * 
-     * @param cluster The cluster in which to find the node
-     * @param partitionId Partition id for which we want the corresponding node
-     * @return Node that owns the partition
-     */
-    public static Node getNodeByPartitionId(Cluster cluster, int partitionId) {
-        for(Node node: cluster.getNodes()) {
-            if(node.getPartitionIds().contains(partitionId)) {
-                return node;
-            }
-        }
-        return null;
     }
 
     public static AdminClient createTempAdminClient(VoldemortConfig voldemortConfig,
@@ -1164,6 +912,35 @@ public class RebalanceUtils {
             sb.append(Utils.NEWLINE);
         }
         return sb.toString();
+    }
+
+    /**
+     * Given the initial and final cluster dumps it into the output directory
+     * 
+     * @param initialCluster Initial cluster metadata
+     * @param finalCluster Final cluster metadata
+     * @param outputDir Output directory where to dump this file
+     * @throws IOException
+     */
+    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
+
+        // Create the output directory if it doesn't exist
+        if(!outputDir.exists()) {
+            Utils.mkdirs(outputDir);
+        }
+
+        // Get the file paths
+        File initialClusterFile = new File(outputDir, initialClusterFileName);
+        File finalClusterFile = new File(outputDir, finalClusterFileName);
+
+        // Write the output
+        ClusterMapper mapper = new ClusterMapper();
+        try {
+            FileUtils.writeStringToFile(initialClusterFile, mapper.writeCluster(initialCluster));
+            FileUtils.writeStringToFile(finalClusterFile, mapper.writeCluster(finalCluster));
+        } catch(IOException e) {
+            logger.error("Error writing cluster metadata to file");
+        }
     }
 
     /**
@@ -1361,20 +1138,6 @@ public class RebalanceUtils {
             storeList.add(def.getName());
         }
         return storeList;
-    }
-
-    /**
-     * Given a list of nodes, retrieves the list of node ids
-     * 
-     * @param nodes The list of nodes
-     * @return Returns a list of node ids
-     */
-    public static List<Integer> getNodeIds(List<Node> nodes) {
-        List<Integer> nodeIds = new ArrayList<Integer>(nodes.size());
-        for(Node node: nodes) {
-            nodeIds.add(node.getId());
-        }
-        return nodeIds;
     }
 
     /**

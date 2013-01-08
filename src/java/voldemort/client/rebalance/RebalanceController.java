@@ -37,6 +37,7 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
@@ -73,8 +74,8 @@ public class RebalanceController {
     public void rebalance(final Cluster targetCluster) {
 
         // Retrieve the latest cluster metadata from the existing nodes
-        Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(RebalanceUtils.getNodeIds(Lists.newArrayList(adminClient.getAdminClientCluster()
-                                                                                                                                             .getNodes())),
+        Versioned<Cluster> currentVersionedCluster = RebalanceUtils.getLatestCluster(NodeUtils.getNodeIds(Lists.newArrayList(adminClient.getAdminClientCluster()
+                                                                                                                                        .getNodes())),
                                                                                      adminClient);
         Cluster currentCluster = currentVersionedCluster.getValue();
 

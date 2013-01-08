@@ -43,12 +43,12 @@ public class RebalanceUtilsTest extends TestCase {
         List<Node> nodes = Lists.newArrayList();
 
         // Test with empty node list
-        assertEquals(RebalanceUtils.getNodeIds(nodes).size(), 0);
+        assertEquals(NodeUtils.getNodeIds(nodes).size(), 0);
 
         // Add one node
         nodes.add(new Node(0, "localhost", 1, 2, 3, new ArrayList<Integer>()));
-        assertEquals(RebalanceUtils.getNodeIds(nodes).size(), 1);
-        assertEquals(RebalanceUtils.getNodeIds(nodes).get(0).intValue(), 0);
+        assertEquals(NodeUtils.getNodeIds(nodes).size(), 1);
+        assertEquals(NodeUtils.getNodeIds(nodes).get(0).intValue(), 0);
     }
 
     public void testGetClusterWithNewNodes() {
@@ -87,28 +87,28 @@ public class RebalanceUtilsTest extends TestCase {
             input.add(i);
         }
 
-        List<Integer> output = RebalanceUtils.removeItemsToSplitListEvenly(input, 1);
+        List<Integer> output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 1);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(1));
         assertEquals(output.get(1), new Integer(3));
         System.out.println("1 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 2);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 2);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(2));
         System.out.println("2 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 3);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 3);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(2));
         System.out.println("3 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 4);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 4);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(2));
         System.out.println("4 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 5);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 5);
         assertEquals(output.size(), 0);
         System.out.println("5 : " + output);
 
@@ -119,36 +119,36 @@ public class RebalanceUtilsTest extends TestCase {
             input.add(i);
         }
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 1);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 1);
         assertEquals(output.size(), 5);
         assertEquals(output.get(0), new Integer(1));
         assertEquals(output.get(4), new Integer(9));
         System.out.println("1 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 2);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 2);
         assertEquals(output.size(), 3);
         assertEquals(output.get(0), new Integer(2));
         assertEquals(output.get(2), new Integer(8));
         System.out.println("2 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 3);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 3);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(3));
         assertEquals(output.get(1), new Integer(7));
         System.out.println("3 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 4);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 4);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(3));
         assertEquals(output.get(1), new Integer(7));
         System.out.println("4 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 5);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 5);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(5));
         System.out.println("5 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 6);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 6);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(5));
         System.out.println("6 : " + output);
@@ -160,70 +160,70 @@ public class RebalanceUtilsTest extends TestCase {
             input.add(i);
         }
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 1);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 1);
         assertEquals(output.size(), 10);
         assertEquals(output.get(0), new Integer(1));
         assertEquals(output.get(9), new Integer(19));
         System.out.println("1 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 2);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 2);
         assertEquals(output.size(), 6);
         assertEquals(output.get(0), new Integer(2));
         assertEquals(output.get(5), new Integer(17));
         System.out.println("2 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 3);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 3);
         assertEquals(output.size(), 5);
         assertEquals(output.get(0), new Integer(3));
         assertEquals(output.get(4), new Integer(17));
         System.out.println("3 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 4);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 4);
         assertEquals(output.size(), 4);
         assertEquals(output.get(0), new Integer(4));
         assertEquals(output.get(3), new Integer(16));
         System.out.println("4 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 5);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 5);
         assertEquals(output.size(), 3);
         assertEquals(output.get(0), new Integer(5));
         assertEquals(output.get(2), new Integer(15));
         System.out.println("5 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 6);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 6);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(6));
         assertEquals(output.get(1), new Integer(13));
         System.out.println("6 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 7);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 7);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(6));
         assertEquals(output.get(1), new Integer(13));
         System.out.println("7 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 9);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 9);
         assertEquals(output.size(), 2);
         assertEquals(output.get(0), new Integer(6));
         assertEquals(output.get(1), new Integer(13));
         System.out.println("9 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 10);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 10);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(10));
         System.out.println("10 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 11);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 11);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(10));
         System.out.println("11 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 19);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 19);
         assertEquals(output.size(), 1);
         assertEquals(output.get(0), new Integer(10));
         System.out.println("19 : " + output);
 
-        output = RebalanceUtils.removeItemsToSplitListEvenly(input, 20);
+        output = RebalanceClusterUtils.removeItemsToSplitListEvenly(input, 20);
         assertEquals(output.size(), 0);
         System.out.println("20 : " + output);
     }

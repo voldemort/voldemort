@@ -16,8 +16,8 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.Lists;
@@ -47,7 +47,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
                                                                                       getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: createEntries()) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0)) {
+            if(NodeUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0)) {
                 store.put(pair.getFirst(), pair.getSecond(), null);
                 if(!filter.accept(pair.getFirst(), pair.getSecond())) {
                     shouldFilterCount++;
@@ -84,7 +84,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(getStoreDef(),
                                                                                       getCluster());
         for(Pair<ByteArray, Versioned<byte[]>> pair: entrySet) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0))
+            if(NodeUtils.getNodeIds(strategy.routeRequest(pair.getFirst().get())).contains(0))
                 store.put(pair.getFirst(), pair.getSecond(), null);
         }
 
@@ -96,7 +96,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
-            if(RebalanceUtils.getNodeIds(strategy.routeRequest(entry.getFirst().get())).contains(0)) {
+            if(NodeUtils.getNodeIds(strategy.routeRequest(entry.getFirst().get())).contains(0)) {
                 if(filter.accept(entry.getFirst(), entry.getSecond())) {
                     assertEquals("All entries should be deleted except the filtered ones.",
                                  0,

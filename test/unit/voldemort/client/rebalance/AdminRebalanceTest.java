@@ -72,6 +72,7 @@ import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -1035,7 +1036,7 @@ public class AdminRebalanceTest {
                              targetCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1102,7 +1103,7 @@ public class AdminRebalanceTest {
                              new RebalancerState(Lists.newArrayList(plan)));
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes
@@ -1203,7 +1204,7 @@ public class AdminRebalanceTest {
                              targetCluster);
             }
 
-            List<Integer> allNodes = Lists.newArrayList(RebalanceUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
+            List<Integer> allNodes = Lists.newArrayList(NodeUtils.getNodeIds(Lists.newArrayList(cluster.getNodes())));
             allNodes.removeAll(nodesChecked);
 
             // Check all other nodes

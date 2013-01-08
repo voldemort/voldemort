@@ -75,6 +75,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.KeyLocationValidation;
+import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
@@ -1106,7 +1107,7 @@ public abstract class AbstractRebalanceTest {
                                                                                          cluster);
             for(Entry<String, String> entry: testEntries.entrySet()) {
                 ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
-                List<Integer> preferenceNodes = RebalanceUtils.getNodeIds(routing.routeRequest(keyBytes.get()));
+                List<Integer> preferenceNodes = NodeUtils.getNodeIds(routing.routeRequest(keyBytes.get()));
 
                 // Go over every node
                 for(int nodeId: preferenceNodes) {
