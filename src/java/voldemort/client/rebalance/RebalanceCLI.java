@@ -33,7 +33,7 @@ import voldemort.store.StoreDefinition;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Entropy;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.RebalanceClusterUtils;
 import voldemort.xml.ClusterMapper;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -293,8 +293,8 @@ public class RebalanceCLI {
                 }
 
                 if(options.has("analyze")) {
-                    Pair<Double, String> analysis = RebalanceUtils.analyzeBalanceVerbose(currentCluster,
-                                                                                         storeDefs);
+                    Pair<Double, String> analysis = RebalanceClusterUtils.analyzeBalanceVerbose(currentCluster,
+                                                                                                storeDefs);
                     System.out.println(analysis.getSecond());
                     return;
                 }
@@ -346,24 +346,24 @@ public class RebalanceCLI {
                         System.exit(ERROR_EXIT_CODE);
                     }
 
-                    RebalanceUtils.balanceTargetCluster(currentCluster,
-                                                        targetCluster,
-                                                        storeDefs,
-                                                        config.getOutputDirectory(),
-                                                        config.getMaxTriesRebalancing(),
-                                                        generateDisablePrimaryBalancing,
-                                                        generateEnableXzonePrimary,
-                                                        generateEnableAllXzoneNary,
-                                                        generateEnableLastResortXzoneNary,
-                                                        generateEnableXzoneShuffle,
-                                                        generateEnableRandomSwaps,
-                                                        generateRandomSwapAttempts,
-                                                        generateRandomSwapSuccesses,
-                                                        generateEnableGreedySwaps,
-                                                        generateGreedySwapAttempts,
-                                                        generateGreedyMaxPartitionsPerNode,
-                                                        generateGreedyMaxPartitionsPerZone,
-                                                        generateMaxContiguousPartitionsPerZone);
+                    RebalanceClusterUtils.balanceTargetCluster(currentCluster,
+                                                               targetCluster,
+                                                               storeDefs,
+                                                               config.getOutputDirectory(),
+                                                               config.getMaxTriesRebalancing(),
+                                                               generateDisablePrimaryBalancing,
+                                                               generateEnableXzonePrimary,
+                                                               generateEnableAllXzoneNary,
+                                                               generateEnableLastResortXzoneNary,
+                                                               generateEnableXzoneShuffle,
+                                                               generateEnableRandomSwaps,
+                                                               generateRandomSwapAttempts,
+                                                               generateRandomSwapSuccesses,
+                                                               generateEnableGreedySwaps,
+                                                               generateGreedySwapAttempts,
+                                                               generateGreedyMaxPartitionsPerNode,
+                                                               generateGreedyMaxPartitionsPerZone,
+                                                               generateMaxContiguousPartitionsPerZone);
                     return;
                 }
 
