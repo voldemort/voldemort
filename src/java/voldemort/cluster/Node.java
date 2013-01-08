@@ -150,6 +150,7 @@ public class Node implements Serializable, Comparable<Node> {
         return getId();
     }
 
+    @Override
     public int compareTo(Node other) {
         return Integer.valueOf(this.id).compareTo(other.getId());
     }
