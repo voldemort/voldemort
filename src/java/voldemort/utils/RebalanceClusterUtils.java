@@ -31,7 +31,6 @@ import org.apache.log4j.Logger;
 import voldemort.client.rebalance.RebalanceClusterPlan;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.store.StoreDefinition;
 import voldemort.xml.ClusterMapper;
 
@@ -200,13 +199,19 @@ public class RebalanceClusterUtils {
             if(curCount < minVal)
                 minVal = curCount;
         }
+        int avgVal = aggCount / nodeIdToPartitionCount.size();
+        double maxAvgRatio = maxVal * 1.0 / avgVal;
+        if(avgVal == 0) {
+            maxAvgRatio = maxVal;
+        }
         double maxMinRatio = maxVal * 1.0 / minVal;
         if(minVal == 0) {
             maxMinRatio = maxVal;
         }
         builder.append("\tMin: " + minVal + "\n");
-        builder.append("\tAvg: " + aggCount / nodeIdToPartitionCount.size() + "\n");
+        builder.append("\tAvg: " + avgVal + "\n");
         builder.append("\tMax: " + maxVal + "\n");
+        builder.append("\t\tMax/Avg: " + maxAvgRatio + "\n");
         builder.append("\t\tMax/Min: " + maxMinRatio + "\n");
 
         return Pair.create(maxMinRatio, builder.toString());
@@ -229,47 +234,11 @@ public class RebalanceClusterUtils {
     public static Pair<Double, String> analyzeBalanceVerbose(final Cluster currentCluster,
                                                              final List<StoreDefinition> storeDefs) {
         StringBuilder builder = new StringBuilder();
+        builder.append(ClusterUtils.verboseClusterDump(currentCluster));
+
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
         List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Set<Integer> nodeIds = currentCluster.getNodeIds();
-
-        // TODO: Move cluster xml string builder stuff into Cluster.java or
-        // ClusterUtils.java
-        builder.append("CLUSTER XML SUMMARY\n");
-        Map<Integer, Integer> zoneIdToPartitionCount = Maps.newHashMap();
-        Map<Integer, Integer> zoneIdToNodeCount = Maps.newHashMap();
-        for(Zone zone: currentCluster.getZones()) {
-            zoneIdToPartitionCount.put(zone.getId(), 0);
-            zoneIdToNodeCount.put(zone.getId(), 0);
-        }
-        for(Node node: currentCluster.getNodes()) {
-            zoneIdToPartitionCount.put(node.getZoneId(),
-                                       zoneIdToPartitionCount.get(node.getZoneId())
-                                               + node.getNumberOfPartitions());
-            zoneIdToNodeCount.put(node.getZoneId(), zoneIdToNodeCount.get(node.getZoneId()) + 1);
-        }
-        // TODO: Dump partitions in each zone.
-        builder.append("\n");
-        builder.append("Number of partitions per zone:\n");
-        for(Zone zone: currentCluster.getZones()) {
-            builder.append("\tZone: " + zone.getId() + " - "
-                           + zoneIdToPartitionCount.get(zone.getId()) + "\n");
-        }
-        builder.append("\n");
-        builder.append("Number of nodes per zone:\n");
-        // TODO: Dump Nodes in each zone.
-        for(Zone zone: currentCluster.getZones()) {
-            builder.append("\tZone: " + zone.getId() + " - " + zoneIdToNodeCount.get(zone.getId())
-                           + "\n");
-        }
-        builder.append("\n");
-
-        builder.append("Number of partitions per node:\n");
-        for(Node node: currentCluster.getNodes()) {
-            builder.append("\tNode ID: " + node.getId() + " - " + node.getNumberOfPartitions()
-                           + " (" + node.getHost() + ")\n");
-        }
-        builder.append("\n");
 
         builder.append("PARTITION DUMP\n");
         Map<Integer, Integer> primaryAggNodeIdToPartitionCount = Maps.newHashMap();
@@ -859,14 +828,14 @@ public class RebalanceClusterUtils {
                                                   final int randomSwapAttempts,
                                                   final int randomSwapSuccesses,
                                                   List<StoreDefinition> storeDefs) {
-        Set<Integer> zoneIds = targetCluster.getZoneIds();
+        List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
-            // TODO: randomize zoneId order each time
+            Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
                 double nextMaxMinRatio = analyzeBalance(shuffleResults, storeDefs);
@@ -1069,13 +1038,13 @@ public class RebalanceClusterUtils {
                                                   final int greedySwapMaxPartitionsPerNode,
                                                   final int greedySwapMaxPartitionsPerZone,
                                                   List<StoreDefinition> storeDefs) {
-        Set<Integer> zoneIds = targetCluster.getZoneIds();
+        List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
         double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
 
         for(int i = 0; i < greedyAttempts; i++) {
-            // TODO: randomize zoneId order each time
+            Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 System.out.println("Greedy swap attempt: zone " + zoneId + " , attempt " + i
                                    + " of " + greedyAttempts);
