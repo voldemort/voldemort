@@ -74,9 +74,10 @@ public class Cluster implements Serializable {
         } else {
             // Add default zone
             zonesById = new LinkedHashMap<Integer, Zone>(1);
-            zonesById.put(Zone.DEFAULT_ZONE_ID, new Zone());
-            nodesPerZone.put(new Zone(), new ArrayList<Integer>());
-            partitionsPerZone.put(new Zone(), new ArrayList<Integer>());
+            Zone defaultZone = new Zone();
+            zonesById.put(defaultZone.getId(), defaultZone);
+            nodesPerZone.put(defaultZone, new ArrayList<Integer>());
+            partitionsPerZone.put(defaultZone, new ArrayList<Integer>());
         }
 
         this.nodesById = new LinkedHashMap<Integer, Node>(nodes.size());

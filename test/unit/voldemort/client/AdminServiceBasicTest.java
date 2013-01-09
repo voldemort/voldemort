@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -288,6 +288,8 @@ public class AdminServiceBasicTest {
 
     @Test
     public void testReplicationMapping() {
+        List<Zone> zones = ServerTestUtils.getZones(2);
+
         List<Node> nodes = Lists.newArrayList();
         nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
         nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
@@ -302,7 +304,7 @@ public class AdminServiceBasicTest {
                                                                1,
                                                                1,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
             adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef);
@@ -383,7 +385,6 @@ public class AdminServiceBasicTest {
         }
 
         // Test 2 - With zone routing strategy
-        List<Zone> zones = ServerTestUtils.getZones(2);
         HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
         for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 1);
@@ -467,7 +468,7 @@ public class AdminServiceBasicTest {
                                                1,
                                                1,
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        newCluster = new Cluster("single_zone_cluster", nodes);
+        newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         {
             replicationMapping = adminClient.helperOps.getReplicationMapping(0,
@@ -646,6 +647,8 @@ public class AdminServiceBasicTest {
 
     @Test
     public void testReplicationMappingWithZonePreference() {
+        List<Zone> zones = ServerTestUtils.getZones(2);
+
         List<Node> nodes = Lists.newArrayList();
         nodes.add(new Node(0, "localhost", 1, 2, 3, 0, Lists.newArrayList(0, 4, 8)));
         nodes.add(new Node(1, "localhost", 1, 2, 3, 0, Lists.newArrayList(1, 5, 9)));
@@ -660,7 +663,7 @@ public class AdminServiceBasicTest {
                                                                1,
                                                                1,
                                                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        Cluster newCluster = new Cluster("single_zone_cluster", nodes);
+        Cluster newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
             adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 1);
@@ -675,7 +678,7 @@ public class AdminServiceBasicTest {
                                                1,
                                                1,
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
-        newCluster = new Cluster("single_zone_cluster", nodes);
+        newCluster = new Cluster("single_zone_cluster", nodes, zones);
 
         try {
             adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 0);
@@ -726,7 +729,6 @@ public class AdminServiceBasicTest {
         }
 
         // Test 2 - With zone routing strategy, and zone replication factor 1
-        List<Zone> zones = ServerTestUtils.getZones(2);
         HashMap<Integer, Integer> zoneReplicationFactors = Maps.newHashMap();
         for(int zoneIds = 0; zoneIds < 2; zoneIds++) {
             zoneReplicationFactors.put(zoneIds, 1);
