@@ -31,8 +31,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StreamStats;
-import voldemort.store.stats.StreamStats.Operation;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
@@ -58,15 +57,13 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                                                   ErrorCodeMapper errorCodeMapper,
                                                   VoldemortConfig voldemortConfig,
                                                   StoreRepository storeRepository,
-                                                  NetworkClassLoader networkClassLoader,
-                                                  StreamStats stats) {
+                                                  NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
               networkClassLoader,
-              stats,
               Operation.FETCH_KEYS);
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
@@ -95,7 +92,6 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
         if(keysPartitionIterator == null) {
             if(currentIndex == partitionList.size()) {
                 // we are finally done
-                stats.closeHandle(handle);
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -131,7 +127,10 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                 if(counter % skipRecords == 0) {
                     // do the filtering
                     ByteArray key = keysPartitionIterator.next();
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(streamStats != null) {
+                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                        streamStats.reportStreamingScan(operation);
+                    }
                     throttler.maybeThrottle(key.length());
                     if(filter.accept(key, null)) {
 
@@ -139,19 +138,22 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                         response.setKey(ProtoUtils.encodeBytes(key));
 
                         fetched++;
-                        handle.incrementEntriesScanned();
+                        if(streamStats != null)
+                            streamStats.reportStreamingFetch(operation);
                         Message message = response.build();
 
                         startNs = System.nanoTime();
                         ProtoUtils.writeMessage(outputStream, message);
-                        stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                        if(streamStats != null)
+                            streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
                     }
                 } else {
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(streamStats != null)
+                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
                 }
 
                 // log progress
-                if(0 == counter % 100000) {
+                if(0 == counter % STAT_RECORDS_INTERVAL) {
                     long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
 
                     logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched

@@ -21,8 +21,7 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StreamStats;
-import voldemort.store.stats.StreamStats.Handle;
+import voldemort.store.stats.StreamingStats;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
@@ -45,6 +44,12 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final StorageEngine<ByteArray, byte[], byte[]> storageEngine;
 
+    protected final StreamingStats streamStats;
+
+    protected boolean isJmxEnabled;
+
+    protected final StreamingStats.Operation operation;
+
     protected long counter;
 
     protected long skipRecords;
@@ -52,10 +57,6 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
     protected int fetched;
 
     protected final long startTime;
-
-    protected final Handle handle;
-
-    protected final StreamStats stats;
 
     protected final Logger logger = Logger.getLogger(getClass());
 
@@ -69,16 +70,20 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
                                         VoldemortConfig voldemortConfig,
                                         StoreRepository storeRepository,
                                         NetworkClassLoader networkClassLoader,
-                                        StreamStats stats,
-                                        StreamStats.Operation operation) {
+                                        StreamingStats.Operation operation) {
         this.nodeId = metadataStore.getNodeId();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
-        this.stats = stats;
-        this.handle = stats.makeHandle(operation, replicaToPartitionList);
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
+        if(voldemortConfig.isJmxEnabled()) {
+            this.streamStats = storeRepository.getStreamingStats(this.storageEngine.getName());
+        } else {
+            this.streamStats = null;
+        }
+
+        this.operation = operation;
         this.storeDef = getStoreDef(request.getStore(), metadataStore);
         if(request.hasInitialCluster()) {
             this.initialCluster = new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()));

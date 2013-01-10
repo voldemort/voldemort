@@ -83,7 +83,7 @@ public class VoldemortServer extends AbstractService {
     public VoldemortServer(VoldemortConfig config) {
         super(ServiceType.VOLDEMORT);
         this.voldemortConfig = config;
-        this.storeRepository = new StoreRepository();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         this.metadata = MetadataStore.readFromDirectory(new File(this.voldemortConfig.getMetadataDirectory()),
                                                         voldemortConfig.getNodeId());
         this.identityNode = metadata.getCluster().getNodeById(voldemortConfig.getNodeId());
@@ -97,7 +97,7 @@ public class VoldemortServer extends AbstractService {
         this.identityNode = cluster.getNodeById(voldemortConfig.getNodeId());
 
         this.checkHostName();
-        this.storeRepository = new StoreRepository();
+        this.storeRepository = new StoreRepository(config.isJmxEnabled());
         // update cluster details in metaDataStore
         ConfigurationStorageEngine metadataInnerEngine = new ConfigurationStorageEngine("metadata-config-store",
                                                                                         voldemortConfig.getMetadataDirectory());

@@ -12,9 +12,6 @@ import voldemort.server.rebalance.Rebalancer;
 import voldemort.server.storage.StorageService;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StreamStats;
-import voldemort.store.stats.StreamStatsJmx;
-import voldemort.utils.JmxUtils;
 
 /**
  * A factory that gets the appropriate request handler for a given
@@ -30,7 +27,6 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
     private final VoldemortConfig voldemortConfig;
     private final AsyncOperationService asyncService;
     private final Rebalancer rebalancer;
-    private final StreamStats stats;
 
     public SocketRequestHandlerFactory(StorageService storageService,
                                        StoreRepository repository,
@@ -44,17 +40,6 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
         this.voldemortConfig = voldemortConfig;
         this.asyncService = asyncService;
         this.rebalancer = rebalancer;
-        this.stats = new StreamStats();
-        if(null != voldemortConfig && voldemortConfig.isJmxEnabled())
-            if(this.voldemortConfig.isEnableJmxClusterName())
-                JmxUtils.registerMbean(new StreamStatsJmx(stats),
-                                       JmxUtils.createObjectName(metadata.getCluster().getName()
-                                                                         + ".voldemort.store.stats",
-                                                                 "admin-streaming"));
-            else
-                JmxUtils.registerMbean(new StreamStatsJmx(stats),
-                                       JmxUtils.createObjectName("voldemort.store.stats",
-                                                                 "admin-streaming"));
     }
 
     public RequestHandler getRequestHandler(RequestFormatType type) {
@@ -76,8 +61,7 @@ public class SocketRequestHandlerFactory implements RequestHandlerFactory {
                                                       metadata,
                                                       voldemortConfig,
                                                       asyncService,
-                                                      rebalancer,
-                                                      stats);
+                                                      rebalancer);
             default:
                 throw new VoldemortException("Unknown wire format " + type);
         }

@@ -12,12 +12,12 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StreamStats;
-import voldemort.store.stats.StreamStats.Operation;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.Message;
@@ -39,15 +39,13 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                                             ErrorCodeMapper errorCodeMapper,
                                             VoldemortConfig voldemortConfig,
                                             StoreRepository storeRepository,
-                                            NetworkClassLoader networkClassLoader,
-                                            StreamStats stats) {
+                                            NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
               networkClassLoader,
-              stats,
               Operation.FETCH_ENTRIES);
         this.keyIterator = storageEngine.keys();
         logger.info("Starting fetch entries for store '" + storageEngine.getName()
@@ -62,6 +60,8 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         long startNs = System.nanoTime();
         ByteArray key = keyIterator.next();
+        if(streamStats != null)
+            streamStats.reportStreamingScan(operation);
 
         if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
                                                      key.get(),
@@ -71,12 +71,14 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         && counter % skipRecords == 0) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
-            stats.recordDiskTime(handle, System.nanoTime() - startNs);
+            if(streamStats != null)
+                streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
             for(Versioned<byte[]> value: values) {
                 throttler.maybeThrottle(key.length());
                 if(filter.accept(key, value)) {
                     fetched++;
-                    handle.incrementEntriesScanned();
+                    if(streamStats != null)
+                        streamStats.reportStreamingFetch(operation);
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
                     VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
@@ -89,20 +91,22 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
                     startNs = System.nanoTime();
                     ProtoUtils.writeMessage(outputStream, message);
-                    stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                    if(streamStats != null)
+                        streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
 
                     throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
             }
         } else {
-            stats.recordDiskTime(handle, System.nanoTime() - startNs);
+            if(streamStats != null)
+                streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
         }
 
         // log progress
         counter++;
 
-        if(0 == counter % 100000) {
-            long totalTime = (System.currentTimeMillis() - startTime) / 1000;
+        if(0 == counter % STAT_RECORDS_INTERVAL) {
+            long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
 
             logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched
                         + " entries for store '" + storageEngine.getName()
@@ -113,7 +117,6 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         if(keyIterator.hasNext())
             return StreamRequestHandlerState.WRITING;
         else {
-            stats.closeHandle(handle);
             return StreamRequestHandlerState.COMPLETE;
         }
     }

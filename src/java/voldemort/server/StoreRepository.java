@@ -12,7 +12,9 @@ import voldemort.server.storage.RepairJob;
 import voldemort.store.StorageEngine;
 import voldemort.store.Store;
 import voldemort.store.slop.SlopStorageEngine;
+import voldemort.store.stats.StreamingStats;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 import voldemort.utils.Pair;
 
 /**
@@ -59,6 +61,16 @@ public class StoreRepository {
      */
     private final ConcurrentMap<String, StorageEngine<ByteArray, byte[], byte[]>> storageEngines;
 
+    /**
+     * Aggregated statistics about streaming operations
+     */
+    private StreamingStats aggregatedStreamStats;
+    /**
+     * Maintains statistics about streaming reads/writes performed against all
+     * the local storage engines in this node
+     */
+    private ConcurrentMap<String, StreamingStats> streamingStatsMap;
+
     /*
      * Routed stores that write and read from multiple nodes
      */
@@ -80,10 +92,21 @@ public class StoreRepository {
      */
     private RepairJob repairJob;
 
+    /**
+     * Constructor invoked by tests
+     */
     public StoreRepository() {
+        this(true);
+    }
+
+    public StoreRepository(boolean jmxEnabled) {
         super();
         this.localStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
         this.storageEngines = new ConcurrentHashMap<String, StorageEngine<ByteArray, byte[], byte[]>>();
+        if(jmxEnabled) {
+            this.streamingStatsMap = new ConcurrentHashMap<String, StreamingStats>();
+            this.aggregatedStreamStats = new StreamingStats();
+        }
         this.routedStores = new ConcurrentHashMap<String, Store<ByteArray, byte[], byte[]>>();
         this.nodeStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();
         this.redirectingSocketStores = new ConcurrentHashMap<Pair<String, Integer>, Store<ByteArray, byte[], byte[]>>();
@@ -127,9 +150,38 @@ public class StoreRepository {
         if(found != null)
             throw new VoldemortException("Storage Engine '" + engine.getName()
                                          + "' has already been initialized.");
+
+        // register streaming stats object for the store
+        if(streamingStatsMap != null) {
+            // lazily register the aggregated mbean
+            if(storageEngines.size() == 1) {
+                JmxUtils.registerMbean(aggregatedStreamStats,
+                                       JmxUtils.createObjectName(this.getClass().getCanonicalName(),
+                                                                 "aggregated-streaming-stats"));
+            }
+
+            StreamingStats stat = new StreamingStats(aggregatedStreamStats);
+            JmxUtils.registerMbean(stat, JmxUtils.createObjectName(this.getClass()
+                                                                       .getCanonicalName(),
+                                                                   engine.getName()
+                                                                           + "-streaming-stats"));
+            streamingStatsMap.putIfAbsent(engine.getName(), stat);
+        }
     }
 
     public Store<ByteArray, byte[], byte[]> removeStorageEngine(String storeName) {
+        // register streaming stats object for the store
+        if(streamingStatsMap != null) {
+            JmxUtils.unregisterMbean(JmxUtils.createObjectName(this.getClass().getCanonicalName(),
+                                                               storeName));
+            streamingStatsMap.remove(storeName);
+            // lazily unregister the aggregated mbean
+            if(storageEngines.size() == 1) {
+                JmxUtils.unregisterMbean(JmxUtils.createObjectName(this.getClass()
+                                                                       .getCanonicalName(),
+                                                                   "aggregated-streaming-stats"));
+            }
+        }
         return this.storageEngines.remove(storeName);
     }
 
@@ -233,5 +285,9 @@ public class StoreRepository {
 
     public void registerRepairJob(RepairJob job) {
         repairJob = job;
+    }
+
+    public StreamingStats getStreamingStats(String store) {
+        return streamingStatsMap.get(store);
     }
 }

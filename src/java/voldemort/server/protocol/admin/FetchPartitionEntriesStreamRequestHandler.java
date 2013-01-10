@@ -31,8 +31,7 @@ import voldemort.server.StoreRepository;
 import voldemort.server.VoldemortConfig;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
-import voldemort.store.stats.StreamStats;
-import voldemort.store.stats.StreamStats.Operation;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
@@ -60,15 +59,13 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                                                      ErrorCodeMapper errorCodeMapper,
                                                      VoldemortConfig voldemortConfig,
                                                      StoreRepository storeRepository,
-                                                     NetworkClassLoader networkClassLoader,
-                                                     StreamStats stats) {
+                                                     NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
               voldemortConfig,
               storeRepository,
               networkClassLoader,
-              stats,
               Operation.FETCH_ENTRIES);
         logger.info("Starting fetch entries for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
@@ -97,7 +94,6 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
         if(entriesPartitionIterator == null) {
             // we are finally done
             if(currentIndex == partitionList.size()) {
-                stats.closeHandle(handle);
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -123,7 +119,6 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 }
                 currentIndex++;
             }
-
         } else {
             long startNs = System.nanoTime();
             // do a check before reading in case partition has 0 elements
@@ -134,14 +129,18 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 if(counter % skipRecords == 0) {
                     // do the filtering
                     Pair<ByteArray, Versioned<byte[]>> entry = entriesPartitionIterator.next();
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(streamStats != null) {
+                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                        streamStats.reportStreamingScan(operation);
+                    }
                     ByteArray key = entry.getFirst();
                     Versioned<byte[]> value = entry.getSecond();
 
                     throttler.maybeThrottle(key.length());
                     if(filter.accept(key, value)) {
                         fetched++;
-                        handle.incrementEntriesScanned();
+                        if(streamStats != null)
+                            streamStats.reportStreamingFetch(operation);
                         VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
                         VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
@@ -153,15 +152,17 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
 
                         startNs = System.nanoTime();
                         ProtoUtils.writeMessage(outputStream, message);
-                        stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                        if(streamStats != null)
+                            streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
                         throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                     }
                 } else {
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(streamStats != null)
+                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
                 }
 
                 // log progress
-                if(0 == counter % 100000) {
+                if(0 == counter % STAT_RECORDS_INTERVAL) {
                     long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
 
                     logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched

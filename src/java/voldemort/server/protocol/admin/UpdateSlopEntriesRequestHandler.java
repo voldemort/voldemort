@@ -4,8 +4,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -15,10 +13,12 @@ import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
 import voldemort.client.protocol.pb.VAdminProto.UpdateSlopEntriesRequest;
 import voldemort.server.StoreRepository;
+import voldemort.server.VoldemortConfig;
 import voldemort.server.protocol.StreamRequestHandler;
 import voldemort.store.ErrorCodeMapper;
 import voldemort.store.StorageEngine;
-import voldemort.store.stats.StreamStats;
+import voldemort.store.stats.StreamingStats;
+import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.versioning.ObsoleteVersionException;
@@ -37,26 +37,25 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
     private final long startTime;
 
+    private long networkTimeNs;
+
+    private boolean isJmxEnabled;
+
     private long counter = 0L;
-
-    private final StreamStats stats;
-
-    private final StreamStats.Handle handle;
 
     private final Logger logger = Logger.getLogger(getClass());
 
     public UpdateSlopEntriesRequestHandler(UpdateSlopEntriesRequest request,
                                            ErrorCodeMapper errorCodeMapper,
                                            StoreRepository storeRepository,
-                                           StreamStats stats) {
+                                           VoldemortConfig voldemortConfig) {
         super();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
         this.storeRepository = storeRepository;
-        this.stats = stats;
-        this.handle = stats.makeHandle(StreamStats.Operation.SLOP,
-                                       new HashMap<Integer, List<Integer>>());
         startTime = System.currentTimeMillis();
+        networkTimeNs = 0;
+        this.isJmxEnabled = voldemortConfig.isJmxEnabled();
     }
 
     public StreamRequestDirection getDirection() {
@@ -71,7 +70,7 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
         responseBuilder.setError(ProtoUtils.encodeError(errorCodeMapper, e));
 
         if(logger.isEnabledFor(Level.ERROR))
-            logger.error("handleUpdatePartitionEntries failed for request(" + request + ")", e);
+            logger.error("handleUpdateSlopEntries failed for request(" + request + ")", e);
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -86,26 +85,24 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message size");
-                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                networkTimeNs += System.nanoTime() - startNs;
                 return StreamRequestHandlerState.INCOMPLETE_READ;
             }
 
             if(size == -1) {
                 if(logger.isTraceEnabled())
-                    logger.trace("Message size -1, completed partition update");
-                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
-                stats.closeHandle(handle);
+                    logger.trace("Message size -1, completed slop update");
                 return StreamRequestHandlerState.COMPLETE;
             }
 
             if(logger.isTraceEnabled())
-                logger.trace("UpdatePartitionEntriesRequest message size: " + size);
+                logger.trace("UpdateSlopEntriesRequest message size: " + size);
 
             byte[] input = new byte[size];
 
             try {
                 ByteUtils.read(inputStream, input);
-                stats.recordNetworkTime(handle, System.nanoTime() - startNs);
+                networkTimeNs += System.nanoTime() - startNs;
             } catch(EOFException e) {
                 if(logger.isTraceEnabled())
                     logger.trace("Incomplete read for message");
@@ -120,6 +117,13 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
+        StreamingStats streamStats = null;
+        if(isJmxEnabled) {
+            streamStats = storeRepository.getStreamingStats(storageEngine.getName());
+            streamStats.reportNetworkTime(Operation.SLOP_UPDATE, networkTimeNs);
+        }
+        networkTimeNs = 0;
+
         ByteArray key = ProtoUtils.decodeBytes(request.getKey());
         VectorClock vectorClock = ProtoUtils.decodeClock(request.getVersion());
 
@@ -137,7 +141,9 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                     byte[] value = ProtoUtils.decodeBytes(request.getValue()).get();
                     startNs = System.nanoTime();
                     storageEngine.put(key, Versioned.value(value, vectorClock), transforms);
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(isJmxEnabled)
+                        streamStats.reportStorageTime(Operation.SLOP_UPDATE, System.nanoTime()
+                                                                             - startNs);
                     if(logger.isTraceEnabled())
                         logger.trace("updateSlopEntries (Streaming put) successful");
                 } catch(ObsoleteVersionException e) {
@@ -150,7 +156,9 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
                 try {
                     startNs = System.nanoTime();
                     storageEngine.delete(key, vectorClock);
-                    stats.recordDiskTime(handle, System.nanoTime() - startNs);
+                    if(isJmxEnabled)
+                        streamStats.reportStorageTime(Operation.SLOP_UPDATE, System.nanoTime()
+                                                                             - startNs);
 
                     if(logger.isTraceEnabled())
                         logger.trace("updateSlopEntries (Streaming delete) successful");
@@ -166,7 +174,8 @@ public class UpdateSlopEntriesRequestHandler implements StreamRequestHandler {
 
         // log progress
         counter++;
-        handle.incrementEntriesScanned();
+        if(isJmxEnabled)
+            streamStats.reportStreamingPut(Operation.SLOP_UPDATE);
 
         if(0 == counter % 100000) {
             long totalTime = (System.currentTimeMillis() - startTime) / 1000;
