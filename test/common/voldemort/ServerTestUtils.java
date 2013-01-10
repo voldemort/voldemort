@@ -760,11 +760,13 @@ public class ServerTestUtils {
     }
 
     /**
-     * This method wraps up work that is done in many different tests to set up
-     * some number of Voldemort servers in a cluster. This method masks an
-     * intermittent TOCTOU problem with the ports identified by
+     * This method wraps up all of the work that is done in many different tests
+     * to set up some number of Voldemort servers in a cluster. This method
+     * masks an intermittent TOCTOU problem with the ports identified by
      * {@link #findFreePorts(int)} not actually being free when a server needs
-     * to bind to them.
+     * to bind to them. If this method returns, it will return a non-null
+     * cluster. This method is not guaranteed to return, but will likely
+     * eventually do so...
      * 
      * @param numServers
      * @param voldemortServers

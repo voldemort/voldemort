@@ -41,29 +41,37 @@ public class ServerTestUtilsTest {
                                                                                   100000,
                                                                                   32 * 1024);
 
+    @Test
     public void testStartVoldemortCluster() throws IOException {
         int numServers = 8;
         VoldemortServer[] servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0 }, { 1 }, { 2 }, { 3 }, { 4 }, { 5 }, { 6 }, { 7 } };
-        ServerTestUtils.startVoldemortCluster(numServers,
-                                              servers,
-                                              partitionMap,
-                                              socketStoreFactory,
-                                              true,
-                                              null,
-                                              storesXmlfile,
-                                              new Properties());
+        Cluster cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                                servers,
+                                                                partitionMap,
+                                                                socketStoreFactory,
+                                                                true,
+                                                                null,
+                                                                storesXmlfile,
+                                                                new Properties());
+        assertTrue(cluster != null);
     }
 
-    @Test
-    public void startMultipleVoldemortClusters() throws IOException {
+    // **********************************************************************
+    // * START : "commented out" tests
+    // These tests helped to find the root case of BindException problem when
+    // clusters were started. These tests were used in debugging and stress
+    // testing and should not be part of our general junit tests. The @Test
+    // parameter is therefore commented out. The debugging methods themselves
+    // are not commented out so that they can be kept up to date with other code
+    // changes.
+
+    // @Test
+    public void stressTestStartVoldemortCluster() throws IOException {
         for(int i = 0; i < 10; i++) {
             testStartVoldemortCluster();
         }
     }
-
-    // **********************************************************************
-    // * START : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM *
 
     // @Test
     public void startMultipleVoldemortServers() throws IOException {
@@ -180,6 +188,6 @@ public class ServerTestUtilsTest {
         }
     }
 
-    // ** END : TESTS THAT HELPED FIND ROOT CAUSE OF BindException PROBLEM **
+    // * END : "commented out" tests
     // **********************************************************************
 }
