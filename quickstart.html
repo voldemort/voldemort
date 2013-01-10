@@ -82,7 +82,8 @@ Download either <a href="http://github.com/voldemort/voldemort/downloads">a rece
 <pre>
 	> bin/voldemort-server.sh config/single_node_cluster > /tmp/voldemort.log &
 </pre>
-
+Note: If your machine has a very small memory(<4G, likely to happen in Virtual Machine environments), you may come across out-of-memory issues.
+You can reduce the JVM heap memory allocation by changing the "-Xmx2G" option in bin/voldemort-server.sh to a smaller value or leave it out.
 <h4>Step 3: Start commandline test client and do some operations</h4>
 <pre>
 	> bin/voldemort-shell.sh test tcp://localhost:6666
