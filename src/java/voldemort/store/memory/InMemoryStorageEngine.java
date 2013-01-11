@@ -278,4 +278,14 @@ public class InMemoryStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
     public boolean isPartitionScanSupported() {
         return false;
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

@@ -409,4 +409,14 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         // no reason why we cannot do this on MySQL. Will be added later
         return false;
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

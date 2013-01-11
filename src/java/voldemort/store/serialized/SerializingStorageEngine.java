@@ -142,4 +142,14 @@ public class SerializingStorageEngine<K, V, T> extends SerializingStore<K, V, T>
     public boolean isPartitionScanSupported() {
         return storageEngine.isPartitionScanSupported();
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

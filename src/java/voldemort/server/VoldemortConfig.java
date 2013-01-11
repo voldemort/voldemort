@@ -98,6 +98,7 @@ public class VoldemortConfig implements Serializable {
     private boolean bdbPrefixKeysWithPartitionId;
     private boolean bdbLevelBasedEviction;
     private boolean bdbProactiveBackgroundMigration;
+    private boolean bdbCheckpointerOffForBatchWrites;
 
     private String mysqlUsername;
     private String mysqlPassword;
@@ -266,6 +267,8 @@ public class VoldemortConfig implements Serializable {
         this.bdbLevelBasedEviction = props.getBoolean("bdb.evict.by.level", false);
         this.bdbProactiveBackgroundMigration = props.getBoolean("bdb.proactive.background.migration",
                                                                 false);
+        this.bdbCheckpointerOffForBatchWrites = props.getBoolean("bdb.checkpointer.off.batch.writes",
+                                                                 false);
 
         this.readOnlyBackups = props.getInt("readonly.backups", 1);
         this.readOnlySearchStrategy = props.getString("readonly.search.strategy",
@@ -1119,6 +1122,26 @@ public class VoldemortConfig implements Serializable {
 
     public void setBdbCheckpointBytes(long bdbCheckpointBytes) {
         this.bdbCheckpointBytes = bdbCheckpointBytes;
+    }
+
+    /**
+     * BDB JE Checkpointer will be turned off during batch writes. This helps
+     * save redundant writing of index updates, as we do say large streaming
+     * updates
+     * 
+     * <ul>
+     * <li>Property : "bdb.checkpointer.off.batch.writes"</li>
+     * <li>Default : false</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getBdbCheckpointerOffForBatchWrites() {
+        return this.bdbCheckpointerOffForBatchWrites;
+    }
+
+    public void setBdbCheckpointerOffForBatchWrites(boolean bdbCheckpointerOffForBulkWrites) {
+        this.bdbCheckpointerOffForBatchWrites = bdbCheckpointerOffForBulkWrites;
     }
 
     /**

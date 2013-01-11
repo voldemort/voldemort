@@ -630,4 +630,14 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         // this should be easy to support, will be added later
         return false;
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

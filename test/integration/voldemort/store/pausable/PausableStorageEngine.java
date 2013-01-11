@@ -134,4 +134,14 @@ public class PausableStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
     public boolean isPartitionScanSupported() {
         return inner.isPartitionScanSupported();
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

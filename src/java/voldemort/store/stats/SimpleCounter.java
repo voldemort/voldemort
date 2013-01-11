@@ -35,13 +35,17 @@ public class SimpleCounter {
      */
     long totalEventValueLastInterval;
 
+    // We need additional tracking for the end of the second last or penultimate
+    // interval, since resetting the atomicLong counters would mean we might
+    // miss some event updates
+
     /**
-     * Number of events that occurred in the second last interval
+     * Number of events that occurred in the second last interval.
      */
     long numEventsLastLastInterval;
 
     /**
-     * Sum of all the event values in the the second last interval
+     * Sum of all the event values in the the second last interval.
      */
     long totalEventValueLastLastInterval;
 

@@ -143,4 +143,14 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     public boolean isPartitionScanSupported() {
         return slopEngine.isPartitionScanSupported();
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return slopEngine.beginBatchModifications();
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return slopEngine.endBatchModifications();
+    }
 }

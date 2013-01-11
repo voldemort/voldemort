@@ -658,4 +658,14 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     public boolean isPartitionScanSupported() {
         return false;
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

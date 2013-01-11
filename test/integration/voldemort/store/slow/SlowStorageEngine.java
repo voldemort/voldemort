@@ -161,4 +161,14 @@ public class SlowStorageEngine<K, V, T> implements StorageEngine<K, V, T> {
         return innerStorageEngine.isPartitionScanSupported();
     }
 
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
+
 }

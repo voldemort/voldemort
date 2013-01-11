@@ -78,24 +78,27 @@ public class SimpleCounterTest {
             final int NUM_OPS = 10000;
             executorService = Executors.newFixedThreadPool(NUM_THREADS);
             final CountDownLatch latch1 = new CountDownLatch(NUM_THREADS);
+            final CountDownLatch latch0 = new CountDownLatch(1);
+
             for(int i = 0; i < NUM_THREADS; i++) {
                 final int threadId = i;
                 executorService.submit(new Runnable() {
 
                     public void run() {
-                        // additional sleep so they all start together and run
-                        // concurrently
                         try {
-                            sleepForResetInterval();
+                            latch0.await();
                             for(int j = 0; j < NUM_OPS; j++) {
                                 simpleCounter.count(100 * (threadId + 1));
                             }
+                        } catch(InterruptedException e) {
+                            e.printStackTrace();
                         } finally {
                             latch1.countDown();
                         }
                     }
                 });
             }
+            latch0.countDown();
             latch1.await();
             // one more sleep so we expire the current interval where all the
             // action happened
@@ -114,7 +117,6 @@ public class SimpleCounterTest {
             final ConcurrentLinkedQueue<Double> observedEventValueAvg = new ConcurrentLinkedQueue<Double>();
             final int NUM_INTERVALS = 30;
             final CountDownLatch latch2 = new CountDownLatch(NUM_THREADS);
-
             for(int i = 0; i < NUM_THREADS; i++) {
                 final int threadId = i;
                 executorService.submit(new Runnable() {
@@ -135,6 +137,7 @@ public class SimpleCounterTest {
                     }
                 });
             }
+
             latch2.await();
             Object[] actualEventRates = new Object[NUM_THREADS];
             Object[] actualEventValueAvgs = new Object[NUM_THREADS];

@@ -255,4 +255,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
     public boolean isPartitionScanSupported() {
         return false;
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

@@ -109,4 +109,20 @@ public interface StorageEngine<K, V, T> extends Store<K, V, T> {
      *         otherwise
      */
     public boolean isPartitionScanSupported();
+
+    /**
+     * A lot of storage engines support efficient methods for performing large
+     * number of writes (puts/deletes) against the data source. This method puts
+     * the storage engine in this batch write mode
+     * 
+     * @return true if the storage engine took successful action to switch to
+     *         'batch-write' mode
+     */
+    public boolean beginBatchModifications();
+
+    /**
+     * 
+     * @return true if the storage engine successfully returned to normal mode
+     */
+    public boolean endBatchModifications();
 }

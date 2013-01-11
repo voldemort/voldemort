@@ -348,4 +348,14 @@ public class FileBackedCachingStorageEngine implements StorageEngine<ByteArray, 
         return false;
     }
 
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
+
 }

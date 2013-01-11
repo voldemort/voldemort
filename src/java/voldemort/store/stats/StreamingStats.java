@@ -15,7 +15,7 @@ public class StreamingStats {
         SLOP_UPDATE
     }
 
-    private static final int STREAMING_STATS_RESET_INTERVAL_MS = 1000;
+    private static final int STREAMING_STATS_RESET_INTERVAL_MS = 60000;
     private StreamingStats parent;
     private HashMap<Operation, SimpleCounter> networkTimeCounterMap;
     private HashMap<Operation, SimpleCounter> storageTimeCounterMap;
@@ -113,12 +113,12 @@ public class StreamingStats {
         return storageTimeCounterMap.get(Operation.FETCH_KEYS).getAvgEventValue() / Time.NS_PER_MS;
     }
 
-    @JmxGetter(name = "getFetchKeysFetchRate", description = "rate at which keys are fetched")
+    @JmxGetter(name = "getFetchKeysFetchRate", description = "rate at which keys are fetched per second")
     public double getFetchKeysFetchRate() {
         return streamingFetchCounterMap.get(Operation.FETCH_KEYS).getEventRate();
     }
 
-    @JmxGetter(name = "getFetchKeysScanRate", description = "rate at which keys are scanned")
+    @JmxGetter(name = "getFetchKeysScanRate", description = "rate at which keys are scanned per second")
     public double getFetchKeysScanRate() {
         return streamingScanCounterMap.get(Operation.FETCH_KEYS).getEventRate();
     }
@@ -136,18 +136,18 @@ public class StreamingStats {
                / Time.NS_PER_MS;
     }
 
-    @JmxGetter(name = "getFetchEntriesFetchRate", description = "rate at which entries are fetched")
+    @JmxGetter(name = "getFetchEntriesFetchRate", description = "rate at which entries are fetched per second")
     public double getFetchEntriesFetchRate() {
         return streamingFetchCounterMap.get(Operation.FETCH_ENTRIES).getEventRate();
     }
 
-    @JmxGetter(name = "getFetchEntriesScanRate", description = "rate at which entries are scanned")
+    @JmxGetter(name = "getFetchEntriesScanRate", description = "rate at which entries are scanned per second")
     public double getFetchEntriesScanRate() {
         return streamingScanCounterMap.get(Operation.FETCH_ENTRIES).getEventRate();
     }
 
     // Mbeans for FETCH_FILE
-    @JmxGetter(name = "getFetchFileFetchRate", description = "rate at which RO files are fetched")
+    @JmxGetter(name = "getFetchFileFetchRate", description = "rate at which RO files are fetched per second")
     public double getFetchFileFetchRate() {
         return streamingFetchCounterMap.get(Operation.FETCH_FILE).getEventRate();
     }
@@ -165,7 +165,7 @@ public class StreamingStats {
                / Time.NS_PER_MS;
     }
 
-    @JmxGetter(name = "getUpdateEntriesPutRate", description = "rate at which entries are streaming in")
+    @JmxGetter(name = "getUpdateEntriesPutRate", description = "rate at which entries are streaming in per second")
     public double getUpdateEntriesPutRate() {
         return streamingPutCounterMap.get(Operation.UPDATE_ENTRIES).getEventRate();
     }
@@ -181,7 +181,7 @@ public class StreamingStats {
         return storageTimeCounterMap.get(Operation.SLOP_UPDATE).getAvgEventValue() / Time.NS_PER_MS;
     }
 
-    @JmxGetter(name = "getSlopUpdatePutRate", description = "Rate at which slop entries are written to the server")
+    @JmxGetter(name = "getSlopUpdatePutRate", description = "Rate at which slop entries are written to the server per second")
     public double getSlopUpdatePutRate() {
         return streamingPutCounterMap.get(Operation.SLOP_UPDATE).getEventRate();
     }

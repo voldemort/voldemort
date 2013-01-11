@@ -58,6 +58,8 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.DatabaseStats;
 import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.EnvironmentMutableConfig;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 import com.sleepycat.je.StatsConfig;
@@ -81,6 +83,8 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
 
     protected final BdbEnvironmentStats bdbEnvironmentStats;
     protected final boolean minimizeScanImpact;
+    protected final boolean checkpointerOffForBatchWrites;
+    private volatile int numOutstandingBatchWriteJobs = 0;
 
     public BdbStorageEngine(String name,
                             Environment environment,
@@ -96,6 +100,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                                                            config.getStatsCacheTtlMs(),
                                                            config.getExposeSpaceUtil());
         this.minimizeScanImpact = config.getMinimizeScanImpact();
+        this.checkpointerOffForBatchWrites = config.isCheckpointerOffForBatchWrites();
     }
 
     public String getName() {
@@ -635,5 +640,43 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                              boolean isIncremental,
                              AsyncOperationStatus status) {
         new BdbNativeBackup(environment, verifyFiles, isIncremental).performBackup(toDir, status);
+    }
+
+    @Override
+    public boolean beginBatchModifications() {
+        if(checkpointerOffForBatchWrites) {
+            synchronized(this) {
+                numOutstandingBatchWriteJobs++;
+                // turn the checkpointer off for the first job
+                if(numOutstandingBatchWriteJobs == 1) {
+                    logger.info("Turning checkpointer off for batch writes");
+                    EnvironmentMutableConfig mConfig = environment.getMutableConfig();
+                    mConfig.setConfigParam(EnvironmentConfig.ENV_RUN_CHECKPOINTER,
+                                           Boolean.toString(false));
+                    environment.setMutableConfig(mConfig);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        if(checkpointerOffForBatchWrites) {
+            synchronized(this) {
+                numOutstandingBatchWriteJobs--;
+                // turn the checkpointer back on if the last job finishes
+                if(numOutstandingBatchWriteJobs == 0) {
+                    logger.info("Turning checkpointer on");
+                    EnvironmentMutableConfig mConfig = environment.getMutableConfig();
+                    mConfig.setConfigParam(EnvironmentConfig.ENV_RUN_CHECKPOINTER,
+                                           Boolean.toString(true));
+                    environment.setMutableConfig(mConfig);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

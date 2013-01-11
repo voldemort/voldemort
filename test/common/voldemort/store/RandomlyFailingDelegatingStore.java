@@ -127,4 +127,14 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
     public boolean isPartitionScanSupported() {
         return innerStorageEngine.isPartitionScanSupported();
     }
+
+    @Override
+    public boolean beginBatchModifications() {
+        return false;
+    }
+
+    @Override
+    public boolean endBatchModifications() {
+        return false;
+    }
 }

@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -55,6 +56,8 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
     private final Logger logger = Logger.getLogger(getClass());
 
+    private AtomicBoolean isBatchWriteOff;
+
     public UpdatePartitionEntriesStreamRequestHandler(UpdatePartitionEntriesRequest request,
                                                       ErrorCodeMapper errorCodeMapper,
                                                       VoldemortConfig voldemortConfig,
@@ -76,6 +79,17 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
         } else {
             this.streamStats = null;
         }
+        storageEngine.beginBatchModifications();
+        isBatchWriteOff = new AtomicBoolean(false);
+    }
+
+    @Override
+    protected void finalize() {
+        // when the object is GCed, don't forget to end the batch-write mode.
+        // This is ugly. But the cleanest way to do this, given our network code
+        // does not guarantee that close() will always be called
+        if(!isBatchWriteOff.get())
+            storageEngine.endBatchModifications();
     }
 
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
@@ -179,11 +193,12 @@ public class UpdatePartitionEntriesStreamRequestHandler implements StreamRequest
 
     public void close(DataOutputStream outputStream) throws IOException {
         ProtoUtils.writeMessage(outputStream, responseBuilder.build());
+        storageEngine.endBatchModifications();
+        isBatchWriteOff.compareAndSet(false, true);
     }
 
     public void handleError(DataOutputStream outputStream, VoldemortException e) throws IOException {
         responseBuilder.setError(ProtoUtils.encodeError(errorCodeMapper, e));
-
         if(logger.isEnabledFor(Level.ERROR))
             logger.error("handleUpdatePartitionEntries failed for request(" + request + ")", e);
     }
