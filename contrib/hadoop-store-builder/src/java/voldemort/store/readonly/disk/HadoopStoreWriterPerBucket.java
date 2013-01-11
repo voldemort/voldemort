@@ -301,12 +301,18 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
                     Path checkSumIndexFile = new Path(nodeDir, chunkFileName + ".index.checksum");
                     Path checkSumValueFile = new Path(nodeDir, chunkFileName + ".data.checksum");
 
+                    if(outputFs.exists(checkSumIndexFile)) {
+                        outputFs.delete(checkSumIndexFile);
+                    }
                     FSDataOutputStream output = outputFs.create(checkSumIndexFile);
                     outputFs.setPermission(checkSumIndexFile,
                                            new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
                     output.write(this.checkSumDigestIndex[chunkId].getCheckSum());
                     output.close();
 
+                    if(outputFs.exists(checkSumValueFile)) {
+                        outputFs.delete(checkSumValueFile);
+                    }
                     output = outputFs.create(checkSumValueFile);
                     outputFs.setPermission(checkSumValueFile,
                                            new FsPermission(HadoopStoreBuilder.HADOOP_FILE_PERMISSION));
@@ -324,8 +330,15 @@ public class HadoopStoreWriterPerBucket implements KeyValueWriter<BytesWritable,
             Path valueFile = new Path(nodeDir, chunkFileName + ".data");
 
             logger.info("Moving " + this.taskIndexFileName[chunkId] + " to " + indexFile);
+            if(outputFs.exists(indexFile)) {
+                outputFs.delete(indexFile);
+            }
             fs.rename(taskIndexFileName[chunkId], indexFile);
+
             logger.info("Moving " + this.taskValueFileName[chunkId] + " to " + valueFile);
+            if(outputFs.exists(valueFile)) {
+                outputFs.delete(valueFile);
+            }
             fs.rename(this.taskValueFileName[chunkId], valueFile);
 
         }
