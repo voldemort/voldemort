@@ -20,7 +20,7 @@
 	<classpathentry kind="lib" path="lib/colt-1.2.0.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-cli-2.0-SNAPSHOT.jar"/>
 	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/commons-configuration-1.6.jar"/>
-	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-core-1.0.2-p1.jar"/>
+	<classpathentry kind="lib" path="contrib/hadoop-store-builder/lib/hadoop-core-1.0.4-p2.jar"/>
 	<classpathentry kind="lib" path="lib/junit-4.6.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.15.jar"/>
 	<classpathentry kind="lib" path="lib/jetty-6.1.18.jar"/>

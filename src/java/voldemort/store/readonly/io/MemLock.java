@@ -34,7 +34,7 @@ public class MemLock implements Closeable {
     public MemLock(File file, FileDescriptor descriptor, long offset, long length)
                                                                                   throws IOException {
 
-        log.info("mlocking " + file + " with length " + length);
+        log.debug("mlocking " + file + " with length " + length);
 
         this.setFile(file);
         this.setDescriptor(descriptor);
@@ -61,7 +61,7 @@ public class MemLock implements Closeable {
         mman.munlock(pa, length);
         mman.munmap(pa, length);
 
-        log.info("munlocking " + file + " with length " + length);
+        log.debug("munlocking " + file + " with length " + length);
 
     }
 
