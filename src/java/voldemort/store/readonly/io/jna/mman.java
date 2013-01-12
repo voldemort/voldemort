@@ -46,8 +46,8 @@ public class mman {
                                        new NativeLong(off));
 
         if(Pointer.nativeValue(result) == -1) {
-
-            logger.debug(errno.strerror());
+            if(logger.isDebugEnabled())
+                logger.debug(errno.strerror());
         }
 
         return result;
@@ -59,7 +59,8 @@ public class mman {
         int result = Delegate.munmap(addr, new NativeLong(len));
 
         if(result != 0) {
-            logger.debug(errno.strerror());
+            if(logger.isDebugEnabled())
+                logger.debug(errno.strerror());
         }
 
         return result;
@@ -70,12 +71,13 @@ public class mman {
 
         int res = Delegate.mlock(addr, new NativeLong(len));
         if(res != 0) {
-            String error = errno.strerror();
-            logger.warn("Mlock failed probably because of insufficient privileges");
-            logger.debug(error);
-            logger.debug(res);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Mlock failed probably because of insufficient privileges, errno:"
+                             + errno.strerror() + ", return value:" + res);
+            }
         } else {
-            logger.debug("Mlock successfull");
+            if(logger.isDebugEnabled())
+                logger.debug("Mlock successfull");
 
         }
 
@@ -87,11 +89,12 @@ public class mman {
     public static void munlock(Pointer addr, long len) throws IOException {
 
         if(Delegate.munlock(addr, new NativeLong(len)) != 0) {
-            logger.warn(errno.strerror());
+            if(logger.isDebugEnabled())
+                logger.debug("munlocking failed with errno:" + errno.strerror());
         } else {
-            logger.debug("munlocking region");
+            if(logger.isDebugEnabled())
+                logger.debug("munlocking region");
         }
-
     }
 
     static class Delegate {
@@ -122,13 +125,13 @@ public class mman {
         File file = new File(path);
         FileInputStream in = new FileInputStream(file);
         int fd = voldemort.store.readonly.io.Native.getFd(in.getFD());
-
-        logger.debug("File descriptor is: " + fd);
+        if(logger.isDebugEnabled())
+            logger.debug("File descriptor is: " + fd);
 
         // mmap a large file...
         Pointer addr = mmap(file.length(), PROT_READ, mman.MAP_SHARED | mman.MAP_ALIGN, fd, 0L);
-
-        logger.debug("mmap address is: " + Pointer.nativeValue(addr));
+        if(logger.isDebugEnabled())
+            logger.debug("mmap address is: " + Pointer.nativeValue(addr));
 
         // try to mlock it directly
         mlock(addr, file.length());

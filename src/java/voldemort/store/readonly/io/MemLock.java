@@ -13,7 +13,7 @@ import com.sun.jna.Pointer;
 
 public class MemLock implements Closeable {
 
-    private static final Logger log = Logger.getLogger(MemLock.class);
+    private static final Logger logger = Logger.getLogger(MemLock.class);
 
     private Pointer pa;
     private long length;
@@ -33,8 +33,8 @@ public class MemLock implements Closeable {
      */
     public MemLock(File file, FileDescriptor descriptor, long offset, long length)
                                                                                   throws IOException {
-
-        log.debug("mlocking " + file + " with length " + length);
+        if(logger.isDebugEnabled())
+            logger.debug("mlocking " + file + " with length " + length);
 
         this.setFile(file);
         this.setDescriptor(descriptor);
@@ -61,7 +61,8 @@ public class MemLock implements Closeable {
         mman.munlock(pa, length);
         mman.munmap(pa, length);
 
-        log.debug("munlocking " + file + " with length " + length);
+        if(logger.isDebugEnabled())
+            logger.debug("munlocking " + file + " with length " + length);
 
     }
 
