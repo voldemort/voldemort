@@ -149,7 +149,11 @@ public class HdfsFetcher implements FileFetcher {
     }
 
     public File fetch(String sourceFileUrl, String destinationFile) throws IOException {
-        return fetch(sourceFileUrl, destinationFile, this.voldemortConfig.getHadoopConfigPath());
+        String hadoopConfigPath = "";
+        if(this.voldemortConfig != null) {
+            hadoopConfigPath = this.voldemortConfig.getHadoopConfigPath();
+        }
+        return fetch(sourceFileUrl, destinationFile, hadoopConfigPath);
     }
 
     public File fetch(String sourceFileUrl, String destinationFile, String hadoopConfigPath)
@@ -274,7 +278,7 @@ public class HdfsFetcher implements FileFetcher {
             } else {
                 return null;
             }
-        } catch(Exception e) {
+        } catch(IOException e) {
             logger.error("Error while getting Hadoop filesystem : " + e);
             return null;
         } finally {
