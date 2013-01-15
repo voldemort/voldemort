@@ -1,3 +1,13 @@
+Release 1.1.8 on 01/14/2013
+
+* Enhanced Server Monitoring 
+   -- Server NIO layer
+   -- Streaming operations to the server
+   -- BDB storage exception counts
+* Ability to turn off BDB Checkpointing during batch modifications
+* Added ability to delete old checksum files in Build and Push reducer
+* Upgrade Hadoop jar to 1.0.4-p2
+
 Release 1.1.7 on 01/03/2013
 
 Changes made since release 1.1.4
