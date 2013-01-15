@@ -1,5 +1,27 @@
+Release 1.1.9 on 01/15/2013
+
+Changes made since 1.1.8
+* Asynchronous socket checkout improvements
+  * Changed checkout behavior of KeyedResourcePool to only create new
+    connections when there are no resources available (rather than
+    creating new connections until the pool is full).
+  * Changed QueuedKeyedResourcePool.reset behavior to better match
+    KeyedResourcePool (i.e., to not cancel queued asynchronous
+    requests unnecessarily).
+  * Removed (unnecessary) synchronization primitives from keyed resource pool
+  * Reduce granularity of failure detector locking within ThresholdFailureDetector
+* Minor features/improvements
+  * Less verbose logging in the face of expected exceptions and errors
+  * Refactored (Queued)KeyedResourcePoolTest
+* Bug fixes
+  * Fixed possible race condition for resource creation in KeyedResourcePool
+  * More efficient (time & space) and simpler Histogram implementation
+    with improved tests.
+
+
 Release 1.1.8 on 01/14/2013
 
+Changes made since release 1.1.7
 * Enhanced Server Monitoring 
    -- Server NIO layer
    -- Streaming operations to the server
@@ -8,17 +30,22 @@ Release 1.1.8 on 01/14/2013
 * Added ability to delete old checksum files in Build and Push reducer
 * Upgrade Hadoop jar to 1.0.4-p2
 
+
 Release 1.1.7 on 01/03/2013
+
+NOTE: This release is based off of release 1.1.4
 
 Changes made since release 1.1.4
 * Upgrading Hadoop jar to 1.0.2
 * Added support for Kerberos authentication in HdfsFetcher
 * Extra config parameters for Kerberos config and keytab file
 
+
 NOTE: Release 1.1.5 and 1.1.6 are special client side releases
 not based off of master. 1.1.5 was rolled back to to a weird bug.
 1.1.6 is a special client side release including Auto-
 bootstrapper and Versioned Avro support.
+
 
 Release 1.1.4 on 11/29/2012
 
