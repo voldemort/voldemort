@@ -112,7 +112,7 @@ You can reduce the JVM heap memory allocation by changing the "-Xmx2G" option in
  StoreClient<String, String> client = factory.getStoreClient("my_store_name");
 </pre>
 
-<p>After initializing the store client for every store once we can reuse it to run our queries as follows:</p>
+<p>getStoreClient() method pulls down the metadata (cluster.xml/stores.xml) from the server in the bootstrap url. After initializing the store client for every store once we can reuse it to run our queries as follows:</p>
 
 <pre> 
  // do some random pointless operations
