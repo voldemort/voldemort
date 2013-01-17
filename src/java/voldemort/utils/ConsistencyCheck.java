@@ -17,7 +17,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
-import voldemort.cluster.Zone;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.Occurred;
@@ -29,9 +28,8 @@ public class ConsistencyCheck {
 
     private enum ConsistencyLevel {
         FULL,
-        GREY,
-        ORANGE,
-        ANTI_DR
+        LATEST_CONSISTENT,
+        ORANGE
     }
 
     private static class ConsistencyCheckStats {
@@ -84,7 +82,6 @@ public class ConsistencyCheck {
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("primary-zone", "primary zone id").withRequiredArg().ofType(Integer.class);
         parser.accepts("verbose", "verbose");
         OptionSet options = parser.parse(args);
 
@@ -95,7 +92,7 @@ public class ConsistencyCheck {
             return;
         }
         if(!options.hasArgument("url") || !options.hasArgument("partitions")
-           || !options.hasArgument("store") || !options.hasArgument("primary-zone")) {
+           || !options.hasArgument("store")) {
             printUsage();
             return;
         }
@@ -106,7 +103,6 @@ public class ConsistencyCheck {
         String url = (String) options.valueOf("url");
         String storeName = (String) options.valueOf("store");
         List<Integer> partitionIds = (List<Integer>) options.valuesOf("partitions");
-        Integer primaryZoneId = (Integer) options.valueOf("primary-zone");
 
         ConsistencyCheckStats globalStats = new ConsistencyCheckStats();
         Map<Integer, ConsistencyCheckStats> partitionStatsMap = new HashMap<Integer, ConsistencyCheckStats>();
@@ -114,7 +110,6 @@ public class ConsistencyCheck {
             ConsistencyCheckStats partitionStats = doConsistencyCheck(storeName,
                                                                       partitionId,
                                                                       url,
-                                                                      primaryZoneId,
                                                                       verbose);
             partitionStatsMap.put(partitionId, partitionStats);
             globalStats.append(partitionStats);
@@ -154,7 +149,6 @@ public class ConsistencyCheck {
     public static ConsistencyCheckStats doConsistencyCheck(String storeName,
                                                            Integer partitionId,
                                                            String url,
-                                                           Integer primaryZoneId,
                                                            boolean verbose) throws Exception {
         List<Integer> singlePartition = new ArrayList<Integer>();
         singlePartition.add(partitionId);
@@ -289,10 +283,9 @@ public class ConsistencyCheck {
                                 if(lastKeyIterSet.size() == nodeIdList.size()) {
                                     // keyFetchComplete
                                     ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(lastKey),
-                                                                                  storeDefinition,
-                                                                                  cluster,
-                                                                                  primaryZoneId);
-                                    if(level == ConsistencyLevel.FULL) {
+                                                                                  storeDefinition);
+                                    if(level == ConsistencyLevel.FULL
+                                       || level == ConsistencyLevel.LATEST_CONSISTENT) {
                                         keyVersionNodeSetMap.remove(lastKey);
                                         preQualifiedKeys++;
                                     }
@@ -363,10 +356,8 @@ public class ConsistencyCheck {
         Set<ByteArray> keysToDelete = new HashSet<ByteArray>();
         for(ByteArray key: keyVersionNodeSetMap.keySet()) {
             ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(key),
-                                                          storeDefinition,
-                                                          cluster,
-                                                          primaryZoneId);
-            if(level == ConsistencyLevel.FULL) {
+                                                          storeDefinition);
+            if(level == ConsistencyLevel.FULL || level == ConsistencyLevel.LATEST_CONSISTENT) {
                 keysToDelete.add(key);
             }
         }
@@ -380,33 +371,12 @@ public class ConsistencyCheck {
 
         // print inconsistent keys
         if(verbose) {
-            StringBuilder record = new StringBuilder();
-            record.append("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock,ConsistentyLevel\n");
+            System.out.println("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock,ConsistentyLevel");
             for(Map.Entry<ByteArray, Map<Version, Set<Integer>>> entry: keyVersionNodeSetMap.entrySet()) {
                 ByteArray key = entry.getKey();
                 Map<Version, Set<Integer>> versionMap = entry.getValue();
-                for(Map.Entry<Version, Set<Integer>> versionSet: versionMap.entrySet()) {
-                    Version version = versionSet.getKey();
-                    Set<Integer> nodeSet = versionSet.getValue();
-                    record.append("BAD_KEY,");
-                    record.append(storeName + ",");
-                    record.append(partitionId + ",");
-                    record.append(ByteUtils.toHexString(key.get()) + ",");
-                    record.append(nodeSet.toString().replaceAll(", ", ";") + ",");
-                    record.append(((VectorClock) version).getTimestamp() + ",");
-                    record.append(version.toString()
-                                         .replaceAll(", ", ";")
-                                         .replaceAll(" ts:[0-9]*", "")
-                                         .replaceAll("version\\((.*)\\)", "[$1]")
-                                  + ",");
-                    record.append(determineConsistency(versionMap,
-                                                       storeDefinition,
-                                                       cluster,
-                                                       primaryZoneId).toString()
-                                  + "\n");
-                }
+                System.out.println(keyVersionToString(key, versionMap, storeName, partitionId));
             }
-            System.out.println(record.toString());
         }
 
         ConsistencyCheckStats stats = new ConsistencyCheckStats();
@@ -416,14 +386,34 @@ public class ConsistencyCheck {
         return stats;
     }
 
+    public static String keyVersionToString(ByteArray key,
+                                            Map<Version, Set<Integer>> versionMap,
+                                            String storeName,
+                                            Integer partitionId) {
+        StringBuilder record = new StringBuilder();
+        for(Map.Entry<Version, Set<Integer>> versionSet: versionMap.entrySet()) {
+            Version version = versionSet.getKey();
+            Set<Integer> nodeSet = versionSet.getValue();
+            record.append("BAD_KEY,");
+            record.append(storeName + ",");
+            record.append(partitionId + ",");
+            record.append(ByteUtils.toHexString(key.get()) + ",");
+            record.append(nodeSet.toString().replaceAll(", ", ";") + ",");
+            record.append(((VectorClock) version).getTimestamp() + ",");
+            record.append(version.toString()
+                                 .replaceAll(", ", ";")
+                                 .replaceAll(" ts:[0-9]*", "")
+                                 .replaceAll("version\\((.*)\\)", "[$1]"));
+        }
+        return record.toString();
+    }
+
     public static void printUsage() {
-        System.out.println("Usage: \n--partitions <partitionId,partitionId..> --url <url> --store <storeName> --primary-zone <primary-zone-id>");
+        System.out.println("Usage: \n--partitions <partitionId,partitionId..> --url <url> --store <storeName>");
     }
 
     public static ConsistencyLevel determineConsistency(Map<Version, Set<Integer>> versionNodeSetMap,
-                                                        StoreDefinition storeDef,
-                                                        Cluster cluster,
-                                                        int primaryZoneId) {
+                                                        StoreDefinition storeDef) {
         boolean fullyConsistent = true;
         Version latestVersion = null;
         for(Map.Entry<Version, Set<Integer>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
@@ -442,41 +432,9 @@ public class ConsistencyCheck {
             Set<Integer> nodeSet = versionNodeSetMap.get(latestVersion);
             // latest write consistent, effectively consistent
             if(nodeSet.size() == storeDef.getReplicationFactor()) {
-                return ConsistencyLevel.GREY;
+                return ConsistencyLevel.LATEST_CONSISTENT;
             }
-            // timeout write
-            if(nodeSet.size() <= storeDef.getRequiredWrites()) {
-                return ConsistencyLevel.GREY;
-            }
-            // DR-category: if other zone does not have as many available nodes
-            // as primary zone
-            Map<Integer, Integer> zoneToAvailableNodeCounts = new HashMap<Integer, Integer>();
-            for(Integer nodeId: nodeSet) {
-                Integer zoneId = cluster.getNodeById(nodeId).getZoneId();
-                Integer count = 0;
-                if(zoneToAvailableNodeCounts.containsKey(zoneId)) {
-                    count = zoneToAvailableNodeCounts.get(zoneId);
-                }
-                count++;
-                zoneToAvailableNodeCounts.put(zoneId, count);
-            }
-            Integer primaryZoneAvailableNodeCounts = zoneToAvailableNodeCounts.get(primaryZoneId);
-            if(primaryZoneAvailableNodeCounts == null) {
-                primaryZoneAvailableNodeCounts = 0;
-            }
-            for(Zone zone: cluster.getZones()) {
-                Integer zoneId = zone.getId();
-                // if not primary zone and has less nodes available than primary
-                // zone
-                if(primaryZoneId != zoneId) {
-                    if(!zoneToAvailableNodeCounts.containsKey(zoneId)
-                       || zoneToAvailableNodeCounts.get(zoneId) == null
-                       || zoneToAvailableNodeCounts.get(zoneId) < primaryZoneAvailableNodeCounts) {
-                        return ConsistencyLevel.ANTI_DR;
-                    }
-                }
-            }
-            // other intermittent inconsistent state
+            // all other states inconsistent
             return ConsistencyLevel.ORANGE;
         }
     }
