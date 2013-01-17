@@ -25,6 +25,9 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+
 /**
  * Utility functions for munging on bytes
  * 
@@ -82,6 +85,10 @@ public class ByteUtils {
             buffer.append(hex);
         }
         return buffer.toString();
+    }
+
+    public static byte[] fromHexString(String hexString) throws DecoderException {
+        return Hex.decodeHex(hexString.toCharArray());
     }
 
     /**

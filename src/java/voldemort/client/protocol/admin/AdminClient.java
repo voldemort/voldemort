@@ -1871,6 +1871,61 @@ public class AdminClient {
         }
     }
 
+    // TODO: Move into streaming operations or some such.
+    /**
+     * This method is a work-in-progress. Expectation is that updateEntries will
+     * eventually be used to process a stream of repairs.
+     * 
+     * This method updates exactly one key/value for a specific store on a
+     * specific node.
+     * 
+     * @param storeName Name of the store
+     * @param nodeKeyValue A specific key/value to update on a specific node.
+     * @return null means success.
+     */
+    public Exception repairEntry(String storeName, NodeValue<ByteArray, byte[]> nodeKeyValue) {
+        Node node = this.getAdminClientCluster().getNodeById(nodeKeyValue.getNodeId());
+        ClientConfig clientConfig = new ClientConfig();
+        final Store<ByteArray, byte[], byte[]> store;
+        final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                                                   clientConfig.getMaxConnectionsPerNode(),
+                                                                                   clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                                                   clientConfig.getSocketBufferSize(),
+                                                                                   clientConfig.getSocketKeepAlive());
+        try {
+            store = clientPool.create(storeName,
+                                      node.getHost(),
+                                      node.getSocketPort(),
+                                      clientConfig.getRequestFormatType(),
+                                      RequestRoutingType.IGNORE_CHECKS);
+        } catch(Exception e) {
+            clientPool.close();
+            throw new VoldemortException(e);
+        }
+
+        ByteArray key = nodeKeyValue.getKey();
+        Versioned<byte[]> value = nodeKeyValue.getVersioned();
+
+        Exception exception = null;
+        try {
+            store.put(key, value, null);
+        } catch(ObsoleteVersionException ove) {
+            // TODO: use logger rather than System.out and create struct to hold
+            // all return info for processsing by caller.
+            System.out.println("Node with id " + nodeKeyValue.getNodeId()
+                               + " received ObsoleteVersionException. IGNORING!");
+            // Treat ove as success!
+        } catch(VoldemortException ve) {
+            System.out.println("Node with id " + nodeKeyValue.getNodeId()
+                               + " received some VoldemortException.");
+            exception = ve;
+        } // TODO: Do we need to catch non-Voldemort exceptions?!
+
+        clientPool.close();
+        return exception;
+    }
+
     /**
      * Encapsulates all steaming operations that actually read and write
      * key-value pairs into the cluster
