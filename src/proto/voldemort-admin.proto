@@ -73,6 +73,7 @@ message FetchPartitionEntriesRequest {
   optional bool fetch_values = 4;
   optional int64 skip_records = 5;
   optional string initial_cluster = 6;
+  optional bool fetch_orphaned = 7;
 }
 
 message FetchPartitionEntriesResponse {

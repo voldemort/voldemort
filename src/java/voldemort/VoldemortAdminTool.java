@@ -260,6 +260,7 @@ public class VoldemortAdminTool {
               .withRequiredArg()
               .describedAs("id-of-mirror-node")
               .ofType(Integer.class);
+        parser.accepts("fetch-orphaned", "Fetch any orphaned keys/entries in the node");
 
         OptionSet options = parser.parse(args);
 
@@ -300,53 +301,50 @@ public class VoldemortAdminTool {
         }
 
         String ops = "";
-        if(options.has("delete-partitions")) {
-            ops += "d";
-        }
-        if(options.has("fetch-keys")) {
-            ops += "k";
-        }
-        if(options.has("fetch-entries")) {
-            ops += "v";
-        }
-        if(options.has("restore")) {
-            ops += "r";
-        }
+        // Honestly, the most insane code I have seen. Atleast sorting this for
+        // now so its easy to find a spare character
         if(options.has("add-stores")) {
             ops += "a";
-        }
-        if(options.has("update-entries")) {
-            ops += "u";
-        }
-        if(options.has("delete-store")) {
-            ops += "s";
-        }
-        if(options.has("get-metadata")) {
-            ops += "g";
-        }
-        if(options.has("ro-metadata")) {
-            ops += "e";
-        }
-        if(options.has("truncate")) {
-            ops += "t";
-        }
-        if(options.has("set-metadata")) {
-            ops += "m";
-        }
-        if(options.has("check-metadata")) {
-            ops += "c";
-        }
-        if(options.has("key-distribution")) {
-            ops += "y";
-        }
-        if(options.has("clear-rebalancing-metadata")) {
-            ops += "i";
         }
         if(options.has("async")) {
             ops += "b";
         }
+        if(options.has("check-metadata")) {
+            ops += "c";
+        }
+        if(options.has("delete-partitions")) {
+            ops += "d";
+        }
+        if(options.has("ro-metadata")) {
+            ops += "e";
+        }
+        if(options.has("reserve-memory")) {
+            if(!options.has("stores")) {
+                Utils.croak("Specify the list of stores to reserve memory");
+            }
+            ops += "f";
+        }
+        if(options.has("get-metadata")) {
+            ops += "g";
+        }
+        if(options.has("mirror-from-url")) {
+            if(!options.has("mirror-node")) {
+                Utils.croak("Specify the mirror node to fetch from");
+            }
+            ops += "h";
+        }
+        if(options.has("clear-rebalancing-metadata")) {
+            ops += "i";
+        }
+        if(options.has("fetch-keys")) {
+            ops += "k";
+        }
+
         if(options.has("repair-job")) {
             ops += "l";
+        }
+        if(options.has("set-metadata")) {
+            ops += "m";
         }
         if(options.has("native-backup")) {
             if(!options.has("backup-dir")) {
@@ -360,24 +358,32 @@ public class VoldemortAdminTool {
             }
             ops += "o";
         }
-        if(options.has("synchronize-metadata-version")) {
-            ops += "z";
-        }
-        if(options.has("reserve-memory")) {
-            if(!options.has("stores")) {
-                Utils.croak("Specify the list of stores to reserve memory");
-            }
-            ops += "f";
-        }
         if(options.has("query-keys")) {
             ops += "q";
         }
+        if(options.has("restore")) {
+            ops += "r";
+        }
+        if(options.has("delete-store")) {
+            ops += "s";
+        }
 
-        if(options.has("mirror-from-url")) {
-            if(!options.has("mirror-node")) {
-                Utils.croak("Specify the mirror node to fetch from");
-            }
-            ops += "h";
+        if(options.has("truncate")) {
+            ops += "t";
+        }
+        if(options.has("update-entries")) {
+            ops += "u";
+        }
+        if(options.has("fetch-entries")) {
+            ops += "v";
+        }
+
+        if(options.has("key-distribution")) {
+            ops += "y";
+        }
+
+        if(options.has("synchronize-metadata-version")) {
+            ops += "z";
         }
         if(ops.length() < 1) {
             Utils.croak("At least one of (delete-partitions, restore, add-node, fetch-entries, "
@@ -425,7 +431,8 @@ public class VoldemortAdminTool {
                                  partitionIdList,
                                  outputDir,
                                  storeNames,
-                                 useAscii);
+                                 useAscii,
+                                 options.has("fetch-orphaned"));
             }
             if(ops.contains("v")) {
                 boolean useAscii = options.has("ascii");
@@ -438,8 +445,10 @@ public class VoldemortAdminTool {
                                     partitionIdList,
                                     outputDir,
                                     storeNames,
-                                    useAscii);
+                                    useAscii,
+                                    options.has("fetch-orphaned"));
             }
+
             if(ops.contains("a")) {
                 String storesXml = (String) options.valueOf("add-stores");
                 executeAddStores(adminClient, storesXml, nodeId);
@@ -810,6 +819,10 @@ public class VoldemortAdminTool {
         stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id] --stores [comma-separated-list-of-store-names]");
         stream.println("\t12) Mirror data from another voldemort server (possibly in another cluster) for all stores in current cluster");
         stream.println("\t\t./bin/voldemort-admin-tool.sh --mirror-from-url [bootstrap url to mirror from] --mirror-node [node to mirror from] --url [url] --node [node-id]");
+        stream.println("\t13) Fetch all orphaned keys on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-keys --url [url] --node [node-id] --fetch-orphaned");
+        stream.println("\t14) Fetch all orphaned entries on a particular node");
+        stream.println("\t\t./bin/voldemort-admin-tool.sh --fetch-entries --url [url] --node [node-id] --fetch-orphaned");
         stream.println();
         stream.println("READ-ONLY OPERATIONS");
         stream.println("\t1) Retrieve metadata information of read-only data for a particular node and all stores");
@@ -1152,7 +1165,8 @@ public class VoldemortAdminTool {
                                             List<Integer> partitionIdList,
                                             String outputDir,
                                             List<String> storeNames,
-                                            boolean useAscii) throws IOException {
+                                            boolean useAscii,
+                                            boolean fetchOrphaned) throws IOException {
 
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
@@ -1196,16 +1210,23 @@ public class VoldemortAdminTool {
 
                 System.out.println("No store found under the name \'" + store + "\'");
                 continue;
+            }
+
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIteratorRef = null;
+            if(fetchOrphaned) {
+                System.out.println("Fetching orphaned entries of " + store);
+                entriesIteratorRef = adminClient.fetchOrphanedEntries(nodeId, store);
             } else {
                 System.out.println("Fetching entries in partitions "
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
+                entriesIteratorRef = adminClient.fetchEntries(nodeId,
+                                                              store,
+                                                              partitionIdList,
+                                                              null,
+                                                              false);
             }
 
-            final Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                          store,
-                                                                                                          partitionIdList,
-                                                                                                          null,
-                                                                                                          false);
+            final Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = entriesIteratorRef;
             File outputFile = null;
             if(directory != null) {
                 outputFile = new File(directory, store + ".entries");
@@ -1391,7 +1412,8 @@ public class VoldemortAdminTool {
                                          List<Integer> partitionIdList,
                                          String outputDir,
                                          List<String> storeNames,
-                                         boolean useAscii) throws IOException {
+                                         boolean useAscii,
+                                         boolean fetchOrphaned) throws IOException {
         List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
                                                                .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
@@ -1432,21 +1454,22 @@ public class VoldemortAdminTool {
             if(null == storeDefinition) {
                 System.out.println("No store found under the name \'" + store + "\'");
                 continue;
+            }
+
+            Iterator<ByteArray> keyIteratorRef = null;
+            if(fetchOrphaned) {
+                System.out.println("Fetching orphaned keys  of " + store);
+                keyIteratorRef = adminClient.fetchOrphanedKeys(nodeId, store);
             } else {
                 System.out.println("Fetching keys in partitions "
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
+                keyIteratorRef = adminClient.fetchKeys(nodeId, store, partitionIdList, null, false);
             }
-
-            final Iterator<ByteArray> keyIterator = adminClient.fetchKeys(nodeId,
-                                                                          store,
-                                                                          partitionIdList,
-                                                                          null,
-                                                                          false);
             File outputFile = null;
             if(directory != null) {
                 outputFile = new File(directory, store + ".keys");
             }
-
+            final Iterator<ByteArray> keyIterator = keyIteratorRef;
             if(useAscii) {
                 final SerializerDefinition serializerDef = storeDefinition.getKeySerializer();
                 final SerializerFactory serializerFactory = new DefaultSerializerFactory();

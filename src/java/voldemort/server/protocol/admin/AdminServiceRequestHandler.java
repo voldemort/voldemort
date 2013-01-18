@@ -540,11 +540,12 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
     public StreamRequestHandler handleFetchPartitionEntries(VAdminProto.FetchPartitionEntriesRequest request) {
         boolean fetchValues = request.hasFetchValues() && request.getFetchValues();
+        boolean fetchOrphaned = request.hasFetchOrphaned() && request.getFetchOrphaned();
         StorageEngine<ByteArray, byte[], byte[]> storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                                                              request.getStore());
 
         if(fetchValues) {
-            if(storageEngine.isPartitionScanSupported())
+            if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
                 return new FetchPartitionEntriesStreamRequestHandler(request,
                                                                      metadataStore,
                                                                      errorCodeMapper,
@@ -559,7 +560,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                             storeRepository,
                                                             networkClassLoader);
         } else {
-            if(storageEngine.isPartitionScanSupported())
+            if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
                 return new FetchPartitionKeysStreamRequestHandler(request,
                                                                   metadataStore,
                                                                   errorCodeMapper,

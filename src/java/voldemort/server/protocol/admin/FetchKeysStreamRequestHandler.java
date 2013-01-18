@@ -55,13 +55,25 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         }
 
         throttler.maybeThrottle(key.length());
-        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
-                                                     key.get(),
-                                                     replicaToPartitionList,
-                                                     initialCluster,
-                                                     storeDef)
-           && filter.accept(key, null)
-           && counter % skipRecords == 0) {
+        boolean keyAccepted = false;
+        if(!fetchOrphaned) {
+            // normal code path
+            if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                         key.get(),
+                                                         replicaToPartitionList,
+                                                         initialCluster,
+                                                         storeDef)
+               && filter.accept(key, null)
+               && counter % skipRecords == 0) {
+                keyAccepted = true;
+            }
+
+        } else {
+            if(!RebalanceUtils.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
+                keyAccepted = true;
+            }
+        }
+        if(keyAccepted) {
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
 

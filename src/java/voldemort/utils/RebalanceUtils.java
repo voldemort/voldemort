@@ -589,6 +589,28 @@ public class RebalanceUtils {
         return belongs;
     }
 
+    /**
+     * 
+     * @param key
+     * @param nodeId
+     * @param cluster
+     * @param storeDef
+     * @return true if the key belongs to the node as some replica
+     */
+    public static boolean checkKeyBelongsToNode(byte[] key,
+                                                int nodeId,
+                                                Cluster cluster,
+                                                StoreDefinition storeDef) {
+        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
+        List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
+                                                                                                 cluster)
+                                                                          .getPartitionList(key);
+        // remove all partitions from the list, except those that belong to the
+        // node
+        replicatingPartitions.retainAll(nodePartitions);
+        return replicatingPartitions.size() > 0;
+    }
+
     /***
      * Checks if a given partition is stored in the node. (It can be primary or
      * a secondary)

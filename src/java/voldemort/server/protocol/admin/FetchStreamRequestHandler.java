@@ -38,7 +38,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected final EventThrottler throttler;
 
-    protected final HashMap<Integer, List<Integer>> replicaToPartitionList;
+    protected HashMap<Integer, List<Integer>> replicaToPartitionList;
 
     protected final VoldemortFilter filter;
 
@@ -64,6 +64,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected StoreDefinition storeDef;
 
+    protected boolean fetchOrphaned;
+
     protected FetchStreamRequestHandler(VAdminProto.FetchPartitionEntriesRequest request,
                                         MetadataStore metadataStore,
                                         ErrorCodeMapper errorCodeMapper,
@@ -74,7 +76,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.nodeId = metadataStore.getNodeId();
         this.request = request;
         this.errorCodeMapper = errorCodeMapper;
-        this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
+        if(request.getReplicaToPartitionList() != null)
+            this.replicaToPartitionList = ProtoUtils.decodePartitionTuple(request.getReplicaToPartitionList());
         this.storageEngine = AdminServiceRequestHandler.getStorageEngine(storeRepository,
                                                                          request.getStore());
         if(voldemortConfig.isJmxEnabled()) {
@@ -105,6 +108,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
             this.skipRecords = request.getSkipRecords() + 1;
         }
+        this.fetchOrphaned = request.hasFetchOrphaned() && request.getFetchOrphaned();
     }
 
     private StoreDefinition getStoreDef(String store, MetadataStore metadataStore) {

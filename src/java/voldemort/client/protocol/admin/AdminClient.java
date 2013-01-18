@@ -474,6 +474,76 @@ public class AdminClient {
     }
 
     /**
+     * Fetches entries that don't belong to the node, based on current metadata
+     * and yet persisted on the node
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @return An iterator which allows entries to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchOrphanedEntries(int nodeId,
+                                                                             String storeName) {
+
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        final SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                    node.getAdminPort(),
+                                                                    RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        final SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        final DataInputStream inputStream = sands.getInputStream();
+
+        try {
+            VAdminProto.FetchPartitionEntriesRequest.Builder fetchOrphanedRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
+                                                                                                                            .setFetchValues(true)
+                                                                                                                            .setStore(storeName)
+                                                                                                                            .setFetchOrphaned(true);
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
+                                                                                         .setFetchPartitionEntries(fetchOrphanedRequest)
+                                                                                         .build();
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+        } catch(IOException e) {
+            close(sands.getSocket());
+            pool.checkin(destination, sands);
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<Pair<ByteArray, Versioned<byte[]>>>() {
+
+            @Override
+            public Pair<ByteArray, Versioned<byte[]>> computeNext() {
+                try {
+                    int size = inputStream.readInt();
+                    if(size == -1) {
+                        pool.checkin(destination, sands);
+                        return endOfData();
+                    }
+
+                    VAdminProto.FetchPartitionEntriesResponse response = responseFromStream(inputStream,
+                                                                                            size);
+
+                    if(response.hasError()) {
+                        pool.checkin(destination, sands);
+                        throwException(response.getError());
+                    }
+
+                    VAdminProto.PartitionEntry partitionEntry = response.getPartitionEntry();
+
+                    return Pair.create(ProtoUtils.decodeBytes(partitionEntry.getKey()),
+                                       ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
+                } catch(IOException e) {
+                    close(sands.getSocket());
+                    pool.checkin(destination, sands);
+                    throw new VoldemortException(e);
+                }
+            }
+        };
+    }
+
+    /**
      * Legacy interface for fetching entries. See
      * {@link AdminClient#fetchEntries(int, String, HashMap, VoldemortFilter, boolean, Cluster, long)}
      * for more information.
@@ -675,6 +745,73 @@ public class AdminClient {
                     exception = e;
                 }
                 return Pair.create(key, Pair.create(value, exception));
+            }
+        };
+    }
+
+    /**
+     * Fetch all the keys on the node that don't belong to it, based on its
+     * current metadata and yet stored on the node. i.e all keys orphaned on the
+     * node due to say not running the repair job after a rebalance
+     * 
+     * @param nodeId Id of the node to fetch from
+     * @param storeName Name of the store
+     * @return An iterator which allows keys to be streamed as they're being
+     *         iterated over.
+     */
+    public Iterator<ByteArray> fetchOrphanedKeys(int nodeId, String storeName) {
+        Node node = this.getAdminClientCluster().getNodeById(nodeId);
+        final SocketDestination destination = new SocketDestination(node.getHost(),
+                                                                    node.getAdminPort(),
+                                                                    RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
+        final SocketAndStreams sands = pool.checkout(destination);
+        DataOutputStream outputStream = sands.getOutputStream();
+        final DataInputStream inputStream = sands.getInputStream();
+
+        try {
+            VAdminProto.FetchPartitionEntriesRequest.Builder fetchOrphanedRequest = VAdminProto.FetchPartitionEntriesRequest.newBuilder()
+                                                                                                                            .setFetchValues(false)
+                                                                                                                            .setStore(storeName)
+                                                                                                                            .setFetchOrphaned(true);
+
+            VAdminProto.VoldemortAdminRequest request = VAdminProto.VoldemortAdminRequest.newBuilder()
+                                                                                         .setType(VAdminProto.AdminRequestType.FETCH_PARTITION_ENTRIES)
+                                                                                         .setFetchPartitionEntries(fetchOrphanedRequest)
+                                                                                         .build();
+            ProtoUtils.writeMessage(outputStream, request);
+            outputStream.flush();
+        } catch(IOException e) {
+            close(sands.getSocket());
+            pool.checkin(destination, sands);
+            throw new VoldemortException(e);
+        }
+
+        return new AbstractIterator<ByteArray>() {
+
+            @Override
+            public ByteArray computeNext() {
+                try {
+                    int size = inputStream.readInt();
+                    if(size == -1) {
+                        pool.checkin(destination, sands);
+                        return endOfData();
+                    }
+
+                    VAdminProto.FetchPartitionEntriesResponse response = responseFromStream(inputStream,
+                                                                                            size);
+
+                    if(response.hasError()) {
+                        pool.checkin(destination, sands);
+                        throwException(response.getError());
+                    }
+
+                    return ProtoUtils.decodeBytes(response.getKey());
+                } catch(IOException e) {
+                    close(sands.getSocket());
+                    pool.checkin(destination, sands);
+                    throw new VoldemortException(e);
+                }
+
             }
         };
     }

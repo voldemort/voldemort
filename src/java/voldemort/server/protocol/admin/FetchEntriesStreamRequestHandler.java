@@ -63,13 +63,25 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
         if(streamStats != null)
             streamStats.reportStreamingScan(operation);
 
-        if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
-                                                     key.get(),
-                                                     replicaToPartitionList,
-                                                     initialCluster,
-                                                     storeDef)
+        boolean entryAccepted = false;
 
-        && counter % skipRecords == 0) {
+        if(!fetchOrphaned) {
+            // normal code path
+            if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+                                                         key.get(),
+                                                         replicaToPartitionList,
+                                                         initialCluster,
+                                                         storeDef) && counter % skipRecords == 0) {
+                entryAccepted = true;
+            }
+        } else {
+            // orphaned fetches
+            if(!RebalanceUtils.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
+                entryAccepted = true;
+            }
+        }
+
+        if(entryAccepted) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             if(streamStats != null)
                 streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
