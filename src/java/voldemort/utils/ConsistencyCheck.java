@@ -272,13 +272,14 @@ public class ConsistencyCheck {
                         // try sweep last key fetched by this iterator
                         if(lastFetchedKey.containsKey(nodeEntries)) {
                             ByteArray lastKey = lastFetchedKey.get(nodeEntries);
-                            if(key != lastKey) {
+                            if(!key.equals(lastKey)) {
                                 if(!fullyFetchedKeys.containsKey(lastKey)) {
                                     fullyFetchedKeys.put(lastKey,
                                                          new HashSet<Iterator<Pair<ByteArray, Versioned<byte[]>>>>());
                                 }
                                 Set<Iterator<Pair<ByteArray, Versioned<byte[]>>>> lastKeyIterSet = fullyFetchedKeys.get(lastKey);
                                 lastKeyIterSet.add(nodeEntries);
+
                                 // sweep if fully fetched by all iterators
                                 if(lastKeyIterSet.size() == nodeIdList.size()) {
                                     // keyFetchComplete
