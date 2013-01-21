@@ -673,9 +673,21 @@ public class ServerTestUtils {
         }
     }
 
-    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
-                                                       VoldemortConfig config,
-                                                       Cluster cluster) {
+    /**
+     * Unless the ports passed in via cluster are guaranteed to be available,
+     * this method is susceptible to BindExceptions in VoldemortServer.start().
+     * 
+     * Tests that directly call this method ought to catch BindException and
+     * retry or otherwise mask this issue.
+     * 
+     * @param socketStoreFactory
+     * @param config
+     * @param cluster
+     * @return
+     */
+    public static VoldemortServer startVoldemortServerInMannerThatMayResultInBindException(SocketStoreFactory socketStoreFactory,
+                                                                                           VoldemortConfig config,
+                                                                                           Cluster cluster) {
 
         // TODO: Some tests that use this method fail intermittently with the
         // following output:
@@ -746,15 +758,15 @@ public class ServerTestUtils {
             throws IOException {
         Cluster cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
         for(int i = 0; i < numServers; i++) {
-            voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                       ServerTestUtils.createServerConfig(useNio,
-                                                                                                          i,
-                                                                                                          TestUtils.createTempDir()
-                                                                                                                   .getAbsolutePath(),
-                                                                                                          clusterFile,
-                                                                                                          storeFile,
-                                                                                                          properties),
-                                                                       cluster);
+            voldemortServers[i] = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
+                                                                                                           ServerTestUtils.createServerConfig(useNio,
+                                                                                                                                              i,
+                                                                                                                                              TestUtils.createTempDir()
+                                                                                                                                                       .getAbsolutePath(),
+                                                                                                                                              clusterFile,
+                                                                                                                                              storeFile,
+                                                                                                                                              properties),
+                                                                                                           cluster);
         }
         return cluster;
     }

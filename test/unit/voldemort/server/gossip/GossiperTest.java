@@ -91,7 +91,7 @@ public class GossiperTest {
 
                 public void run() {
                     try {
-                        servers.add(ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                        servers.add(ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
                                                                          ServerTestUtils.createServerConfig(useNio,
                                                                                                             j,
                                                                                                             TestUtils.createTempDir()
@@ -179,7 +179,7 @@ public class GossiperTest {
                                                                            { 3, 7, 11 } });
 
         // Create a new server
-        VoldemortServer newServer = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+        VoldemortServer newServer = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
                                                                          ServerTestUtils.createServerConfig(useNio,
                                                                                                             3,
                                                                                                             TestUtils.createTempDir()

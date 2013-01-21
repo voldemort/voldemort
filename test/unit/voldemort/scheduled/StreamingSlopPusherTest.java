@@ -98,7 +98,7 @@ public class StreamingSlopPusherTest {
     private void startServers(int... nodeIds) {
         for(int nodeId: nodeIds) {
             if(nodeId < NUM_SERVERS) {
-                servers[nodeId] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                servers[nodeId] = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
                                                                        configs[nodeId],
                                                                        cluster);
             }

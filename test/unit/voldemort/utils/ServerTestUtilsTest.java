@@ -81,7 +81,7 @@ public class ServerTestUtilsTest {
         VoldemortServer[] servers = new VoldemortServer[8];
 
         for(int i = 0; i < 8; i++) {
-            servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+            servers[i] = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
                                                               ServerTestUtils.createServerConfig(true,
                                                                                                  i,
                                                                                                  TestUtils.createTempDir()

@@ -9,6 +9,7 @@
 	<classpathentry kind="src" path="test/unit"/>
 	<classpathentry kind="src" path="test/integration"/>
 	<classpathentry kind="src" path="test/common"/>
+	<classpathentry kind="src" path="test/long"/>
 	<classpathentry kind="src" path="example/java"/>
 	<classpathentry kind="src" path="contrib/krati/src/java"/>
 	<classpathentry kind="src" path="contrib/krati/test"/>

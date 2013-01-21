@@ -104,7 +104,7 @@ public class RebalanceTest extends AbstractRebalanceTest {
                                                                         storeXmlFile,
                                                                         properties);
 
-            VoldemortServer server = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+            VoldemortServer server = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
                                                                           config,
                                                                           cluster);
             serverMap.put(node, server);
