@@ -26,7 +26,15 @@ public class SimpleCounterTest {
     private static void sleepForResetInterval(long startTimeMs) {
         try {
             long stopTimeMs = startTimeMs + COUNTER_RESET_INTERVAL_MS;
-            Thread.sleep(stopTimeMs - System.currentTimeMillis() + 1);
+            long sleepDurationMs = stopTimeMs - System.currentTimeMillis() + 1;
+            if (sleepDurationMs >0) {
+                Thread.sleep(sleepDurationMs);
+            } else {
+                System.err.println("Sleep duration determined to be negative. "+
+                                   "GC or something must have interfered with this test. "+
+                                   "If test failed, try again since result is bogus. "+
+                                   "If test passed, then timing still worked out for test.");
+            }
         } catch(InterruptedException e) {
             e.printStackTrace();
         }
