@@ -68,6 +68,7 @@ public abstract class AbstractService implements VoldemortService {
         synchronized(this) {
             if(!isStarted()) {
                 logger.info("The service is already stopped, ignoring duplicate attempt.");
+                return;
             }
 
             stopInner();

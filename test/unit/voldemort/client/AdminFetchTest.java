@@ -21,7 +21,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -71,8 +70,18 @@ public class AdminFetchTest {
                                                                               100000,
                                                                               32 * 1024);
 
-        cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } });
-        servers = new VoldemortServer[2];
+        final int numServers = 2;
+        servers = new VoldemortServer[numServers];
+        int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+        cluster = ServerTestUtils.startVoldemortCluster(numServers,
+                                                        servers,
+                                                        partitionMap,
+                                                        socketStoreFactory,
+                                                        this.useNio,
+                                                        null,
+                                                        storesXmlfile,
+                                                        new Properties());
+
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
         for(StoreDefinition storeDef: storeDefs)
@@ -80,25 +89,6 @@ public class AdminFetchTest {
                 testStoreDef = storeDef;
 
         routingStrategy = new RoutingStrategyFactory().updateRoutingStrategy(testStoreDef, cluster);
-
-        servers[0] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
-                                                                                             0,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
-        servers[1] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                          ServerTestUtils.createServerConfig(useNio,
-                                                                                             1,
-                                                                                             TestUtils.createTempDir()
-                                                                                                      .getAbsolutePath(),
-                                                                                             null,
-                                                                                             storesXmlfile,
-                                                                                             new Properties()),
-                                                          cluster);
 
         adminClient = ServerTestUtils.getAdminClient(cluster);
 

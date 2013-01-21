@@ -16,6 +16,11 @@
 
 package voldemort.client;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -23,12 +28,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import junit.framework.TestCase;
-
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
-import voldemort.TestUtils;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.cluster.Cluster;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -45,7 +49,7 @@ import voldemort.versioning.Versioned;
 import com.google.common.collect.Lists;
 
 @SuppressWarnings({ "unchecked" })
-public class ClientRegistryTest extends TestCase {
+public class ClientRegistryTest {
 
     public static final String SERVER_LOCAL_URL = "tcp://localhost:";
     public static final String TEST_STORE_NAME = "test-store-eventual-1";
@@ -62,8 +66,7 @@ public class ClientRegistryTest extends TestCase {
                                                                                   32 * 1024);
     private static VoldemortServer[] servers = null;
     private static int[] serverPorts = null;
-    private Cluster cluster = ServerTestUtils.getLocalCluster(2, new int[][] { { 0, 1, 2, 3 },
-            { 4, 5, 6, 7 } });
+    private Cluster cluster = null;
     private static AdminClient adminClient;
 
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
@@ -71,34 +74,39 @@ public class ClientRegistryTest extends TestCase {
                                                                                                                           .getValueSerializer());
     private long startTime;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
 
-        if(null == servers) {
+        if(cluster == null) {
             servers = new VoldemortServer[TOTAL_SERVERS];
-            serverPorts = new int[TOTAL_SERVERS];
 
+            int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+            cluster = ServerTestUtils.startVoldemortCluster(TOTAL_SERVERS,
+                                                            servers,
+                                                            partitionMap,
+                                                            socketStoreFactory,
+                                                            true, // useNio
+                                                            null,
+                                                            STORES_XML_FILE,
+                                                            new Properties());
+
+            serverPorts = new int[TOTAL_SERVERS];
             for(int i = 0; i < TOTAL_SERVERS; i++) {
-                servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
-                                                                  ServerTestUtils.createServerConfig(true,
-                                                                                                     i,
-                                                                                                     TestUtils.createTempDir()
-                                                                                                              .getAbsolutePath(),
-                                                                                                     null,
-                                                                                                     STORES_XML_FILE,
-                                                                                                     new Properties()),
-                                                                  cluster);
                 serverPorts[i] = servers[i].getIdentityNode().getSocketPort();
             }
+
             adminClient = ServerTestUtils.getAdminClient(cluster);
         }
 
         startTime = System.currentTimeMillis();
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
         this.clearRegistryContent();
+        for(VoldemortServer server: servers) {
+            ServerTestUtils.stopVoldemortServer(server);
+        }
     }
 
     /*
