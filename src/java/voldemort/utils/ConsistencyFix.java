@@ -1,8 +1,12 @@
 package voldemort.utils;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -131,17 +135,44 @@ public class ConsistencyFix {
               .withRequiredArg()
               .describedAs("The key in hexadecimal format.")
               .ofType(String.class);
+        parser.accepts("keys")
+              .withRequiredArg()
+              .withValuesSeparatedBy(',')
+              .describedAs("List of keys. "
+                           + "Each key must be in hexadecimal format. "
+                           + "Each key must be separated only by a comma ',' without any white space.")
+              .ofType(String.class);
+        parser.accepts("key-file")
+              .withRequiredArg()
+              .describedAs("Name of key-file. " + "Each key must be in hexadecimal format. "
+                           + "Each key must be on a separate line in the file. ")
+              .ofType(String.class);
+
         parser.accepts("verbose", "verbose");
         OptionSet options = parser.parse(args);
 
         /* validate options */
         if(options.hasArgument("help")) {
+            parser.printHelpOn(System.out);
             printUsage();
             return;
         }
-
-        if(!options.hasArgument("url") || !options.hasArgument("store") || !options.has("key")) {
-            printUsage("Missing at least one of the required parameters (url, store, key).");
+        if(!options.hasArgument("url")) {
+            printUsage("Missing required 'url' argument.");
+            return;
+        }
+        if(!options.hasArgument("store")) {
+            printUsage("Missing required 'store' argument.");
+            return;
+        }
+        if(!options.has("key") && !options.has("keys") && !options.has("key-file")) {
+            printUsage("Missing required key-specifying argument: 'key', 'keys', or 'key-file'.");
+            return;
+        }
+        if((options.has("key") && options.has("keys"))
+           || (options.has("key") && options.has("key-file"))
+           || (options.has("keys") && options.has("key-file"))) {
+            printUsage("Please provide exactly one key-specifying argument: 'key', 'keys', or 'key-file'.");
             return;
         }
 
@@ -152,15 +183,54 @@ public class ConsistencyFix {
 
         String url = (String) options.valueOf("url");
         String storeName = (String) options.valueOf("store");
-        String keyInHexFormat = (String) options.valueOf("key");
 
+        List<String> keysInHexFormat = new LinkedList<String>();
+        if(options.has("key")) {
+            keysInHexFormat.add((String) options.valueOf("key"));
+        }
+        if(options.has("keys")) {
+            @SuppressWarnings("unchecked")
+            List<String> valuesOf = (List<String>) options.valuesOf("keys");
+            keysInHexFormat = valuesOf;
+        }
+        if(options.has("key-file")) {
+            String keyFile = (String) options.valueOf("key-file");
+            System.err.println("Key file: " + keyFile);
+            try {
+                BufferedReader fileReader = new BufferedReader(new FileReader(keyFile));
+                for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
+                    if(!line.isEmpty()) {
+                        keysInHexFormat.add(line);
+                    }
+                }
+            } catch(IOException e) {
+                Utils.croak("Failure to open input stream: " + e.getMessage());
+            }
+        }
+        // TODO: Make printing out keys part of verbose aspect of fixKey
+        /*-
+        for(String keyInHexFormat: keysInHexFormat) {
+            System.out.println("<<" + keyInHexFormat + ">>");
+        }
+         */
         VoldemortInstance vInstance = new VoldemortInstance(url, storeName);
+        for(String keyInHexFormat: keysInHexFormat) {
+            fixKey(vInstance, keyInHexFormat, verbose);
+        }
+        // TODO: Add functionality to output two files:
+        // - list of keys successfully fixed. This is a nicety and may not be
+        // worth the effort. Or, maybe just verbose output is sufficient for
+        // this.
+        // - list of keys not yet fixed. This one should be in same format as
+        // key-file input so that it could just be re-run. This is the important
+        // output file.
 
-        fixKey(vInstance, keyInHexFormat, verbose);
     }
 
     public static void printUsage() {
-        System.out.println("Usage: \n --url <url> --store <storeName> --key <keyInHexFormat>");
+        System.out.println("Required arguments: \n" + " --url <url>\n" + " --store <storeName>\n"
+                           + " (--key <keyInHexFormat> | --keys <keysInHexFormatSeparatedByComma "
+                           + "| --key-file <FileNameOfListOfKeys>)\n");
     }
 
     public static void printUsage(String errMessage) {
@@ -168,7 +238,8 @@ public class ConsistencyFix {
         printUsage();
     }
 
-    // TODO: iterable set of keys, rather than single String keyInHexFormat.
+    // TODO: actually use 'verbose' flag to modulate output
+    // TODO: iterable set of keys, rather than single String keyInHexFormat?
     public static void fixKey(VoldemortInstance vInstance, String keyInHexFormat, boolean verbose)
             throws Exception {
         int masterPartitionId = vInstance.getMasterPartitionId(keyInHexFormat);
@@ -177,6 +248,9 @@ public class ConsistencyFix {
         byte[] key = ByteUtils.fromHexString(keyInHexFormat);
         List<ByteArray> keys = new ArrayList<ByteArray>();
         keys.add(new ByteArray(key));
+
+        // TODO: Refactor st 'READ', 'RESOLVE CONFLICTS', and 'WRITE' phases are
+        // separate methods.
 
         // *************** READ *********************
 
