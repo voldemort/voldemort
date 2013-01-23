@@ -1,7 +1,9 @@
 package voldemort.utils;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +19,7 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClient.QueryKeyResult;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategyFactory;
@@ -119,8 +122,36 @@ public class ConsistencyFix {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        /* parse options */
+    public static void printUsage() {
+        System.out.println("Required arguments: \n" + " --url <url>\n" + " --store <storeName>\n"
+                           + " (--key <keyInHexFormat> | --keys <keysInHexFormatSeparatedByComma "
+                           + "| --key-file <FileNameOfInputListOfKeysToFix>)\n"
+                           + "| --out-file <FileNameOfOutputListOfKeysNotFixed>)\n");
+    }
+
+    public static void printUsage(String errMessage) {
+        System.err.println("Error: " + errMessage);
+        printUsage();
+        System.exit(1);
+    }
+
+    private static class Options {
+
+        public String url = null;
+        public String storeName = null;
+        public String outFile = null;
+        public List<String> keysInHexFormat = null;
+        public boolean verbose = false;
+    }
+
+    /**
+     * All the logic for parsing and validating options.
+     * 
+     * @param args
+     * @return A struct containing validated options.
+     * @throws IOException
+     */
+    private static ConsistencyFix.Options parseArgs(String[] args) {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
         parser.accepts("url")
@@ -147,186 +178,273 @@ public class ConsistencyFix {
               .describedAs("Name of key-file. " + "Each key must be in hexadecimal format. "
                            + "Each key must be on a separate line in the file. ")
               .ofType(String.class);
+        parser.accepts("out-file")
+              .withRequiredArg()
+              .describedAs("Name of out-file. "
+                           + "Success/failure of each key is dumped to out-file. ")
+              .ofType(String.class);
 
         parser.accepts("verbose", "verbose");
-        OptionSet options = parser.parse(args);
+        OptionSet optionSet = parser.parse(args);
 
-        /* validate options */
-        if(options.hasArgument("help")) {
-            parser.printHelpOn(System.out);
+        if(optionSet.hasArgument("help")) {
+            try {
+                parser.printHelpOn(System.out);
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
             printUsage();
-            return;
+            System.exit(0);
         }
-        if(!options.hasArgument("url")) {
+        if(!optionSet.hasArgument("url")) {
             printUsage("Missing required 'url' argument.");
-            return;
         }
-        if(!options.hasArgument("store")) {
+        if(!optionSet.hasArgument("store")) {
             printUsage("Missing required 'store' argument.");
-            return;
         }
-        if(!options.has("key") && !options.has("keys") && !options.has("key-file")) {
+        if(!optionSet.has("key") && !optionSet.has("keys") && !optionSet.has("key-file")) {
             printUsage("Missing required key-specifying argument: 'key', 'keys', or 'key-file'.");
-            return;
         }
-        if((options.has("key") && options.has("keys"))
-           || (options.has("key") && options.has("key-file"))
-           || (options.has("keys") && options.has("key-file"))) {
+        if((optionSet.has("key") && optionSet.has("keys"))
+           || (optionSet.has("key") && optionSet.has("key-file"))
+           || (optionSet.has("keys") && optionSet.has("key-file"))) {
             printUsage("Please provide exactly one key-specifying argument: 'key', 'keys', or 'key-file'.");
-            return;
+        }
+        if(!optionSet.has("out-file")) {
+            printUsage("Missing required 'out-file' argument.");
         }
 
-        boolean verbose = false;
-        if(options.has("verbose")) {
-            verbose = true;
+        Options options = new Options();
+
+        if(optionSet.has("verbose")) {
+            options.verbose = true;
         }
 
-        String url = (String) options.valueOf("url");
-        String storeName = (String) options.valueOf("store");
+        options.url = (String) optionSet.valueOf("url");
+        options.storeName = (String) optionSet.valueOf("store");
+        options.outFile = (String) optionSet.valueOf("out-file");
 
-        List<String> keysInHexFormat = new LinkedList<String>();
-        if(options.has("key")) {
-            keysInHexFormat.add((String) options.valueOf("key"));
+        options.keysInHexFormat = new LinkedList<String>();
+        if(optionSet.has("key")) {
+            options.keysInHexFormat.add((String) optionSet.valueOf("key"));
         }
-        if(options.has("keys")) {
+        if(optionSet.has("keys")) {
             @SuppressWarnings("unchecked")
-            List<String> valuesOf = (List<String>) options.valuesOf("keys");
-            keysInHexFormat = valuesOf;
+            List<String> valuesOf = (List<String>) optionSet.valuesOf("keys");
+            options.keysInHexFormat = valuesOf;
         }
-        if(options.has("key-file")) {
-            String keyFile = (String) options.valueOf("key-file");
+        if(optionSet.has("key-file")) {
+            String keyFile = (String) optionSet.valueOf("key-file");
             System.err.println("Key file: " + keyFile);
             try {
                 BufferedReader fileReader = new BufferedReader(new FileReader(keyFile));
                 for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
                     if(!line.isEmpty()) {
-                        keysInHexFormat.add(line);
+                        options.keysInHexFormat.add(line);
                     }
                 }
             } catch(IOException e) {
                 Utils.croak("Failure to open input stream: " + e.getMessage());
             }
         }
-        // TODO: Make printing out keys part of verbose aspect of fixKey
-        /*-
-        for(String keyInHexFormat: keysInHexFormat) {
-            System.out.println("<<" + keyInHexFormat + ">>");
+
+        return options;
+    }
+
+    public static void main(String[] args) throws Exception {
+        Options options = parseArgs(args);
+
+        BufferedWriter fileWriter = null;
+        try {
+            fileWriter = new BufferedWriter(new FileWriter(options.outFile));
+        } catch(IOException e) {
+            Utils.croak("Failure to open ouput file '" + options.outFile + "': " + e.getMessage());
         }
-         */
-        VoldemortInstance vInstance = new VoldemortInstance(url, storeName);
-        for(String keyInHexFormat: keysInHexFormat) {
-            fixKey(vInstance, keyInHexFormat, verbose);
+        if(fileWriter == null) {
+            Utils.croak("Failure to create BufferedWriter for ouput file '" + options.outFile + "'");
         }
-        // TODO: Add functionality to output two files:
-        // - list of keys successfully fixed. This is a nicety and may not be
-        // worth the effort. Or, maybe just verbose output is sufficient for
-        // this.
-        // - list of keys not yet fixed. This one should be in same format as
-        // key-file input so that it could just be re-run. This is the important
-        // output file.
 
+        VoldemortInstance vInstance = new VoldemortInstance(options.url, options.storeName);
+        for(String keyInHexFormat: options.keysInHexFormat) {
+            FixKeyResult fixKeyResult = fixKey(vInstance, keyInHexFormat, options.verbose);
+            if(fixKeyResult == FixKeyResult.SUCCESS) {
+                System.out.println("Successfully processed " + keyInHexFormat);
+            } else {
+                fileWriter.write("BADKEY," + keyInHexFormat + "," + fixKeyResult.name());
+            }
+        }
     }
 
-    public static void printUsage() {
-        System.out.println("Required arguments: \n" + " --url <url>\n" + " --store <storeName>\n"
-                           + " (--key <keyInHexFormat> | --keys <keysInHexFormatSeparatedByComma "
-                           + "| --key-file <FileNameOfListOfKeys>)\n");
+    public enum FixKeyResult {
+        SUCCESS("success"),
+        BAD_INIT("bad initialization of fix key"),
+        FETCH_EXCEPTION("exception during fetch"),
+        REPAIR_EXCEPTION("exception during repair");
+
+        private final String name;
+
+        private FixKeyResult(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 
-    public static void printUsage(String errMessage) {
-        System.err.println("Error: " + errMessage);
-        printUsage();
-    }
+    /**
+     * 
+     * @param vInstance
+     * @param nodeIdList
+     * @param keyInHexFormat
+     * @param verbose
+     * @param nodeIdToKeyValues Effectively the output of this method. Must pass
+     *        in a non-null object to be populated by this method.
+     * @return FixKeyResult
+     */
+    private static ConsistencyFix.FixKeyResult doRead(final VoldemortInstance vInstance,
+                                                      final List<Integer> nodeIdList,
+                                                      final byte[] keyInBytes,
+                                                      final String keyInHexFormat,
+                                                      boolean verbose,
+                                                      Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues) {
+        if(nodeIdToKeyValues == null) {
+            if(verbose) {
+                System.out.println("Aborting doRead due to bad init.");
+            }
+            return FixKeyResult.BAD_INIT;
+        }
 
-    // TODO: actually use 'verbose' flag to modulate output
-    // TODO: iterable set of keys, rather than single String keyInHexFormat?
-    public static void fixKey(VoldemortInstance vInstance, String keyInHexFormat, boolean verbose)
-            throws Exception {
-        int masterPartitionId = vInstance.getMasterPartitionId(keyInHexFormat);
-        List<Integer> nodeIdList = vInstance.getReplicationNodeList(masterPartitionId);
-
-        byte[] key = ByteUtils.fromHexString(keyInHexFormat);
         List<ByteArray> keys = new ArrayList<ByteArray>();
-        keys.add(new ByteArray(key));
+        keys.add(new ByteArray(keyInBytes));
 
-        // TODO: Refactor st 'READ', 'RESOLVE CONFLICTS', and 'WRITE' phases are
-        // separate methods.
-
-        // *************** READ *********************
-
-        // TODO: The type returned by queryKeys is *messy*. A type of
-        // {ByteArray, List<Versioned<byte[]>, Exception} needs to be defined.
-        // And, Versioned<byte[]> may also warrant its own type.
-        System.out.println("Reading key-values for specified key: " + keyInHexFormat);
-        Map<Integer, Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>> nodeIdToKeyValues;
-        nodeIdToKeyValues = new HashMap<Integer, Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>>();
+        if(verbose) {
+            System.out.println("Reading key-values for specified key: " + keyInHexFormat);
+        }
         for(int nodeId: nodeIdList) {
-            Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> keyValues;
+            Iterator<QueryKeyResult> keyValues;
             keyValues = vInstance.getAdminClient().queryKeys(nodeId,
                                                              vInstance.getStoreName(),
                                                              keys.iterator());
             nodeIdToKeyValues.put(nodeId, keyValues);
         }
 
-        System.out.println("Confirming all nodes (" + nodeIdList
-                           + ") responded with key-values for specified key: " + keyInHexFormat);
-        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
+        return FixKeyResult.SUCCESS;
+    }
+
+    /**
+     * 
+     * @param nodeIdList
+     * @param keyInHexFormat
+     * @param verbose
+     * @param nodeValues Effectively the output of this method. Must pass in a
+     *        non-null object to be populated by this method.
+     * @return
+     */
+    private static ConsistencyFix.FixKeyResult processReadReplies(final List<Integer> nodeIdList,
+                                                                  final ByteArray keyAsByteArray,
+                                                                  final String keyInHexFormat,
+                                                                  boolean verbose,
+                                                                  final Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues,
+                                                                  List<NodeValue<ByteArray, byte[]>> nodeValues) {
+        if(nodeValues == null) {
+            if(verbose) {
+                System.out.println("Aborting processReadReplies due to bad init.");
+            }
+            return FixKeyResult.BAD_INIT;
+        }
+
+        if(verbose) {
+            System.out.println("Confirming all nodes (" + nodeIdList
+                               + ") responded with key-values for specified key: " + keyInHexFormat);
+        }
         boolean exceptionsEncountered = false;
         for(int nodeId: nodeIdList) {
-            System.out.println("\t Processing response from node with id:" + nodeId);
-            Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> keyValue;
+            if(verbose) {
+                System.out.println("\t Processing response from node with id:" + nodeId);
+            }
+            QueryKeyResult keyValue;
             if(nodeIdToKeyValues.get(nodeId).hasNext()) {
-                System.out.println("\t... There was a key-value returned from node with id:"
-                                   + nodeId);
+                if(verbose) {
+                    System.out.println("\t... There was a key-value returned from node with id:"
+                                       + nodeId);
+                }
                 keyValue = nodeIdToKeyValues.get(nodeId).next();
 
-                Exception e = keyValue.getSecond().getSecond();
-                if(e != null) {
-                    System.out.println("\t... Exception encountered while fetching key "
-                                       + keyInHexFormat + " from node with nodeId " + nodeId
-                                       + " : " + e.getMessage());
+                if(keyValue.exception != null) {
+                    if(verbose) {
+                        System.out.println("\t... Exception encountered while fetching key "
+                                           + keyInHexFormat + " from node with nodeId " + nodeId
+                                           + " : " + keyValue.exception.getMessage());
+                    }
                     exceptionsEncountered = true;
                 } else {
-                    ByteArray keyByteArray = keyValue.getFirst();
-                    List<Versioned<byte[]>> values = keyValue.getSecond().getFirst();
-                    if(values.isEmpty()) {
-                        System.out.println("\t... Adding null version to nodeValues");
+                    if(keyValue.values.isEmpty()) {
+                        if(verbose) {
+                            System.out.println("\t... Adding null version to nodeValues");
+                        }
                         Versioned<byte[]> versioned = new Versioned<byte[]>(null);
                         nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                        new ByteArray(key),
+                                                                        keyValue.key,
                                                                         versioned));
 
                     } else {
-                        for(Versioned<byte[]> value: values) {
-                            System.out.println("\t... Adding following version to nodeValues: "
-                                               + value.getVersion());
+                        for(Versioned<byte[]> value: keyValue.values) {
+                            if(verbose) {
+                                System.out.println("\t... Adding following version to nodeValues: "
+                                                   + value.getVersion());
+                            }
                             nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                            keyByteArray,
+                                                                            keyValue.key,
                                                                             value));
                         }
                     }
                 }
             } else {
-                System.out.println("\t... No key-value returned from node with id:" + nodeId);
-                System.out.println("\t... Adding null version to nodeValues");
+                if(verbose) {
+                    System.out.println("\t... No key-value returned from node with id:" + nodeId);
+                    System.out.println("\t... Adding null version to nodeValues");
+                }
                 Versioned<byte[]> versioned = new Versioned<byte[]>(null);
-                nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                new ByteArray(key),
-                                                                versioned));
+                nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId, keyAsByteArray, versioned));
             }
         }
         if(exceptionsEncountered) {
-            System.err.println("Aborting fixKey because exceptions were encountered when fetching key-values.");
-            return;
+            if(verbose) {
+                System.out.println("Aborting fixKey because exceptions were encountered when fetching key-values.");
+            }
+            return FixKeyResult.FETCH_EXCEPTION;
         }
 
-        // *************** RESOLVE CONFLICTS *********************
+        return FixKeyResult.SUCCESS;
+    }
+
+    /**
+     * 
+     * @param verbose
+     * @param nodeValues
+     * @return The subset of entries from nodeValues that need to be repaired.
+     */
+    private static List<NodeValue<ByteArray, byte[]>> resolveReadConflicts(boolean verbose,
+                                                                           final List<NodeValue<ByteArray, byte[]>> nodeValues) {
+
         // Decide on the specific key-value to write everywhere.
         // Some cut-paste-and-modify coding from AbstractReadRepair.java...
-        System.out.println("Resolving conflicts in responses.");
-
+        if(verbose) {
+            System.out.println("Resolving conflicts in responses.");
+        }
+        // TODO: Figure out if 'cloning' is necessary. It does not seem to be
+        // necessary. See both store/routed/action/AbstractReadRepair.java and
+        // store/routed/ThreadPoolRoutedStore.java for other copies of this
+        // code. I think the cut-and-paste comment below may just be confusing.
+        // We need to "clone" the subset of the nodeValues that we actually want
+        // to repair. But, I am not sure we need to clone the versioned part of
+        // each copied object.
         ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
         List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
+        // TODO: Remove/clean up this comment (and possibly the two copies of
+        // this comment in the code.
         /*
          * We clone after computing read repairs in the assumption that the
          * output will be smaller than the input. Note that we clone the
@@ -335,42 +453,144 @@ public class ConsistencyFix {
         for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
             Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
                                                           ((VectorClock) v.getVersion()).clone());
-            System.out.println("\tAdding toReadRepair: key (" + v.getKey() + "), version ("
-                               + versioned.getVersion() + ")");
+            if(verbose) {
+                System.out.println("\tAdding toReadRepair: key (" + v.getKey() + "), version ("
+                                   + versioned.getVersion() + ")");
+            }
             toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
+            /*-
+             * The below code seems to work in lieu of the above line. So, not sure
+             * why it is necessary to construct new versioned object above based
+             * on cloned timestamp.
+             * 
+            toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(),
+                                                              v.getKey(),
+                                                              v.getVersioned()));
+             */
         }
 
-        // *************** WRITE *********************
-        // TODO: do streaming repairs. See updateEntries of AdminClient and
-        // DonorBasedRebalancePusherSlave for ideas.
+        if(verbose) {
+            System.out.println("Repair work to be done:");
+            for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
+                System.out.println("\tRepair key " + nodeKeyValue.getKey() + "on node with id "
+                                   + nodeKeyValue.getNodeId() + " for version "
+                                   + nodeKeyValue.getVersion());
+            }
+        }
+        return toReadRepair;
+    }
 
-        System.out.println("Repair work to be done:");
-        for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-            System.out.println("\tRepair key " + nodeKeyValue.getKey() + "on node with id "
-                               + nodeKeyValue.getNodeId() + " for version "
-                               + nodeKeyValue.getVersion());
+    /**
+     * 
+     * @param vInstance
+     * @param verbose
+     * @param toReadRepair Effectively the output of this method. Must pass in a
+     *        non-null object to be populated by this method.
+     * @return
+     */
+    private static ConsistencyFix.FixKeyResult doWriteBack(final VoldemortInstance vInstance,
+                                                           boolean verbose,
+                                                           final List<NodeValue<ByteArray, byte[]>> toReadRepair) {
+        if(verbose) {
+            System.out.println("Performing repair work:");
         }
 
-        System.out.println("Performing repair work:");
         boolean allRepairsSuccessful = true;
         for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-            System.out.println("\tDoing repair for node with id:" + nodeKeyValue.getNodeId());
+            if(verbose) {
+                System.out.println("\tDoing repair for node with id:" + nodeKeyValue.getNodeId());
+            }
             Exception e = vInstance.getAdminClient().repairEntry(vInstance.getStoreName(),
                                                                  nodeKeyValue);
             if(e != null) {
-                System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
-                                   + "on node with id " + nodeKeyValue.getNodeId()
-                                   + " for version " + nodeKeyValue.getVersion()
-                                   + " failed because of exception : " + e.getMessage());
+                if(verbose) {
+                    System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
+                                       + "on node with id " + nodeKeyValue.getNodeId()
+                                       + " for version " + nodeKeyValue.getVersion()
+                                       + " failed because of exception : " + e.getMessage());
+                }
                 allRepairsSuccessful = false;
             }
         }
         if(!allRepairsSuccessful) {
-            System.err.println("Aborting fixKey because exceptions were encountered when reparing key-values.");
-            System.out.println("Fix failed...");
-            return;
+            if(verbose) {
+                System.err.println("Aborting fixKey because exceptions were encountered when reparing key-values.");
+                System.out.println("Fix failed...");
+            }
+            return FixKeyResult.REPAIR_EXCEPTION;
         }
-        System.out.println("Fix completed successfully!!");
-        return;
+        return FixKeyResult.SUCCESS;
+    }
+
+    // TODO: Decide between design based on a key-by-key fix and a design based
+    // on something that looks more like stream processing. E.g., See
+    // AdminClient.updateEntries and
+    // DonorBasedRebalancePusherSlave for ideas.
+    // TODO: As a follow on, need to decide
+    // if queryKeys should offer a queryKey interface, and/or if repairEntry
+    // ought to offer a repairEntries interface.
+    public static ConsistencyFix.FixKeyResult fixKey(VoldemortInstance vInstance,
+                                                     String keyInHexFormat,
+                                                     boolean verbose) {
+        if(verbose) {
+            System.out.println("Performing consistency fix of key: " + keyInHexFormat);
+        }
+
+        // Initialization.
+        byte[] keyInBytes;
+        List<Integer> nodeIdList = null;
+        int masterPartitionId = -1;
+        try {
+            keyInBytes = ByteUtils.fromHexString(keyInHexFormat);
+            masterPartitionId = vInstance.getMasterPartitionId(keyInHexFormat);
+            nodeIdList = vInstance.getReplicationNodeList(masterPartitionId);
+        } catch(Exception exception) {
+            if(verbose) {
+                System.out.println("Aborting fixKey due to bad init.");
+                exception.printStackTrace();
+            }
+            return FixKeyResult.BAD_INIT;
+        }
+        ByteArray keyAsByteArray = new ByteArray(keyInBytes);
+
+        // Read
+        Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues = new HashMap<Integer, Iterator<QueryKeyResult>>();
+        FixKeyResult fixKeyResult = ConsistencyFix.doRead(vInstance,
+                                                          nodeIdList,
+                                                          keyInBytes,
+                                                          keyInHexFormat,
+                                                          verbose,
+                                                          nodeIdToKeyValues);
+        if(fixKeyResult != FixKeyResult.SUCCESS) {
+            return fixKeyResult;
+        }
+
+        // Process read replies
+        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
+        fixKeyResult = ConsistencyFix.processReadReplies(nodeIdList,
+                                                         keyAsByteArray,
+                                                         keyInHexFormat,
+                                                         verbose,
+                                                         nodeIdToKeyValues,
+                                                         nodeValues);
+        if(fixKeyResult != FixKeyResult.SUCCESS) {
+            return fixKeyResult;
+        }
+
+        // Resolve conflicts
+        List<NodeValue<ByteArray, byte[]>> toReadRepair = ConsistencyFix.resolveReadConflicts(verbose,
+                                                                                              nodeValues);
+
+        // Write back (if necessary)
+        fixKeyResult = ConsistencyFix.doWriteBack(vInstance, verbose, toReadRepair);
+        if(fixKeyResult != FixKeyResult.SUCCESS) {
+            return fixKeyResult;
+        }
+
+        // Success!
+        if(verbose) {
+            System.out.println("Fix for key " + keyInHexFormat + "completed successfully!!");
+        }
+        return FixKeyResult.SUCCESS;
     }
 }

@@ -54,6 +54,7 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
+import voldemort.client.protocol.admin.AdminClient.QueryKeyResult;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
@@ -1406,23 +1407,21 @@ public class AdminServiceBasicTest {
         ArrayList<ByteArray> notBelongToServer0AndOutsideBothKeys = new ArrayList<ByteArray>(notBelongToServer0AndOutsideBoth.keySet());
 
         List<ByteArray> queryKeys;
-        Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> results;
-        Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> entry;
+        Iterator<QueryKeyResult> results;
+        QueryKeyResult entry;
         // test one key on store 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToAndInsideServer0Keys.get(0));
         results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
-        assertEquals(queryKeys.get(0), entry.getFirst());
-        assertNull("There should not be exception in response", entry.getSecond().getSecond());
-        assertEquals("There should be only 1 value in versioned list", 1, entry.getSecond()
-                                                                               .getFirst()
-                                                                               .size());
+        assertEquals(queryKeys.get(0), entry.key);
+        assertNull("There should not be exception in response", entry.exception);
+        assertEquals("There should be only 1 value in versioned list", 1, entry.values.size());
         assertEquals("Two byte[] should be equal",
                      0,
                      ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
-                                       entry.getSecond().getFirst().get(0).getValue()));
+                                       entry.values.get(0).getValue()));
         assertFalse("There should be only one result", results.hasNext());
 
         // test one key belongs to but not exists in server 0
@@ -1432,10 +1431,10 @@ public class AdminServiceBasicTest {
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
-        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
-        assertNotNull("Response should be non-null", entry.getSecond());
-        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
-        assertNull("There should not be exception", entry.getSecond().getSecond());
+        assertEquals("Not the right key", queryKeys.get(0), entry.key);
+        assertNotNull("Response should be non-null", entry.values);
+        assertEquals("Value should be empty list", 0, entry.values.size());
+        assertNull("There should not be exception", entry.exception);
 
         // test one key not exist and does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
@@ -1444,11 +1443,10 @@ public class AdminServiceBasicTest {
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
-        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
-        assertNotNull("Response should be non-null", entry.getSecond());
-        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertEquals("Not the right key", queryKeys.get(0), entry.key);
+        assertNull("Value should be null", entry.values);
         assertTrue("There should be InvalidMetadataException exception",
-                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+                   entry.exception instanceof InvalidMetadataException);
 
         // test one key that exists on server 0 but does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
@@ -1457,11 +1455,10 @@ public class AdminServiceBasicTest {
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
-        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
-        assertNotNull("Response should be non-null", entry.getSecond());
-        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertEquals("Not the right key", queryKeys.get(0), entry.key);
+        assertNull("Value should be null", entry.values);
         assertTrue("There should be InvalidMetadataException exception",
-                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+                   entry.exception instanceof InvalidMetadataException);
 
         // test one key deleted
         store0.delete(belongToAndInsideServer0Keys.get(4), null);
@@ -1471,10 +1468,9 @@ public class AdminServiceBasicTest {
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
-        assertEquals("Not the right key", queryKeys.get(0), entry.getFirst());
-        assertNotNull("Response should be non-null", entry.getSecond());
-        assertEquals("Value should be empty list", 0, entry.getSecond().getFirst().size());
-        assertNull("There should not be exception", entry.getSecond().getSecond());
+        assertEquals("Not the right key", queryKeys.get(0), entry.key);
+        assertEquals("Value should be empty list", 0, entry.values.size());
+        assertNull("There should not be exception", entry.exception);
 
         // test empty request
         queryKeys = new ArrayList<ByteArray>();
@@ -1489,10 +1485,9 @@ public class AdminServiceBasicTest {
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
-        assertNotNull("Response should be non-null", entry.getSecond());
-        assertNull("Value should be null", entry.getSecond().getFirst());
+        assertNull("Value should be null", entry.values);
         assertTrue("There should be IllegalArgumentException exception",
-                   entry.getSecond().getSecond() instanceof IllegalArgumentException);
+                   entry.exception instanceof IllegalArgumentException);
 
         // test multiple keys (3) on store 1
         queryKeys = new ArrayList<ByteArray>();
@@ -1506,9 +1501,9 @@ public class AdminServiceBasicTest {
         while(results.hasNext()) {
             resultCount++;
             entry = results.next();
-            assertNull("There should not be exception in response", entry.getSecond().getSecond());
-            assertNotNull("Value should not be null for Key: ", entry.getSecond().getFirst());
-            entries.put(entry.getFirst(), entry.getSecond().getFirst());
+            assertNull("There should not be exception in response", entry.exception);
+            assertNotNull("Value should not be null for Key: ", entry.values);
+            entries.put(entry.key, entry.values);
         }
         assertEquals("There should 3 and only 3 results", 3, resultCount);
         for(ByteArray key: queryKeys) {
@@ -1540,41 +1535,41 @@ public class AdminServiceBasicTest {
         results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         // key 0
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.key.get()));
         assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(0)),
-                                          entry.getSecond().getFirst().get(0).getValue()));
-        assertNull(entry.getSecond().getSecond());
+                                          entry.values.get(0).getValue()));
+        assertNull(entry.exception);
         // key 1
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(1).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(queryKeys.get(1).get(), entry.key.get()));
         assertTrue("There should be InvalidMetadataException exception",
-                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+                   entry.exception instanceof InvalidMetadataException);
         // key 2
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(2).get(), entry.getFirst().get()));
-        assertEquals(0, entry.getSecond().getFirst().size());
-        assertNull(entry.getSecond().getSecond());
+        assertEquals(0, ByteUtils.compare(queryKeys.get(2).get(), entry.key.get()));
+        assertEquals(0, entry.values.size());
+        assertNull(entry.exception);
         // key 3
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(3).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(queryKeys.get(3).get(), entry.key.get()));
         assertTrue("There should be InvalidMetadataException exception",
-                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+                   entry.exception instanceof InvalidMetadataException);
         // key 4
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(4).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(queryKeys.get(4).get(), entry.key.get()));
         assertEquals(0, ByteUtils.compare(belongToAndInsideServer0.get(queryKeys.get(4)),
-                                          entry.getSecond().getFirst().get(0).getValue()));
-        assertNull(entry.getSecond().getSecond());
+                                          entry.values.get(0).getValue()));
+        assertNull(entry.exception);
         // key 5
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(5).get(), entry.getFirst().get()));
-        assertEquals(0, entry.getSecond().getFirst().size());
-        assertNull(entry.getSecond().getSecond());
+        assertEquals(0, ByteUtils.compare(queryKeys.get(5).get(), entry.key.get()));
+        assertEquals(0, entry.values.size());
+        assertNull(entry.exception);
         // key 6
         entry = results.next();
-        assertEquals(0, ByteUtils.compare(queryKeys.get(6).get(), entry.getFirst().get()));
+        assertEquals(0, ByteUtils.compare(queryKeys.get(6).get(), entry.key.get()));
         assertTrue("There should be InvalidMetadataException exception",
-                   entry.getSecond().getSecond() instanceof InvalidMetadataException);
+                   entry.exception instanceof InvalidMetadataException);
         // no more keys
         assertFalse(results.hasNext());
     }
