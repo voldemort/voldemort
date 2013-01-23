@@ -674,20 +674,24 @@ public class ServerTestUtils {
     }
 
     /**
+     * Starts a Voldemort server for testing purposes.
+     * 
      * Unless the ports passed in via cluster are guaranteed to be available,
      * this method is susceptible to BindExceptions in VoldemortServer.start().
+     * (And, there is no good way of guaranteeing that ports will be available,
+     * so...)
      * 
-     * Tests that directly call this method ought to catch BindException and
-     * retry or otherwise mask this issue.
+     * The method {@link ServerTestUtils#startVoldemortCluster} should be used
+     * in preference to this method.}
      * 
      * @param socketStoreFactory
      * @param config
      * @param cluster
      * @return
      */
-    public static VoldemortServer startVoldemortServerInMannerThatMayResultInBindException(SocketStoreFactory socketStoreFactory,
-                                                                                           VoldemortConfig config,
-                                                                                           Cluster cluster) {
+    public static VoldemortServer startVoldemortServer(SocketStoreFactory socketStoreFactory,
+                                                       VoldemortConfig config,
+                                                       Cluster cluster) throws BindException {
 
         // TODO: Some tests that use this method fail intermittently with the
         // following output:
@@ -701,10 +705,19 @@ public class ServerTestUtils {
         // config, Cluster cluster) to understand how this error is possible,
         // and why it only happens intermittently.
         VoldemortServer server = new VoldemortServer(config, cluster);
-        server.start();
+        try {
+            server.start();
+        } catch(VoldemortException ve) {
+            if(ve.getCause() instanceof BindException) {
+                ve.printStackTrace();
+                throw new BindException(ve.getMessage());
+            } else {
+                throw ve;
+            }
+        }
 
         ServerTestUtils.waitForServerStart(socketStoreFactory, server.getIdentityNode());
-        // wait till server start or throw exception
+        // wait till server starts or throw exception
         return server;
     }
 
@@ -758,15 +771,15 @@ public class ServerTestUtils {
             throws IOException {
         Cluster cluster = ServerTestUtils.getLocalCluster(numServers, partitionMap);
         for(int i = 0; i < numServers; i++) {
-            voldemortServers[i] = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
-                                                                                                           ServerTestUtils.createServerConfig(useNio,
-                                                                                                                                              i,
-                                                                                                                                              TestUtils.createTempDir()
-                                                                                                                                                       .getAbsolutePath(),
-                                                                                                                                              clusterFile,
-                                                                                                                                              storeFile,
-                                                                                                                                              properties),
-                                                                                                           cluster);
+            voldemortServers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
+                                                                       ServerTestUtils.createServerConfig(useNio,
+                                                                                                          i,
+                                                                                                          TestUtils.createTempDir()
+                                                                                                                   .getAbsolutePath(),
+                                                                                                          clusterFile,
+                                                                                                          storeFile,
+                                                                                                          properties),
+                                                                       cluster);
         }
         return cluster;
     }
@@ -792,6 +805,8 @@ public class ServerTestUtils {
      *         servers.
      * @throws IOException
      */
+    // TODO: numServers is likely not needed. If this method is refactored in
+    // the future, then try and drop the numServers argument.
     public static Cluster startVoldemortCluster(int numServers,
                                                 VoldemortServer[] voldemortServers,
                                                 int[][] partitionMap,

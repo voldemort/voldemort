@@ -41,6 +41,8 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
  */
 public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
+    private static int NUM_KEYS;
+
     private static final Logger logger = Logger.getLogger(Ec2RebalanceTest.class);
     private static Ec2RebalanceTestConfig ec2RebalanceTestConfig;
     private static List<HostNamePair> hostNamePairs;
@@ -66,6 +68,11 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
     public static void ec2TearDown() throws Exception {
         if(hostNames != null)
             destroyInstances(hostNames, ec2RebalanceTestConfig);
+    }
+
+    @Override
+    protected int getNumKeys() {
+        return NUM_KEYS;
     }
 
     @Override

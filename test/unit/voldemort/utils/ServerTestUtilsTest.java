@@ -75,13 +75,14 @@ public class ServerTestUtilsTest {
 
     // @Test
     public void startMultipleVoldemortServers() throws IOException {
-        Cluster cluster = ServerTestUtils.getLocalCluster(8, new int[][] { { 0 }, { 1 }, { 2 },
-                { 3 }, { 4 }, { 5 }, { 6 }, { 7 } });
+        Cluster cluster = ServerTestUtils.getLocalCluster(16, new int[][] { { 0 }, { 1 }, { 2 },
+                { 3 }, { 4 }, { 5 }, { 6 }, { 7 }, { 8 }, { 9 }, { 10 }, { 11 }, { 12 }, { 13 },
+                { 14 }, { 15 } });
 
-        VoldemortServer[] servers = new VoldemortServer[8];
+        VoldemortServer[] servers = new VoldemortServer[16];
 
-        for(int i = 0; i < 8; i++) {
-            servers[i] = ServerTestUtils.startVoldemortServerInMannerThatMayResultInBindException(socketStoreFactory,
+        for(int i = 0; i < 16; i++) {
+            servers[i] = ServerTestUtils.startVoldemortServer(socketStoreFactory,
                                                               ServerTestUtils.createServerConfig(true,
                                                                                                  i,
                                                                                                  TestUtils.createTempDir()
@@ -90,6 +91,14 @@ public class ServerTestUtilsTest {
                                                                                                  storesXmlfile,
                                                                                                  new Properties()),
                                                               cluster);
+        }
+        assertTrue(true);
+    }
+
+    // @Test
+    public void startMultipleVoldemortServersUnsafe5() throws IOException {
+        for(int i = 0; i < 5; i++) {
+            startMultipleVoldemortServers();
         }
         assertTrue(true);
     }

@@ -89,7 +89,6 @@ public abstract class AbstractRebalanceTest {
 
     private static final Logger logger = Logger.getLogger(AbstractRebalanceTest.class.getName());
 
-    protected static int NUM_KEYS = 20;
     protected static int NUM_RO_CHUNKS_PER_BUCKET = 10;
     protected static String testStoreNameRW = "test";
     protected static String testStoreNameRW2 = "test2";
@@ -221,6 +220,7 @@ public abstract class AbstractRebalanceTest {
         socketStoreFactory = null;
     }
 
+    // TODO: Any way to not throw exception from here?
     protected abstract Cluster startServers(Cluster cluster,
                                             String StoreDefXmlFile,
                                             List<Integer> nodeToStart,
@@ -263,9 +263,12 @@ public abstract class AbstractRebalanceTest {
         }
     }
 
-    protected int getNumKeys() {
-        return NUM_KEYS;
-    }
+    /**
+     * This method determines the "size" of the test to run...
+     * 
+     * @return
+     */
+    protected abstract int getNumKeys();
 
     @Test(timeout = 600000)
     public void testRORWRebalance() throws Exception {
