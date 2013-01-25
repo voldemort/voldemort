@@ -554,8 +554,9 @@ public class RebalanceClusterUtils {
      * Loops over cluster and repeatedly tries to break up contiguous runs of
      * partitions. After each phase of breaking up contiguous partitions, random
      * partitions are selected to move between zones to balance the number of
-     * partitions in each zone. This process loops until no partitions move
-     * across zones.
+     * partitions in each zone. The second phase may re-introduce contiguous
+     * partition runs in another zone. Therefore, this overall process is
+     * repeated multiple times.
      * 
      * @param nextCluster
      * @param maxContiguousPartitionsPerZone See RebalanceCLI.
@@ -563,17 +564,19 @@ public class RebalanceClusterUtils {
      */
     public static Cluster repeatedlyBalanceContiguousPartitionsPerZone(final Cluster targetCluster,
                                                                        final int maxContiguousPartitionsPerZone) {
-        int contigPartitionsMoved = 0;
+        // TODO: Make this loop definitive. I.e., ensure that
+        // maxContiguousPartitionsPerZone is truly met.
+        System.out.println("Looping to evenly balance partitions across zones while limiting contiguous partitions");
+        int repeatContigBalance = 10;
         Cluster nextCluster = targetCluster;
-        do {
+        for(int i = 0; i < repeatContigBalance; i++) {
             nextCluster = balanceContiguousPartitionsPerZone(nextCluster,
                                                              maxContiguousPartitionsPerZone);
 
             nextCluster = balanceNumPartitionsPerZone(nextCluster);
-
-            System.out.println("Looping to evenly balance partitions across zones while limiting contiguous partitions: "
-                               + contigPartitionsMoved);
-        } while(contigPartitionsMoved > 0);
+            System.out.println("Completed round of balancing contiguous partitions: round "
+                               + (i + 1) + " of " + repeatContigBalance);
+        }
 
         return nextCluster;
     }
