@@ -48,12 +48,12 @@ import com.google.common.collect.Lists;
 
 public class ConsistencyFix {
 
-    private static class VoldemortInstance {
+    private static class ConsistencyFixContext {
 
         private final AdminClient adminClient;
         private final StoreInstance storeInstance;
 
-        public VoldemortInstance(String url, String storeName) throws Exception {
+        public ConsistencyFixContext(String url, String storeName) throws Exception {
             System.out.println("Connecting to bootstrap server: " + url);
             adminClient = new AdminClient(url, new AdminClientConfig(), 0);
             Cluster cluster = adminClient.getAdminClientCluster();
@@ -69,32 +69,21 @@ public class ConsistencyFix {
             storeInstance = new StoreInstance(cluster, storeDefinition);
         }
 
-        public String getStoreName() {
-            return storeInstance.getStoreDefinition().getName();
-        }
-
         public AdminClient getAdminClient() {
             return adminClient;
         }
 
-        public List<Integer> getReplicationPartitionList(int partitionId) {
-            return storeInstance.getReplicationPartitionList(partitionId);
+        public StoreInstance getStoreInstance() {
+            return storeInstance;
+        }
+
+        public String getStoreName() {
+            return storeInstance.getStoreDefinition().getName();
         }
 
         public int getMasterPartitionId(String keyInHexFormat) throws DecoderException {
             byte[] key = Hex.decodeHex(keyInHexFormat.toCharArray());
             return storeInstance.getMasterPartitionId(key);
-        }
-
-        // Throws exception if duplicate nodes are found. I.e., partition list
-        // is assumed to be "replicating" partition list.
-        private List<Integer> getNodeIdListForPartitionIdList(List<Integer> partitionIds)
-                throws Exception {
-            return storeInstance.getNodeIdListForPartitionIdList(partitionIds);
-        }
-
-        public List<Integer> getReplicationNodeList(int partitionId) throws Exception {
-            return getNodeIdListForPartitionIdList(getReplicationPartitionList(partitionId));
         }
     }
 
@@ -240,7 +229,7 @@ public class ConsistencyFix {
             Utils.croak("Failure to create BufferedWriter for ouput file '" + options.outFile + "'");
         }
 
-        VoldemortInstance vInstance = new VoldemortInstance(options.url, options.storeName);
+        ConsistencyFixContext vInstance = new ConsistencyFixContext(options.url, options.storeName);
         for(String keyInHexFormat: options.keysInHexFormat) {
             FixKeyResult fixKeyResult = fixKey(vInstance, keyInHexFormat, options.verbose);
             if(fixKeyResult == FixKeyResult.SUCCESS) {
@@ -279,7 +268,7 @@ public class ConsistencyFix {
      *        in a non-null object to be populated by this method.
      * @return FixKeyResult
      */
-    private static ConsistencyFix.FixKeyResult doRead(final VoldemortInstance vInstance,
+    private static ConsistencyFix.FixKeyResult doRead(final ConsistencyFixContext vInstance,
                                                       final List<Integer> nodeIdList,
                                                       final byte[] keyInBytes,
                                                       final String keyInHexFormat,
@@ -464,7 +453,7 @@ public class ConsistencyFix {
      *        non-null object to be populated by this method.
      * @return
      */
-    private static ConsistencyFix.FixKeyResult doWriteBack(final VoldemortInstance vInstance,
+    private static ConsistencyFix.FixKeyResult doWriteBack(final ConsistencyFixContext vInstance,
                                                            boolean verbose,
                                                            final List<NodeValue<ByteArray, byte[]>> toReadRepair) {
         if(verbose) {
@@ -505,7 +494,7 @@ public class ConsistencyFix {
     // TODO: As a follow on, need to decide
     // if queryKeys should offer a queryKey interface, and/or if repairEntry
     // ought to offer a repairEntries interface.
-    public static ConsistencyFix.FixKeyResult fixKey(VoldemortInstance vInstance,
+    public static ConsistencyFix.FixKeyResult fixKey(ConsistencyFixContext vInstance,
                                                      String keyInHexFormat,
                                                      boolean verbose) {
         if(verbose) {
@@ -519,7 +508,7 @@ public class ConsistencyFix {
         try {
             keyInBytes = ByteUtils.fromHexString(keyInHexFormat);
             masterPartitionId = vInstance.getMasterPartitionId(keyInHexFormat);
-            nodeIdList = vInstance.getReplicationNodeList(masterPartitionId);
+            nodeIdList = vInstance.getStoreInstance().getReplicationNodeList(masterPartitionId);
         } catch(Exception exception) {
             if(verbose) {
                 System.out.println("Aborting fixKey due to bad init.");

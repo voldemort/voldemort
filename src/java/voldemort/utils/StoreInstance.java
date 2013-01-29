@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
@@ -70,22 +71,24 @@ public class StoreInstance {
         return partitionIdToNodeIdMap.get(partitionId);
     }
 
-    // TODO: Fix comment:
-    // Throws exception if duplicate nodes are found. I.e., partition list
-    // is assumed to be "replicating" partition list.
     /**
+     * Converts from partitionId to nodeId. The list of partition IDs,
+     * partitionIds, is expected to be a "replicating partition list", i.e., the
+     * mapping from partition ID to node ID should be one to one.
      * 
-     * @param partitionIds
-     * @return
-     * @throws Exception
+     * @param partitionIds List of partition IDs for which to find the Node ID
+     *        for the Node that owns the partition.
+     * @return List of node ids, one for each partition ID in partitionIds
+     * @throws VoldemortException If multiple partition IDs in partitionIds map
+     *         to the same Node ID.
      */
-    public List<Integer> getNodeIdListForPartitionIdList(List<Integer> partitionIds)
-            throws Exception {
+    private List<Integer> getNodeIdListForPartitionIdList(List<Integer> partitionIds)
+            throws VoldemortException {
         List<Integer> nodeIds = new ArrayList<Integer>(partitionIds.size());
         for(Integer partitionId: partitionIds) {
             int nodeId = getNodeIdForPartitionId(partitionId);
             if(nodeIds.contains(nodeId)) {
-                throw new Exception("Node ID " + nodeId + " already in list of Node IDs.");
+                throw new VoldemortException("Node ID " + nodeId + " already in list of Node IDs.");
             } else {
                 nodeIds.add(nodeId);
             }
@@ -93,7 +96,7 @@ public class StoreInstance {
         return nodeIds;
     }
 
-    public List<Integer> getReplicationNodeList(int partitionId) throws Exception {
+    public List<Integer> getReplicationNodeList(int partitionId) throws VoldemortException {
         return getNodeIdListForPartitionIdList(getReplicationPartitionList(partitionId));
     }
 
