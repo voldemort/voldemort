@@ -63,7 +63,7 @@ public class ConsistencyFix {
             System.out.println("Store definition determined.");
 
             System.out.println("Determining partition ID to node ID mapping.");
-            partitionIdToNodeIdMap = RebalanceUtils.getCurrentPartitionMapping(cluster);
+            partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
         }
 
         public Cluster getCluster() {
