@@ -78,6 +78,7 @@ import voldemort.utils.KeyLocationValidation;
 import voldemort.utils.NodeUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -1214,7 +1215,7 @@ public abstract class AbstractRebalanceTest {
 
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
 
-            if(RebalanceUtils.checkKeyBelongsToPartition(partitions,
+            if(StoreInstance.checkKeyBelongsToPartition(partitions,
                                                          node.getPartitionIds(),
                                                          flattenedPresentTuples)) {
                 List<Versioned<byte[]>> values = store.get(keyBytes, null);

@@ -21,9 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
@@ -86,7 +84,7 @@ public class RebalanceClusterUtils {
                                             final int greedySwapMaxPartitionsPerNode,
                                             final int greedySwapMaxPartitionsPerZone,
                                             final int maxContiguousPartitionsPerZone) {
-        Pair<Double, String> analysis = analyzeBalanceVerbose(currentCluster, storeDefs);
+        Pair<Double, String> analysis = new ClusterInstance(currentCluster, storeDefs).analyzeBalanceVerbose();
         dumpAnalysisToFile(outputDir,
                            RebalanceUtils.initialClusterFileName + ".analysis",
                            analysis.getSecond());
@@ -132,7 +130,7 @@ public class RebalanceClusterUtils {
             }
 
             System.out.println("-------------------------\n");
-            analysis = analyzeBalanceVerbose(nextCluster, storeDefs);
+            analysis = new ClusterInstance(nextCluster, storeDefs).analyzeBalanceVerbose();
             double currentMaxMinRatio = analysis.getFirst();
             System.out.println("Optimization number " + numTries + ": " + currentMaxMinRatio
                                + " max/min ratio");
@@ -152,7 +150,7 @@ public class RebalanceClusterUtils {
 
         System.out.println("\n==========================");
         System.out.println("Final distribution");
-        analysis = analyzeBalanceVerbose(minCluster, storeDefs);
+        analysis = new ClusterInstance(minCluster, storeDefs).analyzeBalanceVerbose();
         System.out.println(analysis.getSecond());
 
         dumpClusterToFile(outputDir, RebalanceUtils.finalClusterFileName, minCluster);
@@ -160,183 +158,6 @@ public class RebalanceClusterUtils {
                            RebalanceUtils.finalClusterFileName + ".analysis",
                            analysis.getSecond());
         return;
-    }
-
-    /**
-     * Wrapper that just returns the max/min ratio metric and throws away the
-     * verbose string.
-     */
-    public static double analyzeBalance(final Cluster currentCluster,
-                                        final List<StoreDefinition> storeDefs) {
-        Pair<Double, String> analysis = analyzeBalanceVerbose(currentCluster, storeDefs);
-        return analysis.getFirst();
-    }
-
-    /**
-     * 
-     * @param currentCluster
-     * @param nodeIdToPartitionCount
-     * @param title
-     * @return
-     */
-    public static Pair<Double, String> summarizeBalance(final Cluster currentCluster,
-                                                        final Map<Integer, Integer> nodeIdToPartitionCount,
-                                                        String title) {
-        StringBuilder builder = new StringBuilder();
-        Set<Integer> nodeIds = currentCluster.getNodeIds();
-
-        builder.append("\n" + title + "\n");
-        int minVal = Integer.MAX_VALUE;
-        int maxVal = Integer.MIN_VALUE;
-        int aggCount = 0;
-        for(Integer nodeId: nodeIds) {
-            int curCount = nodeIdToPartitionCount.get(nodeId);
-            builder.append("\tNode ID: " + nodeId + " : " + curCount + " ("
-                           + currentCluster.getNodeById(nodeId).getHost() + ")\n");
-            aggCount += curCount;
-            if(curCount > maxVal)
-                maxVal = curCount;
-            if(curCount < minVal)
-                minVal = curCount;
-        }
-        int avgVal = aggCount / nodeIdToPartitionCount.size();
-        double maxAvgRatio = maxVal * 1.0 / avgVal;
-        if(avgVal == 0) {
-            maxAvgRatio = maxVal;
-        }
-        double maxMinRatio = maxVal * 1.0 / minVal;
-        if(minVal == 0) {
-            maxMinRatio = maxVal;
-        }
-        builder.append("\tMin: " + minVal + "\n");
-        builder.append("\tAvg: " + avgVal + "\n");
-        builder.append("\tMax: " + maxVal + "\n");
-        builder.append("\t\tMax/Avg: " + maxAvgRatio + "\n");
-        builder.append("\t\tMax/Min: " + maxMinRatio + "\n");
-
-        return Pair.create(maxMinRatio, builder.toString());
-    }
-
-    /**
-     * Outputs an analysis of how balanced the cluster is given the store
-     * definitions. The metric max/min ratio is used to describe balance. The
-     * max/min ratio is the ratio of largest number of store-partitions to
-     * smallest number of store-partitions). If the minimum number of
-     * store-partitions is zero, then the max/min ratio is set to max rather
-     * than to infinite.
-     * 
-     * @param currentCluster Current cluster metadata
-     * @param storeDefs List of store definitions
-     * @return First element of pair is the max/min ratio. Second element of
-     *         pair is a string that can be printed to dump all the gory details
-     *         of the analysis.
-     */
-    public static Pair<Double, String> analyzeBalanceVerbose(final Cluster currentCluster,
-                                                             final List<StoreDefinition> storeDefs) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(ClusterUtils.verboseClusterDump(currentCluster));
-
-        HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
-        List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
-        Set<Integer> nodeIds = currentCluster.getNodeIds();
-
-        builder.append("PARTITION DUMP\n");
-        Map<Integer, Integer> primaryAggNodeIdToPartitionCount = Maps.newHashMap();
-        for(Integer nodeId: nodeIds) {
-            primaryAggNodeIdToPartitionCount.put(nodeId, 0);
-        }
-
-        Map<Integer, Integer> allAggNodeIdToPartitionCount = Maps.newHashMap();
-        for(Integer nodeId: nodeIds) {
-            allAggNodeIdToPartitionCount.put(nodeId, 0);
-        }
-
-        for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
-            builder.append("\n");
-            builder.append("Store exemplar: " + storeDefinition.getName() + "\n");
-            builder.append("\tReplication factor: " + storeDefinition.getReplicationFactor() + "\n");
-            builder.append("\tRouting strategy: " + storeDefinition.getRoutingStrategyType() + "\n");
-            builder.append("\tThere are " + uniqueStores.get(storeDefinition)
-                           + " other similar stores.\n");
-
-            // Map of node Id to Sets of pairs. Pairs of Integers are of
-            // <replica_type, partition_id>
-            Map<Integer, Set<Pair<Integer, Integer>>> nodeIdToAllPartitions = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
-                                                                                                                      storeDefinition,
-                                                                                                                      true);
-            Map<Integer, Integer> primaryNodeIdToPartitionCount = Maps.newHashMap();
-            Map<Integer, Integer> allNodeIdToPartitionCount = Maps.newHashMap();
-
-            // Print out all partitions, by replica type, per node
-            builder.append("\n");
-            builder.append("\tDetailed Dump:\n");
-            for(Integer nodeId: nodeIds) {
-                builder.append("\tNode ID: " + nodeId + "\n");
-                primaryNodeIdToPartitionCount.put(nodeId, 0);
-                allNodeIdToPartitionCount.put(nodeId, 0);
-                Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
-
-                int replicaType = 0;
-                while(partitionPairs.size() > 0) {
-                    List<Pair<Integer, Integer>> replicaPairs = new ArrayList<Pair<Integer, Integer>>();
-                    for(Pair<Integer, Integer> pair: partitionPairs) {
-                        if(pair.getFirst() == replicaType) {
-                            replicaPairs.add(pair);
-                        }
-                    }
-                    List<Integer> partitions = new ArrayList<Integer>();
-                    for(Pair<Integer, Integer> pair: replicaPairs) {
-                        partitionPairs.remove(pair);
-                        partitions.add(pair.getSecond());
-                    }
-                    java.util.Collections.sort(partitions);
-                    builder.append("\t\t" + replicaType + " : " + partitions.size() + " : "
-                                   + partitions.toString() + "\n");
-                    if(replicaType == 0) {
-                        primaryNodeIdToPartitionCount.put(nodeId,
-                                                          primaryNodeIdToPartitionCount.get(nodeId)
-                                                                  + partitions.size());
-                    }
-                    allNodeIdToPartitionCount.put(nodeId, allNodeIdToPartitionCount.get(nodeId)
-                                                          + partitions.size());
-                    replicaType++;
-                }
-            }
-
-            builder.append("\n");
-            builder.append("\tSummary Dump:\n");
-            for(Integer nodeId: nodeIds) {
-                builder.append("\tNode ID: " + nodeId + " : "
-                               + allNodeIdToPartitionCount.get(nodeId) + "\n");
-                primaryAggNodeIdToPartitionCount.put(nodeId,
-                                                     primaryAggNodeIdToPartitionCount.get(nodeId)
-                                                             + (primaryNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
-                allAggNodeIdToPartitionCount.put(nodeId,
-                                                 allAggNodeIdToPartitionCount.get(nodeId)
-                                                         + (allNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
-            }
-        }
-
-        builder.append("\n");
-        builder.append("STD DEV ANALYSIS\n");
-        builder.append("\n");
-        builder.append(KeyDistributionGenerator.printOverallDistribution(currentCluster,
-                                                                         storeDefs,
-                                                                         keys));
-        builder.append("\n");
-        builder.append("\n");
-
-        Pair<Double, String> summary = summarizeBalance(currentCluster,
-                                                        primaryAggNodeIdToPartitionCount,
-                                                        "AGGREGATE PRIMARY-PARTITION COUNT (across all stores)");
-        builder.append(summary.getSecond());
-
-        summary = summarizeBalance(currentCluster,
-                                   allAggNodeIdToPartitionCount,
-                                   "AGGREGATE NARY-PARTITION COUNT (across all stores)");
-        builder.append(summary.getSecond());
-
-        return new Pair<Double, String>(summary.getFirst(), builder.toString());
     }
 
     /**
@@ -834,14 +655,14 @@ public class RebalanceClusterUtils {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
 
         int successes = 0;
         for(int i = 0; i < randomSwapAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
             for(Integer zoneId: zoneIds) {
                 Cluster shuffleResults = swapRandomPartitionsWithinZone(returnCluster, zoneId);
-                double nextMaxMinRatio = analyzeBalance(shuffleResults, storeDefs);
+                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).analyzeBalance();
                 if(nextMaxMinRatio < currentMaxMinRatio) {
                     System.out.println("Swap improved max-min ratio: " + currentMaxMinRatio
                                        + " -> " + nextMaxMinRatio + " (improvement " + successes
@@ -889,7 +710,7 @@ public class RebalanceClusterUtils {
         List<Integer> nodeIdsInZone = new ArrayList<Integer>(targetCluster.getNodeIdsInZone(zoneId));
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -917,7 +738,7 @@ public class RebalanceClusterUtils {
                                                             partitionIdEh,
                                                             nodeIdBee,
                                                             partitionIdBee);
-                        double swapMaxMinRatio = analyzeBalance(swapResult, storeDefs);
+                        double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).analyzeBalance();
                         if(swapMaxMinRatio < currentMaxMinRatio) {
                             currentMaxMinRatio = swapMaxMinRatio;
                             System.out.println(" -> " + currentMaxMinRatio);
@@ -961,7 +782,7 @@ public class RebalanceClusterUtils {
         System.out.println("GreedyRandom : nodeIdsInZone:" + nodeIdsInZone);
 
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
-        double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
         int nodeIdA = -1;
         int nodeIdB = -1;
         int partitionIdA = -1;
@@ -998,7 +819,7 @@ public class RebalanceClusterUtils {
                                                         partitionIdEh,
                                                         nodeIdBee,
                                                         partitionIdBee);
-                    double swapMaxMinRatio = analyzeBalance(swapResult, storeDefs);
+                    double swapMaxMinRatio = new ClusterInstance(swapResult, storeDefs).analyzeBalance();
                     if(swapMaxMinRatio < currentMaxMinRatio) {
                         currentMaxMinRatio = swapMaxMinRatio;
                         System.out.println(" -> " + currentMaxMinRatio);
@@ -1044,7 +865,7 @@ public class RebalanceClusterUtils {
         List<Integer> zoneIds = new ArrayList<Integer>(targetCluster.getZoneIds());
         Cluster returnCluster = ClusterUtils.copyCluster(targetCluster);
 
-        double currentMaxMinRatio = analyzeBalance(returnCluster, storeDefs);
+        double currentMaxMinRatio = new ClusterInstance(returnCluster, storeDefs).analyzeBalance();
 
         for(int i = 0; i < greedyAttempts; i++) {
             Collections.shuffle(zoneIds, new Random(System.currentTimeMillis()));
@@ -1056,7 +877,7 @@ public class RebalanceClusterUtils {
                                                                               greedySwapMaxPartitionsPerNode,
                                                                               greedySwapMaxPartitionsPerZone,
                                                                               storeDefs);
-                double nextMaxMinRatio = analyzeBalance(shuffleResults, storeDefs);
+                double nextMaxMinRatio = new ClusterInstance(shuffleResults, storeDefs).analyzeBalance();
 
                 if(nextMaxMinRatio == currentMaxMinRatio) {
                     System.out.println("Not improving for zone: " + zoneId);

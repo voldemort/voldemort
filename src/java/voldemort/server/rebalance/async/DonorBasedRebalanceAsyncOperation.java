@@ -51,6 +51,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.versioning.Versioned;
 
 import com.google.common.collect.HashMultimap;
@@ -329,7 +330,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
             while(running.get() && keys.hasNext()) {
                 ByteArray key = keys.next();
                 scanned++;
-                List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
                                                                                   optimizedStealerNodeToMappingTuples,
                                                                                   targetCluster,
                                                                                   storeDef);
@@ -377,7 +378,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // check if all the partitions being requested are present in the
         // current node
         for(Integer partition: partitionsToDonate) {
-            if(!RebalanceUtils.checkPartitionBelongsToNode(partition,
+            if(!StoreInstance.checkPartitionBelongsToNode(partition,
                                                            voldemortConfig.getNodeId(),
                                                            initialCluster,
                                                            storeDef)) {
@@ -397,7 +398,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 Versioned<byte[]> value = entry.getSecond();
 
                 scanned++;
-                List<Integer> nodeIds = RebalanceUtils.checkKeyBelongsToPartition(key.get(),
+                List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
                                                                                   optimizedStealerNodeToMappingTuples,
                                                                                   targetCluster,
                                                                                   storeDef);

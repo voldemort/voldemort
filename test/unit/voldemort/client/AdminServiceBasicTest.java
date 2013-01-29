@@ -81,6 +81,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -1033,7 +1034,7 @@ public class AdminServiceBasicTest {
     private void generateAndFetchFiles(int numChunks, long versionId, long indexSize, long dataSize)
             throws IOException {
         Map<Integer, Set<Pair<Integer, Integer>>> buckets = RebalanceUtils.getNodeIdToAllPartitions(cluster,
-                                                                                                    RebalanceUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                                    StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                                                                               "test-readonly-fetchfiles"),
                                                                                                     true);
         for(Node node: cluster.getNodes()) {
@@ -1695,7 +1696,7 @@ public class AdminServiceBasicTest {
         HashMap<ByteArray, byte[]> keysMoved = Maps.newHashMap();
 
         // insert it into server-0 store
-        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(RebalanceUtils.getStoreDefinitionWithName(storeDefs,
+        RoutingStrategy strategy = new RoutingStrategyFactory().updateRoutingStrategy(StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                                                                 "test-recovery-data"),
                                                                                       cluster);
 

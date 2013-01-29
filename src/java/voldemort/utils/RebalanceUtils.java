@@ -48,7 +48,6 @@ import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
-import voldemort.routing.RoutingStrategyType;
 import voldemort.server.VoldemortConfig;
 import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
@@ -236,170 +235,6 @@ public class RebalanceUtils {
                                              + donorId + " )");
             }
         }
-    }
-
-    /**
-     * Check that the key belongs to one of the partitions in the map of replica
-     * type to partitions
-     * 
-     * @param nodeId Node on which this is running ( generally stealer node )
-     * @param key The key to check
-     * @param replicaToPartitionList Mapping of replica type to partition list
-     * @param cluster Cluster metadata
-     * @param storeDef The store definition
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-    public static boolean checkKeyBelongsToPartition(int nodeId,
-                                                     byte[] key,
-                                                     HashMap<Integer, List<Integer>> replicaToPartitionList,
-                                                     Cluster cluster,
-                                                     StoreDefinition storeDef) {
-        boolean checkResult = false;
-        if(storeDef.getRoutingStrategyType().equals(RoutingStrategyType.TO_ALL_STRATEGY)
-           || storeDef.getRoutingStrategyType()
-                      .equals(RoutingStrategyType.TO_ALL_LOCAL_PREF_STRATEGY)) {
-            checkResult = true;
-        } else {
-            List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                             cluster)
-                                                                      .getPartitionList(key);
-            List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-            checkResult = checkKeyBelongsToPartition(keyPartitions,
-                                                     nodePartitions,
-                                                     replicaToPartitionList);
-        }
-        return checkResult;
-    }
-
-    /**
-     * Check that the key belongs to one of the partitions in the map of replica
-     * type to partitions
-     * 
-     * @param keyPartitions Preference list of the key
-     * @param nodePartitions Partition list on this node
-     * @param replicaToPartitionList Mapping of replica type to partition list
-     * @return Returns a boolean to indicate if this belongs to the map
-     */
-    public static boolean checkKeyBelongsToPartition(List<Integer> keyPartitions,
-                                                     List<Integer> nodePartitions,
-                                                     HashMap<Integer, List<Integer>> replicaToPartitionList) {
-        // Check for null
-        replicaToPartitionList = Utils.notNull(replicaToPartitionList);
-
-        for(int replicaNum = 0; replicaNum < keyPartitions.size(); replicaNum++) {
-
-            // If this partition belongs to node partitions + master is in
-            // replicaToPartitions list -> match
-            if(nodePartitions.contains(keyPartitions.get(replicaNum))) {
-                List<Integer> partitionsToMove = replicaToPartitionList.get(replicaNum);
-                if(partitionsToMove != null && partitionsToMove.size() > 0) {
-                    if(partitionsToMove.contains(keyPartitions.get(0))) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Given a key and a list of steal infos give back a list of stealer node
-     * ids which will steal this.
-     * 
-     * @param key Byte array of key
-     * @param stealerNodeToMappingTuples Pairs of stealer node id to their
-     *        corresponding [ partition - replica ] tuples
-     * @param cluster Cluster metadata
-     * @param storeDef Store definitions
-     * @return List of node ids
-     */
-    public static List<Integer> checkKeyBelongsToPartition(byte[] key,
-                                                           Set<Pair<Integer, HashMap<Integer, List<Integer>>>> stealerNodeToMappingTuples,
-                                                           Cluster cluster,
-                                                           StoreDefinition storeDef) {
-        List<Integer> keyPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                         cluster)
-                                                                  .getPartitionList(key);
-        List<Integer> nodesToPush = Lists.newArrayList();
-        for(Pair<Integer, HashMap<Integer, List<Integer>>> stealNodeToMap: stealerNodeToMappingTuples) {
-            List<Integer> nodePartitions = cluster.getNodeById(stealNodeToMap.getFirst())
-                                                  .getPartitionIds();
-            if(checkKeyBelongsToPartition(keyPartitions, nodePartitions, stealNodeToMap.getSecond())) {
-                nodesToPush.add(stealNodeToMap.getFirst());
-            }
-        }
-        return nodesToPush;
-    }
-
-    /***
-     * 
-     * @return true if the partition belongs to the node with given replicatype
-     */
-    public static boolean checkPartitionBelongsToNode(int partition,
-                                                      int replicaType,
-                                                      int nodeId,
-                                                      Cluster cluster,
-                                                      StoreDefinition storeDef) {
-        boolean belongs = false;
-        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                 cluster)
-                                                                          .getReplicatingPartitionList(partition);
-        // validate replicaType
-        if(replicaType < replicatingPartitions.size()) {
-            // check if the replicaType'th partition in the replicating list,
-            // belongs to the given node
-            if(nodePartitions.contains(replicatingPartitions.get(replicaType)))
-                belongs = true;
-        }
-
-        return belongs;
-    }
-
-    /**
-     * 
-     * @param key
-     * @param nodeId
-     * @param cluster
-     * @param storeDef
-     * @return true if the key belongs to the node as some replica
-     */
-    public static boolean checkKeyBelongsToNode(byte[] key,
-                                                int nodeId,
-                                                Cluster cluster,
-                                                StoreDefinition storeDef) {
-        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                 cluster)
-                                                                          .getPartitionList(key);
-        // remove all partitions from the list, except those that belong to the
-        // node
-        replicatingPartitions.retainAll(nodePartitions);
-        return replicatingPartitions.size() > 0;
-    }
-
-    /***
-     * Checks if a given partition is stored in the node. (It can be primary or
-     * a secondary)
-     * 
-     * @param partition
-     * @param nodeId
-     * @param cluster
-     * @param storeDef
-     * @return
-     */
-    public static boolean checkPartitionBelongsToNode(int partition,
-                                                      int nodeId,
-                                                      Cluster cluster,
-                                                      StoreDefinition storeDef) {
-        List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
-        List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
-                                                                                                 cluster)
-                                                                          .getReplicatingPartitionList(partition);
-        // remove all partitions from the list, except those that belong to the
-        // node
-        replicatingPartitions.retainAll(nodePartitions);
-        return replicatingPartitions.size() > 0;
     }
 
     /**
@@ -849,14 +684,14 @@ public class RebalanceUtils {
     public static void validateReadOnlyStores(Cluster cluster,
                                               List<StoreDefinition> storeDefs,
                                               AdminClient adminClient) {
-        List<StoreDefinition> readOnlyStores = filterStores(storeDefs, true);
+        List<StoreDefinition> readOnlyStores = StoreDefinitionUtils.filterStores(storeDefs, true);
 
         if(readOnlyStores.size() == 0) {
             // No read-only stores
             return;
         }
 
-        List<String> storeNames = getStoreNames(readOnlyStores);
+        List<String> storeNames = StoreDefinitionUtils.getStoreNames(readOnlyStores);
         for(Node node: cluster.getNodes()) {
             if(node.getNumberOfPartitions() != 0) {
                 for(Entry<String, String> storeToStorageFormat: adminClient.readonlyOps.getROStorageFormat(node.getId(),
@@ -1028,7 +863,7 @@ public class RebalanceUtils {
     public static List<RebalancePartitionsInfo> filterPartitionPlanWithStores(List<RebalancePartitionsInfo> existingPlanList,
                                                                               List<StoreDefinition> storeDefs) {
         List<RebalancePartitionsInfo> plans = Lists.newArrayList();
-        List<String> storeNames = getStoreNames(storeDefs);
+        List<String> storeNames = StoreDefinitionUtils.getStoreNames(storeDefs);
 
         for(RebalancePartitionsInfo existingPlan: existingPlanList) {
             RebalancePartitionsInfo info = RebalancePartitionsInfo.create(existingPlan.toJsonString());
@@ -1081,63 +916,6 @@ public class RebalanceUtils {
             }
         }
         return nodeToPartitionsInfo;
-    }
-
-    /**
-     * Given a store name and a list of store definitions, returns the
-     * appropriate store definition ( if it exists )
-     * 
-     * @param storeDefs List of store definitions
-     * @param storeName The store name whose store definition is required
-     * @return The store definition
-     */
-    public static StoreDefinition getStoreDefinitionWithName(List<StoreDefinition> storeDefs,
-                                                             String storeName) {
-        StoreDefinition def = null;
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getName().compareTo(storeName) == 0) {
-                def = storeDef;
-                break;
-            }
-        }
-
-        if(def == null) {
-            throw new VoldemortException("Could not find store " + storeName);
-        }
-        return def;
-    }
-
-    /**
-     * Given a list of store definitions, filters the list depending on the
-     * boolean
-     * 
-     * @param storeDefs Complete list of store definitions
-     * @param isReadOnly Boolean indicating whether filter on read-only or not?
-     * @return List of filtered store definition
-     */
-    public static List<StoreDefinition> filterStores(List<StoreDefinition> storeDefs,
-                                                     final boolean isReadOnly) {
-        List<StoreDefinition> filteredStores = Lists.newArrayList();
-        for(StoreDefinition storeDef: storeDefs) {
-            if(storeDef.getType().equals(ReadOnlyStorageConfiguration.TYPE_NAME) == isReadOnly) {
-                filteredStores.add(storeDef);
-            }
-        }
-        return filteredStores;
-    }
-
-    /**
-     * Given a list of store definitions return a list of store names
-     * 
-     * @param storeDefList The list of store definitions
-     * @return Returns a list of store names
-     */
-    public static List<String> getStoreNames(List<StoreDefinition> storeDefList) {
-        List<String> storeList = new ArrayList<String>();
-        for(StoreDefinition def: storeDefList) {
-            storeList.add(def.getName());
-        }
-        return storeList;
     }
 
     /**

@@ -36,7 +36,7 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
@@ -106,7 +106,7 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 // Check the current node contains the partition as the
                 // requested replicatype
                 if(!fetchedPartitions.contains(currentPartition)
-                   && RebalanceUtils.checkPartitionBelongsToNode(currentPartition,
+                   && StoreInstance.checkPartitionBelongsToNode(currentPartition,
                                                                  currentReplicaType,
                                                                  nodeId,
                                                                  initialCluster,

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.BufferedReader;
@@ -22,7 +38,6 @@ import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClient.QueryKeyResult;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
-import voldemort.routing.RoutingStrategyFactory;
 import voldemort.store.StoreDefinition;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.ReadRepairer;
@@ -35,86 +50,47 @@ public class ConsistencyFix {
 
     private static class VoldemortInstance {
 
-        private final Cluster cluster;
-        private StoreDefinition storeDefinition;
         private final AdminClient adminClient;
-        private final Map<Integer, Integer> partitionIdToNodeIdMap;
+        private final StoreInstance storeInstance;
 
         public VoldemortInstance(String url, String storeName) throws Exception {
             System.out.println("Connecting to bootstrap server: " + url);
             adminClient = new AdminClient(url, new AdminClientConfig(), 0);
-            cluster = adminClient.getAdminClientCluster();
+            Cluster cluster = adminClient.getAdminClientCluster();
             System.out.println("Cluster determined to be: " + cluster.getName());
 
             System.out.println("Determining store definition for store: " + storeName);
             Versioned<List<StoreDefinition>> storeDefinitions = adminClient.getRemoteStoreDefList(0);
-            List<StoreDefinition> StoreDefitions = storeDefinitions.getValue();
-            boolean storeFound = false;
-            for(StoreDefinition def: StoreDefitions) {
-                if(def.getName().equals(storeName)) {
-                    storeDefinition = def;
-                    storeFound = true;
-                    break;
-                }
-            }
-            if(!storeFound) {
-                throw new Exception("Store definition for store '" + storeName + "' not found.");
-            }
+            List<StoreDefinition> storeDefs = storeDefinitions.getValue();
+            StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                              storeName);
             System.out.println("Store definition determined.");
 
-            System.out.println("Determining partition ID to node ID mapping.");
-            partitionIdToNodeIdMap = ClusterUtils.getCurrentPartitionMapping(cluster);
-        }
-
-        public Cluster getCluster() {
-            return cluster;
-        }
-
-        public StoreDefinition getStoreDefinition() {
-            return storeDefinition;
+            storeInstance = new StoreInstance(cluster, storeDefinition);
         }
 
         public String getStoreName() {
-            return storeDefinition.getName();
+            return storeInstance.getStoreDefinition().getName();
         }
 
         public AdminClient getAdminClient() {
             return adminClient;
         }
 
-        public Map<Integer, Integer> getPartitionIdToNodeIdMap() {
-            return partitionIdToNodeIdMap;
-        }
-
         public List<Integer> getReplicationPartitionList(int partitionId) {
-            return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                               .getReplicatingPartitionList(partitionId);
+            return storeInstance.getReplicationPartitionList(partitionId);
         }
 
         public int getMasterPartitionId(String keyInHexFormat) throws DecoderException {
             byte[] key = Hex.decodeHex(keyInHexFormat.toCharArray());
-            return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                               .getMasterPartition(key);
-        }
-
-        public int getNodeIdForPartitionId(int partitionId) {
-            return partitionIdToNodeIdMap.get(partitionId);
+            return storeInstance.getMasterPartitionId(key);
         }
 
         // Throws exception if duplicate nodes are found. I.e., partition list
         // is assumed to be "replicating" partition list.
         private List<Integer> getNodeIdListForPartitionIdList(List<Integer> partitionIds)
                 throws Exception {
-            List<Integer> nodeIds = new ArrayList<Integer>(partitionIds.size());
-            for(Integer partitionId: partitionIds) {
-                int nodeId = getNodeIdForPartitionId(partitionId);
-                if(nodeIds.contains(nodeId)) {
-                    throw new Exception("Node ID " + nodeId + " already in list of Node IDs.");
-                } else {
-                    nodeIds.add(nodeId);
-                }
-            }
-            return nodeIds;
+            return storeInstance.getNodeIdListForPartitionIdList(partitionIds);
         }
 
         public List<Integer> getReplicationNodeList(int partitionId) throws Exception {

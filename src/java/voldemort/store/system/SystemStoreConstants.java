@@ -20,7 +20,7 @@ import java.io.StringReader;
 import java.util.List;
 
 import voldemort.store.StoreDefinition;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 /**
@@ -88,6 +88,6 @@ public class SystemStoreConstants {
 
     public static StoreDefinition getSystemStoreDef(String name) {
         List<StoreDefinition> allDefs = getAllSystemStoreDefs();
-        return RebalanceUtils.getStoreDefinitionWithName(allDefs, name);
+        return StoreDefinitionUtils.getStoreDefinitionWithName(allDefs, name);
     }
 }

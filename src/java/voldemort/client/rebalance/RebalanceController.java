@@ -39,6 +39,7 @@ import voldemort.server.rebalance.VoldemortRebalancingException;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.NodeUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 import voldemort.xml.ClusterMapper;
@@ -376,9 +377,9 @@ public class RebalanceController {
             List<RebalancePartitionsInfo> rebalancePartitionPlanList = rebalancePartitionsInfoList;
 
             // Split the store definitions
-            List<StoreDefinition> readOnlyStoreDefs = RebalanceUtils.filterStores(orderedClusterTransition.getStoreDefs(),
+            List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(orderedClusterTransition.getStoreDefs(),
                                                                                   true);
-            List<StoreDefinition> readWriteStoreDefs = RebalanceUtils.filterStores(orderedClusterTransition.getStoreDefs(),
+            List<StoreDefinition> readWriteStoreDefs = StoreDefinitionUtils.filterStores(orderedClusterTransition.getStoreDefs(),
                                                                                    false);
             boolean hasReadOnlyStores = readOnlyStoreDefs != null && readOnlyStoreDefs.size() > 0;
             boolean hasReadWriteStores = readWriteStoreDefs != null

@@ -30,6 +30,7 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.utils.ClusterInstance;
 import voldemort.utils.CmdUtils;
 import voldemort.utils.Entropy;
 import voldemort.utils.Pair;
@@ -293,8 +294,7 @@ public class RebalanceCLI {
                 }
 
                 if(options.has("analyze")) {
-                    Pair<Double, String> analysis = RebalanceClusterUtils.analyzeBalanceVerbose(currentCluster,
-                                                                                                storeDefs);
+                    Pair<Double, String> analysis = new ClusterInstance(currentCluster, storeDefs).analyzeBalanceVerbose();
                     System.out.println(analysis.getSecond());
                     return;
                 }

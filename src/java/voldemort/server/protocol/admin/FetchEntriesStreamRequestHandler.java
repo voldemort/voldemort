@@ -16,7 +16,7 @@ import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
@@ -67,7 +67,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
 
         if(!fetchOrphaned) {
             // normal code path
-            if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+            if(StoreInstance.checkKeyBelongsToPartition(nodeId,
                                                          key.get(),
                                                          replicaToPartitionList,
                                                          initialCluster,
@@ -76,7 +76,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
             }
         } else {
             // orphaned fetches
-            if(!RebalanceUtils.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
+            if(!StoreInstance.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
                 entryAccepted = true;
             }
         }

@@ -15,7 +15,7 @@ import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreInstance;
 
 import com.google.protobuf.Message;
 
@@ -58,7 +58,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         boolean keyAccepted = false;
         if(!fetchOrphaned) {
             // normal code path
-            if(RebalanceUtils.checkKeyBelongsToPartition(nodeId,
+            if(StoreInstance.checkKeyBelongsToPartition(nodeId,
                                                          key.get(),
                                                          replicaToPartitionList,
                                                          initialCluster,
@@ -69,7 +69,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
             }
 
         } else {
-            if(!RebalanceUtils.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
+            if(!StoreInstance.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
                 keyAccepted = true;
             }
         }

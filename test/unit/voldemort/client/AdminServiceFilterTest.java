@@ -43,7 +43,7 @@ import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -89,7 +89,7 @@ public class AdminServiceFilterTest extends AbstractAdminServiceFilterTest {
         config.setEnableNetworkClassLoader(true);
 
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
-        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+        storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
 
         server = new VoldemortServer(config, cluster);
         server.start();

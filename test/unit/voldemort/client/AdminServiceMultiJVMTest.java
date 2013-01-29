@@ -43,8 +43,8 @@ import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ByteArray;
 import voldemort.utils.Pair;
-import voldemort.utils.RebalanceUtils;
 import voldemort.utils.ServerJVMTestUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -97,7 +97,7 @@ public class AdminServiceMultiJVMTest extends AbstractAdminServiceFilterTest {
                                                                             storesXmlfile,
                                                                             cluster);
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
-        storeDef = RebalanceUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
+        storeDef = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs, testStoreName);
 
         pid = ServerJVMTestUtils.startServerJVM(socketStoreFactory,
                                                 cluster.getNodeById(0),
