@@ -48,6 +48,7 @@ import com.google.common.collect.Lists;
 
 public class ConsistencyFix {
 
+    // TODO: Move ConsistencyFixContext into its own file?
     private static class ConsistencyFixContext {
 
         private final AdminClient adminClient;
@@ -89,7 +90,7 @@ public class ConsistencyFix {
 
     public static void printUsage() {
         System.out.println("Required arguments: \n" + " --url <url>\n" + " --store <storeName>\n"
-                           + " (--key <keyInHexFormat> | --keys <keysInHexFormatSeparatedByComma "
+                           + " (--keys <keysInHexFormatSeparatedByComma "
                            + "| --key-file <FileNameOfInputListOfKeysToFix>)\n"
                            + "| --out-file <FileNameOfOutputListOfKeysNotFixed>)\n");
     }
@@ -127,10 +128,6 @@ public class ConsistencyFix {
               .withRequiredArg()
               .describedAs("The store name.")
               .ofType(String.class);
-        parser.accepts("key")
-              .withRequiredArg()
-              .describedAs("The key in hexadecimal format.")
-              .ofType(String.class);
         parser.accepts("keys")
               .withRequiredArg()
               .withValuesSeparatedBy(',')
@@ -167,13 +164,11 @@ public class ConsistencyFix {
         if(!optionSet.hasArgument("store")) {
             printUsage("Missing required 'store' argument.");
         }
-        if(!optionSet.has("key") && !optionSet.has("keys") && !optionSet.has("key-file")) {
-            printUsage("Missing required key-specifying argument: 'key', 'keys', or 'key-file'.");
+        if(!optionSet.has("keys") && !optionSet.has("key-file")) {
+            printUsage("Missing required key-specifying argument: 'keys' or 'key-file'.");
         }
-        if((optionSet.has("key") && optionSet.has("keys"))
-           || (optionSet.has("key") && optionSet.has("key-file"))
-           || (optionSet.has("keys") && optionSet.has("key-file"))) {
-            printUsage("Please provide exactly one key-specifying argument: 'key', 'keys', or 'key-file'.");
+        if(optionSet.has("keys") && optionSet.has("key-file")) {
+            printUsage("Please provide exactly one key-specifying argument: 'keys' or 'key-file'.");
         }
         if(!optionSet.has("out-file")) {
             printUsage("Missing required 'out-file' argument.");
@@ -190,9 +185,6 @@ public class ConsistencyFix {
         options.outFile = (String) optionSet.valueOf("out-file");
 
         options.keysInHexFormat = new LinkedList<String>();
-        if(optionSet.has("key")) {
-            options.keysInHexFormat.add((String) optionSet.valueOf("key"));
-        }
         if(optionSet.has("keys")) {
             @SuppressWarnings("unchecked")
             List<String> valuesOf = (List<String>) optionSet.valuesOf("keys");
@@ -293,6 +285,11 @@ public class ConsistencyFix {
                                                              vInstance.getStoreName(),
                                                              keys.iterator());
             nodeIdToKeyValues.put(nodeId, keyValues);
+            // TODO: Not sure if this is appropriate. Since the keyValues
+            // iterator is a google abstract iterator and inside computeNext()
+            // still ratains a connection of a socket store. Does this iterator
+            // implementation call the computeNext() immediately and release the
+            // connection when done? -- ZWu
         }
 
         return FixKeyResult.SUCCESS;
@@ -433,7 +430,12 @@ public class ConsistencyFix {
                                                               v.getVersioned()));
              */
         }
-
+        // TODO: As we discussed, I don't know the read repair code path very
+        // well. So, feel free to discard my comments if I am off target w.r.t
+        // to simply doing a get() to fix everything. Semantically, it then
+        // gives me more comfort that given enough activity to out of sync keys,
+        // they will eventually reconcile. Our consistency check and fix is then
+        // simply a way to generate activity to the right keys. -- VChandar
         if(verbose) {
             System.out.println("Repair work to be done:");
             for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {

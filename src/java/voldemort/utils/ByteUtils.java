@@ -74,17 +74,7 @@ public class ByteUtils {
      * @return The string
      */
     public static String toHexString(byte[] bytes) {
-        StringBuilder buffer = new StringBuilder();
-
-        for(byte b: bytes) {
-            String hex = Integer.toHexString(b & 0xff);
-            hex = hex.substring(0, Math.min(hex.length(), 2));
-            if(hex.length() == 1) {
-                buffer.append("0");
-            }
-            buffer.append(hex);
-        }
-        return buffer.toString();
+        return Hex.encodeHexString(bytes);
     }
 
     public static byte[] fromHexString(String hexString) throws DecoderException {
