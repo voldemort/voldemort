@@ -35,8 +35,8 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClient.QueryKeyResult;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.store.routed.NodeValue;
@@ -334,31 +334,31 @@ public class ConsistencyFix {
                 }
                 keyValue = nodeIdToKeyValues.get(nodeId).next();
 
-                if(keyValue.exception != null) {
+                if(keyValue.hasException()) {
                     if(verbose) {
                         System.out.println("\t... Exception encountered while fetching key "
                                            + keyInHexFormat + " from node with nodeId " + nodeId
-                                           + " : " + keyValue.exception.getMessage());
+                                           + " : " + keyValue.getException().getMessage());
                     }
                     exceptionsEncountered = true;
                 } else {
-                    if(keyValue.values.isEmpty()) {
+                    if(keyValue.getValues().isEmpty()) {
                         if(verbose) {
                             System.out.println("\t... Adding null version to nodeValues");
                         }
                         Versioned<byte[]> versioned = new Versioned<byte[]>(null);
                         nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                        keyValue.key,
+                                                                        keyValue.getKey(),
                                                                         versioned));
 
                     } else {
-                        for(Versioned<byte[]> value: keyValue.values) {
+                        for(Versioned<byte[]> value: keyValue.getValues()) {
                             if(verbose) {
                                 System.out.println("\t... Adding following version to nodeValues: "
                                                    + value.getVersion());
                             }
                             nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                            keyValue.key,
+                                                                            keyValue.getKey(),
                                                                             value));
                         }
                     }
@@ -383,6 +383,7 @@ public class ConsistencyFix {
     }
 
     /**
+     * Decide on the specific key-value to write everywhere.
      * 
      * @param verbose
      * @param nodeValues
@@ -391,27 +392,14 @@ public class ConsistencyFix {
     private static List<NodeValue<ByteArray, byte[]>> resolveReadConflicts(boolean verbose,
                                                                            final List<NodeValue<ByteArray, byte[]>> nodeValues) {
 
-        // Decide on the specific key-value to write everywhere.
-        // Some cut-paste-and-modify coding from AbstractReadRepair.java...
+        // Some cut-paste-and-modify coding from
+        // store/routed/action/AbstractReadRepair.java and
+        // store/routed/ThreadPoolRoutedStore.java
         if(verbose) {
             System.out.println("Resolving conflicts in responses.");
         }
-        // TODO: Figure out if 'cloning' is necessary. It does not seem to be
-        // necessary. See both store/routed/action/AbstractReadRepair.java and
-        // store/routed/ThreadPoolRoutedStore.java for other copies of this
-        // code. I think the cut-and-paste comment below may just be confusing.
-        // We need to "clone" the subset of the nodeValues that we actually want
-        // to repair. But, I am not sure we need to clone the versioned part of
-        // each copied object.
         ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
         List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
-        // TODO: Remove/clean up this comment (and possibly the two copies of
-        // this comment in the code.
-        /*
-         * We clone after computing read repairs in the assumption that the
-         * output will be smaller than the input. Note that we clone the
-         * version, but not the key or value as the latter two are not mutated.
-         */
         for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
             Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
                                                           ((VectorClock) v.getVersion()).clone());
@@ -420,16 +408,8 @@ public class ConsistencyFix {
                                    + versioned.getVersion() + ")");
             }
             toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
-            /*-
-             * The below code seems to work in lieu of the above line. So, not sure
-             * why it is necessary to construct new versioned object above based
-             * on cloned timestamp.
-             * 
-            toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(),
-                                                              v.getKey(),
-                                                              v.getVersioned()));
-             */
         }
+
         // TODO: As we discussed, I don't know the read repair code path very
         // well. So, feel free to discard my comments if I am off target w.r.t
         // to simply doing a get() to fix everything. Semantically, it then

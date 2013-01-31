@@ -55,8 +55,8 @@ import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.client.protocol.admin.AdminClient;
-import voldemort.client.protocol.admin.AdminClient.QueryKeyResult;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.serialization.DefaultSerializerFactory;
@@ -1670,13 +1670,13 @@ public class VoldemortAdminTool {
                     while(iterator.hasNext()) {
                         QueryKeyResult queryKeyResult = iterator.next();
                         // unserialize and write key
-                        byte[] keyBytes = queryKeyResult.key.get();
+                        byte[] keyBytes = queryKeyResult.getKey().get();
                         Object keyObject = keySerializer.toObject((null == keyCompressionStrategy) ? keyBytes
                                                                                                   : keyCompressionStrategy.inflate(keyBytes));
                         generator.writeObject(keyObject);
 
                         // iterate through, unserialize and write values
-                        List<Versioned<byte[]>> values = queryKeyResult.values;
+                        List<Versioned<byte[]>> values = queryKeyResult.getValues();
                         if(values != null) {
                             if(values.size() == 0) {
                                 stringWriter.write(", null");
@@ -1698,9 +1698,9 @@ public class VoldemortAdminTool {
                             stringWriter.write(", null");
                         }
                         // write out exception
-                        if(queryKeyResult.exception != null) {
+                        if(queryKeyResult.hasException()) {
                             stringWriter.write(", ");
-                            stringWriter.write(queryKeyResult.exception.toString());
+                            stringWriter.write(queryKeyResult.getException().toString());
                         }
 
                         StringBuffer buf = stringWriter.getBuffer();
