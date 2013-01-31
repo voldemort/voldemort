@@ -44,13 +44,13 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
 
             RebalanceUtils.printLog(taskId, logger, "Starting on node " + donorNodeId
                                                     + " rebalancing task " + stealInfos);
-            rebalanceAsyncId = adminClient.rebalanceNode(stealInfos);
+            rebalanceAsyncId = adminClient.rebalanceOps.rebalanceNode(stealInfos);
 
             // Wait for the task to get over
-            adminClient.waitForCompletion(donorNodeId,
-                                          rebalanceAsyncId,
-                                          config.getRebalancingClientTimeoutSeconds(),
-                                          TimeUnit.SECONDS);
+            adminClient.rpcOps.waitForCompletion(donorNodeId,
+                                                 rebalanceAsyncId,
+                                                 config.getRebalancingClientTimeoutSeconds(),
+                                                 TimeUnit.SECONDS);
             RebalanceUtils.printLog(taskId,
                                     logger,
                                     "Succesfully finished rebalance for async operation id "
@@ -59,8 +59,9 @@ public class DonorBasedRebalanceTask extends RebalanceTask {
         } catch(UnreachableStoreException e) {
             exception = e;
             logger.error("Donor node " + donorNodeId
-                         + " is unreachable, please make sure it is up and running : "
-                         + e.getMessage(), e);
+                                 + " is unreachable, please make sure it is up and running : "
+                                 + e.getMessage(),
+                         e);
         } catch(Exception e) {
             exception = e;
             logger.error("Rebalance failed : " + e.getMessage(), e);

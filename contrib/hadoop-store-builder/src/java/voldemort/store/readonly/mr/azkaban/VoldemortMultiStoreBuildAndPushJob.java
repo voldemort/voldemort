@@ -309,7 +309,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                                                           + url
                                                                           + "'");
 
-                                                                 Map<String, Long> pushVersions = adminClient.getROMaxVersion(Lists.newArrayList(storeName));
+                                                                 Map<String, Long> pushVersions = adminClient.readonlyOps.getROMaxVersion(Lists.newArrayList(storeName));
 
                                                                  if(pushVersions == null
                                                                     || !pushVersions.containsKey(storeName)) {
@@ -448,7 +448,9 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                     log.info("Deleting data ( " + nodeDir
                                              + " ) for successful pushes to '" + clusterUrl
                                              + "' and store '" + storeName + "' and node " + nodeId);
-                                    adminClient.failedFetchStore(nodeId, storeName, nodeDir);
+                                    adminClient.readonlyOps.failedFetchStore(nodeId,
+                                                                             storeName,
+                                                                             nodeDir);
                                     log.info("Successfully deleted data for successful pushes to '"
                                              + clusterUrl + "' and store '" + storeName
                                              + "' and node " + nodeId);
@@ -520,10 +522,10 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
                             previousNodeDirPerClusterStore.put(key,
                                                                Pair.create(node.getId(),
-                                                                           adminClient.swapStore(node.getId(),
-                                                                                                 storeName,
-                                                                                                 nodeDirPerClusterStore.get(key)
-                                                                                                                       .get(node.getId()))));
+                                                                           adminClient.readonlyOps.swapStore(node.getId(),
+                                                                                                             storeName,
+                                                                                                             nodeDirPerClusterStore.get(key)
+                                                                                                                                   .get(node.getId()))));
                             log.info("Successfully swapped '" + storeName + "' store on cluster "
                                      + url + " and node " + node.getId());
 
@@ -555,9 +557,9 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
                                  + clusterStoreTuple.getSecond() + " and node "
                                  + nodeToPreviousDir.getFirst() + " to dir "
                                  + nodeToPreviousDir.getSecond());
-                        adminClient.rollbackStore(nodeToPreviousDir.getFirst(),
-                                                  nodeToPreviousDir.getSecond(),
-                                                  ReadOnlyUtils.getVersionId(new File(nodeToPreviousDir.getSecond())));
+                        adminClient.readonlyOps.rollbackStore(nodeToPreviousDir.getFirst(),
+                                                              nodeToPreviousDir.getSecond(),
+                                                              ReadOnlyUtils.getVersionId(new File(nodeToPreviousDir.getSecond())));
                         log.info("Successfully rolled back for cluster " + url + " and store "
                                  + clusterStoreTuple.getSecond() + " and node "
                                  + nodeToPreviousDir.getFirst() + " to dir "
@@ -667,8 +669,8 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " ( node id " + this.nodeId + " )");
 
-        List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                           .getValue();
+        List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                           .getValue();
         boolean foundStore = false;
 
         // go over all store defs and see if one has the same name as the store
@@ -771,7 +773,7 @@ public class VoldemortMultiStoreBuildAndPushJob extends AbstractJob {
 
             log.info("Could not find store " + storeName
                      + " on Voldemort. Adding it to all nodes for cluster " + url);
-            adminClient.addStore(newStoreDef);
+            adminClient.storeMgmtOps.addStore(newStoreDef);
         }
 
         // don't use newStoreDef because we want to ALWAYS use the JSON

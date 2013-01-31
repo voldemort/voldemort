@@ -131,11 +131,11 @@ public class AdminTest {
 
                 public long apply() {
                     long i = 0;
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.fetchEntries(node,
-                                                                                                   storeName,
-                                                                                                   new ArrayList<Integer>(nodePartitions.get(node)),
-                                                                                                   null,
-                                                                                                   false);
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> result = adminClient.bulkFetchOps.fetchEntries(node,
+                                                                                                                storeName,
+                                                                                                                new ArrayList<Integer>(nodePartitions.get(node)),
+                                                                                                                null,
+                                                                                                                false);
                     while(result.hasNext()) {
                         i++;
                         result.next();
@@ -154,13 +154,13 @@ public class AdminTest {
                 public void apply() {
                     HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
                     replicaToPartitionList.put(0, Lists.newArrayList(from.get(node)));
-                    adminClient.migratePartitions(node,
-                                                  to,
-                                                  storeName,
-                                                  replicaToPartitionList,
-                                                  null,
-                                                  null,
-                                                  false);
+                    adminClient.storeMntOps.migratePartitions(node,
+                                                              to,
+                                                              storeName,
+                                                              replicaToPartitionList,
+                                                              null,
+                                                              null,
+                                                              false);
                 }
 
             }, 1);

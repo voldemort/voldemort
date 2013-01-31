@@ -497,52 +497,52 @@ public class RebalanceController {
                                         logger,
                                         "Cluster metadata change + rebalance state change");
                 if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     false,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true);
+                    adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                                  transitionCluster,
+                                                                  rebalancePartitionPlanList,
+                                                                  false,
+                                                                  true,
+                                                                  true,
+                                                                  true,
+                                                                  true);
             } else if(hasReadOnlyStores && !finishedReadOnlyStores) {
                 // Case 1 / 3 - rebalance state change
                 RebalanceUtils.printLog(taskId, logger, "Rebalance state change");
                 if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     false,
-                                                     false,
-                                                     true,
-                                                     true,
-                                                     true);
+                    adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                                  transitionCluster,
+                                                                  rebalancePartitionPlanList,
+                                                                  false,
+                                                                  false,
+                                                                  true,
+                                                                  true,
+                                                                  true);
             } else if(hasReadOnlyStores && !hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 2 - swap + cluster change
                 RebalanceUtils.printLog(taskId, logger, "Swap + Cluster metadata change");
                 if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     true,
-                                                     true,
-                                                     false,
-                                                     true,
-                                                     true);
+                    adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                                  transitionCluster,
+                                                                  rebalancePartitionPlanList,
+                                                                  true,
+                                                                  true,
+                                                                  false,
+                                                                  true,
+                                                                  true);
             } else {
                 // Case 0 - swap + cluster change + rebalance state change
                 RebalanceUtils.printLog(taskId,
                                         logger,
                                         "Swap + Cluster metadata change + rebalance state change");
                 if(!rebalanceConfig.isShowPlanEnabled())
-                    adminClient.rebalanceStateChange(currentCluster,
-                                                     transitionCluster,
-                                                     rebalancePartitionPlanList,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true,
-                                                     true);
+                    adminClient.rebalanceOps.rebalanceStateChange(currentCluster,
+                                                                  transitionCluster,
+                                                                  rebalancePartitionPlanList,
+                                                                  true,
+                                                                  true,
+                                                                  true,
+                                                                  true,
+                                                                  true);
             }
 
         } catch(VoldemortRebalancingException e) {
@@ -664,24 +664,24 @@ public class RebalanceController {
 
             if(hasReadOnlyStores && hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 0
-                adminClient.rebalanceStateChange(null,
-                                                 currentCluster,
-                                                 null,
-                                                 true,
-                                                 true,
-                                                 false,
-                                                 false,
-                                                 false);
+                adminClient.rebalanceOps.rebalanceStateChange(null,
+                                                              currentCluster,
+                                                              null,
+                                                              true,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              false);
             } else if(hasReadWriteStores && finishedReadOnlyStores) {
                 // Case 4
-                adminClient.rebalanceStateChange(null,
-                                                 currentCluster,
-                                                 null,
-                                                 false,
-                                                 true,
-                                                 false,
-                                                 false,
-                                                 false);
+                adminClient.rebalanceOps.rebalanceStateChange(null,
+                                                              currentCluster,
+                                                              null,
+                                                              false,
+                                                              true,
+                                                              false,
+                                                              false,
+                                                              false);
             }
 
             throw e;
@@ -719,8 +719,8 @@ public class RebalanceController {
                                                                                                                                     false);
             for(Entry<Integer, List<RebalancePartitionsInfo>> entries: donorNodeBasedPartitionsInfo.entrySet()) {
                 try {
-		    Thread.sleep(10000);
-                } catch (InterruptedException e) {}
+                    Thread.sleep(10000);
+                } catch(InterruptedException e) {}
                 DonorBasedRebalanceTask rebalanceTask = new DonorBasedRebalanceTask(taskId,
                                                                                     entries.getValue(),
                                                                                     rebalanceConfig,

@@ -143,7 +143,7 @@ public class RebalanceUtils {
         clusterList.add(latestCluster);
         for(Node node: adminClient.getAdminClientCluster().getNodes()) {
             try {
-                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(node.getId());
                 VectorClock newClock = (VectorClock) versionedCluster.getVersion();
                 if(null != newClock && !clusterList.contains(versionedCluster)) {
                     // check no two clocks are concurrent.
@@ -648,7 +648,7 @@ public class RebalanceUtils {
      */
     public static void validateClusterState(final Cluster cluster, final AdminClient adminClient) {
         for(Node node: cluster.getNodes()) {
-            Versioned<VoldemortState> versioned = adminClient.getRemoteServerState(node.getId());
+            Versioned<VoldemortState> versioned = adminClient.rebalanceOps.getRemoteServerState(node.getId());
 
             if(!VoldemortState.NORMAL_SERVER.equals(versioned.getValue())) {
                 throw new VoldemortRebalancingException("Cannot rebalance since node "
@@ -899,7 +899,7 @@ public class RebalanceUtils {
 
         for(Node node: cluster.getNodes()) {
             try {
-                Versioned<Cluster> versionedCluster = adminClient.getRemoteCluster(node.getId());
+                Versioned<Cluster> versionedCluster = adminClient.metadataMgmtOps.getRemoteCluster(node.getId());
                 VectorClock newClock = (VectorClock) versionedCluster.getVersion();
 
                 // Update the current cluster information
@@ -933,7 +933,7 @@ public class RebalanceUtils {
         try {
             for(Node node: cluster.getNodes()) {
                 logger.info("Updating cluster definition on remote node " + node);
-                adminClient.updateRemoteCluster(node.getId(), cluster, latestClock);
+                adminClient.metadataMgmtOps.updateRemoteCluster(node.getId(), cluster, latestClock);
                 logger.info("Updated cluster definition " + cluster + " on remote node "
                             + node.getId());
                 completedNodeIds.add(node.getId());
@@ -942,9 +942,9 @@ public class RebalanceUtils {
             // Fail early...
             for(Integer completedNodeId: completedNodeIds) {
                 try {
-                    adminClient.updateRemoteCluster(completedNodeId,
-                                                    currentClusters.get(completedNodeId),
-                                                    latestClock);
+                    adminClient.metadataMgmtOps.updateRemoteCluster(completedNodeId,
+                                                                    currentClusters.get(completedNodeId),
+                                                                    latestClock);
                 } catch(VoldemortException exception) {
                     logger.error("Could not revert cluster metadata back on node "
                                  + completedNodeId);
@@ -1197,8 +1197,8 @@ public class RebalanceUtils {
     public static List<StoreDefinition> getStoreDefinition(Cluster cluster, AdminClient adminClient) {
         List<StoreDefinition> storeDefs = null;
         for(Node node: cluster.getNodes()) {
-            List<StoreDefinition> storeDefList = adminClient.getRemoteStoreDefList(node.getId())
-                                                            .getValue();
+            List<StoreDefinition> storeDefList = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
+                                                                            .getValue();
             if(storeDefs == null) {
                 storeDefs = storeDefList;
             } else {
@@ -1268,9 +1268,9 @@ public class RebalanceUtils {
         List<String> storeNames = getStoreNames(readOnlyStores);
         for(Node node: cluster.getNodes()) {
             if(node.getNumberOfPartitions() != 0) {
-                for(Entry<String, String> storeToStorageFormat: adminClient.getROStorageFormat(node.getId(),
-                                                                                               storeNames)
-                                                                           .entrySet()) {
+                for(Entry<String, String> storeToStorageFormat: adminClient.readonlyOps.getROStorageFormat(node.getId(),
+                                                                                                           storeNames)
+                                                                                       .entrySet()) {
                     if(storeToStorageFormat.getValue()
                                            .compareTo(ReadOnlyStorageFormat.READONLY_V2.getCode()) != 0) {
                         throw new VoldemortRebalancingException("Cannot rebalance since node "

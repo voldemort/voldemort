@@ -332,16 +332,18 @@ public class Rebalancer implements Runnable {
                 int stealerNodeId = info.getStealerId();
 
                 // Check if stealer node is in rebalancing state
-                if(!adminClient.getRemoteServerState(stealerNodeId)
-                               .getValue()
-                               .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
+                if(!adminClient.rebalanceOps.getRemoteServerState(stealerNodeId)
+                                            .getValue()
+                                            .equals(VoldemortState.REBALANCING_MASTER_SERVER)) {
                     throw new VoldemortException("Stealer node " + stealerNodeId + " not in "
                                                  + VoldemortState.REBALANCING_MASTER_SERVER
                                                  + " state ");
                 }
 
                 // Also check if it has this plan
-                if(adminClient.getRemoteRebalancerState(stealerNodeId).getValue().find(donorNodeId) == null) {
+                if(adminClient.rebalanceOps.getRemoteRebalancerState(stealerNodeId)
+                                           .getValue()
+                                           .find(donorNodeId) == null) {
                     throw new VoldemortException("Stealer node " + stealerNodeId
                                                  + " does not have any plan for donor "
                                                  + donorNodeId + ". Excepted to have " + info);

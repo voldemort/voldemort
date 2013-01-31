@@ -183,7 +183,7 @@ public class VoldemortSwapJob extends AbstractJob {
             // Need to retrieve max version
             ArrayList<String> stores = new ArrayList<String>();
             stores.add(storeName);
-            Map<String, Long> pushVersions = client.getROMaxVersion(stores);
+            Map<String, Long> pushVersions = client.readonlyOps.getROMaxVersion(stores);
 
             if(pushVersions == null || !pushVersions.containsKey(storeName)) {
                 throw new RuntimeException("Push version could not be determined for store "

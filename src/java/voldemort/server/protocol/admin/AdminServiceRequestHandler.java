@@ -922,14 +922,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             // Should not do rename only because then we won't
                             // be able to rollback
 
-                            adminClient.fetchPartitionFiles(nodeId,
-                                                            storeName,
-                                                            replicaToPartitionList,
-                                                            destinationDir,
-                                                            readOnlyStorageEngine.getChunkedFileSet()
-                                                                                 .getChunkIdToNumChunks()
-                                                                                 .keySet(),
-                                                            running);
+                            adminClient.readonlyOps.fetchPartitionFiles(nodeId,
+                                                                        storeName,
+                                                                        replicaToPartitionList,
+                                                                        destinationDir,
+                                                                        readOnlyStorageEngine.getChunkedFileSet()
+                                                                                             .getChunkIdToNumChunks()
+                                                                                             .keySet(),
+                                                                        running);
 
                         } else {
                             logger.info("Fetching entries for RW store '" + storeName
@@ -967,13 +967,13 @@ public class AdminServiceRequestHandler implements RequestHandler {
                             }
 
                             if(optimizedReplicaToPartitionList.size() > 0) {
-                                Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                                        storeName,
-                                                                                                                        optimizedReplicaToPartitionList,
-                                                                                                                        filter,
-                                                                                                                        false,
-                                                                                                                        initialCluster,
-                                                                                                                        0);
+                                Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.bulkFetchOps.fetchEntries(nodeId,
+                                                                                                                                     storeName,
+                                                                                                                                     optimizedReplicaToPartitionList,
+                                                                                                                                     filter,
+                                                                                                                                     false,
+                                                                                                                                     initialCluster,
+                                                                                                                                     0);
                                 long numTuples = 0;
                                 long startTime = System.currentTimeMillis();
                                 while(running.get() && entriesIterator.hasNext()) {

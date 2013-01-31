@@ -6,8 +6,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import junit.framework.TestCase;
 
@@ -169,33 +169,36 @@ public class AdminServiceFailureTest extends TestCase {
         switch(e) {
             case DELETE_PARTITIONS:
                 putAlltoStore();
-                getAdminClient().deletePartitions(nodeId, storeName, partitionList, null);
+                getAdminClient().storeMntOps.deletePartitions(nodeId,
+                                                              storeName,
+                                                              partitionList,
+                                                              null);
                 return;
             case FETCH_ENTRIES:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchEntries(nodeId,
-                                                              storeName,
-                                                              partitionList,
-                                                              null,
-                                                              false));
+                consumeIterator(getAdminClient().bulkFetchOps.fetchEntries(nodeId,
+                                                                           storeName,
+                                                                           partitionList,
+                                                                           null,
+                                                                           false));
                 return;
             case FETCH_KEYS:
                 putAlltoStore();
-                consumeIterator(getAdminClient().fetchKeys(nodeId,
-                                                           storeName,
-                                                           partitionList,
-                                                           null,
-                                                           false));
+                consumeIterator(getAdminClient().bulkFetchOps.fetchKeys(nodeId,
+                                                                        storeName,
+                                                                        partitionList,
+                                                                        null,
+                                                                        false));
                 return;
             case UPDATE_ENTRIES:
-                getAdminClient().updateEntries(nodeId,
-                                               storeName,
-                                               getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
-                                               null);
+                getAdminClient().storeOps.updateEntries(nodeId,
+                                                        storeName,
+                                                        getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
+                                                        null);
                 return;
             case TRUNCATE_ENTRIES:
                 putAlltoStore();
-                getAdminClient().truncate(nodeId, storeName);
+                getAdminClient().storeMntOps.truncate(nodeId, storeName);
                 return;
 
             default:

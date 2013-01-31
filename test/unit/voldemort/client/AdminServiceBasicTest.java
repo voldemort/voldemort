@@ -82,6 +82,7 @@ import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.Utils;
 import voldemort.versioning.VectorClock;
+import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -195,19 +196,22 @@ public class AdminServiceBasicTest {
         Cluster updatedCluster = ServerTestUtils.getLocalCluster(4);
         AdminClient client = getAdminClient();
         for(int i = 0; i < NUM_RUNS; i++) {
-            VectorClock clock = ((VectorClock) client.getRemoteCluster(0).getVersion()).incremented(0,
-                                                                                                    System.currentTimeMillis());
-            client.updateRemoteCluster(0, updatedCluster, clock);
+            VectorClock clock = ((VectorClock) client.metadataMgmtOps.getRemoteCluster(0)
+                                                                     .getVersion()).incremented(0,
+                                                                                                System.currentTimeMillis());
+            client.metadataMgmtOps.updateRemoteCluster(0, updatedCluster, clock);
 
             assertEquals("Cluster should match",
                          updatedCluster,
                          getVoldemortServer(0).getMetadataStore().getCluster());
-            assertEquals("AdminClient.getMetdata() should match", client.getRemoteCluster(0)
-                                                                        .getValue(), updatedCluster);
+            assertEquals("AdminClient.getMetdata() should match",
+                         client.metadataMgmtOps.getRemoteCluster(0).getValue(),
+                         updatedCluster);
 
             // version should match
-            assertEquals("versions should match as well.", clock, client.getRemoteCluster(0)
-                                                                        .getVersion());
+            assertEquals("versions should match as well.",
+                         clock,
+                         client.metadataMgmtOps.getRemoteCluster(0).getVersion());
         }
 
     }
@@ -231,7 +235,7 @@ public class AdminServiceBasicTest {
                                                                  .setRequiredWrites(1)
                                                                  .build();
         try {
-            adminClient.addStore(definition);
+            adminClient.storeMgmtOps.addStore(definition);
             fail("Should have thrown an exception because we cannot add a store with a replication factor greater than number of nodes");
         } catch(Exception e) {}
 
@@ -247,7 +251,7 @@ public class AdminServiceBasicTest {
                                                  .setPreferredWrites(1)
                                                  .setRequiredWrites(1)
                                                  .build();
-        adminClient.addStore(definition);
+        adminClient.storeMgmtOps.addStore(definition);
 
         // now test the store
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
@@ -272,7 +276,7 @@ public class AdminServiceBasicTest {
         }
 
         // make sure that the store list we get back from AdminClient
-        Versioned<List<StoreDefinition>> list = adminClient.getRemoteStoreDefList(0);
+        Versioned<List<StoreDefinition>> list = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
         assertTrue(list.getValue().contains(definition));
     }
 
@@ -295,7 +299,7 @@ public class AdminServiceBasicTest {
         Cluster newCluster = new Cluster("single_zone_cluster", nodes);
 
         try {
-            adminClient.getReplicationMapping(0, newCluster, storeDef);
+            adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -309,9 +313,9 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0
-        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.getReplicationMapping(0,
-                                                                                                             newCluster,
-                                                                                                             storeDef);
+        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                                                                       newCluster,
+                                                                                                                       storeDef);
         {
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
@@ -327,7 +331,9 @@ public class AdminServiceBasicTest {
 
         {
             // On node 1
-            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(1,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -341,7 +347,9 @@ public class AdminServiceBasicTest {
 
         {
             // On node 2
-            replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(2,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
@@ -354,7 +362,9 @@ public class AdminServiceBasicTest {
         }
         {
             // On node 3
-            replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(3,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
@@ -386,7 +396,9 @@ public class AdminServiceBasicTest {
 
         {
             // On node 0
-            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
@@ -400,7 +412,9 @@ public class AdminServiceBasicTest {
         }
         {
             // On node 1
-            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(1,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
@@ -411,7 +425,9 @@ public class AdminServiceBasicTest {
 
         {
             // On node 2
-            replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(2,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -426,7 +442,9 @@ public class AdminServiceBasicTest {
 
         {
             // On node 3
-            replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(3,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
@@ -446,7 +464,9 @@ public class AdminServiceBasicTest {
         newCluster = new Cluster("single_zone_cluster", nodes);
 
         {
-            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(0, 4, 8));
@@ -463,7 +483,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(1,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -479,7 +501,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(2,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -496,7 +520,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(3,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(3, 7, 11));
@@ -529,7 +555,9 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.ZONE_STRATEGY);
         newCluster = new Cluster("multi_zone_cluster", nodes, zones);
         {
-            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(1, 5, 9));
@@ -548,7 +576,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(1,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -567,7 +597,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(2, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(2,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -586,7 +618,9 @@ public class AdminServiceBasicTest {
         }
 
         {
-            replicationMapping = adminClient.getReplicationMapping(3, newCluster, storeDef);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(3,
+                                                                             newCluster,
+                                                                             storeDef);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(0, 4, 8));
@@ -623,7 +657,7 @@ public class AdminServiceBasicTest {
         Cluster newCluster = new Cluster("single_zone_cluster", nodes);
 
         try {
-            adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 1);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -638,7 +672,7 @@ public class AdminServiceBasicTest {
         newCluster = new Cluster("single_zone_cluster", nodes);
 
         try {
-            adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+            adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 0);
             fail("Should have thrown an exception since rep-factor = 1");
         } catch(VoldemortException e) {}
 
@@ -652,10 +686,10 @@ public class AdminServiceBasicTest {
                                                RoutingStrategyType.CONSISTENT_STRATEGY);
 
         // On node 0; zone id 1
-        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.getReplicationMapping(0,
-                                                                                                             newCluster,
-                                                                                                             storeDef,
-                                                                                                             1);
+        Map<Integer, HashMap<Integer, List<Integer>>> replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                                                                       newCluster,
+                                                                                                                       storeDef,
+                                                                                                                       1);
         {
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
@@ -671,7 +705,7 @@ public class AdminServiceBasicTest {
         }
 
         // On node 0; zone id 0
-        replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+        replicationMapping = adminClient.helperOps.getReplicationMapping(0, newCluster, storeDef, 0);
         {
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
@@ -707,14 +741,20 @@ public class AdminServiceBasicTest {
             // On node 0, zone 0 - failure case since zoneReplicationFactor is 1
 
             try {
-                replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 0);
+                replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                                 newCluster,
+                                                                                 storeDef,
+                                                                                 0);
                 fail("Should have thrown an exception since  zoneReplicationFactor is 1");
             } catch(VoldemortException e) {}
         }
 
         {
             // On node 0, zone 1
-            replicationMapping = adminClient.getReplicationMapping(0, newCluster, storeDef, 1);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(0,
+                                                                             newCluster,
+                                                                             storeDef,
+                                                                             1);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(0, Lists.newArrayList(2, 6, 10));
@@ -729,7 +769,10 @@ public class AdminServiceBasicTest {
 
         {
             // On node 1, zone 1
-            replicationMapping = adminClient.getReplicationMapping(1, newCluster, storeDef, 1);
+            replicationMapping = adminClient.helperOps.getReplicationMapping(1,
+                                                                             newCluster,
+                                                                             storeDef,
+                                                                             1);
             HashMap<Integer, HashMap<Integer, List<Integer>>> expectedMapping = Maps.newHashMap();
             HashMap<Integer, List<Integer>> partitionTuple = Maps.newHashMap();
             partitionTuple.put(1, Lists.newArrayList(1, 5, 9));
@@ -755,7 +798,7 @@ public class AdminServiceBasicTest {
                                                                  .setPreferredWrites(1)
                                                                  .setRequiredWrites(1)
                                                                  .build();
-        adminClient.addStore(definition);
+        adminClient.storeMgmtOps.addStore(definition);
 
         // now test the store
         StoreClientFactory factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(cluster.getNodeById(0)
@@ -764,13 +807,20 @@ public class AdminServiceBasicTest {
 
         StoreClient<Object, Object> client = factory.getStoreClient("deleteTest");
 
-        int numStores = adminClient.getRemoteStoreDefList(0).getValue().size();
+        int numStores = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue().size();
 
         // delete the store
-        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().contains(definition), true);
-        adminClient.deleteStore("deleteTest");
-        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().size(), numStores - 1);
-        assertEquals(adminClient.getRemoteStoreDefList(0).getValue().contains(definition), false);
+        assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                .getValue()
+                                                .contains(definition),
+                     true);
+        adminClient.storeMgmtOps.deleteStore("deleteTest");
+        assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue().size(),
+                     numStores - 1);
+        assertEquals(adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                .getValue()
+                                                .contains(definition),
+                     false);
 
         // test with deleted store
         try {
@@ -784,7 +834,7 @@ public class AdminServiceBasicTest {
                 throw e;
         }
         // try adding the store again
-        adminClient.addStore(definition);
+        adminClient.storeMgmtOps.addStore(definition);
 
         client = factory.getStoreClient("deleteTest");
         client.put("abc", "123");
@@ -792,14 +842,34 @@ public class AdminServiceBasicTest {
         assertEquals(s, "123");
     }
 
+    /**
+     * Update the server state (
+     * {@link voldemort.store.metadata.MetadataStore.VoldemortState}) on a
+     * remote node.
+     * 
+     * @param nodeId The node id on which we want to update the state
+     * @param state The state to update to
+     * @param clock The vector clock
+     */
+    private void updateRemoteServerState(AdminClient client,
+                                         int nodeId,
+                                         MetadataStore.VoldemortState state,
+                                         Version clock) {
+        client.metadataMgmtOps.updateRemoteMetadata(nodeId,
+                                                    MetadataStore.SERVER_STATE_KEY,
+                                                    new Versioned<String>(state.toString(), clock));
+    }
+
     @Test
     public void testStateTransitions() {
         // change to REBALANCING STATE
         AdminClient client = getAdminClient();
-        client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
-                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
-                                                                                                               System.currentTimeMillis()));
+        updateRemoteServerState(client,
+                                getVoldemortServer(0).getIdentityNode().getId(),
+                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
+                                                                  .getVersion()).incremented(0,
+                                                                                             System.currentTimeMillis()));
 
         MetadataStore.VoldemortState state = getVoldemortServer(0).getMetadataStore()
                                                                   .getServerState();
@@ -808,10 +878,12 @@ public class AdminServiceBasicTest {
                      state);
 
         // change back to NORMAL state
-        client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER,
-                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
-                                                                                                               System.currentTimeMillis()));
+        updateRemoteServerState(client,
+                                getVoldemortServer(0).getIdentityNode().getId(),
+                                MetadataStore.VoldemortState.NORMAL_SERVER,
+                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
+                                                                  .getVersion()).incremented(0,
+                                                                                             System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -819,10 +891,12 @@ public class AdminServiceBasicTest {
                      state);
 
         // lets revert back to REBALANCING STATE AND CHECK
-        client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
-                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
-                                                                                                               System.currentTimeMillis()));
+        updateRemoteServerState(client,
+                                getVoldemortServer(0).getIdentityNode().getId(),
+                                MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
+                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
+                                                                  .getVersion()).incremented(0,
+                                                                                             System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
 
@@ -830,10 +904,12 @@ public class AdminServiceBasicTest {
                      MetadataStore.VoldemortState.REBALANCING_MASTER_SERVER,
                      state);
 
-        client.updateRemoteServerState(getVoldemortServer(0).getIdentityNode().getId(),
-                                       MetadataStore.VoldemortState.NORMAL_SERVER,
-                                       ((VectorClock) client.getRemoteServerState(0).getVersion()).incremented(0,
-                                                                                                               System.currentTimeMillis()));
+        updateRemoteServerState(client,
+                                getVoldemortServer(0).getIdentityNode().getId(),
+                                MetadataStore.VoldemortState.NORMAL_SERVER,
+                                ((VectorClock) client.rebalanceOps.getRemoteServerState(0)
+                                                                  .getVersion()).incremented(0,
+                                                                                             System.currentTimeMillis()));
 
         state = getVoldemortServer(0).getMetadataStore().getServerState();
         assertEquals("State should be changed correctly to rebalancing state",
@@ -854,7 +930,7 @@ public class AdminServiceBasicTest {
         List<Integer> deletePartitionsList = Arrays.asList(0, 2);
 
         // do delete partitions request
-        getAdminClient().deletePartitions(0, testStoreName, deletePartitionsList, null);
+        getAdminClient().storeMntOps.deletePartitions(0, testStoreName, deletePartitionsList, null);
 
         store = getStore(0, testStoreName);
         for(Entry<ByteArray, byte[]> entry: entrySet.entrySet()) {
@@ -882,11 +958,11 @@ public class AdminServiceBasicTest {
             }
         }
 
-        Iterator<ByteArray> fetchIt = getAdminClient().fetchKeys(0,
-                                                                 testStoreName,
-                                                                 fetchPartitionsList,
-                                                                 null,
-                                                                 false);
+        Iterator<ByteArray> fetchIt = getAdminClient().bulkFetchOps.fetchKeys(0,
+                                                                              testStoreName,
+                                                                              fetchPartitionsList,
+                                                                              null,
+                                                                              false);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -998,24 +1074,24 @@ public class AdminServiceBasicTest {
             HashMap<Integer, List<Integer>> dumbMap = Maps.newHashMap();
             dumbMap.put(0, Lists.newArrayList(100));
             try {
-                getAdminClient().fetchPartitionFiles(node.getId(),
-                                                     "test-readonly-fetchfiles",
-                                                     dumbMap,
-                                                     tempDir.getAbsolutePath(),
-                                                     null,
-                                                     running);
+                getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                                 "test-readonly-fetchfiles",
+                                                                 dumbMap,
+                                                                 tempDir.getAbsolutePath(),
+                                                                 null,
+                                                                 running);
                 fail("Should throw exception since partition map passed is bad");
             } catch(VoldemortException e) {}
 
             // Test 1) Fetch all the primary partitions...
             tempDir = TestUtils.createTempDir();
 
-            getAdminClient().fetchPartitionFiles(node.getId(),
-                                                 "test-readonly-fetchfiles",
-                                                 primaryNodeBuckets,
-                                                 tempDir.getAbsolutePath(),
-                                                 null,
-                                                 running);
+            getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                             "test-readonly-fetchfiles",
+                                                             primaryNodeBuckets,
+                                                             tempDir.getAbsolutePath(),
+                                                             null,
+                                                             running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * primaryPartitions * numChunks + 1);
@@ -1047,12 +1123,12 @@ public class AdminServiceBasicTest {
             // Test 2) Fetch all the replica partitions...
             tempDir = TestUtils.createTempDir();
 
-            getAdminClient().fetchPartitionFiles(node.getId(),
-                                                 "test-readonly-fetchfiles",
-                                                 replicaNodeBuckets,
-                                                 tempDir.getAbsolutePath(),
-                                                 null,
-                                                 running);
+            getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                             "test-readonly-fetchfiles",
+                                                             replicaNodeBuckets,
+                                                             tempDir.getAbsolutePath(),
+                                                             null,
+                                                             running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * replicaPartitions * numChunks + 1);
@@ -1082,12 +1158,12 @@ public class AdminServiceBasicTest {
 
             // Test 3) Fetch all the partitions...
             tempDir = TestUtils.createTempDir();
-            getAdminClient().fetchPartitionFiles(node.getId(),
-                                                 "test-readonly-fetchfiles",
-                                                 nodeBuckets,
-                                                 tempDir.getAbsolutePath(),
-                                                 null,
-                                                 running);
+            getAdminClient().readonlyOps.fetchPartitionFiles(node.getId(),
+                                                             "test-readonly-fetchfiles",
+                                                             nodeBuckets,
+                                                             tempDir.getAbsolutePath(),
+                                                             null,
+                                                             running);
 
             // Check it...
             assertEquals(tempDir.list().length, 2 * (primaryPartitions + replicaPartitions)
@@ -1122,9 +1198,9 @@ public class AdminServiceBasicTest {
     @Test
     public void testGetROStorageFormat() {
 
-        Map<String, String> storesToStorageFormat = getAdminClient().getROStorageFormat(0,
-                                                                                        Lists.newArrayList("test-readonly-fetchfiles",
-                                                                                                           "test-readonly-versions"));
+        Map<String, String> storesToStorageFormat = getAdminClient().readonlyOps.getROStorageFormat(0,
+                                                                                                    Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                                                       "test-readonly-versions"));
         assertEquals(storesToStorageFormat.size(), 2);
         assertEquals(storesToStorageFormat.get("test-readonly-fetchfiles"),
                      ReadOnlyStorageFormat.READONLY_V0.getCode());
@@ -1136,24 +1212,24 @@ public class AdminServiceBasicTest {
     public void testGetROVersions() {
 
         // Tests get current version
-        Map<String, Long> storesToVersions = getAdminClient().getROCurrentVersion(0,
-                                                                                  Lists.newArrayList("test-readonly-fetchfiles",
-                                                                                                     "test-readonly-versions"));
+        Map<String, Long> storesToVersions = getAdminClient().readonlyOps.getROCurrentVersion(0,
+                                                                                              Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                                                 "test-readonly-versions"));
         assertEquals(storesToVersions.size(), 2);
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
         assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
 
         // Tests get maximum version
-        storesToVersions = getAdminClient().getROMaxVersion(0,
-                                                            Lists.newArrayList("test-readonly-fetchfiles",
-                                                                               "test-readonly-versions"));
+        storesToVersions = getAdminClient().readonlyOps.getROMaxVersion(0,
+                                                                        Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                           "test-readonly-versions"));
         assertEquals(storesToVersions.size(), 2);
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
         assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
 
         // Tests global get maximum versions
-        storesToVersions = getAdminClient().getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
-                                                                               "test-readonly-versions"));
+        storesToVersions = getAdminClient().readonlyOps.getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                           "test-readonly-versions"));
         assertEquals(storesToVersions.size(), 2);
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
         assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
@@ -1170,29 +1246,29 @@ public class AdminServiceBasicTest {
 
         // Node 0
         // Test current version
-        storesToVersions = getAdminClient().getROCurrentVersion(0,
-                                                                Lists.newArrayList("test-readonly-fetchfiles"));
+        storesToVersions = getAdminClient().readonlyOps.getROCurrentVersion(0,
+                                                                            Lists.newArrayList("test-readonly-fetchfiles"));
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 0);
 
         // Test max version
-        storesToVersions = getAdminClient().getROMaxVersion(0,
-                                                            Lists.newArrayList("test-readonly-fetchfiles"));
+        storesToVersions = getAdminClient().readonlyOps.getROMaxVersion(0,
+                                                                        Lists.newArrayList("test-readonly-fetchfiles"));
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 10);
 
         // Node 1
         // Test current version
-        storesToVersions = getAdminClient().getROCurrentVersion(1,
-                                                                Lists.newArrayList("test-readonly-fetchfiles"));
+        storesToVersions = getAdminClient().readonlyOps.getROCurrentVersion(1,
+                                                                            Lists.newArrayList("test-readonly-fetchfiles"));
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
 
         // Test max version
-        storesToVersions = getAdminClient().getROMaxVersion(1,
-                                                            Lists.newArrayList("test-readonly-fetchfiles"));
+        storesToVersions = getAdminClient().readonlyOps.getROMaxVersion(1,
+                                                                        Lists.newArrayList("test-readonly-fetchfiles"));
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
 
         // Test global max
-        storesToVersions = getAdminClient().getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
-                                                                               "test-readonly-versions"));
+        storesToVersions = getAdminClient().readonlyOps.getROMaxVersion(Lists.newArrayList("test-readonly-fetchfiles",
+                                                                                           "test-readonly-versions"));
         assertEquals(storesToVersions.get("test-readonly-fetchfiles").longValue(), 11);
         assertEquals(storesToVersions.get("test-readonly-versions").longValue(), 0);
 
@@ -1209,7 +1285,7 @@ public class AdminServiceBasicTest {
         }
 
         // do truncate request
-        getAdminClient().truncate(0, testStoreName);
+        getAdminClient().storeMntOps.truncate(0, testStoreName);
 
         store = getStore(0, testStoreName);
 
@@ -1234,11 +1310,11 @@ public class AdminServiceBasicTest {
             }
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().fetchEntries(0,
-                                                                                             testStoreName,
-                                                                                             fetchPartitionsList,
-                                                                                             null,
-                                                                                             false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIt = getAdminClient().bulkFetchOps.fetchEntries(0,
+                                                                                                          testStoreName,
+                                                                                                          fetchPartitionsList,
+                                                                                                          null,
+                                                                                                          false);
         // check values
         int count = 0;
         while(fetchIt.hasNext()) {
@@ -1330,7 +1406,7 @@ public class AdminServiceBasicTest {
         // test one key on store 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToAndInsideServer0Keys.get(0));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertEquals(queryKeys.get(0), entry.getFirst());
@@ -1347,7 +1423,7 @@ public class AdminServiceBasicTest {
         // test one key belongs to but not exists in server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToServer0ButOutsideBothKeys.get(0));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1359,7 +1435,7 @@ public class AdminServiceBasicTest {
         // test one key not exist and does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(0));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1372,7 +1448,7 @@ public class AdminServiceBasicTest {
         // test one key that exists on server 0 but does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(notBelongServer0ButInsideServer0Keys.get(0));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1386,7 +1462,7 @@ public class AdminServiceBasicTest {
         store0.delete(belongToAndInsideServer0Keys.get(4), null);
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToAndInsideServer0Keys.get(4));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1397,14 +1473,14 @@ public class AdminServiceBasicTest {
 
         // test empty request
         queryKeys = new ArrayList<ByteArray>();
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertFalse("Results should be empty", results.hasNext());
 
         // test null key
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(null);
         assertEquals(1, queryKeys.size());
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1418,7 +1494,7 @@ public class AdminServiceBasicTest {
         queryKeys.add(belongToAndInsideServer1Keys.get(0));
         queryKeys.add(belongToAndInsideServer1Keys.get(1));
         queryKeys.add(belongToAndInsideServer1Keys.get(2));
-        results = getAdminClient().queryKeys(1, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(1, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         Map<ByteArray, List<Versioned<byte[]>>> entries = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         int resultCount = 0;
@@ -1456,7 +1532,7 @@ public class AdminServiceBasicTest {
         queryKeys.add(belongToAndInsideServer0Keys.get(3));
         queryKeys.add(belongToAndInsideServer0Keys.get(5));
         queryKeys.add(notBelongServer0ButInsideServer0Keys.get(2));
-        results = getAdminClient().queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
         // key 0
         entry = results.next();
         assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.getFirst().get()));
@@ -1517,7 +1593,7 @@ public class AdminServiceBasicTest {
             }
         };
 
-        getAdminClient().updateEntries(0, testStoreName, iterator, null);
+        getAdminClient().storeOps.updateEntries(0, testStoreName, iterator, null);
 
         // check updated values
         Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
@@ -1542,7 +1618,7 @@ public class AdminServiceBasicTest {
                                                                                  "test-consistent-with-pref-list");
 
         Iterator<Versioned<Slop>> slopIterator = entrySet.iterator();
-        getAdminClient().updateSlopEntries(0, slopIterator);
+        getAdminClient().storeOps.updateSlopEntries(0, slopIterator);
 
         // check updated values
         Iterator<Versioned<Slop>> entrysetItr = entrySet.iterator();
@@ -1586,7 +1662,7 @@ public class AdminServiceBasicTest {
         }
 
         // recover all data
-        adminClient.restoreDataFromReplications(1, 2);
+        adminClient.restoreOps.restoreDataFromReplications(1, 2);
 
         // assert server 1 has all entries for its partitions
         store = getStore(1, testStoreName);
@@ -1644,14 +1720,14 @@ public class AdminServiceBasicTest {
 
         // Migrate the partition
         AdminClient client = getAdminClient();
-        int id = client.migratePartitions(0,
-                                          1,
-                                          "test-recovery-data",
-                                          replicaToPartitions,
-                                          null,
-                                          cluster,
-                                          false);
-        client.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
+        int id = client.storeMntOps.migratePartitions(0,
+                                                      1,
+                                                      "test-recovery-data",
+                                                      replicaToPartitions,
+                                                      null,
+                                                      cluster,
+                                                      false);
+        client.rpcOps.waitForCompletion(1, id, 120, TimeUnit.SECONDS);
 
         // Check the values
         for(Entry<ByteArray, byte[]> entry: keysMoved.entrySet()) {

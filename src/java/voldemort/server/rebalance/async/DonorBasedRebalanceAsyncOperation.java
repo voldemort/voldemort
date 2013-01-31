@@ -160,9 +160,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
                             // Remove the metadata from all the stealer nodes
                             for(Pair<Integer, HashMap<Integer, List<Integer>>> entry: stealerNodeToMappingTuples) {
-                                adminClient.deleteStoreRebalanceState(metadataStore.getNodeId(),
-                                                                      entry.getFirst(),
-                                                                      storeName);
+                                adminClient.rebalanceOps.deleteStoreRebalanceState(metadataStore.getNodeId(),
+                                                                                   entry.getFirst(),
+                                                                                   storeName);
                                 logger.info("Removed rebalance state for store " + storeName
                                             + " : " + metadataStore.getNodeId() + " ---> "
                                             + entry.getFirst());

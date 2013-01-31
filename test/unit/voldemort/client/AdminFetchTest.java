@@ -132,13 +132,13 @@ public class AdminFetchTest {
     public void testFetchPartitionPrimaryEntries() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(0, Arrays.asList(0, 3));
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.fetchEntries(0,
-                                                                                           testStoreName,
-                                                                                           replicaToPartitionList,
-                                                                                           null,
-                                                                                           false,
-                                                                                           cluster,
-                                                                                           0);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                        testStoreName,
+                                                                                                        replicaToPartitionList,
+                                                                                                        null,
+                                                                                                        false,
+                                                                                                        cluster,
+                                                                                                        0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
         // make sure it fetched all the entries from the partitions requested
@@ -155,13 +155,13 @@ public class AdminFetchTest {
     public void testFetchPartitionSecondaryEntries() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(1, Arrays.asList(4, 6));
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.fetchEntries(0,
-                                                                                           testStoreName,
-                                                                                           replicaToPartitionList,
-                                                                                           null,
-                                                                                           false,
-                                                                                           cluster,
-                                                                                           0);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                        testStoreName,
+                                                                                                        replicaToPartitionList,
+                                                                                                        null,
+                                                                                                        false,
+                                                                                                        cluster,
+                                                                                                        0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
         // make sure it fetched all the entries from the partitions requested
@@ -178,13 +178,13 @@ public class AdminFetchTest {
     public void testFetchNonExistentEntriesPrimary() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(0, Arrays.asList(5, 7));
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.fetchEntries(0,
-                                                                                           testStoreName,
-                                                                                           replicaToPartitionList,
-                                                                                           null,
-                                                                                           false,
-                                                                                           cluster,
-                                                                                           0);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                        testStoreName,
+                                                                                                        replicaToPartitionList,
+                                                                                                        null,
+                                                                                                        false,
+                                                                                                        cluster,
+                                                                                                        0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
         // make sure it fetched nothing since these partitions belong to server
@@ -196,13 +196,13 @@ public class AdminFetchTest {
     public void testFetchNonExistentEntriesSecondary() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(1, Arrays.asList(1, 2));
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.fetchEntries(0,
-                                                                                           testStoreName,
-                                                                                           replicaToPartitionList,
-                                                                                           null,
-                                                                                           false,
-                                                                                           cluster,
-                                                                                           0);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                        testStoreName,
+                                                                                                        replicaToPartitionList,
+                                                                                                        null,
+                                                                                                        false,
+                                                                                                        cluster,
+                                                                                                        0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
         // make sure it fetched nothing since these partitions belong to server

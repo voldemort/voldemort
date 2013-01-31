@@ -145,7 +145,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
         updateStatus(getHeader(stealInfo) + "Stop called on rebalance operation");
         if(null != adminClient) {
             for(int asyncID: rebalanceStatusList) {
-                adminClient.stopAsyncRequest(metadataStore.getNodeId(), asyncID);
+                adminClient.rpcOps.stopAsyncRequest(metadataStore.getNodeId(), asyncID);
             }
         }
 
@@ -175,24 +175,24 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             logger.info(getHeader(stealInfo) + "Starting partitions migration for store "
                         + storeName + " from donor node " + stealInfo.getDonorId());
 
-            int asyncId = adminClient.migratePartitions(stealInfo.getDonorId(),
-                                                        metadataStore.getNodeId(),
-                                                        storeName,
-                                                        stealInfo.getReplicaToAddPartitionList(storeName),
-                                                        null,
-                                                        stealInfo.getInitialCluster(),
-                                                        true);
+            int asyncId = adminClient.storeMntOps.migratePartitions(stealInfo.getDonorId(),
+                                                                    metadataStore.getNodeId(),
+                                                                    storeName,
+                                                                    stealInfo.getReplicaToAddPartitionList(storeName),
+                                                                    null,
+                                                                    stealInfo.getInitialCluster(),
+                                                                    true);
             rebalanceStatusList.add(asyncId);
 
             if(logger.isDebugEnabled()) {
                 logger.debug(getHeader(stealInfo) + "Waiting for completion for " + storeName
                              + " with async id " + asyncId);
             }
-            adminClient.waitForCompletion(metadataStore.getNodeId(),
-                                          asyncId,
-                                          voldemortConfig.getRebalancingTimeoutSec(),
-                                          TimeUnit.SECONDS,
-                                          getStatus());
+            adminClient.rpcOps.waitForCompletion(metadataStore.getNodeId(),
+                                                 asyncId,
+                                                 voldemortConfig.getRebalancingTimeoutSec(),
+                                                 TimeUnit.SECONDS,
+                                                 getStatus());
 
             rebalanceStatusList.remove((Object) asyncId);
 
@@ -207,11 +207,11 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
             logger.info(getHeader(stealInfo) + "Deleting partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
 
-            adminClient.deletePartitions(stealInfo.getDonorId(),
-                                         storeName,
-                                         stealInfo.getReplicaToDeletePartitionList(storeName),
-                                         stealInfo.getInitialCluster(),
-                                         null);
+            adminClient.storeMntOps.deletePartitions(stealInfo.getDonorId(),
+                                                     storeName,
+                                                     stealInfo.getReplicaToDeletePartitionList(storeName),
+                                                     stealInfo.getInitialCluster(),
+                                                     null);
             logger.info(getHeader(stealInfo) + "Deleted partitions for store " + storeName
                         + " on donor node " + stealInfo.getDonorId());
 

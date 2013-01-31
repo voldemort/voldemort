@@ -308,8 +308,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
         try {
-            List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                               .getValue();
+            List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                        .getValue();
             boolean foundStore = false;
 
             // go over all store defs and see if one has the same name as the
@@ -423,7 +423,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
                 log.info("Could not find store " + storeName
                          + " on Voldemort. Adding it to all nodes ");
-                adminClient.addStore(newStoreDef);
+                adminClient.storeMgmtOps.addStore(newStoreDef);
             }
 
             // don't use newStoreDef because we want to ALWAYS use the JSON
@@ -645,8 +645,8 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
         AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
         try {
-            List<StoreDefinition> remoteStoreDefs = adminClient.getRemoteStoreDefList(this.nodeId)
-                                                               .getValue();
+            List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
+                                                                        .getValue();
             boolean foundStore = false;
 
             // go over all store defs and see if one has the same name as the
@@ -802,7 +802,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
 
                 log.info("Could not find store " + storeName
                          + " on Voldemort. Adding it to all nodes ");
-                adminClient.addStore(newStoreDef);
+                adminClient.storeMgmtOps.addStore(newStoreDef);
             }
 
             storeDefs = ImmutableList.of(VoldemortUtils.getStoreDef(VoldemortUtils.getStoreDefXml(storeName,

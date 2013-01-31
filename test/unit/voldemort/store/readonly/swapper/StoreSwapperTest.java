@@ -245,12 +245,13 @@ public class StoreSwapperTest {
         File temporaryDir = createTempROFolder();
 
         // Retrieve all the current versions
-        long currentVersion = adminClient.getROCurrentVersion(0, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+        long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
         for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            long newVersion = adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long newVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
             if(newVersion != currentVersion)
                 fail("Current version (on " + nodeId + ") = " + newVersion
                      + " is not equal to others");
@@ -281,8 +282,9 @@ public class StoreSwapperTest {
 
         // ... check if "currentVersion + 3 " is NOT deleted
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long maxVersion = adminClient.getROMaxVersion(nodeId, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long maxVersion = adminClient.readonlyOps.getROMaxVersion(nodeId,
+                                                                      Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
 
             assertTrue(maxVersion == (currentVersion + 3));
         }
@@ -295,12 +297,13 @@ public class StoreSwapperTest {
         File temporaryDir = createTempROFolder();
 
         // Retrieve all the current versions
-        long currentVersion = adminClient.getROCurrentVersion(0, Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+        long currentVersion = adminClient.readonlyOps.getROCurrentVersion(0,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
         for(int nodeId = 1; nodeId < NUM_NODES; nodeId++) {
-            long newVersion = adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME);
+            long newVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME);
             if(newVersion != currentVersion)
                 fail("Current version (on " + nodeId + ") = " + newVersion
                      + " is not equal to others");
@@ -373,9 +376,9 @@ public class StoreSwapperTest {
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
             versionToNode.put(nodeId,
-                              adminClient.getROCurrentVersion(nodeId,
-                                                              Lists.newArrayList(STORE_NAME))
-                                         .get(STORE_NAME));
+                              adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                          Lists.newArrayList(STORE_NAME))
+                                                     .get(STORE_NAME));
         }
 
         servers[1].getMetadataStore().put(MetadataStore.SERVER_STATE_KEY,
@@ -388,9 +391,9 @@ public class StoreSwapperTest {
 
         // Check that latest is not currentVersion + 4
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long currentNodeVersion = adminClient.getROCurrentVersion(nodeId,
-                                                                      Lists.newArrayList(STORE_NAME))
-                                                 .get(STORE_NAME);
+            long currentNodeVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                                  Lists.newArrayList(STORE_NAME))
+                                                             .get(STORE_NAME);
             assertTrue(currentNodeVersion != (currentVersion + 4));
             assertEquals(currentNodeVersion, (long) versionToNode.get(nodeId));
         }
@@ -403,9 +406,9 @@ public class StoreSwapperTest {
         swapper.swapStoreData(STORE_NAME, temporaryDir.getAbsolutePath(), currentVersion + 5);
 
         for(int nodeId = 0; nodeId < NUM_NODES; nodeId++) {
-            long currentNodeVersion = adminClient.getROCurrentVersion(nodeId,
-                                                                      Lists.newArrayList(STORE_NAME))
-                                                 .get(STORE_NAME);
+            long currentNodeVersion = adminClient.readonlyOps.getROCurrentVersion(nodeId,
+                                                                                  Lists.newArrayList(STORE_NAME))
+                                                             .get(STORE_NAME);
             assertTrue(currentNodeVersion == (currentVersion + 5));
         }
     }

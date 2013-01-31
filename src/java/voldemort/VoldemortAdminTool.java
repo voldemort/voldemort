@@ -417,7 +417,7 @@ public class VoldemortAdminTool {
                     System.exit(1);
                 }
                 System.out.println("Starting restore");
-                adminClient.restoreDataFromReplications(nodeId, parallelism, zoneId);
+                adminClient.restoreOps.restoreDataFromReplications(nodeId, parallelism, zoneId);
                 System.out.println("Finished restore");
             }
             if(ops.contains("k")) {
@@ -541,7 +541,7 @@ public class VoldemortAdminTool {
                                                + storeNames);
                             try {
                                 for(String name: storeNames) {
-                                    adminClient.updateMetadataversion(name);
+                                    adminClient.metadataMgmtOps.updateMetadataversion(name);
                                 }
                             } catch(Exception e) {
                                 System.err.println("Error while updating metadata version for the specified store.");
@@ -582,12 +582,12 @@ public class VoldemortAdminTool {
                 String backupDir = (String) options.valueOf("backup-dir");
                 String storeName = (String) options.valueOf("native-backup");
                 int timeout = CmdUtils.valueOf(options, "backup-timeout", 30);
-                adminClient.nativeBackup(nodeId,
-                                         storeName,
-                                         backupDir,
-                                         timeout,
-                                         options.has("backup-verify"),
-                                         options.has("backup-incremental"));
+                adminClient.storeMntOps.nativeBackup(nodeId,
+                                                     storeName,
+                                                     backupDir,
+                                                     timeout,
+                                                     options.has("backup-verify"),
+                                                     options.has("backup-incremental"));
             }
             if(ops.contains("o")) {
                 String storeName = (String) options.valueOf("rollback");
@@ -599,7 +599,7 @@ public class VoldemortAdminTool {
             }
             if(ops.contains("f")) {
                 long reserveMB = (Long) options.valueOf("reserve-memory");
-                adminClient.reserveMemory(nodeId, storeNames, reserveMB);
+                adminClient.storeMntOps.reserveMemory(nodeId, storeNames, reserveMB);
             }
             if(ops.contains("q")) {
                 List<String> keyList = (List<String>) options.valuesOf("query-keys");
@@ -618,10 +618,10 @@ public class VoldemortAdminTool {
                     System.err.println("Cannot run mirroring without mirror node id");
                     System.exit(1);
                 }
-                adminClient.mirrorData(nodeId,
-                                       mirrorNodeId,
-                                       (String) options.valueOf("mirror-from-url"),
-                                       storeNames);
+                adminClient.restoreOps.mirrorData(nodeId,
+                                                  mirrorNodeId,
+                                                  (String) options.valueOf("mirror-from-url"),
+                                                  storeNames);
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -635,11 +635,11 @@ public class VoldemortAdminTool {
             partitionIdList.addAll(node.getPartitionIds());
         }
 
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.fetchEntries(nodeId,
-                                                                                                SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
-                                                                                                partitionIdList,
-                                                                                                null,
-                                                                                                true);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = adminClient.bulkFetchOps.fetchEntries(nodeId,
+                                                                                                             SystemStoreConstants.SystemStoreName.voldsys$_metadata_version_persistence.name(),
+                                                                                                             partitionIdList,
+                                                                                                             null,
+                                                                                                             true);
         Serializer<String> serializer = new StringSerializer("UTF8");
         String keyObject = null;
         String valueObject = null;
@@ -705,7 +705,7 @@ public class VoldemortAdminTool {
                 System.err.println("The specified node does not have any versions metadata ! Exiting ...");
                 System.exit(-1);
             }
-            adminClient.setMetadataversion(props);
+            adminClient.metadataMgmtOps.setMetadataversion(props);
             System.out.println("Metadata versions synchronized successfully.");
         } catch(IOException e) {
             System.err.println("Error while retrieving Metadata versions from node : " + baseNodeId
@@ -722,20 +722,20 @@ public class VoldemortAdminTool {
                                         AdminClient adminClient) {
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-                adminClient.rollbackStore(node.getId(), storeName, pushVersion);
+                adminClient.readonlyOps.rollbackStore(node.getId(), storeName, pushVersion);
             }
         } else {
-            adminClient.rollbackStore(nodeId, storeName, pushVersion);
+            adminClient.readonlyOps.rollbackStore(nodeId, storeName, pushVersion);
         }
     }
 
     private static void executeRepairJob(Integer nodeId, AdminClient adminClient) {
         if(nodeId < 0) {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
-                adminClient.repairJob(node.getId());
+                adminClient.storeMntOps.repairJob(node.getId());
             }
         } else {
-            adminClient.repairJob(nodeId);
+            adminClient.storeMntOps.repairJob(nodeId);
         }
     }
 
@@ -874,11 +874,14 @@ public class VoldemortAdminTool {
             // Print the job information
             for(int currentNodeId: nodeIds) {
                 System.out.println("Retrieving async jobs from node " + currentNodeId);
-                List<Integer> asyncIds = adminClient.getAsyncRequestList(currentNodeId);
+                List<Integer> asyncIds = adminClient.rpcOps.getAsyncRequestList(currentNodeId);
                 System.out.println("Async Job Ids on node " + currentNodeId + " : " + asyncIds);
                 for(int asyncId: asyncIds) {
-                    System.out.println("Async Job Id " + asyncId + " ] "
-                                       + adminClient.getAsyncRequestStatus(currentNodeId, asyncId));
+                    System.out.println("Async Job Id "
+                                       + asyncId
+                                       + " ] "
+                                       + adminClient.rpcOps.getAsyncRequestStatus(currentNodeId,
+                                                                                  asyncId));
                     System.out.println();
                 }
             }
@@ -893,7 +896,7 @@ public class VoldemortAdminTool {
 
             for(int asyncId: asyncIdsToStop) {
                 System.out.println("Stopping async id " + asyncId);
-                adminClient.stopAsyncRequest(nodeId, asyncId);
+                adminClient.rpcOps.stopAsyncRequest(nodeId, asyncId);
                 System.out.println("Stopped async id " + asyncId);
             }
         } else {
@@ -922,12 +925,12 @@ public class VoldemortAdminTool {
     private static void executeKeyDistribution(AdminClient adminClient) {
         List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         System.out.println(KeyDistributionGenerator.printStoreWiseDistribution(adminClient.getAdminClientCluster(),
-                                                                               adminClient.getRemoteStoreDefList(0)
-                                                                                          .getValue(),
+                                                                               adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                                                                          .getValue(),
                                                                                keys));
         System.out.println(KeyDistributionGenerator.printOverallDistribution(adminClient.getAdminClientCluster(),
-                                                                             adminClient.getRemoteStoreDefList(0)
-                                                                                        .getValue(),
+                                                                             adminClient.metadataMgmtOps.getRemoteStoreDefList(0)
+                                                                                                        .getValue(),
                                                                              keys));
     }
 
@@ -936,7 +939,8 @@ public class VoldemortAdminTool {
         Set<Object> metadataValues = Sets.newHashSet();
         for(Node node: adminClient.getAdminClientCluster().getNodes()) {
             System.out.println(node.getHost() + ":" + node.getId());
-            Versioned<String> versioned = adminClient.getRemoteMetadata(node.getId(), metadataKey);
+            Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                                        metadataKey);
             if(versioned == null || versioned.getValue() == null) {
                 throw new VoldemortException("Value returned from node " + node.getId()
                                              + " was null");
@@ -973,26 +977,29 @@ public class VoldemortAdminTool {
             for(Node node: adminClient.getAdminClientCluster().getNodes()) {
                 nodeIds.add(node.getId());
                 if(updatedVersion == null) {
-                    updatedVersion = (VectorClock) adminClient.getRemoteMetadata(node.getId(), key)
-                                                              .getVersion();
+                    updatedVersion = (VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                                                 key)
+                                                                              .getVersion();
                 } else {
-                    updatedVersion = updatedVersion.merge((VectorClock) adminClient.getRemoteMetadata(node.getId(),
-                                                                                                      key)
-                                                                                   .getVersion());
+                    updatedVersion = updatedVersion.merge((VectorClock) adminClient.metadataMgmtOps.getRemoteMetadata(node.getId(),
+                                                                                                                      key)
+                                                                                                   .getVersion());
                 }
             }
 
             // Bump up version on node 0
             updatedVersion = updatedVersion.incremented(0, System.currentTimeMillis());
         } else {
-            Versioned<String> currentValue = adminClient.getRemoteMetadata(nodeId, key);
+            Versioned<String> currentValue = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                           key);
             updatedVersion = ((VectorClock) currentValue.getVersion()).incremented(nodeId,
                                                                                    System.currentTimeMillis());
             nodeIds.add(nodeId);
         }
-        adminClient.updateRemoteMetadata(nodeIds,
-                                         key,
-                                         Versioned.value(value.toString(), updatedVersion));
+        adminClient.metadataMgmtOps.updateRemoteMetadata(nodeIds,
+                                                         key,
+                                                         Versioned.value(value.toString(),
+                                                                         updatedVersion));
     }
 
     private static void executeROMetadata(Integer nodeId,
@@ -1004,8 +1011,9 @@ public class VoldemortAdminTool {
         if(storeNames == null) {
             // Retrieve list of read-only stores
             storeNames = Lists.newArrayList();
-            for(StoreDefinition storeDef: adminClient.getRemoteStoreDefList(nodeId > 0 ? nodeId : 0)
-                                                     .getValue()) {
+            for(StoreDefinition storeDef: adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId > 0 ? nodeId
+                                                                                                      : 0)
+                                                                     .getValue()) {
                 if(storeDef.getType().compareTo(ReadOnlyStorageConfiguration.TYPE_NAME) == 0) {
                     storeNames.add(storeDef.getName());
                 }
@@ -1030,12 +1038,13 @@ public class VoldemortAdminTool {
                                             .getNodeById(currentNodeId)
                                             .getId());
             if(type.compareTo("max") == 0) {
-                storeToValue = adminClient.getROMaxVersion(currentNodeId, storeNames);
+                storeToValue = adminClient.readonlyOps.getROMaxVersion(currentNodeId, storeNames);
             } else if(type.compareTo("current") == 0) {
-                storeToValue = adminClient.getROCurrentVersion(currentNodeId, storeNames);
+                storeToValue = adminClient.readonlyOps.getROCurrentVersion(currentNodeId,
+                                                                           storeNames);
             } else if(type.compareTo("storage-format") == 0) {
-                Map<String, String> storeToStorageFormat = adminClient.getROStorageFormat(currentNodeId,
-                                                                                          storeNames);
+                Map<String, String> storeToStorageFormat = adminClient.readonlyOps.getROStorageFormat(currentNodeId,
+                                                                                                      storeNames);
                 for(String storeName: storeToStorageFormat.keySet()) {
                     System.out.println(storeName + ":" + storeToStorageFormat.get(storeName));
                 }
@@ -1093,7 +1102,7 @@ public class VoldemortAdminTool {
                 System.out.println("Key - " + key);
                 Versioned<String> versioned = null;
                 try {
-                    versioned = adminClient.getRemoteMetadata(currentNodeId, key);
+                    versioned = adminClient.metadataMgmtOps.getRemoteMetadata(currentNodeId, key);
                 } catch(Exception e) {
                     System.out.println("Error in retrieving " + e.getMessage());
                     System.out.println();
@@ -1125,9 +1134,9 @@ public class VoldemortAdminTool {
     private static void executeDeleteStore(AdminClient adminClient, String storeName, int nodeId) {
         System.out.println("Deleting " + storeName);
         if(nodeId == -1) {
-            adminClient.deleteStore(storeName);
+            adminClient.storeMgmtOps.deleteStore(storeName);
         } else {
-            adminClient.deleteStore(storeName, nodeId);
+            adminClient.storeMgmtOps.deleteStore(storeName, nodeId);
         }
 
     }
@@ -1144,7 +1153,7 @@ public class VoldemortAdminTool {
 
         for(Integer currentNodeId: nodeIds) {
             System.out.println("Truncating " + storeName + " on node " + currentNodeId);
-            adminClient.truncate(currentNodeId, storeName);
+            adminClient.storeMntOps.truncate(currentNodeId, storeName);
         }
     }
 
@@ -1154,9 +1163,9 @@ public class VoldemortAdminTool {
         for(StoreDefinition storeDef: storeDefinitionList) {
             System.out.println("Adding " + storeDef.getName());
             if(-1 != nodeId)
-                adminClient.addStore(storeDef, nodeId);
+                adminClient.storeMgmtOps.addStore(storeDef, nodeId);
             else
-                adminClient.addStore(storeDef);
+                adminClient.storeMgmtOps.addStore(storeDef);
         }
     }
 
@@ -1168,8 +1177,8 @@ public class VoldemortAdminTool {
                                             boolean useAscii,
                                             boolean fetchOrphaned) throws IOException {
 
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                               .getValue();
         HashMap<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -1215,15 +1224,15 @@ public class VoldemortAdminTool {
             Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIteratorRef = null;
             if(fetchOrphaned) {
                 System.out.println("Fetching orphaned entries of " + store);
-                entriesIteratorRef = adminClient.fetchOrphanedEntries(nodeId, store);
+                entriesIteratorRef = adminClient.bulkFetchOps.fetchOrphanedEntries(nodeId, store);
             } else {
                 System.out.println("Fetching entries in partitions "
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
-                entriesIteratorRef = adminClient.fetchEntries(nodeId,
-                                                              store,
-                                                              partitionIdList,
-                                                              null,
-                                                              false);
+                entriesIteratorRef = adminClient.bulkFetchOps.fetchEntries(nodeId,
+                                                                           store,
+                                                                           partitionIdList,
+                                                                           null,
+                                                                           false);
             }
 
             final Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesIterator = entriesIteratorRef;
@@ -1327,8 +1336,8 @@ public class VoldemortAdminTool {
                                              AdminClient adminClient,
                                              List<String> storeNames,
                                              String inputDirPath) throws IOException {
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                               .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -1353,7 +1362,7 @@ public class VoldemortAdminTool {
         for(String storeName: storeNames) {
             Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = readEntriesBinary(inputDir,
                                                                                       storeName);
-            adminClient.updateEntries(nodeId, storeName, iterator, null);
+            adminClient.storeOps.updateEntries(nodeId, storeName, iterator, null);
         }
 
     }
@@ -1414,8 +1423,8 @@ public class VoldemortAdminTool {
                                          List<String> storeNames,
                                          boolean useAscii,
                                          boolean fetchOrphaned) throws IOException {
-        List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                               .getValue();
+        List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                               .getValue();
         Map<String, StoreDefinition> storeDefinitionMap = Maps.newHashMap();
         for(StoreDefinition storeDefinition: storeDefinitionList) {
             storeDefinitionMap.put(storeDefinition.getName(), storeDefinition);
@@ -1459,11 +1468,15 @@ public class VoldemortAdminTool {
             Iterator<ByteArray> keyIteratorRef = null;
             if(fetchOrphaned) {
                 System.out.println("Fetching orphaned keys  of " + store);
-                keyIteratorRef = adminClient.fetchOrphanedKeys(nodeId, store);
+                keyIteratorRef = adminClient.bulkFetchOps.fetchOrphanedKeys(nodeId, store);
             } else {
                 System.out.println("Fetching keys in partitions "
                                    + Joiner.on(", ").join(partitionIdList) + " of " + store);
-                keyIteratorRef = adminClient.fetchKeys(nodeId, store, partitionIdList, null, false);
+                keyIteratorRef = adminClient.bulkFetchOps.fetchKeys(nodeId,
+                                                                    store,
+                                                                    partitionIdList,
+                                                                    null,
+                                                                    false);
             }
             File outputFile = null;
             if(directory != null) {
@@ -1585,8 +1598,8 @@ public class VoldemortAdminTool {
         List<String> stores = storeNames;
         if(stores == null) {
             stores = Lists.newArrayList();
-            List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                                   .getValue();
+            List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                                   .getValue();
             for(StoreDefinition storeDefinition: storeDefinitionList) {
                 stores.add(storeDefinition.getName());
             }
@@ -1595,7 +1608,7 @@ public class VoldemortAdminTool {
         for(String store: stores) {
             System.out.println("Deleting partitions " + Joiner.on(", ").join(partitionIdList)
                                + " of " + store);
-            adminClient.deletePartitions(nodeId, store, partitionIdList, null);
+            adminClient.storeMntOps.deletePartitions(nodeId, store, partitionIdList, null);
         }
     }
 
@@ -1609,11 +1622,11 @@ public class VoldemortAdminTool {
             listKeys.add(new ByteArray(serializer.toBytes(key)));
         }
         for(final String storeName: storeNames) {
-            final Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> iterator = adminClient.queryKeys(nodeId.intValue(),
-                                                                                                                       storeName,
-                                                                                                                       listKeys.iterator());
-            List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                                   .getValue();
+            final Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> iterator = adminClient.storeOps.queryKeys(nodeId.intValue(),
+                                                                                                                                storeName,
+                                                                                                                                listKeys.iterator());
+            List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                                   .getValue();
             StoreDefinition storeDefinition = null;
             for(StoreDefinition storeDef: storeDefinitionList) {
                 if(storeDef.getName().equals(storeName))

@@ -507,11 +507,11 @@ public abstract class AbstractRebalanceTest {
             movedPartitions.add(3);
             AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = admin.fetchKeys(1,
-                                   rwStoreDefWithReplication.getName(),
-                                   movedPartitions,
-                                   null,
-                                   false);
+            keys = admin.bulkFetchOps.fetchKeys(1,
+                                                rwStoreDefWithReplication.getName(),
+                                                movedPartitions,
+                                                null,
+                                                false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -520,11 +520,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(1);
             Iterator<ByteArray> keys2 = null;
-            keys2 = admin.fetchKeys(1,
-                                    rwStoreDefWithReplication.getName(),
-                                    stablePartitions,
-                                    null,
-                                    false);
+            keys2 = admin.bulkFetchOps.fetchKeys(1,
+                                                 rwStoreDefWithReplication.getName(),
+                                                 stablePartitions,
+                                                 null,
+                                                 false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -540,7 +540,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                admin.repairJob(i);
+                admin.storeMntOps.repairJob(i);
             }
 
             boolean cleanNode = true;
@@ -609,11 +609,11 @@ public abstract class AbstractRebalanceTest {
             movedPartitions.add(3);
             AdminClient admin = rebalanceClient.getAdminClient();
             Iterator<ByteArray> keys = null;
-            keys = admin.fetchKeys(1,
-                                   rwStoreDefWithReplication.getName(),
-                                   movedPartitions,
-                                   null,
-                                   false);
+            keys = admin.bulkFetchOps.fetchKeys(1,
+                                                rwStoreDefWithReplication.getName(),
+                                                movedPartitions,
+                                                null,
+                                                false);
             int keyIndex = 0;
             while(keys.hasNext() && keyIndex < 20) {
                 checkKeysNegative[keyIndex++] = keys.next();
@@ -623,11 +623,11 @@ public abstract class AbstractRebalanceTest {
             List<Integer> stablePartitions = new ArrayList<Integer>();
             stablePartitions.add(3);
             Iterator<ByteArray> keys2 = null;
-            keys2 = admin.fetchKeys(0,
-                                    rwStoreDefWithReplication.getName(),
-                                    stablePartitions,
-                                    null,
-                                    false);
+            keys2 = admin.bulkFetchOps.fetchKeys(0,
+                                                 rwStoreDefWithReplication.getName(),
+                                                 stablePartitions,
+                                                 null,
+                                                 false);
             int keyIndex2 = 0;
             while(keys2.hasNext() && keyIndex2 < 20) {
                 checkKeysPositive[keyIndex2++] = keys2.next();
@@ -643,7 +643,7 @@ public abstract class AbstractRebalanceTest {
             // Do the cleanup operation
 
             for(int i = 0; i < 3; i++) {
-                admin.repairJob(i);
+                admin.storeMntOps.repairJob(i);
             }
 
             boolean cleanNode = true;

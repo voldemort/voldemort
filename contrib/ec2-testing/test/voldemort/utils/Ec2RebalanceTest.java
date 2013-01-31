@@ -93,7 +93,7 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
             AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
-            return adminClient.getRemoteServerState(nodeId).getValue();
+            return adminClient.rebalanceOps.getRemoteServerState(nodeId).getValue();
         }
     }
 

@@ -422,7 +422,7 @@ public class StreamingSlopPusherJob implements Runnable {
                     }
                     this.startTime = System.currentTimeMillis();
                     iterator = new SlopIterator(slopQueue, current);
-                    adminClient.updateSlopEntries(nodeId, iterator);
+                    adminClient.storeOps.updateSlopEntries(nodeId, iterator);
                 } while(!iterator.isComplete());
 
                 // Clear up both previous and current

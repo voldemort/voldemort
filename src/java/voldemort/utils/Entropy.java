@@ -223,12 +223,12 @@ public class Entropy {
                             int numKeysPerNode = (int) Math.floor(numKeys
                                                                   / cluster.getNumberOfNodes());
                             for(Node node: cluster.getNodes()) {
-                                keys = adminClient.fetchKeys(node.getId(),
-                                                             storeDef.getName(),
-                                                             cluster.getNodeById(node.getId())
-                                                                    .getPartitionIds(),
-                                                             null,
-                                                             false);
+                                keys = adminClient.bulkFetchOps.fetchKeys(node.getId(),
+                                                                          storeDef.getName(),
+                                                                          cluster.getNodeById(node.getId())
+                                                                                 .getPartitionIds(),
+                                                                          null,
+                                                                          false);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
                                     // entropy returns distinct keys from each
@@ -253,11 +253,11 @@ public class Entropy {
                                 partitionMap.put(partitionId, 0);
                             }
 
-                            keys = adminClient.fetchKeys(nodeId,
-                                                         storeDef.getName(),
-                                                         partitions,
-                                                         null,
-                                                         false);
+                            keys = adminClient.bulkFetchOps.fetchKeys(nodeId,
+                                                                      storeDef.getName(),
+                                                                      partitions,
+                                                                      null,
+                                                                      false);
                             while(keys.hasNext() && numKeysStored < numKeys) {
                                 ByteArray key = keys.next();
                                 // entropy returns distinct keys from each

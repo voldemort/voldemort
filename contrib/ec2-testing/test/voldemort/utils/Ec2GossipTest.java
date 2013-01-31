@@ -156,18 +156,20 @@ public class Ec2GossipTest {
                 AdminClient adminClient = new AdminClient("tcp://" + hostname + ":6666",
                                                           new AdminClientConfig());
 
-                Versioned<String> versioned = adminClient.getRemoteMetadata(nodeId,
-                                                                            MetadataStore.CLUSTER_KEY);
+                Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
+                                                                                     MetadataStore.CLUSTER_KEY);
                 Version version = versioned.getVersion();
 
                 VectorClock vectorClock = (VectorClock) version;
                 vectorClock.incrementVersion(nodeId, System.currentTimeMillis());
 
                 try {
-                    adminClient.updateRemoteMetadata(peerNodeId,
-                                                     MetadataStore.CLUSTER_KEY,
-                                                     versioned);
-                    adminClient.updateRemoteMetadata(nodeId, MetadataStore.CLUSTER_KEY, versioned);
+                    adminClient.metadataMgmtOps.updateRemoteMetadata(peerNodeId,
+                                                              MetadataStore.CLUSTER_KEY,
+                                                              versioned);
+                    adminClient.metadataMgmtOps.updateRemoteMetadata(nodeId,
+                                                              MetadataStore.CLUSTER_KEY,
+                                                              versioned);
                 } catch(VoldemortException e) {
                     logger.error(e);
                 }
@@ -189,7 +191,8 @@ public class Ec2GossipTest {
                     for(int testNodeId: oldNodeIdSet) {
                         logger.info("Testing node " + testNodeId);
                         try {
-                            Cluster cluster = adminClient.getRemoteCluster(testNodeId).getValue();
+                            Cluster cluster = adminClient.metadataMgmtOps.getRemoteCluster(testNodeId)
+                                                                  .getValue();
                             Set<Integer> allNodeIds = new HashSet<Integer>();
                             for(Node node: cluster.getNodes()) {
                                 allNodeIds.add(node.getId());

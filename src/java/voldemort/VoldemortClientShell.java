@@ -177,7 +177,8 @@ public class VoldemortClientShell {
                     String[] args = line.substring("getmetadata".length() + 1).split("\\s+");
                     int remoteNodeId = Integer.valueOf(args[0]);
                     String key = args[1];
-                    Versioned<String> versioned = adminClient.getRemoteMetadata(remoteNodeId, key);
+                    Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(remoteNodeId,
+                                                                                                key);
                     if(versioned == null) {
                         System.out.println("null");
                     } else {
@@ -205,11 +206,11 @@ public class VoldemortClientShell {
                     int remoteNodeId = Integer.valueOf(args[0]);
                     String storeName = args[1];
                     List<Integer> partititionList = parseCsv(args[2]);
-                    Iterator<ByteArray> partitionKeys = adminClient.fetchKeys(remoteNodeId,
-                                                                              storeName,
-                                                                              partititionList,
-                                                                              null,
-                                                                              false);
+                    Iterator<ByteArray> partitionKeys = adminClient.bulkFetchOps.fetchKeys(remoteNodeId,
+                                                                                           storeName,
+                                                                                           partititionList,
+                                                                                           null,
+                                                                                           false);
 
                     BufferedWriter writer = null;
                     try {
@@ -236,11 +237,11 @@ public class VoldemortClientShell {
                     int remoteNodeId = Integer.valueOf(args[0]);
                     String storeName = args[1];
                     List<Integer> partititionList = parseCsv(args[2]);
-                    Iterator<Pair<ByteArray, Versioned<byte[]>>> partitionEntries = adminClient.fetchEntries(remoteNodeId,
-                                                                                                             storeName,
-                                                                                                             partititionList,
-                                                                                                             null,
-                                                                                                             false);
+                    Iterator<Pair<ByteArray, Versioned<byte[]>>> partitionEntries = adminClient.bulkFetchOps.fetchEntries(remoteNodeId,
+                                                                                                                          storeName,
+                                                                                                                          partititionList,
+                                                                                                                          null,
+                                                                                                                          false);
                     BufferedWriter writer = null;
                     try {
                         if(args.length > 3) {
@@ -270,21 +271,29 @@ public class VoldemortClientShell {
                 } else if(line.startsWith("help")) {
                     System.out.println();
                     System.out.println("Commands:");
-                    System.out.println(PROMPT + "put key value --- Associate the given value with the key.");
-                    System.out.println(PROMPT + "get key --- Retrieve the value associated with the key.");
-                    System.out.println(PROMPT + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
-                    System.out.println(PROMPT + "delete key --- Remove all values associated with the key.");
-                    System.out.println(PROMPT + "preflist key --- Get node preference list for given key.");
+                    System.out.println(PROMPT
+                                       + "put key value --- Associate the given value with the key.");
+                    System.out.println(PROMPT
+                                       + "get key --- Retrieve the value associated with the key.");
+                    System.out.println(PROMPT
+                                       + "getall key1 [key2...] --- Retrieve the value(s) associated with the key(s).");
+                    System.out.println(PROMPT
+                                       + "delete key --- Remove all values associated with the key.");
+                    System.out.println(PROMPT
+                                       + "preflist key --- Get node preference list for given key.");
                     String metaKeyValues = voldemort.store.metadata.MetadataStore.METADATA_KEYS.toString();
-                    System.out.println(PROMPT + "getmetadata node_id meta_key --- Get store metadata associated "
+                    System.out.println(PROMPT
+                                       + "getmetadata node_id meta_key --- Get store metadata associated "
                                        + "with meta_key from node_id. meta_key may be one of "
                                        + metaKeyValues.substring(1, metaKeyValues.length() - 1)
                                        + ".");
-                    System.out.println(PROMPT + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
+                    System.out.println(PROMPT
+                                       + "fetchkeys node_id store_name partitions <file_name> --- Fetch all keys "
                                        + "from given partitions (a comma separated list) of store_name on "
                                        + "node_id. Optionally, write to file_name. "
                                        + "Use getmetadata to determine appropriate values for store_name and partitions");
-                    System.out.println(PROMPT + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
+                    System.out.println(PROMPT
+                                       + "fetch node_id store_name partitions <file_name> --- Fetch all entries "
                                        + "from given partitions (a comma separated list) of store_name on "
                                        + "node_id. Optionally, write to file_name. "
                                        + "Use getmetadata to determine appropriate values for store_name and partitions");
@@ -383,10 +392,10 @@ public class VoldemortClientShell {
             System.out.print('}');
         } else if(o instanceof Object[]) {
             Object[] a = (Object[]) o;
-            System.out.print( Arrays.deepToString(a) );
+            System.out.print(Arrays.deepToString(a));
         } else if(o instanceof byte[]) {
             byte[] a = (byte[]) o;
-            System.out.print( Arrays.toString(a) );
+            System.out.print(Arrays.toString(a));
         } else {
             System.out.print(o);
         }

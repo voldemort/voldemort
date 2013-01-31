@@ -214,8 +214,8 @@ public class GossiperTest {
         // Get the new cluster.xml
         AdminClient localAdminClient = getAdminClient(newCluster);
 
-        Versioned<String> versionedClusterXML = localAdminClient.getRemoteMetadata(3,
-                                                                                   MetadataStore.CLUSTER_KEY);
+        Versioned<String> versionedClusterXML = localAdminClient.metadataMgmtOps.getRemoteMetadata(3,
+                                                                                            MetadataStore.CLUSTER_KEY);
 
         // Increment the version, let what would be the "donor node" know about
         // it to seed the Gossip.
@@ -223,8 +223,12 @@ public class GossiperTest {
         ((VectorClock) version).incrementVersion(3, ((VectorClock) version).getTimestamp() + 1);
         ((VectorClock) version).incrementVersion(0, ((VectorClock) version).getTimestamp() + 1);
 
-        localAdminClient.updateRemoteMetadata(0, MetadataStore.CLUSTER_KEY, versionedClusterXML);
-        localAdminClient.updateRemoteMetadata(3, MetadataStore.CLUSTER_KEY, versionedClusterXML);
+        localAdminClient.metadataMgmtOps.updateRemoteMetadata(0,
+                                                       MetadataStore.CLUSTER_KEY,
+                                                       versionedClusterXML);
+        localAdminClient.metadataMgmtOps.updateRemoteMetadata(3,
+                                                       MetadataStore.CLUSTER_KEY,
+                                                       versionedClusterXML);
 
         try {
             Thread.sleep(500);

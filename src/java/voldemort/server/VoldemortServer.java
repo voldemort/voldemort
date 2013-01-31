@@ -358,7 +358,8 @@ public class VoldemortServer extends AbstractService {
                                                                        metadata.getCluster(),
                                                                        numberOfParallelTransfers * 2);
         try {
-            adminClient.restoreDataFromReplications(metadata.getNodeId(), numberOfParallelTransfers);
+            adminClient.restoreOps.restoreDataFromReplications(metadata.getNodeId(),
+                                                               numberOfParallelTransfers);
         } finally {
             adminClient.stop();
         }

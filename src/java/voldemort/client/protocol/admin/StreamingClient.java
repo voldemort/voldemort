@@ -370,7 +370,8 @@ public class StreamingClient {
                 nodeIdStoreToSocketAndStreams.put(new Pair(store, node.getId()), sands);
                 nodeIdStoreInitialized.put(new Pair(store, node.getId()), false);
 
-                remoteStoreDefs = adminClient.getRemoteStoreDefList(node.getId()).getValue();
+                remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(node.getId())
+                                                      .getValue();
 
             } catch(Exception e) {
                 close(sands.getSocket());
@@ -697,4 +698,3 @@ public class StreamingClient {
     }
 
 }
-

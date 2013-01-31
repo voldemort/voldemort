@@ -88,8 +88,8 @@ public class VoldemortRollbackJob extends AbstractJob {
                 // Get the current version for all stores on all nodes
                 Map<Integer, Map<String, Long>> previousVersions = Maps.newHashMap();
                 for(Node node: cluster.getNodes()) {
-                    Map<String, Long> currentVersion = adminClient.getROCurrentVersion(node.getId(),
-                                                                                       storeNames);
+                    Map<String, Long> currentVersion = adminClient.readonlyOps.getROCurrentVersion(node.getId(),
+                                                                                                   storeNames);
 
                     log.info("Retrieving current version information on node " + node.getId());
                     Map<String, Long> previousVersion = Maps.newHashMap();

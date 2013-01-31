@@ -56,12 +56,12 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         }
 
         // make fetch stream call with filter
-        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().fetchEntries(0,
-                                                                                                   testStoreName,
-                                                                                                   getCluster().getNodeById(0)
-                                                                                                               .getPartitionIds(),
-                                                                                                   filter,
-                                                                                                   false);
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entryIterator = getAdminClient().bulkFetchOps.fetchEntries(0,
+                                                                                                                testStoreName,
+                                                                                                                getCluster().getNodeById(0)
+                                                                                                                            .getPartitionIds(),
+                                                                                                                filter,
+                                                                                                                false);
 
         // assert none of the filtered entries are returned.
         while(entryIterator.hasNext()) {
@@ -89,7 +89,10 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         }
 
         // make delete stream call with filter
-        getAdminClient().deletePartitions(0, testStoreName, Lists.newArrayList(0, 1), filter);
+        getAdminClient().storeMntOps.deletePartitions(0,
+                                                      testStoreName,
+                                                      Lists.newArrayList(0, 1),
+                                                      filter);
 
         // assert none of the filtered entries are returned.
         for(Pair<ByteArray, Versioned<byte[]>> entry: entrySet) {
@@ -116,7 +119,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         // make update stream call with filter
-        getAdminClient().updateEntries(0, testStoreName, entrySet.iterator(), filter);
+        getAdminClient().storeOps.updateEntries(0, testStoreName, entrySet.iterator(), filter);
 
         // assert none of the filtered entries are updated.
         // user store should be present
