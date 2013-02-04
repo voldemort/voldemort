@@ -48,7 +48,8 @@ import com.google.common.collect.Lists;
 
 public class ConsistencyFix {
 
-    // TODO: Move ConsistencyFixContext into its own file?
+    // TODO: Move ConsistencyFixContext into its own file? Or break this apart.
+    // I.e., explicitly pass adminClient and storeInstance around?
     private static class ConsistencyFixContext {
 
         private final AdminClient adminClient;
@@ -410,12 +411,6 @@ public class ConsistencyFix {
             toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
         }
 
-        // TODO: As we discussed, I don't know the read repair code path very
-        // well. So, feel free to discard my comments if I am off target w.r.t
-        // to simply doing a get() to fix everything. Semantically, it then
-        // gives me more comfort that given enough activity to out of sync keys,
-        // they will eventually reconcile. Our consistency check and fix is then
-        // simply a way to generate activity to the right keys. -- VChandar
         if(verbose) {
             System.out.println("Repair work to be done:");
             for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
