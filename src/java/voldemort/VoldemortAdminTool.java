@@ -1623,11 +1623,11 @@ public class VoldemortAdminTool {
             listKeys.add(new ByteArray(serializer.toBytes(key)));
         }
         for(final String storeName: storeNames) {
-            final Iterator<QueryKeyResult> iterator = adminClient.queryKeys(nodeId.intValue(),
-                                                                            storeName,
-                                                                            listKeys.iterator());
-            List<StoreDefinition> storeDefinitionList = adminClient.getRemoteStoreDefList(nodeId)
-                                                                   .getValue();
+            final Iterator<QueryKeyResult> iterator = adminClient.storeOps.queryKeys(nodeId.intValue(),
+                                                                                     storeName,
+                                                                                     listKeys.iterator());
+            List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
+                                                                                   .getValue();
             StoreDefinition storeDefinition = null;
             for(StoreDefinition storeDef: storeDefinitionList) {
                 if(storeDef.getName().equals(storeName))

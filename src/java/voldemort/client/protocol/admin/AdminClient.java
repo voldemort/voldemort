@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -76,6 +76,7 @@ import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
 import voldemort.store.readonly.ReadOnlyUtils;
+import voldemort.store.routed.NodeValue;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
@@ -84,11 +85,14 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
+import voldemort.utils.ClusterUtils;
 import voldemort.utils.MetadataVersionStoreUtils;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
+import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -335,6 +339,7 @@ public class AdminClient {
             }
         }
 
+        // TODO: Move this helper method to ClusterInstance?
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -351,6 +356,7 @@ public class AdminClient {
             return getReplicationMapping(restoringNode, cluster, storeDef, -1);
         }
 
+        // TODO: Move this helper method to ClusterInstance?
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -408,6 +414,7 @@ public class AdminClient {
             return returnMap;
         }
 
+        // TODO: Move this helper method to ClusterInstance?
         /**
          * For each partition that need to be restored, find a donor node that
          * owns the partition AND has the same zone ID as requested. -1 means no
@@ -431,7 +438,7 @@ public class AdminClient {
                                                 int zoneId,
                                                 Cluster cluster,
                                                 StoreDefinition storeDef) {
-            Map<Integer, Integer> partitionToNodeId = RebalanceUtils.getCurrentPartitionMapping(cluster);
+            Map<Integer, Integer> partitionToNodeId = ClusterUtils.getCurrentPartitionMapping(cluster);
             int nodeId = -1;
             int replicaType = -1;
             int partition = -1;
@@ -487,6 +494,12 @@ public class AdminClient {
                                               .build();
         }
 
+        // TODO: It is weird that a helper method invokes
+        // metadataMgmtOps.getRemoteStoreDefList. Refactor this method to split
+        // some of the functionality into ClusterInstance, and then move this
+        // method to metadataMgmtOps. Or, do the refactoring wrt ClusterInstance
+        // and change the method interface to require storeDef rather than
+        // storeName to avoid doing a metadata operation...
         /**
          * Converts list of partitions to map of replica type to partition list.
          * 
@@ -501,7 +514,8 @@ public class AdminClient {
             List<StoreDefinition> allStoreDefs = metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                 .getValue();
             allStoreDefs.addAll(SystemStoreConstants.getAllSystemStoreDefs());
-            StoreDefinition def = RebalanceUtils.getStoreDefinitionWithName(allStoreDefs, storeName);
+            StoreDefinition def = StoreDefinitionUtils.getStoreDefinitionWithName(allStoreDefs,
+                                                                                  storeName);
             HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
             for(int replicaNum = 0; replicaNum < def.getReplicationFactor(); replicaNum++) {
                 replicaToPartitionList.put(replicaNum, partitions);
@@ -1871,7 +1885,7 @@ public class AdminClient {
         }
     }
 
-    // TODO: Move into streaming operations or some such.
+    // TODO: Move into StreamingStoreOperations or some such.
     /**
      * This method is a work-in-progress. Expectation is that updateEntries will
      * eventually be used to process a stream of repairs.
@@ -2035,9 +2049,9 @@ public class AdminClient {
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
-        public Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> queryKeys(int nodeId,
-                                                                                             String storeName,
-                                                                                             final Iterator<ByteArray> keys) {
+        public Iterator<QueryKeyResult> queryKeys(int nodeId,
+                                                  String storeName,
+                                                  final Iterator<ByteArray> keys) {
 
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             ClientConfig clientConfig = new ClientConfig();
@@ -2060,12 +2074,11 @@ public class AdminClient {
                 throw new VoldemortException(e);
             }
 
-            return new AbstractIterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>>() {
+            return new AbstractIterator<QueryKeyResult>() {
 
                 @Override
-                public Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> computeNext() {
+                public QueryKeyResult computeNext() {
                     ByteArray key;
-                    Exception exception = null;
                     List<Versioned<byte[]>> value = null;
                     if(!keys.hasNext()) {
                         clientPool.close();
@@ -2075,10 +2088,10 @@ public class AdminClient {
                     }
                     try {
                         value = store.get(key, null);
+                        return new QueryKeyResult(key, value);
                     } catch(Exception e) {
-                        exception = e;
+                        return new QueryKeyResult(key, e);
                     }
-                    return Pair.create(key, Pair.create(value, exception));
                 }
             };
         }
@@ -3101,4 +3114,3 @@ public class AdminClient {
         }
     }
 }
-

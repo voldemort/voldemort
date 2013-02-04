@@ -62,7 +62,7 @@ public class ConsistencyFix {
             System.out.println("Cluster determined to be: " + cluster.getName());
 
             System.out.println("Determining store definition for store: " + storeName);
-            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.getRemoteStoreDefList(0);
+            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
             List<StoreDefinition> storeDefs = storeDefinitions.getValue();
             StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                               storeName);
@@ -282,9 +282,9 @@ public class ConsistencyFix {
         }
         for(int nodeId: nodeIdList) {
             Iterator<QueryKeyResult> keyValues;
-            keyValues = vInstance.getAdminClient().queryKeys(nodeId,
-                                                             vInstance.getStoreName(),
-                                                             keys.iterator());
+            keyValues = vInstance.getAdminClient().storeOps.queryKeys(nodeId,
+                                                                      vInstance.getStoreName(),
+                                                                      keys.iterator());
             nodeIdToKeyValues.put(nodeId, keyValues);
             // TODO: Not sure if this is appropriate. Since the keyValues
             // iterator is a google abstract iterator and inside computeNext()

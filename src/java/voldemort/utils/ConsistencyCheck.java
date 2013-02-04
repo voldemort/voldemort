@@ -250,7 +250,7 @@ public class ConsistencyCheck {
             Cluster cluster = adminClient.getAdminClientCluster();
 
             /* find store */
-            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.getRemoteStoreDefList(0);
+            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
             List<StoreDefinition> StoreDefitions = storeDefinitions.getValue();
             StoreDefinition storeDefinition = null;
             for(StoreDefinition def: StoreDefitions) {
@@ -315,7 +315,11 @@ public class ConsistencyCheck {
             /* get entry Iterator from each node */
             for(Integer nodeId: nodeIdList) {
                 Iterator<Pair<ByteArray, Versioned<byte[]>>> entries;
-                entries = adminClient.fetchEntries(nodeId, storeName, singlePartition, null, false);
+                entries = adminClient.bulkFetchOps.fetchEntries(nodeId,
+                                                                storeName,
+                                                                singlePartition,
+                                                                null,
+                                                                false);
                 nodeEntriesMap.put(new PrefixNode(urlId, cluster.getNodeById(nodeId)), entries);
             }
             replicationFactor += storeDefinition.getReplicationFactor();
