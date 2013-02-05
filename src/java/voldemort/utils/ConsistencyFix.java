@@ -21,9 +21,7 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -34,9 +32,11 @@ import joptsimple.OptionSet;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
+import voldemort.client.protocol.admin.RepairEntryResult;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.store.routed.NodeValue;
@@ -222,6 +222,8 @@ public class ConsistencyFix {
             Utils.croak("Failure to create BufferedWriter for ouput file '" + options.outFile + "'");
         }
 
+        // TODO: Need something more iterator like for reading files of keys.
+        // Don't want to read millions of keys into memory at startup.
         ConsistencyFixContext vInstance = new ConsistencyFixContext(options.url, options.storeName);
         for(String keyInHexFormat: options.keysInHexFormat) {
             FixKeyResult fixKeyResult = fixKey(vInstance, keyInHexFormat, options.verbose);
@@ -231,6 +233,8 @@ public class ConsistencyFix {
                 fileWriter.write("BADKEY," + keyInHexFormat + "," + fixKeyResult.name());
             }
         }
+
+        vInstance.getAdminClient().stop();
     }
 
     public enum FixKeyResult {
@@ -266,7 +270,7 @@ public class ConsistencyFix {
                                                       final byte[] keyInBytes,
                                                       final String keyInHexFormat,
                                                       boolean verbose,
-                                                      Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues) {
+                                                      Map<Integer, QueryKeyResult> nodeIdToKeyValues) {
         if(nodeIdToKeyValues == null) {
             if(verbose) {
                 System.out.println("Aborting doRead due to bad init.");
@@ -274,23 +278,16 @@ public class ConsistencyFix {
             return FixKeyResult.BAD_INIT;
         }
 
-        List<ByteArray> keys = new ArrayList<ByteArray>();
-        keys.add(new ByteArray(keyInBytes));
-
         if(verbose) {
             System.out.println("Reading key-values for specified key: " + keyInHexFormat);
         }
+        // TODO: Do this asynchronously so that all requests are outstanding in
+        // parallel. Will need to make nodeIdToKeyValues thread safe.
         for(int nodeId: nodeIdList) {
-            Iterator<QueryKeyResult> keyValues;
-            keyValues = vInstance.getAdminClient().storeOps.queryKeys(nodeId,
-                                                                      vInstance.getStoreName(),
-                                                                      keys.iterator());
-            nodeIdToKeyValues.put(nodeId, keyValues);
-            // TODO: Not sure if this is appropriate. Since the keyValues
-            // iterator is a google abstract iterator and inside computeNext()
-            // still ratains a connection of a socket store. Does this iterator
-            // implementation call the computeNext() immediately and release the
-            // connection when done? -- ZWu
+            QueryKeyResult queryKeyResult = vInstance.getAdminClient().storeOps.queryKey(vInstance.getStoreName(),
+                                                                                         nodeId,
+                                                                                         new ByteArray(keyInBytes));
+            nodeIdToKeyValues.put(nodeId, queryKeyResult);
         }
 
         return FixKeyResult.SUCCESS;
@@ -309,7 +306,7 @@ public class ConsistencyFix {
                                                                   final ByteArray keyAsByteArray,
                                                                   final String keyInHexFormat,
                                                                   boolean verbose,
-                                                                  final Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues,
+                                                                  final Map<Integer, QueryKeyResult> nodeIdToKeyValues,
                                                                   List<NodeValue<ByteArray, byte[]>> nodeValues) {
         if(nodeValues == null) {
             if(verbose) {
@@ -328,12 +325,12 @@ public class ConsistencyFix {
                 System.out.println("\t Processing response from node with id:" + nodeId);
             }
             QueryKeyResult keyValue;
-            if(nodeIdToKeyValues.get(nodeId).hasNext()) {
+            if(nodeIdToKeyValues.containsKey(nodeId)) {
                 if(verbose) {
                     System.out.println("\t... There was a key-value returned from node with id:"
                                        + nodeId);
                 }
-                keyValue = nodeIdToKeyValues.get(nodeId).next();
+                keyValue = nodeIdToKeyValues.get(nodeId);
 
                 if(keyValue.hasException()) {
                     if(verbose) {
@@ -442,14 +439,19 @@ public class ConsistencyFix {
             if(verbose) {
                 System.out.println("\tDoing repair for node with id:" + nodeKeyValue.getNodeId());
             }
-            Exception e = vInstance.getAdminClient().repairEntry(vInstance.getStoreName(),
-                                                                 nodeKeyValue);
-            if(e != null) {
+            // TODO: Do this asynchronously so that all requests are outstanding
+            // in parallel.
+            RepairEntryResult repairEntryResult = vInstance.getAdminClient().storeOps.repairEntry(vInstance.getStoreName(),
+                                                                                                  nodeKeyValue);
+            if(!repairEntryResult.isSuccess()) {
                 if(verbose) {
-                    System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
-                                       + "on node with id " + nodeKeyValue.getNodeId()
-                                       + " for version " + nodeKeyValue.getVersion()
-                                       + " failed because of exception : " + e.getMessage());
+                    if(repairEntryResult.hasException()) {
+                        VoldemortException ve = repairEntryResult.getException();
+                        System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
+                                           + "on node with id " + nodeKeyValue.getNodeId()
+                                           + " for version " + nodeKeyValue.getVersion()
+                                           + " failed because of exception : " + ve.getMessage());
+                    }
                 }
                 allRepairsSuccessful = false;
             }
@@ -464,13 +466,6 @@ public class ConsistencyFix {
         return FixKeyResult.SUCCESS;
     }
 
-    // TODO: Decide between design based on a key-by-key fix and a design based
-    // on something that looks more like stream processing. E.g., See
-    // AdminClient.updateEntries and
-    // DonorBasedRebalancePusherSlave for ideas.
-    // TODO: As a follow on, need to decide
-    // if queryKeys should offer a queryKey interface, and/or if repairEntry
-    // ought to offer a repairEntries interface.
     public static ConsistencyFix.FixKeyResult fixKey(ConsistencyFixContext vInstance,
                                                      String keyInHexFormat,
                                                      boolean verbose) {
@@ -496,7 +491,7 @@ public class ConsistencyFix {
         ByteArray keyAsByteArray = new ByteArray(keyInBytes);
 
         // Read
-        Map<Integer, Iterator<QueryKeyResult>> nodeIdToKeyValues = new HashMap<Integer, Iterator<QueryKeyResult>>();
+        Map<Integer, QueryKeyResult> nodeIdToKeyValues = new HashMap<Integer, QueryKeyResult>();
         FixKeyResult fixKeyResult = ConsistencyFix.doRead(vInstance,
                                                           nodeIdList,
                                                           keyInBytes,

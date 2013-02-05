@@ -35,6 +35,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -80,6 +82,7 @@ import voldemort.store.routed.NodeValue;
 import voldemort.store.slop.Slop;
 import voldemort.store.slop.Slop.Operation;
 import voldemort.store.socket.SocketDestination;
+import voldemort.store.socket.SocketStore;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.store.system.SystemStoreConstants;
 import voldemort.store.views.ViewStorageConfiguration;
@@ -92,7 +95,6 @@ import voldemort.utils.Pair;
 import voldemort.utils.RebalanceUtils;
 import voldemort.utils.StoreDefinitionUtils;
 import voldemort.utils.Utils;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -141,7 +143,8 @@ public class AdminClient {
                                                                                  ViewStorageConfiguration.TYPE_NAME);
 
     private final ErrorCodeMapper errorMapper;
-    private final SocketPool pool;
+    private final SocketPool socketPool;
+    private final AdminStoreClient adminStoreClient;
     private final NetworkClassLoader networkClassLoader;
     private final AdminClientConfig adminClientConfig;
     private Cluster currentCluster;
@@ -181,7 +184,8 @@ public class AdminClient {
         this.errorMapper = new ErrorCodeMapper();
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
-        this.pool = helperOps.createSocketPool(adminClientConfig);
+        this.socketPool = helperOps.createSocketPool(adminClientConfig);
+        this.adminStoreClient = new AdminStoreClient();
     }
 
     /**
@@ -250,7 +254,8 @@ public class AdminClient {
      * Stop the AdminClient cleanly freeing all resources.
      */
     public void stop() {
-        this.pool.close();
+        this.socketPool.close();
+        this.adminStoreClient.stop();
     }
 
     /**
@@ -536,7 +541,7 @@ public class AdminClient {
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = pool.checkout(destination);
+            SocketAndStreams sands = socketPool.checkout(destination);
 
             try {
                 DataOutputStream outputStream = sands.getOutputStream();
@@ -549,7 +554,7 @@ public class AdminClient {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
             }
         }
 
@@ -1319,7 +1324,7 @@ public class AdminClient {
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = pool.checkout(destination);
+            SocketAndStreams sands = socketPool.checkout(destination);
 
             try {
                 DataOutputStream outputStream = sands.getOutputStream();
@@ -1329,7 +1334,7 @@ public class AdminClient {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
             }
             return;
         }
@@ -1474,6 +1479,9 @@ public class AdminClient {
             return response.build();
         }
 
+        // TODO: Should socketPool.checkin be in a finally clause? What are the
+        // semantics around closing the socket and then checking it in? Same
+        // questions apply to fetchOrphanedKeys...
         /**
          * Fetches entries that don't belong to the node, based on current
          * metadata and yet persisted on the node
@@ -1490,7 +1498,7 @@ public class AdminClient {
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
                                                                         RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            final SocketAndStreams sands = pool.checkout(destination);
+            final SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             final DataInputStream inputStream = sands.getInputStream();
 
@@ -1508,7 +1516,7 @@ public class AdminClient {
                 outputStream.flush();
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
                 throw new VoldemortException(e);
             }
 
@@ -1519,7 +1527,7 @@ public class AdminClient {
                     try {
                         int size = inputStream.readInt();
                         if(size == -1) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             return endOfData();
                         }
 
@@ -1527,7 +1535,7 @@ public class AdminClient {
                                                                                                 size);
 
                         if(response.hasError()) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             helperOps.throwException(response.getError());
                         }
 
@@ -1537,7 +1545,7 @@ public class AdminClient {
                                            ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
                     } catch(IOException e) {
                         helperOps.close(sands.getSocket());
-                        pool.checkin(destination, sands);
+                        socketPool.checkin(destination, sands);
                         throw new VoldemortException(e);
                     }
                 }
@@ -1638,7 +1646,7 @@ public class AdminClient {
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
                                                                         RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            final SocketAndStreams sands = pool.checkout(destination);
+            final SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             final DataInputStream inputStream = sands.getInputStream();
 
@@ -1653,7 +1661,7 @@ public class AdminClient {
                                      skipRecords);
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
                 throw new VoldemortException(e);
             }
 
@@ -1664,7 +1672,7 @@ public class AdminClient {
                     try {
                         int size = inputStream.readInt();
                         if(size == -1) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             return endOfData();
                         }
 
@@ -1672,7 +1680,7 @@ public class AdminClient {
                                                                                                 size);
 
                         if(response.hasError()) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             helperOps.throwException(response.getError());
                         }
 
@@ -1682,7 +1690,7 @@ public class AdminClient {
                                            ProtoUtils.decodeVersioned(partitionEntry.getVersioned()));
                     } catch(IOException e) {
                         helperOps.close(sands.getSocket());
-                        pool.checkin(destination, sands);
+                        socketPool.checkin(destination, sands);
                         throw new VoldemortException(e);
                     }
                 }
@@ -1705,7 +1713,7 @@ public class AdminClient {
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
                                                                         RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            final SocketAndStreams sands = pool.checkout(destination);
+            final SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             final DataInputStream inputStream = sands.getInputStream();
 
@@ -1723,7 +1731,7 @@ public class AdminClient {
                 outputStream.flush();
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
                 throw new VoldemortException(e);
             }
 
@@ -1734,7 +1742,7 @@ public class AdminClient {
                     try {
                         int size = inputStream.readInt();
                         if(size == -1) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             return endOfData();
                         }
 
@@ -1742,14 +1750,14 @@ public class AdminClient {
                                                                                                 size);
 
                         if(response.hasError()) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             helperOps.throwException(response.getError());
                         }
 
                         return ProtoUtils.decodeBytes(response.getKey());
                     } catch(IOException e) {
                         helperOps.close(sands.getSocket());
-                        pool.checkin(destination, sands);
+                        socketPool.checkin(destination, sands);
                         throw new VoldemortException(e);
                     }
 
@@ -1835,7 +1843,7 @@ public class AdminClient {
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
                                                                         RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            final SocketAndStreams sands = pool.checkout(destination);
+            final SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             final DataInputStream inputStream = sands.getInputStream();
 
@@ -1850,7 +1858,7 @@ public class AdminClient {
                                      skipRecords);
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
                 throw new VoldemortException(e);
             }
 
@@ -1861,7 +1869,7 @@ public class AdminClient {
                     try {
                         int size = inputStream.readInt();
                         if(size == -1) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             return endOfData();
                         }
 
@@ -1869,14 +1877,14 @@ public class AdminClient {
                                                                                                 size);
 
                         if(response.hasError()) {
-                            pool.checkin(destination, sands);
+                            socketPool.checkin(destination, sands);
                             helperOps.throwException(response.getError());
                         }
 
                         return ProtoUtils.decodeBytes(response.getKey());
                     } catch(IOException e) {
                         helperOps.close(sands.getSocket());
-                        pool.checkin(destination, sands);
+                        socketPool.checkin(destination, sands);
                         throw new VoldemortException(e);
                     }
 
@@ -1885,61 +1893,72 @@ public class AdminClient {
         }
     }
 
-    // TODO: Move into StreamingStoreOperations or some such.
-    /**
-     * This method is a work-in-progress. Expectation is that updateEntries will
-     * eventually be used to process a stream of repairs.
-     * 
-     * This method updates exactly one key/value for a specific store on a
-     * specific node.
-     * 
-     * @param storeName Name of the store
-     * @param nodeKeyValue A specific key/value to update on a specific node.
-     * @return null means success.
-     */
-    public Exception repairEntry(String storeName, NodeValue<ByteArray, byte[]> nodeKeyValue) {
-        Node node = this.getAdminClientCluster().getNodeById(nodeKeyValue.getNodeId());
-        ClientConfig clientConfig = new ClientConfig();
-        final Store<ByteArray, byte[], byte[]> store;
-        final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
-                                                                                   clientConfig.getMaxConnectionsPerNode(),
-                                                                                   clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
-                                                                                   clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
-                                                                                   clientConfig.getSocketBufferSize(),
-                                                                                   clientConfig.getSocketKeepAlive());
-        try {
-            store = clientPool.create(storeName,
-                                      node.getHost(),
-                                      node.getSocketPort(),
-                                      clientConfig.getRequestFormatType(),
-                                      RequestRoutingType.IGNORE_CHECKS);
-        } catch(Exception e) {
-            clientPool.close();
-            throw new VoldemortException(e);
+    private class AdminStoreClient {
+
+        private class NodeStore {
+
+            @SuppressWarnings("unused")
+            final public int nodeId;
+            @SuppressWarnings("unused")
+            final public String storeName;
+
+            NodeStore(int nodeId, String storeName) {
+                this.nodeId = nodeId;
+                this.storeName = storeName;
+            }
         }
 
-        ByteArray key = nodeKeyValue.getKey();
-        Versioned<byte[]> value = nodeKeyValue.getVersioned();
+        final private ClientConfig clientConfig;
+        final private ClientRequestExecutorPool clientPool;
 
-        Exception exception = null;
-        try {
-            store.put(key, value, null);
-        } catch(ObsoleteVersionException ove) {
-            // TODO: use logger rather than System.out and create struct to hold
-            // all return info for processsing by caller.
-            System.out.println("Node with id " + nodeKeyValue.getNodeId()
-                               + " received ObsoleteVersionException. IGNORING!");
-            // Treat ove as success!
-        } catch(VoldemortException ve) {
-            System.out.println("Node with id " + nodeKeyValue.getNodeId()
-                               + " received some VoldemortException.");
-            exception = ve;
-        } // TODO: Do we need to catch non-Voldemort exceptions?!
+        private final ConcurrentMap<NodeStore, SocketStore> nodeStoreSocketCache;
 
-        clientPool.close();
-        return exception;
+        // TODO: Pass in a ClientConfig or a AdminClientConfig?
+        AdminStoreClient() {
+            this.clientConfig = new ClientConfig();
+            clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
+                                                       clientConfig.getMaxConnectionsPerNode(),
+                                                       clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
+                                                       clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
+                                                       clientConfig.getSocketBufferSize(),
+                                                       clientConfig.getSocketKeepAlive());
+            nodeStoreSocketCache = new ConcurrentHashMap<NodeStore, SocketStore>();
+        }
+
+        public SocketStore getSocketStore(int nodeId, String storeName) {
+            NodeStore nodeStore = new NodeStore(nodeId, storeName);
+
+            if(!nodeStoreSocketCache.containsKey(nodeStore)) {
+                SocketStore socketStore = null;
+
+                Node node = getAdminClientCluster().getNodeById(nodeId);
+                try {
+                    // Can clientConfig.getRequestFormatType() default to
+                    // something?
+                    socketStore = clientPool.create(storeName,
+                                                    node.getHost(),
+                                                    node.getSocketPort(),
+                                                    clientConfig.getRequestFormatType(),
+                                                    RequestRoutingType.IGNORE_CHECKS);
+                } catch(Exception e) {
+                    clientPool.close();
+                    throw new VoldemortException(e);
+                }
+
+                nodeStoreSocketCache.putIfAbsent(nodeStore, socketStore);
+            }
+
+            return nodeStoreSocketCache.get(nodeStore);
+        }
+
+        public void stop() {
+            clientPool.close();
+        }
     }
 
+    // TODO: Rename StreamingStoreOperations to StoreOperations? Or pull out the
+    // query/update/repair stuff that operates on individual keys into new inner
+    // class StoreOperations.
     /**
      * Encapsulates all steaming operations that actually read and write
      * key-value pairs into the cluster
@@ -1978,7 +1997,7 @@ public class AdminClient {
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = pool.checkout(destination);
+            SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
             boolean firstMessage = true;
@@ -2031,10 +2050,54 @@ public class AdminClient {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
             }
         }
 
+        /**
+         * This method updates exactly one key/value for a specific store on a
+         * specific node.
+         * 
+         * @param storeName Name of the store
+         * @param nodeKeyValue A specific key/value to update on a specific
+         *        node.
+         * @return RepairEntryResult with success/exception details.
+         */
+        public RepairEntryResult repairEntry(String storeName,
+                                             NodeValue<ByteArray, byte[]> nodeKeyValue) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeKeyValue.getNodeId(),
+                                                                      storeName);
+
+            try {
+                socketStore.put(nodeKeyValue.getKey(), nodeKeyValue.getVersioned(), null);
+                return new RepairEntryResult();
+            } catch(VoldemortException ve) {
+                return new RepairEntryResult(ve);
+            }
+        }
+
+        /**
+         * Fetch key/value tuple for given key on specified node
+         * 
+         * @param storeName Name of the store
+         * @param nodeId Id of the node to query from
+         * @param key for which to query
+         * @return QueryKeyResult with key & value or key & exception, depending
+         *         on result.
+         */
+        public QueryKeyResult queryKey(String storeName, int nodeId, ByteArray key) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeId, storeName);
+
+            List<Versioned<byte[]>> value = null;
+            try {
+                value = socketStore.get(key, null);
+                return new QueryKeyResult(key, value);
+            } catch(VoldemortException ve) {
+                return new QueryKeyResult(key, ve);
+            }
+        }
+
+        // TODO: Use queryKey method (and so adminStoreClient too)?
         /**
          * Fetch key/value tuples belonging to a node with given key values
          * 
@@ -2108,7 +2171,7 @@ public class AdminClient {
             SocketDestination destination = new SocketDestination(node.getHost(),
                                                                   node.getAdminPort(),
                                                                   RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            SocketAndStreams sands = pool.checkout(destination);
+            SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             DataInputStream inputStream = sands.getInputStream();
             boolean firstMessage = true;
@@ -2164,7 +2227,7 @@ public class AdminClient {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
             }
 
         }
@@ -2512,6 +2575,7 @@ public class AdminClient {
             ExecutorService executors = Executors.newFixedThreadPool(parallelTransfers,
                                                                      new ThreadFactory() {
 
+                                                                         @Override
                                                                          public Thread newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("restore-data-thread");
@@ -2580,6 +2644,7 @@ public class AdminClient {
                 final int donorNodeId = replicationEntry.getKey();
                 executorService.submit(new Runnable() {
 
+                    @Override
                     public void run() {
                         try {
                             logger.info("Restoring data for store " + storeDef.getName()
@@ -2668,6 +2733,7 @@ public class AdminClient {
             ExecutorService executors = Executors.newFixedThreadPool(stores.size(),
                                                                      new ThreadFactory() {
 
+                                                                         @Override
                                                                          public Thread newThread(Runnable r) {
                                                                              Thread thread = new Thread(r);
                                                                              thread.setName("mirror-data-thread");
@@ -2681,6 +2747,7 @@ public class AdminClient {
                 for(final String storeName: stores)
                     executors.submit(new Runnable() {
 
+                        @Override
                         public void run() {
                             try {
                                 logger.info("Mirroring data for store " + storeName + " from node "
@@ -3034,7 +3101,7 @@ public class AdminClient {
             final SocketDestination destination = new SocketDestination(node.getHost(),
                                                                         node.getAdminPort(),
                                                                         RequestFormatType.ADMIN_PROTOCOL_BUFFERS);
-            final SocketAndStreams sands = pool.checkout(destination);
+            final SocketAndStreams sands = socketPool.checkout(destination);
             DataOutputStream outputStream = sands.getOutputStream();
             final DataInputStream inputStream = sands.getInputStream();
 
@@ -3108,7 +3175,7 @@ public class AdminClient {
                 helperOps.close(sands.getSocket());
                 throw new VoldemortException(e);
             } finally {
-                pool.checkin(destination, sands);
+                socketPool.checkin(destination, sands);
             }
 
         }
