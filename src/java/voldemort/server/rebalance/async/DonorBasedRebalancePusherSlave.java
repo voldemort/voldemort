@@ -44,7 +44,7 @@ public class DonorBasedRebalancePusherSlave implements Runnable {
         while(!nodeIterator.done) {
             try {
                 nodeIterator.reset();
-                adminClient.storeOps.updateEntries(nodeId, storeName, nodeIterator, null);
+                adminClient.streamingOps.updateEntries(nodeId, storeName, nodeIterator, null);
                 nodeIterator.purge();
             } catch(VoldemortException e) {
                 if(e.getCause() instanceof IOException) {

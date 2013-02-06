@@ -1363,7 +1363,7 @@ public class VoldemortAdminTool {
         for(String storeName: storeNames) {
             Iterator<Pair<ByteArray, Versioned<byte[]>>> iterator = readEntriesBinary(inputDir,
                                                                                       storeName);
-            adminClient.storeOps.updateEntries(nodeId, storeName, iterator, null);
+            adminClient.streamingOps.updateEntries(nodeId, storeName, iterator, null);
         }
 
     }
@@ -1623,7 +1623,7 @@ public class VoldemortAdminTool {
             listKeys.add(new ByteArray(serializer.toBytes(key)));
         }
         for(final String storeName: storeNames) {
-            final Iterator<QueryKeyResult> iterator = adminClient.storeOps.queryKeys(nodeId.intValue(),
+            final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),
                                                                                      storeName,
                                                                                      listKeys.iterator());
             List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)

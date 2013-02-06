@@ -158,7 +158,8 @@ public class AdminClient {
     final public AdminClient.StoreManagementOperations storeMgmtOps;
     final public AdminClient.StoreMaintenanceOperations storeMntOps;
     final public AdminClient.BulkStreamingFetchOperations bulkFetchOps;
-    final public AdminClient.StreamingStoreOperations storeOps;
+    final public AdminClient.StreamingOperations streamingOps;
+    final public AdminClient.StoreOperations storeOps;
     final public AdminClient.RestoreOperations restoreOps;
     final public AdminClient.RebalancingOperations rebalanceOps;
     final public AdminClient.ReadOnlySpecificOperations readonlyOps;
@@ -175,7 +176,8 @@ public class AdminClient {
         this.storeMgmtOps = this.new StoreManagementOperations();
         this.storeMntOps = this.new StoreMaintenanceOperations();
         this.bulkFetchOps = this.new BulkStreamingFetchOperations();
-        this.storeOps = this.new StreamingStoreOperations();
+        this.streamingOps = this.new StreamingOperations();
+        this.storeOps = this.new StoreOperations();
         this.restoreOps = this.new RestoreOperations();
         this.rebalanceOps = this.new RebalancingOperations();
         this.readonlyOps = this.new ReadOnlySpecificOperations();
@@ -1913,8 +1915,8 @@ public class AdminClient {
 
         private final ConcurrentMap<NodeStore, SocketStore> nodeStoreSocketCache;
 
-        // TODO: Pass in a ClientConfig or a AdminClientConfig?
         AdminStoreClient() {
+            // TODO: Pass in a ClientConfig or a AdminClientConfig?
             this.clientConfig = new ClientConfig();
             clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
                                                        clientConfig.getMaxConnectionsPerNode(),
@@ -1956,15 +1958,47 @@ public class AdminClient {
         }
     }
 
-    // TODO: Rename StreamingStoreOperations to StoreOperations? Or pull out the
-    // query/update/repair stuff that operates on individual keys into new inner
-    // class StoreOperations.
+    public class StoreOperations {
+
+        /**
+         * This method updates exactly one key/value for a specific store on a
+         * specific node.
+         * 
+         * @param storeName Name of the store
+         * @param nodeKeyValue A specific key/value to update on a specific
+         *        node.
+         * @return RepairEntryResult with success/exception details.
+         */
+        public void putNodeKeyValue(String storeName, NodeValue<ByteArray, byte[]> nodeKeyValue) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeKeyValue.getNodeId(),
+                                                                      storeName);
+
+            socketStore.put(nodeKeyValue.getKey(), nodeKeyValue.getVersioned(), null);
+        }
+
+        /**
+         * Fetch key/value tuple for given key for a specific store on specified
+         * node.
+         * 
+         * @param storeName Name of the store
+         * @param nodeId Id of the node to query from
+         * @param key for which to query
+         * @return List<Versioned<byte[]>> of values for the specified NodeKey.
+         */
+        public List<Versioned<byte[]>> getNodeKey(String storeName, int nodeId, ByteArray key) {
+            SocketStore socketStore = adminStoreClient.getSocketStore(nodeId, storeName);
+            return socketStore.get(key, null);
+        }
+
+        // As needed, add 'getall', 'delete', and so on interfaces...
+    }
+
     /**
      * Encapsulates all steaming operations that actually read and write
      * key-value pairs into the cluster
      * 
      */
-    public class StreamingStoreOperations {
+    public class StreamingOperations {
 
         /**
          * Update a stream of key/value entries at the given node. The iterator
@@ -2054,50 +2088,8 @@ public class AdminClient {
             }
         }
 
-        /**
-         * This method updates exactly one key/value for a specific store on a
-         * specific node.
-         * 
-         * @param storeName Name of the store
-         * @param nodeKeyValue A specific key/value to update on a specific
-         *        node.
-         * @return RepairEntryResult with success/exception details.
-         */
-        public RepairEntryResult repairEntry(String storeName,
-                                             NodeValue<ByteArray, byte[]> nodeKeyValue) {
-            SocketStore socketStore = adminStoreClient.getSocketStore(nodeKeyValue.getNodeId(),
-                                                                      storeName);
-
-            try {
-                socketStore.put(nodeKeyValue.getKey(), nodeKeyValue.getVersioned(), null);
-                return new RepairEntryResult();
-            } catch(VoldemortException ve) {
-                return new RepairEntryResult(ve);
-            }
-        }
-
-        /**
-         * Fetch key/value tuple for given key on specified node
-         * 
-         * @param storeName Name of the store
-         * @param nodeId Id of the node to query from
-         * @param key for which to query
-         * @return QueryKeyResult with key & value or key & exception, depending
-         *         on result.
-         */
-        public QueryKeyResult queryKey(String storeName, int nodeId, ByteArray key) {
-            SocketStore socketStore = adminStoreClient.getSocketStore(nodeId, storeName);
-
-            List<Versioned<byte[]>> value = null;
-            try {
-                value = socketStore.get(key, null);
-                return new QueryKeyResult(key, value);
-            } catch(VoldemortException ve) {
-                return new QueryKeyResult(key, ve);
-            }
-        }
-
-        // TODO: Use queryKey method (and so adminStoreClient too)?
+        // TODO: Use storeOperation.getNodeKey()? Or some other way of using
+        // adminStoreClient?
         /**
          * Fetch key/value tuples belonging to a node with given key values
          * 
@@ -2760,10 +2752,10 @@ public class AdminClient {
                                                                                                                                     partitionIdList,
                                                                                                                                     null,
                                                                                                                                     false);
-                                currentAdminClient.storeOps.updateEntries(nodeId,
-                                                                          storeName,
-                                                                          iterator,
-                                                                          null);
+                                currentAdminClient.streamingOps.updateEntries(nodeId,
+                                                                              storeName,
+                                                                              iterator,
+                                                                              null);
 
                                 logger.info("Mirroring data for store:" + storeName + " from node "
                                             + nodeIdToMirrorFrom + " completed.");

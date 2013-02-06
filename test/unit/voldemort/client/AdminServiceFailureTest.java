@@ -191,7 +191,7 @@ public class AdminServiceFailureTest extends TestCase {
                                                                         false));
                 return;
             case UPDATE_ENTRIES:
-                getAdminClient().storeOps.updateEntries(nodeId,
+                getAdminClient().streamingOps.updateEntries(nodeId,
                                                         storeName,
                                                         getRandomlyFailingIterator(ServerTestUtils.createRandomKeyValuePairs(TEST_KEYS)),
                                                         null);

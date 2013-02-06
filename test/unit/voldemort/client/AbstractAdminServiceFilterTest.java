@@ -119,7 +119,7 @@ public abstract class AbstractAdminServiceFilterTest extends TestCase {
         Set<Pair<ByteArray, Versioned<byte[]>>> entrySet = createEntries();
 
         // make update stream call with filter
-        getAdminClient().storeOps.updateEntries(0, testStoreName, entrySet.iterator(), filter);
+        getAdminClient().streamingOps.updateEntries(0, testStoreName, entrySet.iterator(), filter);
 
         // assert none of the filtered entries are updated.
         // user store should be present

@@ -35,6 +35,8 @@ import com.google.common.base.Preconditions;
  */
 public final class NodeValue<K, V> implements Serializable, Cloneable {
 
+    // TODO: Rename NodeValue to NodeKeyValue
+
     private static final long serialVersionUID = 1;
 
     private final int nodeId;

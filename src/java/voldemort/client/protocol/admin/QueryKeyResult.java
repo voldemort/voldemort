@@ -15,13 +15,13 @@ public class QueryKeyResult {
     private final List<Versioned<byte[]>> values;
     private final Exception exception;
 
-    QueryKeyResult(ByteArray key, List<Versioned<byte[]>> values) {
+    public QueryKeyResult(ByteArray key, List<Versioned<byte[]>> values) {
         this.key = key;
         this.values = values;
         this.exception = null;
     }
 
-    QueryKeyResult(ByteArray key, Exception exception) {
+    public QueryKeyResult(ByteArray key, Exception exception) {
         this.key = key;
         this.values = null;
         this.exception = exception;

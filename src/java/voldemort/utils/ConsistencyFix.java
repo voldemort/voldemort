@@ -36,11 +36,11 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
-import voldemort.client.protocol.admin.RepairEntryResult;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.ReadRepairer;
+import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -48,45 +48,36 @@ import com.google.common.collect.Lists;
 
 public class ConsistencyFix {
 
-    // TODO: Move ConsistencyFixContext into its own file? Or break this apart.
-    // I.e., explicitly pass adminClient and storeInstance around?
-    private static class ConsistencyFixContext {
+    private static AdminClient adminClient = null;
+    private static StoreInstance storeInstance = null;
 
-        private final AdminClient adminClient;
-        private final StoreInstance storeInstance;
+    private static void init(Options options) {
+        System.out.println("Connecting to bootstrap server: " + options.url);
+        adminClient = new AdminClient(options.url, new AdminClientConfig(), 0);
+        Cluster cluster = adminClient.getAdminClientCluster();
+        System.out.println("Cluster determined to be: " + cluster.getName());
 
-        public ConsistencyFixContext(String url, String storeName) throws Exception {
-            System.out.println("Connecting to bootstrap server: " + url);
-            adminClient = new AdminClient(url, new AdminClientConfig(), 0);
-            Cluster cluster = adminClient.getAdminClientCluster();
-            System.out.println("Cluster determined to be: " + cluster.getName());
+        System.out.println("Determining store definition for store: " + options.storeName);
+        Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
+        List<StoreDefinition> storeDefs = storeDefinitions.getValue();
+        StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
+                                                                                          options.storeName);
+        System.out.println("Store definition determined.");
 
-            System.out.println("Determining store definition for store: " + storeName);
-            Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
-            List<StoreDefinition> storeDefs = storeDefinitions.getValue();
-            StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
-                                                                                              storeName);
-            System.out.println("Store definition determined.");
+        storeInstance = new StoreInstance(cluster, storeDefinition);
+    }
 
-            storeInstance = new StoreInstance(cluster, storeDefinition);
-        }
+    private static void stop() {
+        adminClient.stop();
+    }
 
-        public AdminClient getAdminClient() {
-            return adminClient;
-        }
+    public static String getStoreName() {
+        return storeInstance.getStoreDefinition().getName();
+    }
 
-        public StoreInstance getStoreInstance() {
-            return storeInstance;
-        }
-
-        public String getStoreName() {
-            return storeInstance.getStoreDefinition().getName();
-        }
-
-        public int getMasterPartitionId(String keyInHexFormat) throws DecoderException {
-            byte[] key = Hex.decodeHex(keyInHexFormat.toCharArray());
-            return storeInstance.getMasterPartitionId(key);
-        }
+    public static int getMasterPartitionId(String keyInHexFormat) throws DecoderException {
+        byte[] key = Hex.decodeHex(keyInHexFormat.toCharArray());
+        return storeInstance.getMasterPartitionId(key);
     }
 
     public static void printUsage() {
@@ -191,6 +182,9 @@ public class ConsistencyFix {
             List<String> valuesOf = (List<String>) optionSet.valuesOf("keys");
             options.keysInHexFormat = valuesOf;
         }
+        // TODO: Should I do something more iterator like for reading files of
+        // keys? I suspect that we should not read millions(?) of keys into
+        // memory before doing any actual work.
         if(optionSet.has("key-file")) {
             String keyFile = (String) optionSet.valueOf("key-file");
             System.err.println("Key file: " + keyFile);
@@ -222,11 +216,10 @@ public class ConsistencyFix {
             Utils.croak("Failure to create BufferedWriter for ouput file '" + options.outFile + "'");
         }
 
-        // TODO: Need something more iterator like for reading files of keys.
-        // Don't want to read millions of keys into memory at startup.
-        ConsistencyFixContext vInstance = new ConsistencyFixContext(options.url, options.storeName);
+        init(options);
+
         for(String keyInHexFormat: options.keysInHexFormat) {
-            FixKeyResult fixKeyResult = fixKey(vInstance, keyInHexFormat, options.verbose);
+            FixKeyResult fixKeyResult = fixKey(keyInHexFormat, options.verbose);
             if(fixKeyResult == FixKeyResult.SUCCESS) {
                 System.out.println("Successfully processed " + keyInHexFormat);
             } else {
@@ -234,7 +227,7 @@ public class ConsistencyFix {
             }
         }
 
-        vInstance.getAdminClient().stop();
+        stop();
     }
 
     public enum FixKeyResult {
@@ -265,8 +258,7 @@ public class ConsistencyFix {
      *        in a non-null object to be populated by this method.
      * @return FixKeyResult
      */
-    private static ConsistencyFix.FixKeyResult doRead(final ConsistencyFixContext vInstance,
-                                                      final List<Integer> nodeIdList,
+    private static ConsistencyFix.FixKeyResult doRead(final List<Integer> nodeIdList,
                                                       final byte[] keyInBytes,
                                                       final String keyInHexFormat,
                                                       boolean verbose,
@@ -281,13 +273,17 @@ public class ConsistencyFix {
         if(verbose) {
             System.out.println("Reading key-values for specified key: " + keyInHexFormat);
         }
+        ByteArray key = new ByteArray(keyInBytes);
         // TODO: Do this asynchronously so that all requests are outstanding in
         // parallel. Will need to make nodeIdToKeyValues thread safe.
         for(int nodeId: nodeIdList) {
-            QueryKeyResult queryKeyResult = vInstance.getAdminClient().storeOps.queryKey(vInstance.getStoreName(),
-                                                                                         nodeId,
-                                                                                         new ByteArray(keyInBytes));
-            nodeIdToKeyValues.put(nodeId, queryKeyResult);
+            List<Versioned<byte[]>> values = null;
+            try {
+                values = adminClient.storeOps.getNodeKey(getStoreName(), nodeId, key);
+                nodeIdToKeyValues.put(nodeId, new QueryKeyResult(key, values));
+            } catch(VoldemortException ve) {
+                nodeIdToKeyValues.put(nodeId, new QueryKeyResult(key, ve));
+            }
         }
 
         return FixKeyResult.SUCCESS;
@@ -427,8 +423,7 @@ public class ConsistencyFix {
      *        non-null object to be populated by this method.
      * @return
      */
-    private static ConsistencyFix.FixKeyResult doWriteBack(final ConsistencyFixContext vInstance,
-                                                           boolean verbose,
+    private static ConsistencyFix.FixKeyResult doWriteBack(boolean verbose,
                                                            final List<NodeValue<ByteArray, byte[]>> toReadRepair) {
         if(verbose) {
             System.out.println("Performing repair work:");
@@ -441,19 +436,16 @@ public class ConsistencyFix {
             }
             // TODO: Do this asynchronously so that all requests are outstanding
             // in parallel.
-            RepairEntryResult repairEntryResult = vInstance.getAdminClient().storeOps.repairEntry(vInstance.getStoreName(),
-                                                                                                  nodeKeyValue);
-            if(!repairEntryResult.isSuccess()) {
-                if(verbose) {
-                    if(repairEntryResult.hasException()) {
-                        VoldemortException ve = repairEntryResult.getException();
-                        System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
-                                           + "on node with id " + nodeKeyValue.getNodeId()
-                                           + " for version " + nodeKeyValue.getVersion()
-                                           + " failed because of exception : " + ve.getMessage());
-                    }
-                }
+            try {
+                adminClient.storeOps.putNodeKeyValue(getStoreName(), nodeKeyValue);
+            } catch(ObsoleteVersionException ove) {
+                // NOOP. Treat OVE as success.
+            } catch(VoldemortException ve) {
                 allRepairsSuccessful = false;
+                System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
+                                   + "on node with id " + nodeKeyValue.getNodeId()
+                                   + " for version " + nodeKeyValue.getVersion()
+                                   + " failed because of exception : " + ve.getMessage());
             }
         }
         if(!allRepairsSuccessful) {
@@ -466,9 +458,7 @@ public class ConsistencyFix {
         return FixKeyResult.SUCCESS;
     }
 
-    public static ConsistencyFix.FixKeyResult fixKey(ConsistencyFixContext vInstance,
-                                                     String keyInHexFormat,
-                                                     boolean verbose) {
+    public static ConsistencyFix.FixKeyResult fixKey(String keyInHexFormat, boolean verbose) {
         if(verbose) {
             System.out.println("Performing consistency fix of key: " + keyInHexFormat);
         }
@@ -479,8 +469,8 @@ public class ConsistencyFix {
         int masterPartitionId = -1;
         try {
             keyInBytes = ByteUtils.fromHexString(keyInHexFormat);
-            masterPartitionId = vInstance.getMasterPartitionId(keyInHexFormat);
-            nodeIdList = vInstance.getStoreInstance().getReplicationNodeList(masterPartitionId);
+            masterPartitionId = getMasterPartitionId(keyInHexFormat);
+            nodeIdList = storeInstance.getReplicationNodeList(masterPartitionId);
         } catch(Exception exception) {
             if(verbose) {
                 System.out.println("Aborting fixKey due to bad init.");
@@ -492,8 +482,7 @@ public class ConsistencyFix {
 
         // Read
         Map<Integer, QueryKeyResult> nodeIdToKeyValues = new HashMap<Integer, QueryKeyResult>();
-        FixKeyResult fixKeyResult = ConsistencyFix.doRead(vInstance,
-                                                          nodeIdList,
+        FixKeyResult fixKeyResult = ConsistencyFix.doRead(nodeIdList,
                                                           keyInBytes,
                                                           keyInHexFormat,
                                                           verbose,
@@ -519,7 +508,7 @@ public class ConsistencyFix {
                                                                                               nodeValues);
 
         // Write back (if necessary)
-        fixKeyResult = ConsistencyFix.doWriteBack(vInstance, verbose, toReadRepair);
+        fixKeyResult = ConsistencyFix.doWriteBack(verbose, toReadRepair);
         if(fixKeyResult != FixKeyResult.SUCCESS) {
             return fixKeyResult;
         }

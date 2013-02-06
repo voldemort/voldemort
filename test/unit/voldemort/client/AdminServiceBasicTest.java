@@ -1415,7 +1415,7 @@ public class AdminServiceBasicTest {
         // test one key on store 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToAndInsideServer0Keys.get(0));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertEquals(queryKeys.get(0), entry.getKey());
@@ -1430,7 +1430,7 @@ public class AdminServiceBasicTest {
         // test one key belongs to but not exists in server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToServer0ButOutsideBothKeys.get(0));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1442,7 +1442,7 @@ public class AdminServiceBasicTest {
         // test one key not exist and does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(notBelongToServer0AndOutsideBothKeys.get(0));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1454,7 +1454,7 @@ public class AdminServiceBasicTest {
         // test one key that exists on server 0 but does not belong to server 0
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(notBelongServer0ButInsideServer0Keys.get(0));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1467,7 +1467,7 @@ public class AdminServiceBasicTest {
         store0.delete(belongToAndInsideServer0Keys.get(4), null);
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(belongToAndInsideServer0Keys.get(4));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1477,14 +1477,14 @@ public class AdminServiceBasicTest {
 
         // test empty request
         queryKeys = new ArrayList<ByteArray>();
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertFalse("Results should be empty", results.hasNext());
 
         // test null key
         queryKeys = new ArrayList<ByteArray>();
         queryKeys.add(null);
         assertEquals(1, queryKeys.size());
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         entry = results.next();
         assertFalse("There should not be more results", results.hasNext());
@@ -1497,7 +1497,7 @@ public class AdminServiceBasicTest {
         queryKeys.add(belongToAndInsideServer1Keys.get(0));
         queryKeys.add(belongToAndInsideServer1Keys.get(1));
         queryKeys.add(belongToAndInsideServer1Keys.get(2));
-        results = getAdminClient().storeOps.queryKeys(1, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(1, testStoreName, queryKeys.iterator());
         assertTrue("Results should not be empty", results.hasNext());
         Map<ByteArray, List<Versioned<byte[]>>> entries = new HashMap<ByteArray, List<Versioned<byte[]>>>();
         int resultCount = 0;
@@ -1535,7 +1535,7 @@ public class AdminServiceBasicTest {
         queryKeys.add(belongToAndInsideServer0Keys.get(3));
         queryKeys.add(belongToAndInsideServer0Keys.get(5));
         queryKeys.add(notBelongServer0ButInsideServer0Keys.get(2));
-        results = getAdminClient().storeOps.queryKeys(0, testStoreName, queryKeys.iterator());
+        results = getAdminClient().streamingOps.queryKeys(0, testStoreName, queryKeys.iterator());
         // key 0
         entry = results.next();
         assertEquals(0, ByteUtils.compare(queryKeys.get(0).get(), entry.getKey().get()));
@@ -1596,7 +1596,7 @@ public class AdminServiceBasicTest {
             }
         };
 
-        getAdminClient().storeOps.updateEntries(0, testStoreName, iterator, null);
+        getAdminClient().streamingOps.updateEntries(0, testStoreName, iterator, null);
 
         // check updated values
         Store<ByteArray, byte[], byte[]> store = getStore(0, testStoreName);
@@ -1621,7 +1621,7 @@ public class AdminServiceBasicTest {
                                                                                  "test-consistent-with-pref-list");
 
         Iterator<Versioned<Slop>> slopIterator = entrySet.iterator();
-        getAdminClient().storeOps.updateSlopEntries(0, slopIterator);
+        getAdminClient().streamingOps.updateSlopEntries(0, slopIterator);
 
         // check updated values
         Iterator<Versioned<Slop>> entrysetItr = entrySet.iterator();
