@@ -18,6 +18,10 @@ public class StreamingClientConfig implements Serializable {
 
     private String bootstrapURL;
 
+    public StreamingClientConfig() {
+
+    }
+
     public StreamingClientConfig(Props props) {
 
         this.batchSize = props.getInt("streaming.platform.commit.batch", DEFAULT_BATCH_SIZE);
@@ -67,4 +71,3 @@ public class StreamingClientConfig implements Serializable {
 
     }
 }
-
