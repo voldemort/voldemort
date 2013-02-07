@@ -253,7 +253,11 @@ public class HdfsFetcher implements FileFetcher {
 
             } catch(IOException e) {
                 e.printStackTrace();
-                logger.error("Error in authenticating or getting the Filesystem object !!!");
+                logger.error("IOException in authenticating or getting the Filesystem object !!!");
+                return null;
+            } catch(Throwable te) {
+                te.printStackTrace();
+                logger.error("Error thrown while trying to get Hadoop filesystem");
                 return null;
             }
 
@@ -665,7 +669,11 @@ public class HdfsFetcher implements FileFetcher {
 
         } catch(IOException e) {
             e.printStackTrace();
-            System.err.println("Error in getting Hadoop filesystem object !!! Exiting !!!");
+            System.err.println("IOException in getting Hadoop filesystem object !!! Exiting !!!");
+            System.exit(-1);
+        } catch(Throwable te) {
+            te.printStackTrace();
+            logger.error("Error thrown while trying to get Hadoop filesystem");
             System.exit(-1);
         }
 
