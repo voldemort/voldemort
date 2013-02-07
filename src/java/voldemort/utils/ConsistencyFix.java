@@ -22,9 +22,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -81,10 +86,9 @@ public class ConsistencyFix {
     }
 
     public static void printUsage() {
-        System.out.println("Required arguments: \n" + " --url <url>\n" + " --store <storeName>\n"
-                           + " (--keys <keysInHexFormatSeparatedByComma "
-                           + "| --key-file <FileNameOfInputListOfKeysToFix>)\n"
-                           + "| --out-file <FileNameOfOutputListOfKeysNotFixed>)\n");
+        System.out.println("Required arguments: \n" + "\t--url <url>\n" + "\t--store <storeName>\n"
+                           + "\t--bad-key-file-in <FileNameOfInputListOfKeysToFix>\n"
+                           + "\t--bad-key-file-out<FileNameOfOutputListOfKeysNotFixed>)\n");
     }
 
     public static void printUsage(String errMessage) {
@@ -95,10 +99,13 @@ public class ConsistencyFix {
 
     private static class Options {
 
+        public final static int defaultParallelism = 2;
+
         public String url = null;
         public String storeName = null;
-        public String outFile = null;
-        public List<String> keysInHexFormat = null;
+        public String badKeyFileIn = null;
+        public String badKeyFileOut = null;
+        public int parallelism = 0;
         public boolean verbose = false;
     }
 
@@ -120,6 +127,7 @@ public class ConsistencyFix {
               .withRequiredArg()
               .describedAs("The store name.")
               .ofType(String.class);
+        /*-
         parser.accepts("keys")
               .withRequiredArg()
               .withValuesSeparatedBy(',')
@@ -127,16 +135,23 @@ public class ConsistencyFix {
                            + "Each key must be in hexadecimal format. "
                            + "Each key must be separated only by a comma ',' without any white space.")
               .ofType(String.class);
-        parser.accepts("key-file")
+         */
+        parser.accepts("bad-key-file-in")
               .withRequiredArg()
-              .describedAs("Name of key-file. " + "Each key must be in hexadecimal format. "
+              .describedAs("Name of bad-key-file-in. " + "Each key must be in hexadecimal format. "
                            + "Each key must be on a separate line in the file. ")
               .ofType(String.class);
-        parser.accepts("out-file")
+        parser.accepts("bad-key-file-out")
               .withRequiredArg()
-              .describedAs("Name of out-file. "
-                           + "Success/failure of each key is dumped to out-file. ")
+              .describedAs("Name of bad-key-file-out. "
+                           + "Keys that are not mae consistent are output to this file.")
               .ofType(String.class);
+        parser.accepts("parallelism")
+              .withOptionalArg()
+              .describedAs("Number of read and to repair in parallel. "
+                           + "Up to 2X this value requests outstanding simultaneously. "
+                           + "[Default value: " + Options.defaultParallelism + "]")
+              .ofType(Integer.class);
 
         parser.accepts("verbose", "verbose");
         OptionSet optionSet = parser.parse(args);
@@ -156,81 +171,311 @@ public class ConsistencyFix {
         if(!optionSet.hasArgument("store")) {
             printUsage("Missing required 'store' argument.");
         }
-        if(!optionSet.has("keys") && !optionSet.has("key-file")) {
-            printUsage("Missing required key-specifying argument: 'keys' or 'key-file'.");
+        if(!optionSet.has("bad-key-file-in")) {
+            printUsage("Missing required 'bad-key-file-in' argument.");
         }
-        if(optionSet.has("keys") && optionSet.has("key-file")) {
-            printUsage("Please provide exactly one key-specifying argument: 'keys' or 'key-file'.");
-        }
-        if(!optionSet.has("out-file")) {
-            printUsage("Missing required 'out-file' argument.");
+        if(!optionSet.has("bad-key-file-out")) {
+            printUsage("Missing required 'bad-key-file-out' argument.");
         }
 
         Options options = new Options();
+
+        options.url = (String) optionSet.valueOf("url");
+        options.storeName = (String) optionSet.valueOf("store");
+        options.badKeyFileOut = (String) optionSet.valueOf("bad-key-file-out");
+        options.badKeyFileIn = (String) optionSet.valueOf("bad-key-file-in");
+        options.parallelism = Options.defaultParallelism;
+        if(optionSet.has("parallelism")) {
+            options.parallelism = (Integer) optionSet.valueOf("parallelism");
+        }
 
         if(optionSet.has("verbose")) {
             options.verbose = true;
         }
 
-        options.url = (String) optionSet.valueOf("url");
-        options.storeName = (String) optionSet.valueOf("store");
-        options.outFile = (String) optionSet.valueOf("out-file");
+        return options;
+    }
 
-        options.keysInHexFormat = new LinkedList<String>();
-        if(optionSet.has("keys")) {
-            @SuppressWarnings("unchecked")
-            List<String> valuesOf = (List<String>) optionSet.valuesOf("keys");
-            options.keysInHexFormat = valuesOf;
+    static public class BadKeyInput {
+
+        private final String keyInHexFormat;
+        private final boolean poison;
+
+        BadKeyInput(String keyInHexFormat) {
+            this.keyInHexFormat = keyInHexFormat;
+            this.poison = false;
         }
-        // TODO: Should I do something more iterator like for reading files of
-        // keys? I suspect that we should not read millions(?) of keys into
-        // memory before doing any actual work.
-        if(optionSet.has("key-file")) {
-            String keyFile = (String) optionSet.valueOf("key-file");
-            System.err.println("Key file: " + keyFile);
+
+        BadKeyInput() {
+            this.keyInHexFormat = null;
+            this.poison = true;
+        }
+
+        boolean isPoison() {
+            return poison;
+        }
+
+        String getKey() {
+            return keyInHexFormat;
+        }
+    }
+
+    static class BadKeyReader implements Runnable {
+
+        private final String badKeyFileIn;
+        private final BlockingQueue<BadKeyInput> badKeyQIn;
+        private BufferedReader fileReader;
+
+        BadKeyReader(String badKeyFileIn, BlockingQueue<BadKeyInput> badKeyQIn) {
+            this.badKeyFileIn = badKeyFileIn;
+            this.badKeyQIn = badKeyQIn;
             try {
-                BufferedReader fileReader = new BufferedReader(new FileReader(keyFile));
-                for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
-                    if(!line.isEmpty()) {
-                        options.keysInHexFormat.add(line);
-                    }
-                }
+                fileReader = new BufferedReader(new FileReader(badKeyFileIn));
             } catch(IOException e) {
                 Utils.croak("Failure to open input stream: " + e.getMessage());
             }
         }
 
-        return options;
+        @Override
+        public void run() {
+            try {
+                int counter = 0;
+                for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
+                    if(!line.isEmpty()) {
+                        counter++;
+                        System.out.println("BadKeyReader read line: key (" + line
+                                           + ") and counter (" + counter + ")");
+                        badKeyQIn.put(new BadKeyInput(line));
+                    }
+                }
+                System.out.println("BadKeyReader poisoning the pipeline");
+                badKeyQIn.put(new BadKeyInput());
+            } catch(IOException ioe) {
+                System.err.println("IO exception reading badKeyFile " + badKeyFileIn + " : "
+                                   + ioe.getMessage());
+            } catch(InterruptedException ie) {
+                System.err.println("Interrupted exception during reading of badKeyFile "
+                                   + badKeyFileIn + " : " + ie.getMessage());
+            } finally {
+                try {
+                    fileReader.close();
+                } catch(IOException ioe) {
+                    System.err.println("IOException during fileReader.close in BadKeyReader thread.");
+                }
+            }
+            System.out.println("BadKeyReader is done.");
+        }
     }
 
-    public static void main(String[] args) throws Exception {
-        Options options = parseArgs(args);
+    static class BadKeyWriter implements Runnable {
 
-        BufferedWriter fileWriter = null;
-        try {
-            fileWriter = new BufferedWriter(new FileWriter(options.outFile));
-        } catch(IOException e) {
-            Utils.croak("Failure to open ouput file '" + options.outFile + "': " + e.getMessage());
-        }
-        if(fileWriter == null) {
-            Utils.croak("Failure to create BufferedWriter for ouput file '" + options.outFile + "'");
-        }
+        private final String badKeyFileOut;
+        private final BlockingQueue<BadKeyResult> badKeyQOut;
 
-        init(options);
+        private BufferedWriter fileWriter = null;
 
-        for(String keyInHexFormat: options.keysInHexFormat) {
-            FixKeyResult fixKeyResult = fixKey(keyInHexFormat, options.verbose);
-            if(fixKeyResult == FixKeyResult.SUCCESS) {
-                System.out.println("Successfully processed " + keyInHexFormat);
-            } else {
-                fileWriter.write("BADKEY," + keyInHexFormat + "," + fixKeyResult.name());
+        BadKeyWriter(String badKeyFile, BlockingQueue<BadKeyResult> badKeyQOut) {
+            this.badKeyFileOut = badKeyFile;
+            this.badKeyQOut = badKeyQOut;
+
+            try {
+                fileWriter = new BufferedWriter(new FileWriter(badKeyFileOut));
+            } catch(IOException e) {
+                Utils.croak("Failure to open output file : " + e.getMessage());
             }
         }
 
-        stop();
+        @Override
+        public void run() {
+            try {
+                BadKeyResult badKeyResult = badKeyQOut.take();
+                while(!badKeyResult.isPoison()) {
+                    System.out.println("BadKeyWriter write key (" + badKeyResult.keyInHexFormat);
+
+                    fileWriter.write("BADKEY," + badKeyResult.keyInHexFormat + ","
+                                     + badKeyResult.fixKeyResult.name() + "\n");
+                    badKeyResult = badKeyQOut.take();
+                }
+            } catch(IOException ioe) {
+                System.err.println("IO exception reading badKeyFile " + badKeyFileOut + " : "
+                                   + ioe.getMessage());
+            } catch(InterruptedException ie) {
+                System.err.println("Interrupted exception during writing of badKeyFile "
+                                   + badKeyFileOut + " : " + ie.getMessage());
+            } finally {
+                try {
+                    fileWriter.close();
+                } catch(IOException ioe) {
+                    System.err.println("Interrupted exception during fileWriter.close:"
+                                       + ioe.getMessage());
+                }
+            }
+        }
     }
 
-    public enum FixKeyResult {
+    static class KeyGetter implements Runnable {
+
+        // TODO: Add stats shared across all getters (invocations, successes,
+        // etc.)
+
+        private final CountDownLatch latch;
+        private final ExecutorService repairPuttersService;
+        private final BlockingQueue<BadKeyInput> badKeyQIn;
+        private final BlockingQueue<BadKeyResult> badKeyQOut;
+        private final boolean verbose;
+
+        KeyGetter(CountDownLatch latch,
+                  ExecutorService repairPuttersService,
+                  BlockingQueue<BadKeyInput> badKeyQIn,
+                  BlockingQueue<BadKeyResult> badKeyQOut,
+                  boolean verbose) {
+            this.latch = latch;
+            this.repairPuttersService = repairPuttersService;
+            this.badKeyQIn = badKeyQIn;
+            this.badKeyQOut = badKeyQOut;
+            this.verbose = verbose;
+        }
+
+        private String myName() {
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public void run() {
+            int counter = 0;
+            BadKeyInput badKeyInput = null;
+
+            try {
+                badKeyInput = badKeyQIn.take();
+
+                while(!badKeyInput.isPoison()) {
+                    counter++;
+                    ConsistencyFix.doKeyGetStatus doKeyGetStatus = doKeyGet(badKeyInput.getKey(),
+                                                                            verbose);
+
+                    if(doKeyGetStatus.status == ConsistencyFixStatus.SUCCESS) {
+                        repairPuttersService.submit(new RepairPutter(badKeyInput.getKey(),
+                                                                     badKeyQOut,
+                                                                     doKeyGetStatus.nodeValues,
+                                                                     verbose));
+                    } else {
+                        badKeyQOut.put(new BadKeyResult(badKeyInput.getKey(), doKeyGetStatus.status));
+                    }
+
+                    badKeyInput = badKeyQIn.take();
+                }
+                // Done. Poison other KeyGetters!
+                badKeyQIn.put(new BadKeyInput());
+            } catch(InterruptedException ie) {
+                System.err.println("KeyGetter thread " + myName() + " interruped.");
+            } finally {
+                latch.countDown();
+            }
+            System.err.println("Thread " + myName() + " has swallowed poison and has counter = "
+                               + counter);
+        }
+    }
+
+    static class RepairPutter implements Runnable {
+
+        // TODO: Add stats shared across all putters (invocations, successes,
+        // etc.)
+
+        private final String keyInHexFormat;
+        private final BlockingQueue<BadKeyResult> badKeyQOut;
+        private final List<NodeValue<ByteArray, byte[]>> nodeValues;
+        private final boolean verbose;
+
+        RepairPutter(String keyInHexFormat,
+                     BlockingQueue<BadKeyResult> badKeyQOut,
+                     List<NodeValue<ByteArray, byte[]>> nodeValues,
+                     boolean verbose) {
+            this.keyInHexFormat = keyInHexFormat;
+            this.badKeyQOut = badKeyQOut;
+            this.nodeValues = nodeValues;
+            this.verbose = verbose;
+        }
+
+        private String myName() {
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public void run() {
+            ConsistencyFixStatus consistencyFixStatus = doRepairPut(nodeValues, verbose);
+            if(consistencyFixStatus != ConsistencyFixStatus.SUCCESS) {
+                try {
+                    badKeyQOut.put(new BadKeyResult(keyInHexFormat, consistencyFixStatus));
+                } catch(InterruptedException ie) {
+                    System.err.println("RepairPutter thread " + myName() + " interruped.");
+                }
+            }
+        }
+    }
+
+    private static ExecutorService badKeyReaderService;
+    private static ExecutorService badKeyWriterService;
+    private static ExecutorService badKeyGetters;
+    private static ExecutorService repairPutters;
+
+    public static void main(String[] args) throws Exception {
+        // TODO: 'new' ConsistencyFix rather than static everything / everywhere
+        // TODO: Move all the inner classes out into sane files...
+        // TODO: Rename this file to ConsistencyFixCLI.java
+        Options options = parseArgs(args);
+
+        init(options);
+        System.out.println("Initialized the consistency fixer..");
+
+        BlockingQueue<BadKeyInput> badKeyQIn = new ArrayBlockingQueue<BadKeyInput>(1000);
+        badKeyReaderService = Executors.newSingleThreadExecutor();
+        badKeyReaderService.submit(new BadKeyReader(options.badKeyFileIn, badKeyQIn));
+        System.out.println("Created badKeyReader.");
+
+        BlockingQueue<BadKeyResult> badKeyQOut = new ArrayBlockingQueue<BadKeyResult>(1000);
+        badKeyWriterService = Executors.newSingleThreadExecutor();
+        badKeyWriterService.submit(new BadKeyWriter(options.badKeyFileOut, badKeyQOut));
+        System.out.println("Created badKeyWriter.");
+
+        CountDownLatch latch = new CountDownLatch(options.parallelism);
+        badKeyGetters = Executors.newFixedThreadPool(options.parallelism);
+        repairPutters = Executors.newFixedThreadPool(options.parallelism);
+        System.out.println("Created getters & putters.");
+
+        for(int i = 0; i < options.parallelism; i++) {
+            badKeyGetters.submit(new KeyGetter(latch,
+                                               repairPutters,
+                                               badKeyQIn,
+                                               badKeyQOut,
+                                               options.verbose));
+        }
+
+        latch.await();
+        System.out.println("All badKeyGetters have completed.");
+
+        badKeyReaderService.shutdown();
+        badKeyReaderService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        System.out.println("Bad key reader service has shutdown.");
+
+        badKeyGetters.shutdown();
+        badKeyGetters.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        System.out.println("All badKeyGetters have shutdown.");
+
+        repairPutters.shutdown();
+        repairPutters.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        System.out.println("All repairPutters have shutdown.");
+
+        badKeyQOut.put(new BadKeyResult()); // Poison the bad key writer.
+        badKeyWriterService.shutdown();
+        badKeyWriterService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        System.out.println("Bad key writer service has shutdown.");
+
+        stop();
+        System.out.println("Stopped the consistency fixer..");
+
+    }
+
+    static public enum ConsistencyFixStatus {
         SUCCESS("success"),
         BAD_INIT("bad initialization of fix key"),
         FETCH_EXCEPTION("exception during fetch"),
@@ -238,13 +483,53 @@ public class ConsistencyFix {
 
         private final String name;
 
-        private FixKeyResult(String name) {
+        private ConsistencyFixStatus(String name) {
             this.name = name;
         }
 
         @Override
         public String toString() {
             return name;
+        }
+    }
+
+    static public class BadKeyResult {
+
+        private final String keyInHexFormat;
+        private final ConsistencyFixStatus fixKeyResult;
+        private final boolean poison;
+
+        /**
+         * Normal constructor
+         * 
+         * @param keyInHexFormat
+         * @param fixKeyResult
+         */
+        BadKeyResult(String keyInHexFormat, ConsistencyFixStatus fixKeyResult) {
+            this.keyInHexFormat = keyInHexFormat;
+            this.fixKeyResult = fixKeyResult;
+            this.poison = false;
+        }
+
+        /**
+         * Constructs a "poison" object.
+         */
+        BadKeyResult() {
+            this.keyInHexFormat = null;
+            this.fixKeyResult = null;
+            this.poison = true;
+        }
+
+        public boolean isPoison() {
+            return poison;
+        }
+
+        public String getKey() {
+            return keyInHexFormat;
+        }
+
+        public ConsistencyFixStatus getResult() {
+            return fixKeyResult;
         }
     }
 
@@ -258,24 +543,22 @@ public class ConsistencyFix {
      *        in a non-null object to be populated by this method.
      * @return FixKeyResult
      */
-    private static ConsistencyFix.FixKeyResult doRead(final List<Integer> nodeIdList,
-                                                      final byte[] keyInBytes,
-                                                      final String keyInHexFormat,
-                                                      boolean verbose,
-                                                      Map<Integer, QueryKeyResult> nodeIdToKeyValues) {
+    private static ConsistencyFix.ConsistencyFixStatus doRead(final List<Integer> nodeIdList,
+                                                              final byte[] keyInBytes,
+                                                              final String keyInHexFormat,
+                                                              boolean verbose,
+                                                              Map<Integer, QueryKeyResult> nodeIdToKeyValues) {
         if(nodeIdToKeyValues == null) {
             if(verbose) {
                 System.out.println("Aborting doRead due to bad init.");
             }
-            return FixKeyResult.BAD_INIT;
+            return ConsistencyFixStatus.BAD_INIT;
         }
 
         if(verbose) {
             System.out.println("Reading key-values for specified key: " + keyInHexFormat);
         }
         ByteArray key = new ByteArray(keyInBytes);
-        // TODO: Do this asynchronously so that all requests are outstanding in
-        // parallel. Will need to make nodeIdToKeyValues thread safe.
         for(int nodeId: nodeIdList) {
             List<Versioned<byte[]>> values = null;
             try {
@@ -286,7 +569,7 @@ public class ConsistencyFix {
             }
         }
 
-        return FixKeyResult.SUCCESS;
+        return ConsistencyFixStatus.SUCCESS;
     }
 
     /**
@@ -298,17 +581,17 @@ public class ConsistencyFix {
      *        non-null object to be populated by this method.
      * @return
      */
-    private static ConsistencyFix.FixKeyResult processReadReplies(final List<Integer> nodeIdList,
-                                                                  final ByteArray keyAsByteArray,
-                                                                  final String keyInHexFormat,
-                                                                  boolean verbose,
-                                                                  final Map<Integer, QueryKeyResult> nodeIdToKeyValues,
-                                                                  List<NodeValue<ByteArray, byte[]>> nodeValues) {
+    private static ConsistencyFix.ConsistencyFixStatus processReadReplies(final List<Integer> nodeIdList,
+                                                                          final ByteArray keyAsByteArray,
+                                                                          final String keyInHexFormat,
+                                                                          boolean verbose,
+                                                                          final Map<Integer, QueryKeyResult> nodeIdToKeyValues,
+                                                                          List<NodeValue<ByteArray, byte[]>> nodeValues) {
         if(nodeValues == null) {
             if(verbose) {
                 System.out.println("Aborting processReadReplies due to bad init.");
             }
-            return FixKeyResult.BAD_INIT;
+            return ConsistencyFixStatus.BAD_INIT;
         }
 
         if(verbose) {
@@ -370,10 +653,10 @@ public class ConsistencyFix {
             if(verbose) {
                 System.out.println("Aborting fixKey because exceptions were encountered when fetching key-values.");
             }
-            return FixKeyResult.FETCH_EXCEPTION;
+            return ConsistencyFixStatus.FETCH_EXCEPTION;
         }
 
-        return FixKeyResult.SUCCESS;
+        return ConsistencyFixStatus.SUCCESS;
     }
 
     /**
@@ -417,14 +700,14 @@ public class ConsistencyFix {
 
     /**
      * 
-     * @param vInstance
-     * @param verbose
      * @param toReadRepair Effectively the output of this method. Must pass in a
      *        non-null object to be populated by this method.
+     * @param verbose
+     * @param vInstance
      * @return
      */
-    private static ConsistencyFix.FixKeyResult doWriteBack(boolean verbose,
-                                                           final List<NodeValue<ByteArray, byte[]>> toReadRepair) {
+    private static ConsistencyFix.ConsistencyFixStatus doRepairPut(final List<NodeValue<ByteArray, byte[]>> toReadRepair,
+                                                                   boolean verbose) {
         if(verbose) {
             System.out.println("Performing repair work:");
         }
@@ -434,8 +717,6 @@ public class ConsistencyFix {
             if(verbose) {
                 System.out.println("\tDoing repair for node with id:" + nodeKeyValue.getNodeId());
             }
-            // TODO: Do this asynchronously so that all requests are outstanding
-            // in parallel.
             try {
                 adminClient.storeOps.putNodeKeyValue(getStoreName(), nodeKeyValue);
             } catch(ObsoleteVersionException ove) {
@@ -453,12 +734,28 @@ public class ConsistencyFix {
                 System.err.println("Aborting fixKey because exceptions were encountered when reparing key-values.");
                 System.out.println("Fix failed...");
             }
-            return FixKeyResult.REPAIR_EXCEPTION;
+            return ConsistencyFixStatus.REPAIR_EXCEPTION;
         }
-        return FixKeyResult.SUCCESS;
+        return ConsistencyFixStatus.SUCCESS;
     }
 
-    public static ConsistencyFix.FixKeyResult fixKey(String keyInHexFormat, boolean verbose) {
+    public static class doKeyGetStatus {
+
+        public final ConsistencyFixStatus status;
+        public final List<NodeValue<ByteArray, byte[]>> nodeValues;
+
+        doKeyGetStatus(ConsistencyFixStatus status, List<NodeValue<ByteArray, byte[]>> nodeValues) {
+            this.status = status;
+            this.nodeValues = nodeValues;
+        }
+
+        doKeyGetStatus(ConsistencyFixStatus status) {
+            this.status = status;
+            this.nodeValues = null;
+        }
+    }
+
+    public static ConsistencyFix.doKeyGetStatus doKeyGet(String keyInHexFormat, boolean verbose) {
         if(verbose) {
             System.out.println("Performing consistency fix of key: " + keyInHexFormat);
         }
@@ -476,19 +773,19 @@ public class ConsistencyFix {
                 System.out.println("Aborting fixKey due to bad init.");
                 exception.printStackTrace();
             }
-            return FixKeyResult.BAD_INIT;
+            return new doKeyGetStatus(ConsistencyFixStatus.BAD_INIT);
         }
         ByteArray keyAsByteArray = new ByteArray(keyInBytes);
 
         // Read
         Map<Integer, QueryKeyResult> nodeIdToKeyValues = new HashMap<Integer, QueryKeyResult>();
-        FixKeyResult fixKeyResult = ConsistencyFix.doRead(nodeIdList,
-                                                          keyInBytes,
-                                                          keyInHexFormat,
-                                                          verbose,
-                                                          nodeIdToKeyValues);
-        if(fixKeyResult != FixKeyResult.SUCCESS) {
-            return fixKeyResult;
+        ConsistencyFixStatus fixKeyResult = ConsistencyFix.doRead(nodeIdList,
+                                                                  keyInBytes,
+                                                                  keyInHexFormat,
+                                                                  verbose,
+                                                                  nodeIdToKeyValues);
+        if(fixKeyResult != ConsistencyFixStatus.SUCCESS) {
+            return new doKeyGetStatus(fixKeyResult);
         }
 
         // Process read replies
@@ -499,24 +796,15 @@ public class ConsistencyFix {
                                                          verbose,
                                                          nodeIdToKeyValues,
                                                          nodeValues);
-        if(fixKeyResult != FixKeyResult.SUCCESS) {
-            return fixKeyResult;
+        if(fixKeyResult != ConsistencyFixStatus.SUCCESS) {
+            return new doKeyGetStatus(fixKeyResult);
         }
 
         // Resolve conflicts
         List<NodeValue<ByteArray, byte[]>> toReadRepair = ConsistencyFix.resolveReadConflicts(verbose,
                                                                                               nodeValues);
 
-        // Write back (if necessary)
-        fixKeyResult = ConsistencyFix.doWriteBack(verbose, toReadRepair);
-        if(fixKeyResult != FixKeyResult.SUCCESS) {
-            return fixKeyResult;
-        }
-
-        // Success!
-        if(verbose) {
-            System.out.println("Fix for key " + keyInHexFormat + "completed successfully!!");
-        }
-        return FixKeyResult.SUCCESS;
+        return new doKeyGetStatus(ConsistencyFixStatus.SUCCESS, toReadRepair);
     }
+
 }
