@@ -241,15 +241,15 @@ public class VoldemortConfig implements Serializable {
         this.bdbCheckpointBytes = props.getLong("bdb.checkpoint.interval.bytes", 200 * 1024 * 1024);
         this.bdbCheckpointMs = props.getLong("bdb.checkpoint.interval.ms", 30 * Time.MS_PER_SECOND);
         this.bdbOneEnvPerStore = props.getBoolean("bdb.one.env.per.store", false);
-        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 5);
+        this.bdbCleanerMinFileUtilization = props.getInt("bdb.cleaner.min.file.utilization", 0);
         this.bdbCleanerMinUtilization = props.getInt("bdb.cleaner.minUtilization", 50);
         this.bdbCleanerThreads = props.getInt("bdb.cleaner.threads", 1);
-        // by default, wake up the cleaner everytime we write one whole log file
-        this.bdbCleanerBytesInterval = props.getLong("bdb.cleaner.interval.bytes",
-                                                     this.bdbMaxLogFileSize);
+        // by default, wake up the cleaner everytime we write log file size *
+        // utilization% bytes. So, by default 30MB
+        this.bdbCleanerBytesInterval = props.getLong("bdb.cleaner.interval.bytes", 30 * 1024 * 1024);
         this.bdbCleanerLookAheadCacheSize = props.getInt("bdb.cleaner.lookahead.cache.size", 8192);
         this.bdbLockTimeoutMs = props.getLong("bdb.lock.timeout.ms", 500);
-        this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 1);
+        this.bdbLockNLockTables = props.getInt("bdb.lock.nLockTables", 7);
         this.bdbLogFaultReadSize = props.getInt("bdb.log.fault.read.size", 2048);
         this.bdbLogIteratorReadSize = props.getInt("bdb.log.iterator.read.size", 8192);
         this.bdbFairLatches = props.getBoolean("bdb.fair.latches", false);
@@ -259,9 +259,9 @@ public class VoldemortConfig implements Serializable {
         this.bdbStatsCacheTtlMs = props.getLong("bdb.stats.cache.ttl.ms", 5 * Time.MS_PER_SECOND);
         this.bdbExposeSpaceUtilization = props.getBoolean("bdb.expose.space.utilization", true);
         this.bdbMinimumSharedCache = props.getLong("bdb.minimum.shared.cache", 0);
-        this.bdbCleanerLazyMigration = props.getBoolean("bdb.cleaner.lazy.migration", true);
-        this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", false);
-        this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", false);
+        this.bdbCleanerLazyMigration = props.getBoolean("bdb.cleaner.lazy.migration", false);
+        this.bdbCacheModeEvictLN = props.getBoolean("bdb.cache.evictln", true);
+        this.bdbMinimizeScanImpact = props.getBoolean("bdb.minimize.scan.impact", true);
         this.bdbPrefixKeysWithPartitionId = props.getBoolean("bdb.prefix.keys.with.partitionid",
                                                              true);
         this.bdbLevelBasedEviction = props.getBoolean("bdb.evict.by.level", false);
@@ -490,6 +490,10 @@ public class VoldemortConfig implements Serializable {
         validateParams();
     }
 
+    public VoldemortConfig(int nodeId, String voldemortHome) {
+        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
+    }
+
     private void validateParams() {
         if(coreThreads < 0)
             throw new IllegalArgumentException("core.threads cannot be less than 1");
@@ -575,20 +579,18 @@ public class VoldemortConfig implements Serializable {
         return new VoldemortConfig(properties);
     }
 
-    /**
-     * The interval at which gossip is run to exchange metadata
-     */
-    public int getGossipInterval() {
-        return gossipInterval;
-    }
-
-    public void setGossipInterval(int gossipInterval) {
-        this.gossipInterval = gossipInterval;
-    }
+    /*************************************************************************
+     * General configs
+     ************************************************************************/
 
     /**
-     * The node id given by "node.id" property default: VOLDEMORT_NODE_ID
-     * environment variable
+     * Id of the server within the cluster. The server matches up this id with
+     * the information in cluster.xml to determine what partitions belong to it
+     * 
+     * <ul>
+     * <li>Property : "node.id"</li>
+     * <li>Default : VOLDEMORT_NODE_ID env variable</li>
+     * </ul>
      */
     public int getNodeId() {
         return nodeId;
@@ -615,6 +617,10 @@ public class VoldemortConfig implements Serializable {
     /**
      * The directory name given by "data.directory" default: voldemort.home/data
      * 
+     * <ul>
+     * <li>Property : "data.directory"</li>
+     * <li>Default : VOLDEMORT_HOME/data</li>
+     * </ul>
      */
     public String getDataDirectory() {
         return dataDirectory;
@@ -627,6 +633,11 @@ public class VoldemortConfig implements Serializable {
     /**
      * The directory name given by "metadata.directory" default:
      * voldemort.home/config
+     * 
+     * <ul>
+     * <li>Property : "metadata.directory"</li>
+     * <li>Default : VOLDEMORT_HOME/config</li>
+     * </ul>
      */
     public String getMetadataDirectory() {
         return metadataDirectory;
@@ -636,6 +647,9 @@ public class VoldemortConfig implements Serializable {
         this.metadataDirectory = metadataDirectory;
     }
 
+    /*************************************************************************
+     * BDB JE Configs
+     ************************************************************************/
     /**
      * The size of BDB Cache to hold portions of the BTree.
      * 
@@ -724,7 +738,7 @@ public class VoldemortConfig implements Serializable {
      * 
      * <ul>
      * <li>property: "bdb.cleaner.minFileUtilization"</li>
-     * <li>default: 5</li>
+     * <li>default: 0</li>
      * <li>minimum: 0</li>
      * <li>maximum: 50</li>
      * </ul>
@@ -804,7 +818,7 @@ public class VoldemortConfig implements Serializable {
      * 
      * <ul>
      * <li>property: "bdb.cleaner.interval.bytes"</li>
-     * <li>default: logfile size</li>
+     * <li>default: 30MB</li>
      * </ul>
      */
     public long getBdbCleanerBytesInterval() {
@@ -864,7 +878,7 @@ public class VoldemortConfig implements Serializable {
      * 
      * <ul>
      * <li>Property : bdb.lock.nLockTables"</li>
-     * <li>Default : 1</li>
+     * <li>Default : 7</li>
      * </ul>
      * 
      * @return
@@ -994,11 +1008,12 @@ public class VoldemortConfig implements Serializable {
      * If true, Cleaner offloads some work to application threads, to keep up
      * with the write rate. Side effect is that data is staged on the JVM till
      * it is flushed down by Checkpointer, hence not GC friendly (Will cause
-     * promotions)
+     * promotions). Use if you have lots of spare RAM by running low on
+     * threads/IOPS
      * 
      * <ul>
      * <li>property: "bdb.cleaner.lazy.migration"</li>
-     * <li>default : true</li>
+     * <li>default : false</li>
      * </ul>
      * 
      * @return
@@ -1012,11 +1027,13 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * If true, BDB will not cache data in the JVM.
+     * If true, BDB will not cache data in the JVM. This is very Java GC
+     * friendly, and brings a lot of predictability in performance, by greatly
+     * reducing constant CMS activity
      * 
      * <ul>
      * <li>Property : "bdb.cache.evictln"</li>
-     * <li>Default : false</li>
+     * <li>Default : true</li>
      * </ul>
      * 
      * @return
@@ -1035,7 +1052,7 @@ public class VoldemortConfig implements Serializable {
      * 
      * <ul>
      * <li>Property : "bdb.minimize.scan.impact"</li>
-     * <li>Default : false</li>
+     * <li>Default : true</li>
      * </ul>
      * 
      * @return
@@ -1237,10 +1254,18 @@ public class VoldemortConfig implements Serializable {
         this.bdbProactiveBackgroundMigration = bdbProactiveBackgroundMigration;
     }
 
+    /*************************************************************************
+     * Thread Pool configs
+     ************************************************************************/
     /**
      * The comfortable number of threads the threadpool will attempt to
-     * maintain. Specified by "core.threads" default: max(1, floor(0.5 *
-     * max.threads))
+     * maintain. Not applicable with enable.nio=true
+     * 
+     * <ul>
+     * <li>Property : "core.threads"</li>
+     * <li>Default : max(1, floor(0.5 * max.threads)</li>
+     * </ul>
+     * 
      */
     public int getCoreThreads() {
         return coreThreads;
@@ -1251,8 +1276,14 @@ public class VoldemortConfig implements Serializable {
     }
 
     /**
-     * The maximum number of threadpool threads set by "max.threads" default:
-     * 100
+     * The maximum number of threads in the server thread pool. Not applicable
+     * with enable.nio.connector=true
+     * 
+     * <ul>
+     * <li>Property : "max.threads"</li>
+     * <li>Default : 100</li>
+     * </ul>
+     * 
      */
     public int getMaxThreads() {
         return maxThreads;
@@ -1262,6 +1293,17 @@ public class VoldemortConfig implements Serializable {
         this.maxThreads = maxThreads;
     }
 
+    /**
+     * Number of threads that the admin service thread pool will attempt to keep
+     * around. Not applicable with enable.nio.connector=true
+     * 
+     * <ul>
+     * <li>Property : "admin.core.threads"</li>
+     * <li>Default : max(1, adminMaxThreads/2)</li>
+     * </ul>
+     * 
+     * @return
+     */
     public int getAdminCoreThreads() {
         return adminCoreThreads;
     }
@@ -1270,12 +1312,78 @@ public class VoldemortConfig implements Serializable {
         this.adminCoreThreads = coreThreads;
     }
 
+    /**
+     * Maximum number of threads in the admin service thread pool. Not
+     * applicable with enable.nio=true
+     * 
+     * <ul>
+     * <li>Property : "admin.max.threads"</li>
+     * <li>Default : 20</li>
+     * </ul>
+     * 
+     * @return
+     */
     public int getAdminMaxThreads() {
         return adminMaxThreads;
     }
 
     public void setAdminMaxThreads(int maxThreads) {
         this.adminMaxThreads = maxThreads;
+    }
+
+    /**
+     * Determines whether the server will use NIO style selectors while handling
+     * requests
+     * 
+     * <ul>
+     * <li>Property : "enable.nio.connector"</li>
+     * <li>Default : true</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public boolean getUseNioConnector() {
+        return this.useNioConnector;
+    }
+
+    public void setUseNioConnector(boolean useNio) {
+        this.useNioConnector = useNio;
+    }
+
+    /**
+     * Number of NIO server threads to use to process client requests
+     * 
+     * <ul>
+     * <li>Property : nio.connector.selectors</li>
+     * <li>Default : max(8, number of available processors)</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public int getNioConnectorSelectors() {
+        return nioConnectorSelectors;
+    }
+
+    public void setNioConnectorSelectors(int nioConnectorSelectors) {
+        this.nioConnectorSelectors = nioConnectorSelectors;
+    }
+
+    /**
+     * Number of admin NIO server threads to spin up.
+     * 
+     * <ul>
+     * <li>Property : nio.admin.connector.selectors</li>
+     * <li>Default : max(8, number of available processors)</li>
+     * </ul>
+     * 
+     * @return
+     */
+    public int getNioAdminConnectorSelectors() {
+        return nioAdminConnectorSelectors;
+    }
+
+    public void setNioAdminConnectorSelectors(int nioAdminConnectorSelectors) {
+        this.nioAdminConnectorSelectors = nioAdminConnectorSelectors;
     }
 
     public boolean isHttpServerEnabled() {
@@ -1290,14 +1398,30 @@ public class VoldemortConfig implements Serializable {
         return enableSocketServer;
     }
 
-    public void setAdminServerEnabled(boolean enableSocketServer) {
-        this.enableSocketServer = enableSocketServer;
-    }
-
+    /**
+     * Determine whether the admin service has been enabled to perform
+     * maintenance operations on the server
+     * 
+     * @return
+     */
     public boolean isAdminServerEnabled() {
         return enableAdminServer;
     }
 
+    public void setAdminServerEnabled(boolean enableAdminServer) {
+        this.enableAdminServer = enableAdminServer;
+    }
+
+    /**
+     * Maximum amount of data read out of the server by streaming operations
+     * 
+     * <ul>
+     * <li>Property : "stream.read.byte.per.sec"</li>
+     * <li>Default : 10MB</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getStreamMaxReadBytesPerSec() {
         return streamMaxReadBytesPerSec;
     }
@@ -1306,6 +1430,17 @@ public class VoldemortConfig implements Serializable {
         this.streamMaxReadBytesPerSec = streamMaxReadBytesPerSec;
     }
 
+    /**
+     * Maximum amount of data to be written into the server by streaming
+     * operations
+     * 
+     * <ul>
+     * <li>Property : "stream.write.byte.per.sec"</li>
+     * <li>Default : 10MB</li>
+     * </ul>
+     * 
+     * @return
+     */
     public long getStreamMaxWriteBytesPerSec() {
         return streamMaxWriteBytesPerSec;
     }
@@ -1681,30 +1816,6 @@ public class VoldemortConfig implements Serializable {
         this.socketKeepAlive = on;
     }
 
-    public boolean getUseNioConnector() {
-        return this.useNioConnector;
-    }
-
-    public void setUseNioConnector(boolean useNio) {
-        this.useNioConnector = useNio;
-    }
-
-    public int getNioConnectorSelectors() {
-        return nioConnectorSelectors;
-    }
-
-    public void setNioConnectorSelectors(int nioConnectorSelectors) {
-        this.nioConnectorSelectors = nioConnectorSelectors;
-    }
-
-    public int getNioAdminConnectorSelectors() {
-        return nioAdminConnectorSelectors;
-    }
-
-    public void setNioAdminConnectorSelectors(int nioAdminConnectorSelectors) {
-        this.nioAdminConnectorSelectors = nioAdminConnectorSelectors;
-    }
-
     public int getNioAcceptorBacklog() {
         return nioAcceptorBacklog;
     }
@@ -1901,10 +2012,6 @@ public class VoldemortConfig implements Serializable {
         this.rebalancingTimeoutSec = rebalancingTimeoutSec;
     }
 
-    public VoldemortConfig(int nodeId, String voldemortHome) {
-        this(new Props().with("node.id", nodeId).with("voldemort.home", voldemortHome));
-    }
-
     public boolean isGossipEnabled() {
         return enableGossip;
     }
@@ -2015,5 +2122,21 @@ public class VoldemortConfig implements Serializable {
 
     public void setUseMlock(boolean useMlock) {
         this.useMlock = useMlock;
+    }
+
+    /**
+     * The interval at which gossip is run to exchange metadata
+     * 
+     * <ul>
+     * <li>Property : "gossip.interval.ms"</li>
+     * <li>Default : "30 seconds"</li>
+     * </ul>
+     */
+    public int getGossipInterval() {
+        return gossipInterval;
+    }
+
+    public void setGossipInterval(int gossipInterval) {
+        this.gossipInterval = gossipInterval;
     }
 }
