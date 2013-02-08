@@ -17,17 +17,9 @@
 package voldemort.utils;
 
 import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import voldemort.utils.ConsistencyFix.BadKeyInput;
-import voldemort.utils.ConsistencyFix.BadKeyResult;
 
 public class ConsistencyFixCLI {
 
@@ -45,14 +37,15 @@ public class ConsistencyFixCLI {
 
     private static class Options {
 
-        public final static int defaultParallelism = 2;
+        public final static int defaultParallelism = 8;
+        public final static long defaultProgressBar = 1000;
 
         public String url = null;
         public String storeName = null;
         public String badKeyFileIn = null;
         public String badKeyFileOut = null;
-        public int parallelism = 0;
-        public boolean verbose = false;
+        public int parallelism = defaultParallelism;
+        public long progressBar = defaultProgressBar;
     }
 
     /**
@@ -84,13 +77,15 @@ public class ConsistencyFixCLI {
                            + "Keys that are not mae consistent are output to this file.")
               .ofType(String.class);
         parser.accepts("parallelism")
-              .withOptionalArg()
-              .describedAs("Number of read and to repair in parallel. "
-                           + "Up to 2X this value requests outstanding simultaneously. "
+              .withRequiredArg()
+              .describedAs("Number of consistency fix messages outstanding in parallel. "
                            + "[Default value: " + Options.defaultParallelism + "]")
               .ofType(Integer.class);
-
-        parser.accepts("verbose", "verbose");
+        parser.accepts("progress-bar")
+              .withRequiredArg()
+              .describedAs("Number of operations between 'info' progress messages. "
+                           + "[Default value: " + Options.defaultProgressBar + "]")
+              .ofType(Long.class);
         OptionSet optionSet = parser.parse(args);
 
         if(optionSet.hasArgument("help")) {
@@ -121,85 +116,27 @@ public class ConsistencyFixCLI {
         options.storeName = (String) optionSet.valueOf("store");
         options.badKeyFileOut = (String) optionSet.valueOf("bad-key-file-out");
         options.badKeyFileIn = (String) optionSet.valueOf("bad-key-file-in");
-        options.parallelism = Options.defaultParallelism;
         if(optionSet.has("parallelism")) {
             options.parallelism = (Integer) optionSet.valueOf("parallelism");
         }
-
-        if(optionSet.has("verbose")) {
-            options.verbose = true;
+        if(optionSet.has("progress-bar")) {
+            options.progressBar = (Long) optionSet.valueOf("progress-bar");
         }
 
         return options;
     }
 
-    private static ExecutorService badKeyReaderService;
-    private static ExecutorService badKeyWriterService;
-    private static ExecutorService badKeyGetters;
-    private static ExecutorService repairPutters;
-
-    // TODO: Should all of this executor service stuff be in this class? Or, in
-    // ConsistencyFix?
-
-    // TODO: Did I do anything stupid to parallelize this work? I have much more
-    // machinery than I expected (four executor services!) and I am not
-    // particularly fond of the "poison" types used to tear down the threads
-    // that depend on BlockingQueues (BadKeyREader and BadKeyWriter).
     public static void main(String[] args) throws Exception {
         Options options = parseArgs(args);
 
-        ConsistencyFix consistencyFix = new ConsistencyFix(options.url, options.storeName);
-        System.out.println("Constructed the consistency fixer..");
+        ConsistencyFix consistencyFix = new ConsistencyFix(options.url,
+                                                           options.storeName,
+                                                           options.progressBar);
 
-        BlockingQueue<BadKeyInput> badKeyQIn = new ArrayBlockingQueue<BadKeyInput>(1000);
-        badKeyReaderService = Executors.newSingleThreadExecutor();
-        badKeyReaderService.submit(consistencyFix.new BadKeyReader(options.badKeyFileIn, badKeyQIn));
-        System.out.println("Created badKeyReader.");
+        String summary = consistencyFix.execute(options.parallelism,
+                                                options.badKeyFileIn,
+                                                options.badKeyFileOut);
 
-        BlockingQueue<BadKeyResult> badKeyQOut = new ArrayBlockingQueue<BadKeyResult>(1000);
-        badKeyWriterService = Executors.newSingleThreadExecutor();
-        badKeyWriterService.submit(consistencyFix.new BadKeyWriter(options.badKeyFileOut,
-                                                                   badKeyQOut));
-        System.out.println("Created badKeyWriter.");
-
-        CountDownLatch latch = new CountDownLatch(options.parallelism);
-        badKeyGetters = Executors.newFixedThreadPool(options.parallelism);
-        repairPutters = Executors.newFixedThreadPool(options.parallelism);
-        System.out.println("Created getters & putters.");
-
-        for(int i = 0; i < options.parallelism; i++) {
-            badKeyGetters.submit(new ConsistencyFixKeyGetter(latch,
-                                                             consistencyFix,
-                                                             repairPutters,
-                                                             badKeyQIn,
-                                                             badKeyQOut,
-                                                             options.verbose));
-        }
-
-        latch.await();
-        System.out.println("All badKeyGetters have completed.");
-
-        badKeyReaderService.shutdown();
-        badKeyReaderService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        System.out.println("Bad key reader service has shutdown.");
-
-        badKeyGetters.shutdown();
-        badKeyGetters.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        System.out.println("All badKeyGetters have shutdown.");
-
-        repairPutters.shutdown();
-        repairPutters.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        System.out.println("All repairPutters have shutdown.");
-
-        // Poison the bad key writer.
-        badKeyQOut.put(consistencyFix.new BadKeyResult());
-        badKeyWriterService.shutdown();
-        badKeyWriterService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        System.out.println("Bad key writer service has shutdown.");
-
-        consistencyFix.stop();
-        System.out.println("Stopped the consistency fixer..");
-
+        System.out.println(summary);
     }
-
 }

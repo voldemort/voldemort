@@ -21,50 +21,66 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
+import java.text.DecimalFormat;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
-import voldemort.VoldemortException;
+import org.apache.log4j.Logger;
+
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
-import voldemort.store.routed.NodeValue;
-import voldemort.store.routed.ReadRepairer;
-import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-import com.google.common.collect.Lists;
-
 public class ConsistencyFix {
+
+    private static final Logger logger = Logger.getLogger(ConsistencyFix.class);
 
     private final String storeName;
     private final AdminClient adminClient;
     private final StoreInstance storeInstance;
+    private final Stats stats;
 
-    ConsistencyFix(String url, String storeName) {
+    ConsistencyFix(String url, String storeName, long progressBar) {
         this.storeName = storeName;
-        System.out.println("Connecting to bootstrap server: " + url);
+        logger.info("Connecting to bootstrap server: " + url);
         this.adminClient = new AdminClient(url, new AdminClientConfig(), 0);
         Cluster cluster = adminClient.getAdminClientCluster();
-        System.out.println("Cluster determined to be: " + cluster.getName());
+        logger.info("Cluster determined to be: " + cluster.getName());
 
-        System.out.println("Determining store definition for store: " + storeName);
         Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
         List<StoreDefinition> storeDefs = storeDefinitions.getValue();
         StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefs,
                                                                                           storeName);
-        System.out.println("Store definition determined.");
+        logger.info("Store definition for store " + storeName + " has been determined.");
 
         storeInstance = new StoreInstance(cluster, storeDefinition);
+
+        stats = new Stats(progressBar);
     }
 
-    public void stop() {
-        adminClient.stop();
+    public String getStoreName() {
+        return storeName;
+    }
+
+    public StoreInstance getStoreInstance() {
+        return storeInstance;
+    }
+
+    public AdminClient getAdminClient() {
+        return adminClient;
+    }
+
+    public Stats getStats() {
+        return stats;
     }
 
     /**
@@ -88,38 +104,63 @@ public class ConsistencyFix {
         }
     }
 
-    /**
-     * Type with which to wrap "bad keys" read from input file. Has a "poison"
-     * value to effectively signal EOF.
-     */
-    public class BadKeyInput {
+    public String execute(int parallelism, String badKeyFileIn, String badKeyFileOut) {
+        ExecutorService badKeyReaderService;
+        ExecutorService badKeyWriterService;
+        ExecutorService consistencyFixWorkers;
 
-        private final String keyInHexFormat;
-        private final boolean poison;
+        // Create BadKeyWriter thread
+        BlockingQueue<BadKeyResult> badKeyQOut = new ArrayBlockingQueue<BadKeyResult>(parallelism * 10);
+        badKeyWriterService = Executors.newSingleThreadExecutor();
+        badKeyWriterService.submit(new BadKeyWriter(badKeyFileOut, badKeyQOut));
+        logger.info("Created badKeyWriter.");
 
-        /**
-         * Common case constructor.
-         */
-        BadKeyInput(String keyInHexFormat) {
-            this.keyInHexFormat = keyInHexFormat;
-            this.poison = false;
+        // Create ConsistencyFixWorker thread pool
+        BlockingQueue<Runnable> blockingQ = new ArrayBlockingQueue<Runnable>(parallelism);
+        RejectedExecutionHandler rejectedExecutionHandler = new ThreadPoolExecutor.CallerRunsPolicy();
+        consistencyFixWorkers = new ThreadPoolExecutor(parallelism,
+                                                       parallelism,
+                                                       0L,
+                                                       TimeUnit.MILLISECONDS,
+                                                       blockingQ,
+                                                       rejectedExecutionHandler);
+        logger.info("Created ConsistencyFixWorker pool.");
+
+        // Create BadKeyReader thread
+        CountDownLatch allBadKeysReadLatch = new CountDownLatch(1);
+        badKeyReaderService = Executors.newSingleThreadExecutor();
+        badKeyReaderService.submit(new BadKeyReader(allBadKeysReadLatch,
+                                                    badKeyFileIn,
+                                                    this,
+                                                    consistencyFixWorkers,
+                                                    badKeyQOut));
+        logger.info("Created badKeyReader.");
+
+        try {
+            allBadKeysReadLatch.await();
+
+            badKeyReaderService.shutdown();
+            badKeyReaderService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            logger.info("Bad key reader service has shutdown.");
+
+            consistencyFixWorkers.shutdown();
+            consistencyFixWorkers.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            logger.info("All workers have shutdown.");
+
+            // Poison the bad key writer to have it exit.
+            badKeyQOut.put(new BadKeyResult());
+            badKeyWriterService.shutdown();
+            badKeyWriterService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            logger.info("Bad key writer service has shutdown.");
+        } catch(InterruptedException e) {
+            logger.warn("InterruptedException caught.");
+            if(logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
+        } finally {
+            adminClient.stop();
         }
-
-        /**
-         * Constructs a "poison" object.
-         */
-        BadKeyInput() {
-            this.keyInHexFormat = null;
-            this.poison = true;
-        }
-
-        boolean isPoison() {
-            return poison;
-        }
-
-        String getKey() {
-            return keyInHexFormat;
-        }
+        return stats.summary();
     }
 
     /**
@@ -164,19 +205,29 @@ public class ConsistencyFix {
         }
     }
 
-    // TODO: Should either move BadKeyReader and BadKeyWriter thread definitions
-    // out of this file (as has been done with ConsistencyFixKeyGetter and
-    // ConsistencyFixRepairPutter), or move those thread definitions (back) into
-    // this file.
-    class BadKeyReader implements Runnable {
+    public class BadKeyReader implements Runnable {
 
+        private final CountDownLatch latch;
         private final String badKeyFileIn;
-        private final BlockingQueue<BadKeyInput> badKeyQIn;
+
+        private final ConsistencyFix consistencyFix;
+        private final ExecutorService consistencyFixWorkers;
+        private final BlockingQueue<BadKeyResult> badKeyQOut;
+
         private BufferedReader fileReader;
 
-        BadKeyReader(String badKeyFileIn, BlockingQueue<BadKeyInput> badKeyQIn) {
+        BadKeyReader(CountDownLatch latch,
+                     String badKeyFileIn,
+                     ConsistencyFix consistencyFix,
+                     ExecutorService consistencyFixWorkers,
+                     BlockingQueue<BadKeyResult> badKeyQOut) {
+            this.latch = latch;
             this.badKeyFileIn = badKeyFileIn;
-            this.badKeyQIn = badKeyQIn;
+
+            this.consistencyFix = consistencyFix;
+            this.consistencyFixWorkers = consistencyFixWorkers;
+            this.badKeyQOut = badKeyQOut;
+
             try {
                 fileReader = new BufferedReader(new FileReader(badKeyFileIn));
             } catch(IOException e) {
@@ -191,31 +242,28 @@ public class ConsistencyFix {
                 for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
                     if(!line.isEmpty()) {
                         counter++;
-                        System.out.println("BadKeyReader read line: key (" + line
-                                           + ") and counter (" + counter + ")");
-                        badKeyQIn.put(new BadKeyInput(line));
+                        logger.debug("BadKeyReader read line: key (" + line + ") and counter ("
+                                     + counter + ")");
+                        consistencyFixWorkers.submit(new ConsistencyFixWorker(line,
+                                                                              consistencyFix,
+                                                                              badKeyQOut));
                     }
                 }
-                System.out.println("BadKeyReader poisoning the pipeline");
-                badKeyQIn.put(new BadKeyInput());
             } catch(IOException ioe) {
-                System.err.println("IO exception reading badKeyFile " + badKeyFileIn + " : "
-                                   + ioe.getMessage());
-            } catch(InterruptedException ie) {
-                System.err.println("Interrupted exception during reading of badKeyFile "
-                                   + badKeyFileIn + " : " + ie.getMessage());
+                logger.warn("IO exception reading badKeyFile " + badKeyFileIn + " : "
+                            + ioe.getMessage());
             } finally {
+                latch.countDown();
                 try {
                     fileReader.close();
                 } catch(IOException ioe) {
-                    System.err.println("IOException during fileReader.close in BadKeyReader thread.");
+                    logger.warn("IOException during fileReader.close in BadKeyReader thread.");
                 }
             }
-            System.out.println("BadKeyReader is done.");
         }
     }
 
-    class BadKeyWriter implements Runnable {
+    public class BadKeyWriter implements Runnable {
 
         private final String badKeyFileOut;
         private final BlockingQueue<BadKeyResult> badKeyQOut;
@@ -238,304 +286,80 @@ public class ConsistencyFix {
             try {
                 BadKeyResult badKeyResult = badKeyQOut.take();
                 while(!badKeyResult.isPoison()) {
-                    System.out.println("BadKeyWriter write key (" + badKeyResult.keyInHexFormat);
+                    logger.debug("BadKeyWriter write key (" + badKeyResult.keyInHexFormat + ")");
 
                     fileWriter.write("BADKEY," + badKeyResult.keyInHexFormat + ","
                                      + badKeyResult.fixKeyResult.name() + "\n");
                     badKeyResult = badKeyQOut.take();
                 }
             } catch(IOException ioe) {
-                System.err.println("IO exception reading badKeyFile " + badKeyFileOut + " : "
-                                   + ioe.getMessage());
+                logger.warn("IO exception reading badKeyFile " + badKeyFileOut + " : "
+                            + ioe.getMessage());
             } catch(InterruptedException ie) {
-                System.err.println("Interrupted exception during writing of badKeyFile "
-                                   + badKeyFileOut + " : " + ie.getMessage());
+                logger.warn("Interrupted exception during writing of badKeyFile " + badKeyFileOut
+                            + " : " + ie.getMessage());
             } finally {
                 try {
                     fileWriter.close();
                 } catch(IOException ioe) {
-                    System.err.println("Interrupted exception during fileWriter.close:"
-                                       + ioe.getMessage());
+                    logger.warn("Interrupted exception during fileWriter.close:" + ioe.getMessage());
                 }
             }
         }
     }
 
-    // TODO: Make a type to handle Status + nodeIdToKeyValues so that
-    // nodeIdToKeyValues is not an "out" parameter.
-    /**
-     * 
-     * @param nodeIdList
-     * @param keyInBytes
-     * @param keyInHexFormat
-     * @param verbose
-     * @param nodeIdToKeyValues Effectively the output of this method. Must pass
-     *        in a non-null object to be populated by this method.
-     * @return
-     */
-    private ConsistencyFix.Status doRead(final List<Integer> nodeIdList,
-                                         final byte[] keyInBytes,
-                                         final String keyInHexFormat,
-                                         boolean verbose,
-                                         Map<Integer, QueryKeyResult> nodeIdToKeyValues) {
-        if(nodeIdToKeyValues == null) {
-            if(verbose) {
-                System.out.println("Aborting doRead due to bad init.");
-            }
-            return Status.BAD_INIT;
+    public class Stats {
+
+        final long progressBar;
+        long count;
+        long failures;
+        long lastTimeMs;
+        final long startTimeMs;
+
+        Stats(long progressBar) {
+            this.progressBar = progressBar;
+            this.count = 0;
+            this.failures = 0;
+            this.lastTimeMs = System.currentTimeMillis();
+            this.startTimeMs = lastTimeMs;
         }
 
-        if(verbose) {
-            System.out.println("Reading key-values for specified key: " + keyInHexFormat);
+        private synchronized String getPrettyQPS(long count, long ms) {
+            long periodS = TimeUnit.MILLISECONDS.toSeconds(ms);
+            double qps = (count * 1.0 / periodS);
+            DecimalFormat df = new DecimalFormat("0.##");
+            return df.format(qps);
         }
-        ByteArray key = new ByteArray(keyInBytes);
-        for(int nodeId: nodeIdList) {
-            List<Versioned<byte[]>> values = null;
-            try {
-                values = adminClient.storeOps.getNodeKey(storeName, nodeId, key);
-                nodeIdToKeyValues.put(nodeId, new QueryKeyResult(key, values));
-            } catch(VoldemortException ve) {
-                nodeIdToKeyValues.put(nodeId, new QueryKeyResult(key, ve));
+
+        public synchronized void incrementCount() {
+            count++;
+            if(count % progressBar == 0) {
+                long nowTimeMs = System.currentTimeMillis();
+                logger.info("Bad keys attempted to be processed count = " + count + " ("
+                            + getPrettyQPS(progressBar, lastTimeMs - nowTimeMs) + " keys/second)");
+                lastTimeMs = nowTimeMs;
             }
         }
 
-        return Status.SUCCESS;
-    }
-
-    // TODO: Make a type to handle Status + nodeValues so that nodeValue is not
-    // an "out" parameter.
-    /**
-     * 
-     * @param nodeIdList
-     * @param keyAsByteArray
-     * @param keyInHexFormat
-     * @param verbose
-     * @param nodeIdToKeyValues
-     * @param nodeValues Effectively the output of this method. Must pass in a
-     *        non-null object to be populated by this method.
-     * @return
-     */
-    private ConsistencyFix.Status processReadReplies(final List<Integer> nodeIdList,
-                                                     final ByteArray keyAsByteArray,
-                                                     final String keyInHexFormat,
-                                                     boolean verbose,
-                                                     final Map<Integer, QueryKeyResult> nodeIdToKeyValues,
-                                                     List<NodeValue<ByteArray, byte[]>> nodeValues) {
-        if(nodeValues == null) {
-            if(verbose) {
-                System.out.println("Aborting processReadReplies due to bad init.");
-            }
-            return Status.BAD_INIT;
-        }
-
-        if(verbose) {
-            System.out.println("Confirming all nodes (" + nodeIdList
-                               + ") responded with key-values for specified key: " + keyInHexFormat);
-        }
-        boolean exceptionsEncountered = false;
-        for(int nodeId: nodeIdList) {
-            if(verbose) {
-                System.out.println("\t Processing response from node with id:" + nodeId);
-            }
-            QueryKeyResult keyValue;
-            if(nodeIdToKeyValues.containsKey(nodeId)) {
-                if(verbose) {
-                    System.out.println("\t... There was a key-value returned from node with id:"
-                                       + nodeId);
-                }
-                keyValue = nodeIdToKeyValues.get(nodeId);
-
-                if(keyValue.hasException()) {
-                    if(verbose) {
-                        System.out.println("\t... Exception encountered while fetching key "
-                                           + keyInHexFormat + " from node with nodeId " + nodeId
-                                           + " : " + keyValue.getException().getMessage());
-                    }
-                    exceptionsEncountered = true;
-                } else {
-                    if(keyValue.getValues().isEmpty()) {
-                        if(verbose) {
-                            System.out.println("\t... Adding null version to nodeValues");
-                        }
-                        Versioned<byte[]> versioned = new Versioned<byte[]>(null);
-                        nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                        keyValue.getKey(),
-                                                                        versioned));
-
-                    } else {
-                        for(Versioned<byte[]> value: keyValue.getValues()) {
-                            if(verbose) {
-                                System.out.println("\t... Adding following version to nodeValues: "
-                                                   + value.getVersion());
-                            }
-                            nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId,
-                                                                            keyValue.getKey(),
-                                                                            value));
-                        }
-                    }
-                }
-            } else {
-                if(verbose) {
-                    System.out.println("\t... No key-value returned from node with id:" + nodeId);
-                    System.out.println("\t... Adding null version to nodeValues");
-                }
-                Versioned<byte[]> versioned = new Versioned<byte[]>(null);
-                nodeValues.add(new NodeValue<ByteArray, byte[]>(nodeId, keyAsByteArray, versioned));
+        public synchronized void incrementFailures() {
+            failures++;
+            if(failures % progressBar == 0) {
+                logger.info("Bad key failed to process count = " + failures);
             }
         }
-        if(exceptionsEncountered) {
-            if(verbose) {
-                System.out.println("Aborting fixKey because exceptions were encountered when fetching key-values.");
-            }
-            return Status.FETCH_EXCEPTION;
+
+        public synchronized String summary() {
+            StringBuilder summary = new StringBuilder();
+            summary.append("\n\n");
+            summary.append("Consistency Fix Summary\n");
+            summary.append("-----------------------\n");
+            summary.append("Total keys processed: " + count + "\n");
+            summary.append("Total keys processed that were not corrected: " + failures + "\n");
+            long nowTimeMs = System.currentTimeMillis();
+
+            summary.append("Keys per second processed: "
+                           + getPrettyQPS(count, nowTimeMs - startTimeMs) + "\n");
+            return summary.toString();
         }
-
-        return Status.SUCCESS;
-    }
-
-    /**
-     * Decide on the specific key-value to write everywhere.
-     * 
-     * @param verbose
-     * @param nodeValues
-     * @return The subset of entries from nodeValues that need to be repaired.
-     */
-    private List<NodeValue<ByteArray, byte[]>> resolveReadConflicts(boolean verbose,
-                                                                    final List<NodeValue<ByteArray, byte[]>> nodeValues) {
-
-        // Some cut-paste-and-modify coding from
-        // store/routed/action/AbstractReadRepair.java and
-        // store/routed/ThreadPoolRoutedStore.java
-        if(verbose) {
-            System.out.println("Resolving conflicts in responses.");
-        }
-        ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
-        List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
-        for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
-            Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
-                                                          ((VectorClock) v.getVersion()).clone());
-            if(verbose) {
-                System.out.println("\tAdding toReadRepair: key (" + v.getKey() + "), version ("
-                                   + versioned.getVersion() + ")");
-            }
-            toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
-        }
-
-        if(verbose) {
-            System.out.println("Repair work to be done:");
-            for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-                System.out.println("\tRepair key " + nodeKeyValue.getKey() + "on node with id "
-                                   + nodeKeyValue.getNodeId() + " for version "
-                                   + nodeKeyValue.getVersion());
-            }
-        }
-        return toReadRepair;
-    }
-
-    public class doKeyGetStatus {
-
-        public final Status status;
-        public final List<NodeValue<ByteArray, byte[]>> nodeValues;
-
-        doKeyGetStatus(Status status, List<NodeValue<ByteArray, byte[]>> nodeValues) {
-            this.status = status;
-            this.nodeValues = nodeValues;
-        }
-
-        doKeyGetStatus(Status status) {
-            this.status = status;
-            this.nodeValues = null;
-        }
-    }
-
-    public ConsistencyFix.doKeyGetStatus doKeyGet(String keyInHexFormat, boolean verbose) {
-        if(verbose) {
-            System.out.println("Performing consistency fix of key: " + keyInHexFormat);
-        }
-
-        // Initialization.
-        byte[] keyInBytes;
-        List<Integer> nodeIdList = null;
-        int masterPartitionId = -1;
-        try {
-            keyInBytes = ByteUtils.fromHexString(keyInHexFormat);
-            masterPartitionId = storeInstance.getMasterPartitionId(keyInBytes);
-            nodeIdList = storeInstance.getReplicationNodeList(masterPartitionId);
-        } catch(Exception exception) {
-            if(verbose) {
-                System.out.println("Aborting fixKey due to bad init.");
-                exception.printStackTrace();
-            }
-            return new doKeyGetStatus(Status.BAD_INIT);
-        }
-        ByteArray keyAsByteArray = new ByteArray(keyInBytes);
-
-        // Read
-        Map<Integer, QueryKeyResult> nodeIdToKeyValues = new HashMap<Integer, QueryKeyResult>();
-        Status fixKeyResult = doRead(nodeIdList,
-                                     keyInBytes,
-                                     keyInHexFormat,
-                                     verbose,
-                                     nodeIdToKeyValues);
-        if(fixKeyResult != Status.SUCCESS) {
-            return new doKeyGetStatus(fixKeyResult);
-        }
-
-        // Process read replies
-        List<NodeValue<ByteArray, byte[]>> nodeValues = Lists.newArrayList();
-        fixKeyResult = processReadReplies(nodeIdList,
-                                          keyAsByteArray,
-                                          keyInHexFormat,
-                                          verbose,
-                                          nodeIdToKeyValues,
-                                          nodeValues);
-        if(fixKeyResult != Status.SUCCESS) {
-            return new doKeyGetStatus(fixKeyResult);
-        }
-
-        // Resolve conflicts
-        List<NodeValue<ByteArray, byte[]>> toReadRepair = resolveReadConflicts(verbose, nodeValues);
-
-        return new doKeyGetStatus(Status.SUCCESS, toReadRepair);
-    }
-
-    /**
-     * 
-     * @param toReadRepair Effectively the output of this method. Must pass in a
-     *        non-null object to be populated by this method.
-     * @param verbose
-     * @param vInstance
-     * @return
-     */
-    public Status doRepairPut(final List<NodeValue<ByteArray, byte[]>> toReadRepair, boolean verbose) {
-        if(verbose) {
-            System.out.println("Performing repair work:");
-        }
-
-        boolean allRepairsSuccessful = true;
-        for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-            if(verbose) {
-                System.out.println("\tDoing repair for node with id:" + nodeKeyValue.getNodeId());
-            }
-            try {
-                adminClient.storeOps.putNodeKeyValue(storeName, nodeKeyValue);
-            } catch(ObsoleteVersionException ove) {
-                // NOOP. Treat OVE as success.
-            } catch(VoldemortException ve) {
-                allRepairsSuccessful = false;
-                System.out.println("\t... Repair of key " + nodeKeyValue.getKey()
-                                   + "on node with id " + nodeKeyValue.getNodeId()
-                                   + " for version " + nodeKeyValue.getVersion()
-                                   + " failed because of exception : " + ve.getMessage());
-            }
-        }
-        if(!allRepairsSuccessful) {
-            if(verbose) {
-                System.err.println("Aborting fixKey because exceptions were encountered when reparing key-values.");
-                System.out.println("Fix failed...");
-            }
-            return Status.REPAIR_EXCEPTION;
-        }
-        return Status.SUCCESS;
     }
 }
