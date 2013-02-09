@@ -25,6 +25,8 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,8 +50,10 @@ public class ConsistencyFix {
     private final AdminClient adminClient;
     private final StoreInstance storeInstance;
     private final Stats stats;
+    private final long perServerIOPSLimit;
+    private final ConcurrentMap<Integer, EventThrottler> putThrottlers;
 
-    ConsistencyFix(String url, String storeName, long progressBar) {
+    ConsistencyFix(String url, String storeName, long progressBar, long perServerIOPSLimit) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
         this.adminClient = new AdminClient(url, new AdminClientConfig(), 0);
@@ -65,6 +69,9 @@ public class ConsistencyFix {
         storeInstance = new StoreInstance(cluster, storeDefinition);
 
         stats = new Stats(progressBar);
+
+        this.perServerIOPSLimit = perServerIOPSLimit;
+        this.putThrottlers = new ConcurrentHashMap<Integer, EventThrottler>();
     }
 
     public String getStoreName() {
@@ -81,6 +88,18 @@ public class ConsistencyFix {
 
     public Stats getStats() {
         return stats;
+    }
+
+    /**
+     * Throttle put (repair) activity per server.
+     * 
+     * @param nodeId The node for which to possibly throttle put activity.
+     */
+    public void maybePutThrottle(int nodeId) {
+        if(!putThrottlers.containsKey(nodeId)) {
+            putThrottlers.putIfAbsent(nodeId, new EventThrottler(perServerIOPSLimit));
+        }
+        putThrottlers.get(nodeId).maybeThrottle(1);
     }
 
     /**

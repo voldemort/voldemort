@@ -265,6 +265,7 @@ class ConsistencyFixWorker implements Runnable {
         boolean allRepairsSuccessful = true;
         for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
             try {
+                consistencyFix.maybePutThrottle(nodeKeyValue.getNodeId());
                 consistencyFix.getAdminClient().storeOps.putNodeKeyValue(consistencyFix.getStoreName(),
                                                                          nodeKeyValue);
             } catch(ObsoleteVersionException ove) {

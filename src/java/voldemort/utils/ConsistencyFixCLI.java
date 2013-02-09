@@ -39,6 +39,7 @@ public class ConsistencyFixCLI {
 
         public final static int defaultParallelism = 8;
         public final static long defaultProgressBar = 1000;
+        public final static long defaultPerServerIOPSLimit = 100;
 
         public String url = null;
         public String storeName = null;
@@ -46,6 +47,7 @@ public class ConsistencyFixCLI {
         public String badKeyFileOut = null;
         public int parallelism = defaultParallelism;
         public long progressBar = defaultProgressBar;
+        public long perServerIOPSLimit = defaultPerServerIOPSLimit;
     }
 
     /**
@@ -86,6 +88,12 @@ public class ConsistencyFixCLI {
               .describedAs("Number of operations between 'info' progress messages. "
                            + "[Default value: " + Options.defaultProgressBar + "]")
               .ofType(Long.class);
+        parser.accepts("per-server-iops-limit")
+              .withRequiredArg()
+              .describedAs("Number of operations that the consistency fixer will issue into any individual server in one second. "
+                           + "[Default value: " + Options.defaultPerServerIOPSLimit + "]")
+              .ofType(Long.class);
+
         OptionSet optionSet = parser.parse(args);
 
         if(optionSet.hasArgument("help")) {
@@ -122,6 +130,9 @@ public class ConsistencyFixCLI {
         if(optionSet.has("progress-bar")) {
             options.progressBar = (Long) optionSet.valueOf("progress-bar");
         }
+        if(optionSet.has("per-server-iops-limit")) {
+            options.perServerIOPSLimit = (Long) optionSet.valueOf("per-server-iops-limit");
+        }
 
         return options;
     }
@@ -131,7 +142,8 @@ public class ConsistencyFixCLI {
 
         ConsistencyFix consistencyFix = new ConsistencyFix(options.url,
                                                            options.storeName,
-                                                           options.progressBar);
+                                                           options.progressBar,
+                                                           options.perServerIOPSLimit);
 
         String summary = consistencyFix.execute(options.parallelism,
                                                 options.badKeyFileIn,

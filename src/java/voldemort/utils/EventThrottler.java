@@ -46,7 +46,17 @@ public class EventThrottler {
         this.startTime = 0L;
     }
 
+    /**
+     * Sleeps if necessary to slow down the caller.
+     * 
+     * @param eventsSeen Number of events seen since last invocation. Basis for
+     *        determining whether its necessary to sleep.
+     */
     public synchronized void maybeThrottle(int eventsSeen) {
+        // TODO: This implements "bang bang" control. This is OK. But, this
+        // permits unbounded bursts of activity within the intervalMs. A
+        // controller that has more memory and explicitly bounds peak activity
+        // within the intervalMs may be better.
         long rateLimit = getRate();
 
         if(logger.isDebugEnabled())
