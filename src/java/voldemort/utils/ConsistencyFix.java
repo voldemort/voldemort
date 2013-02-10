@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -38,8 +39,11 @@ import org.apache.log4j.Logger;
 
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
+import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
+import voldemort.versioning.ClockEntry;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
 public class ConsistencyFix {
@@ -123,7 +127,10 @@ public class ConsistencyFix {
         }
     }
 
-    public String execute(int parallelism, String badKeyFileIn, String badKeyFileOut) {
+    public String execute(int parallelism,
+                          String badKeyFileIn,
+                          boolean orphanFormat,
+                          String badKeyFileOut) {
         ExecutorService badKeyReaderService;
         ExecutorService badKeyWriterService;
         ExecutorService consistencyFixWorkers;
@@ -226,14 +233,14 @@ public class ConsistencyFix {
 
     public class BadKeyReader implements Runnable {
 
-        private final CountDownLatch latch;
-        private final String badKeyFileIn;
+        protected final CountDownLatch latch;
+        protected final String badKeyFileIn;
 
-        private final ConsistencyFix consistencyFix;
-        private final ExecutorService consistencyFixWorkers;
-        private final BlockingQueue<BadKeyResult> badKeyQOut;
+        protected final ConsistencyFix consistencyFix;
+        protected final ExecutorService consistencyFixWorkers;
+        protected final BlockingQueue<BadKeyResult> badKeyQOut;
 
-        private BufferedReader fileReader;
+        protected BufferedReader fileReader;
 
         BadKeyReader(CountDownLatch latch,
                      String badKeyFileIn,
@@ -258,12 +265,12 @@ public class ConsistencyFix {
         public void run() {
             try {
                 int counter = 0;
-                for(String line = fileReader.readLine(); line != null; line = fileReader.readLine()) {
-                    if(!line.isEmpty()) {
+                for(String key = fileReader.readLine(); key != null; key = fileReader.readLine()) {
+                    if(!key.isEmpty()) {
                         counter++;
-                        logger.debug("BadKeyReader read line: key (" + line + ") and counter ("
+                        logger.debug("BadKeyReader read line: key (" + key + ") and counter ("
                                      + counter + ")");
-                        consistencyFixWorkers.submit(new ConsistencyFixWorker(line,
+                        consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
                                                                               consistencyFix,
                                                                               badKeyQOut));
                     }
@@ -271,6 +278,114 @@ public class ConsistencyFix {
             } catch(IOException ioe) {
                 logger.warn("IO exception reading badKeyFile " + badKeyFileIn + " : "
                             + ioe.getMessage());
+            } finally {
+                latch.countDown();
+                try {
+                    fileReader.close();
+                } catch(IOException ioe) {
+                    logger.warn("IOException during fileReader.close in BadKeyReader thread.");
+                }
+            }
+        }
+    }
+
+    public class BadKeyOrphanReader extends BadKeyReader {
+
+        BadKeyOrphanReader(CountDownLatch latch,
+                           String badKeyFileIn,
+                           ConsistencyFix consistencyFix,
+                           ExecutorService consistencyFixWorkers,
+                           BlockingQueue<BadKeyResult> badKeyQOut) {
+            super(latch, badKeyFileIn, consistencyFix, consistencyFixWorkers, badKeyQOut);
+        }
+
+        // TODO: if we ever do an orphan fix again, we should
+        // serialize/deserialize VectorClock to/from bytes. Indeed, any object
+        // that can be persisted and offers a toString, should probably offer
+        // some to/from options for serde.
+        /**
+         * Parses a "version" string of the following format:
+         * 
+         * 
+         * 'version(2:25, 25:2, 29:156) ts:1355451322089'
+         * 
+         * and converts this parsed value back into a VectorClock type.
+         * 
+         * @param versionString
+         * @return
+         * @throws IOException
+         */
+        private VectorClock parseVersion(String versionString) throws IOException {
+            List<ClockEntry> versions = new ArrayList<ClockEntry>();
+            long timestamp = 0;
+
+            // TODO: confirm regex works...
+            String parsed[] = versionString.split(") ts:");
+            if(parsed.length != 2) {
+                throw new IOException("Could not parse vector clock: " + versionString);
+            }
+            timestamp = Long.parseLong(parsed[1]);
+            // "version("
+            // 01234567
+            // => 8 is the magic offset to elide "version("
+            String clockEntryList = parsed[0].substring(8);
+            String parsedClockEntryList[] = clockEntryList.split(", ");
+            for(int i = 0; i < parsedClockEntryList.length; ++i) {
+                String parsedClockEntry[] = parsedClockEntryList[i].split(":");
+                if(parsedClockEntry.length != 2) {
+                    throw new IOException("Could not parse ClockEntry: " + parsedClockEntryList[i]);
+                }
+                short nodeId = Short.parseShort(parsedClockEntry[0]);
+                long version = Long.parseLong(parsedClockEntry[1]);
+                versions.add(new ClockEntry(nodeId, version));
+            }
+
+            return new VectorClock(versions, timestamp);
+        }
+
+        @Override
+        public void run() {
+            try {
+                int counter = 0;
+                for(String keyNumVals = fileReader.readLine(); keyNumVals != null; keyNumVals = fileReader.readLine()) {
+                    if(!keyNumVals.isEmpty()) {
+                        counter++;
+                        String parsed[] = keyNumVals.split(",");
+                        if(parsed.length != 2) {
+                            throw new IOException("KeyNumVal line did not parse into two elements: "
+                                                  + keyNumVals);
+                        }
+                        String key = parsed[0];
+                        ByteArray keyByteArray = new ByteArray(ByteUtils.fromHexString(key));
+                        int numVals = Integer.parseInt(parsed[1]);
+                        logger.debug("BadKeyReader read line: key (" + key + ") and counter ("
+                                     + counter + ") and numVals is (" + numVals + ")");
+
+                        List<Versioned<byte[]>> values = new ArrayList<Versioned<byte[]>>();
+                        for(int i = 0; i < numVals; ++i) {
+                            String valueVersion = fileReader.readLine();
+                            if(valueVersion.isEmpty()) {
+                                throw new IOException("ValueVersion line was empty!");
+                            }
+                            parsed = valueVersion.split(",", 2);
+                            if(parsed.length != 2) {
+                                throw new IOException("ValueVersion line did not parse into two elements: "
+                                                      + valueVersion);
+                            }
+                            byte[] value = ByteUtils.fromHexString(parsed[0]);
+                            VectorClock vectorClock = parseVersion(parsed[1]);
+
+                            values.add(new Versioned<byte[]>(value, vectorClock));
+                        }
+                        QueryKeyResult queryKeyResult = new QueryKeyResult(keyByteArray, values);
+                        consistencyFixWorkers.submit(new ConsistencyFixWorker(keyNumVals,
+                                                                              consistencyFix,
+                                                                              badKeyQOut,
+                                                                              queryKeyResult));
+                    }
+                }
+            } catch(Exception e) {
+                logger.warn("Exception reading badKeyFile " + badKeyFileIn + " : " + e.getMessage());
             } finally {
                 latch.countDown();
                 try {

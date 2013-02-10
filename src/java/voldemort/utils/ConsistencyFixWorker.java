@@ -39,17 +39,44 @@ import com.google.common.collect.Lists;
 class ConsistencyFixWorker implements Runnable {
 
     private static final Logger logger = Logger.getLogger(ConsistencyFixWorker.class);
+    private static final int fakeNodeID = Integer.MIN_VALUE;
 
     private final String keyInHexFormat;
     private final ConsistencyFix consistencyFix;
     private final BlockingQueue<BadKeyResult> badKeyQOut;
+    private final QueryKeyResult orphanedValues;
 
+    /**
+     * Normal use case constructor.
+     * 
+     * @param keyInHexFormat
+     * @param consistencyFix
+     * @param badKeyQOut
+     */
     ConsistencyFixWorker(String keyInHexFormat,
                          ConsistencyFix consistencyFix,
                          BlockingQueue<BadKeyResult> badKeyQOut) {
+        this(keyInHexFormat, consistencyFix, badKeyQOut, null);
+    }
+
+    /**
+     * Constructor for "orphaned values" use case. I.e., there are values for
+     * the specific key that exist somewhere and may need to be written to the
+     * nodes which actually host the key.
+     * 
+     * @param keyInHexFormat
+     * @param consistencyFix
+     * @param badKeyQOut
+     * @param orphanedValues Set to null if no orphaned values to be included.
+     */
+    ConsistencyFixWorker(String keyInHexFormat,
+                         ConsistencyFix consistencyFix,
+                         BlockingQueue<BadKeyResult> badKeyQOut,
+                         QueryKeyResult orphanedValues) {
         this.keyInHexFormat = keyInHexFormat;
         this.consistencyFix = consistencyFix;
         this.badKeyQOut = badKeyQOut;
+        this.orphanedValues = orphanedValues;
     }
 
     private String myName() {
@@ -233,15 +260,32 @@ class ConsistencyFixWorker implements Runnable {
      */
     private List<NodeValue<ByteArray, byte[]>> resolveReadConflicts(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
 
-        // Some cut-paste-and-modify coding from
+        // If orphaned values exist, add them to fake nodes to be processed by
+        // "getRepairs"
+        int currentFakeNodeId = fakeNodeID;
+        if(this.orphanedValues != null) {
+            for(Versioned<byte[]> value: this.orphanedValues.getValues()) {
+                nodeValues.add(new NodeValue<ByteArray, byte[]>(currentFakeNodeId,
+                                                                this.orphanedValues.getKey(),
+                                                                value));
+                currentFakeNodeId++;
+            }
+        }
+
+        // Some cut-paste-and-modify (CPAM) coding from
         // store/routed/action/AbstractReadRepair.java and
         // store/routed/ThreadPoolRoutedStore.java
         ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
         List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
         for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
-            Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
-                                                          ((VectorClock) v.getVersion()).clone());
-            toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(), v.getKey(), versioned));
+            if(v.getNodeId() > currentFakeNodeId) {
+                // Only copy repairs intended for real nodes.
+                Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
+                                                              ((VectorClock) v.getVersion()).clone());
+                toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(),
+                                                                  v.getKey(),
+                                                                  versioned));
+            }
         }
 
         if(logger.isDebugEnabled()) {

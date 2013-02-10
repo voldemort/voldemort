@@ -44,6 +44,7 @@ public class ConsistencyFixCLI {
         public String url = null;
         public String storeName = null;
         public String badKeyFileIn = null;
+        public boolean badKeyFileInOrphanFormat = false;
         public String badKeyFileOut = null;
         public int parallelism = defaultParallelism;
         public long progressBar = defaultProgressBar;
@@ -73,6 +74,8 @@ public class ConsistencyFixCLI {
               .describedAs("Name of bad-key-file-in. " + "Each key must be in hexadecimal format. "
                            + "Each key must be on a separate line in the file. ")
               .ofType(String.class);
+        parser.accepts("orphan-format",
+                       "Indicates format of bad-key-file-in is of 'orphan' key-values.");
         parser.accepts("bad-key-file-out")
               .withRequiredArg()
               .describedAs("Name of bad-key-file-out. "
@@ -122,8 +125,11 @@ public class ConsistencyFixCLI {
 
         options.url = (String) optionSet.valueOf("url");
         options.storeName = (String) optionSet.valueOf("store");
-        options.badKeyFileOut = (String) optionSet.valueOf("bad-key-file-out");
         options.badKeyFileIn = (String) optionSet.valueOf("bad-key-file-in");
+        options.badKeyFileOut = (String) optionSet.valueOf("bad-key-file-out");
+        if(optionSet.has("orphan-format")) {
+            options.badKeyFileInOrphanFormat = true;
+        }
         if(optionSet.has("parallelism")) {
             options.parallelism = (Integer) optionSet.valueOf("parallelism");
         }
@@ -147,6 +153,7 @@ public class ConsistencyFixCLI {
 
         String summary = consistencyFix.execute(options.parallelism,
                                                 options.badKeyFileIn,
+                                                options.badKeyFileInOrphanFormat,
                                                 options.badKeyFileOut);
 
         System.out.println(summary);
