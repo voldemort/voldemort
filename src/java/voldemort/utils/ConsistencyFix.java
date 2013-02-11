@@ -334,24 +334,32 @@ public class ConsistencyFix {
             List<ClockEntry> versions = new ArrayList<ClockEntry>();
             long timestamp = 0;
 
-            // TODO: confirm regex works...
-            String parsed[] = versionString.split(") ts:");
+            String parsed[] = versionString.split(" ts:");
+            // TODO: remove .trace outputs after we have a unit test for this
+            // method.
+            // TODO: move this method to be a method of VectorClock?
+            logger.trace("parsed[0]: " + parsed[0]);
             if(parsed.length != 2) {
                 throw new IOException("Could not parse vector clock: " + versionString);
             }
             timestamp = Long.parseLong(parsed[1]);
             // "version("
-            // 01234567
+            // _01234567_
             // => 8 is the magic offset to elide "version("
-            String clockEntryList = parsed[0].substring(8);
+            // '-1' gets rid of the last ")"
+            String clockEntryList = parsed[0].substring(8, parsed[0].length() - 1);
+            logger.trace("clockEntryList: <" + clockEntryList + ">");
             String parsedClockEntryList[] = clockEntryList.split(", ");
             for(int i = 0; i < parsedClockEntryList.length; ++i) {
+                logger.trace("parsedClockEntry... : <" + parsedClockEntryList[i] + ">");
                 String parsedClockEntry[] = parsedClockEntryList[i].split(":");
                 if(parsedClockEntry.length != 2) {
-                    throw new IOException("Could not parse ClockEntry: " + parsedClockEntryList[i]);
+                    throw new IOException("Could not parse ClockEntry: <" + parsedClockEntryList[i]
+                                          + ">");
                 }
                 short nodeId = Short.parseShort(parsedClockEntry[0]);
                 long version = Long.parseLong(parsedClockEntry[1]);
+                logger.trace("clock entry parsed: <" + nodeId + "> : <" + version + ">");
                 versions.add(new ClockEntry(nodeId, version));
             }
 
@@ -393,7 +401,7 @@ public class ConsistencyFix {
                             values.add(new Versioned<byte[]>(value, vectorClock));
                         }
                         QueryKeyResult queryKeyResult = new QueryKeyResult(keyByteArray, values);
-                        consistencyFixWorkers.submit(new ConsistencyFixWorker(keyNumVals,
+                        consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
                                                                               consistencyFix,
                                                                               badKeyQOut,
                                                                               queryKeyResult));

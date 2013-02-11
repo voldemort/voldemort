@@ -248,6 +248,13 @@ class ConsistencyFixWorker implements Runnable {
             logger.info("Aborting fixKey because exceptions were encountered when fetching key-values.");
             return new ProcessReadRepliesResult(Status.FETCH_EXCEPTION);
         }
+        if(logger.isDebugEnabled()) {
+            for(NodeValue<ByteArray, byte[]> nkv: nodeValues) {
+                logger.debug("\tRead NodeKeyValue : " + ByteUtils.toHexString(nkv.getKey().get())
+                             + " on node with id " + nkv.getNodeId() + " for version "
+                             + nkv.getVersion());
+            }
+        }
 
         return new ProcessReadRepliesResult(nodeValues);
     }
@@ -276,6 +283,15 @@ class ConsistencyFixWorker implements Runnable {
         // store/routed/action/AbstractReadRepair.java and
         // store/routed/ThreadPoolRoutedStore.java
         ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
+        if(logger.isDebugEnabled()) {
+            for(NodeValue<ByteArray, byte[]> nodeKeyValue: readRepairer.getRepairs(nodeValues)) {
+                logger.debug("\tNodeKeyValue result from readRepairer.getRepairs : "
+                             + ByteUtils.toHexString(nodeKeyValue.getKey().get())
+                             + " on node with id " + nodeKeyValue.getNodeId() + " for version "
+                             + nodeKeyValue.getVersion());
+            }
+        }
+
         List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
         for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
             if(v.getNodeId() > currentFakeNodeId) {
@@ -285,14 +301,22 @@ class ConsistencyFixWorker implements Runnable {
                 toReadRepair.add(new NodeValue<ByteArray, byte[]>(v.getNodeId(),
                                                                   v.getKey(),
                                                                   versioned));
+            } else {
+                if(logger.isDebugEnabled()) {
+                    logger.debug("\tIgnoring repair to fake node: "
+                                 + ByteUtils.toHexString(v.getKey().get()) + " on node with id "
+                                 + v.getNodeId() + " for version " + v.getVersion());
+                }
             }
+
         }
 
         if(logger.isDebugEnabled()) {
             for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-                logger.debug("\tRepair key " + nodeKeyValue.getKey() + "on node with id "
-                             + nodeKeyValue.getNodeId() + " for version "
+                logger.debug("\tRepair key " + ByteUtils.toHexString(nodeKeyValue.getKey().get())
+                             + " on node with id " + nodeKeyValue.getNodeId() + " for version "
                              + nodeKeyValue.getVersion());
+
             }
         }
         return toReadRepair;
@@ -313,6 +337,7 @@ class ConsistencyFixWorker implements Runnable {
                 consistencyFix.getAdminClient().storeOps.putNodeKeyValue(consistencyFix.getStoreName(),
                                                                          nodeKeyValue);
             } catch(ObsoleteVersionException ove) {
+                // TODO: Add OVE catches to some statistics?
                 // NOOP. Treat OVE as success.
             } catch(VoldemortException ve) {
                 allRepairsSuccessful = false;
@@ -323,7 +348,7 @@ class ConsistencyFixWorker implements Runnable {
             }
         }
         if(!allRepairsSuccessful) {
-            logger.info("Aborting fixKey because exceptions were encountered when reparing key-values.");
+            logger.info("Aborting fixKey because exceptions were encountered when repairing key-values.");
             return Status.REPAIR_EXCEPTION;
         }
         return Status.SUCCESS;
