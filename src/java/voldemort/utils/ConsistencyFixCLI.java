@@ -24,13 +24,32 @@ import joptsimple.OptionSet;
 public class ConsistencyFixCLI {
 
     public static void printUsage() {
-        System.out.println("Required arguments: \n" + "\t--url <url>\n" + "\t--store <storeName>\n"
-                           + "\t--bad-key-file-in <FileNameOfInputListOfKeysToFix>\n"
-                           + "\t--bad-key-file-out<FileNameOfOutputListOfKeysNotFixed>)\n");
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n");
+        sb.append("Required arguments: \n");
+        sb.append("\t--url <url>\n");
+        sb.append("\t--store <storeName>\n");
+        sb.append("\t--bad-key-file-in  <FileNameOfInputListOfKeysToFix>\n");
+        sb.append("\t--bad-key-file-out <FileNameOfOutputListOfKeysNotFixed>)\n");
+        sb.append("Optional arguments: \n");
+        sb.append("\t--orphan-format\n");
+        sb.append("\t--dry-run\n");
+        sb.append("\t--progress-bar <progressBarPeriod>\n");
+        sb.append("\t--parallelism <parallelism>\n");
+        sb.append("\t--per-server-iops-limit <perServerIOPSLimit>\n");
+        sb.append("\n");
+
+        System.out.println(sb.toString());
     }
 
-    public static void printUsage(String errMessage) {
+    public static void printUsage(String errMessage, OptionParser parser) {
         System.err.println("Error: " + errMessage);
+        try {
+            parser.printHelpOn(System.out);
+        } catch(IOException ioe) {
+            System.err.println("Caught IOException while trying to print out parser options: "
+                               + ioe.getMessage());
+        }
         printUsage();
         System.exit(1);
     }
@@ -50,6 +69,7 @@ public class ConsistencyFixCLI {
         public int parallelism = defaultParallelism;
         public long progressBar = defaultProgressBar;
         public long perServerIOPSLimit = defaultPerServerIOPSLimit;
+        public boolean dryRun = false;
     }
 
     /**
@@ -62,40 +82,44 @@ public class ConsistencyFixCLI {
     private static ConsistencyFixCLI.Options parseArgs(String[] args) {
         OptionParser parser = new OptionParser();
         parser.accepts("help", "print help information");
-        parser.accepts("url")
+        parser.accepts("url", "The bootstrap url.")
               .withRequiredArg()
-              .describedAs("The bootstrap url.")
+              .describedAs("bootstrapUrl")
               .ofType(String.class);
-        parser.accepts("store")
+        parser.accepts("store", "The store name.")
               .withRequiredArg()
-              .describedAs("The store name.")
+              .describedAs("storeName")
               .ofType(String.class);
-        parser.accepts("bad-key-file-in")
+        parser.accepts("bad-key-file-in",
+                       "Name of bad-key-file-in. " + "Each key must be in hexadecimal format. "
+                               + "Each key must be on a separate line in the file. ")
               .withRequiredArg()
-              .describedAs("Name of bad-key-file-in. " + "Each key must be in hexadecimal format. "
-                           + "Each key must be on a separate line in the file. ")
+              .describedAs("badKeyFileIn")
               .ofType(String.class);
         parser.accepts("orphan-format",
                        "Indicates format of bad-key-file-in is of 'orphan' key-values.");
-        parser.accepts("bad-key-file-out")
+        parser.accepts("dry-run",
+                       "Indicates to go through all of the read actions until the point of issuing repair puts. Then, do a 'no-op'.");
+        parser.accepts("bad-key-file-out",
+                       "Name of bad-key-file-out. "
+                               + "Keys that are not mae consistent are output to this file.")
               .withRequiredArg()
-              .describedAs("Name of bad-key-file-out. "
-                           + "Keys that are not mae consistent are output to this file.")
+              .describedAs("badKeyFileOut")
               .ofType(String.class);
-        parser.accepts("parallelism")
+        parser.accepts("parallelism",
+                       "Number of consistency fix messages outstanding in parallel. ")
               .withRequiredArg()
-              .describedAs("Number of consistency fix messages outstanding in parallel. "
-                           + "[Default value: " + Options.defaultParallelism + "]")
+              .describedAs("parallelism [Default value: " + Options.defaultParallelism + "]")
               .ofType(Integer.class);
-        parser.accepts("progress-bar")
+        parser.accepts("progress-bar", "Number of operations between 'info' progress messages. ")
               .withRequiredArg()
-              .describedAs("Number of operations between 'info' progress messages. "
-                           + "[Default value: " + Options.defaultProgressBar + "]")
+              .describedAs("progressBar [Default value: " + Options.defaultProgressBar + "]")
               .ofType(Long.class);
-        parser.accepts("per-server-iops-limit")
+        parser.accepts("per-server-iops-limit",
+                       "Number of operations that the consistency fixer will issue into any individual server in one second. ")
               .withRequiredArg()
-              .describedAs("Number of operations that the consistency fixer will issue into any individual server in one second. "
-                           + "[Default value: " + Options.defaultPerServerIOPSLimit + "]")
+              .describedAs("perServerIOPSLimit [Default value: "
+                           + Options.defaultPerServerIOPSLimit + "]")
               .ofType(Long.class);
 
         OptionSet optionSet = parser.parse(args);
@@ -110,16 +134,16 @@ public class ConsistencyFixCLI {
             System.exit(0);
         }
         if(!optionSet.hasArgument("url")) {
-            printUsage("Missing required 'url' argument.");
+            printUsage("Missing required 'url' argument.", parser);
         }
         if(!optionSet.hasArgument("store")) {
-            printUsage("Missing required 'store' argument.");
+            printUsage("Missing required 'store' argument.", parser);
         }
         if(!optionSet.has("bad-key-file-in")) {
-            printUsage("Missing required 'bad-key-file-in' argument.");
+            printUsage("Missing required 'bad-key-file-in' argument.", parser);
         }
         if(!optionSet.has("bad-key-file-out")) {
-            printUsage("Missing required 'bad-key-file-out' argument.");
+            printUsage("Missing required 'bad-key-file-out' argument.", parser);
         }
 
         Options options = new Options();
@@ -140,6 +164,9 @@ public class ConsistencyFixCLI {
         if(optionSet.has("per-server-iops-limit")) {
             options.perServerIOPSLimit = (Long) optionSet.valueOf("per-server-iops-limit");
         }
+        if(optionSet.has("dry-run")) {
+            options.dryRun = true;
+        }
 
         return options;
     }
@@ -150,7 +177,8 @@ public class ConsistencyFixCLI {
         ConsistencyFix consistencyFix = new ConsistencyFix(options.url,
                                                            options.storeName,
                                                            options.progressBar,
-                                                           options.perServerIOPSLimit);
+                                                           options.perServerIOPSLimit,
+                                                           options.dryRun);
 
         String summary = consistencyFix.execute(options.parallelism,
                                                 options.badKeyFileIn,

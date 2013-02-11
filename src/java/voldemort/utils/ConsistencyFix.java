@@ -59,8 +59,13 @@ public class ConsistencyFix {
     private final Stats stats;
     private final long perServerIOPSLimit;
     private final ConcurrentMap<Integer, EventThrottler> putThrottlers;
+    private final boolean dryRun;
 
-    ConsistencyFix(String url, String storeName, long progressBar, long perServerIOPSLimit) {
+    ConsistencyFix(String url,
+                   String storeName,
+                   long progressBar,
+                   long perServerIOPSLimit,
+                   boolean dryRun) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
         this.adminClient = new AdminClient(url, new AdminClientConfig(), 0);
@@ -79,6 +84,7 @@ public class ConsistencyFix {
 
         this.perServerIOPSLimit = perServerIOPSLimit;
         this.putThrottlers = new ConcurrentHashMap<Integer, EventThrottler>();
+        this.dryRun = dryRun;
     }
 
     public String getStoreName() {
@@ -95,6 +101,10 @@ public class ConsistencyFix {
 
     public Stats getStats() {
         return stats;
+    }
+
+    public boolean isDryRun() {
+        return dryRun;
     }
 
     /**

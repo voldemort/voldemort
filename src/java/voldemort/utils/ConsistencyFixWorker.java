@@ -329,6 +329,10 @@ class ConsistencyFixWorker implements Runnable {
      * @return
      */
     public Status doRepairPut(final List<NodeValue<ByteArray, byte[]>> toReadRepair) {
+        if(this.consistencyFix.isDryRun()) {
+            logger.debug("Returning success from ConsistencyFixWorker.doRepairPut because this is a dry run.");
+            return Status.SUCCESS;
+        }
 
         boolean allRepairsSuccessful = true;
         for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
