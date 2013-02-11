@@ -46,6 +46,9 @@ import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
+// TODO: Move to new directory voldemort/tools. Also move ConsistencyCheck,
+// Rebalance, and possibly other tools (shells and so on). This would reduce the
+// amount of different stuff in the utils directory.
 public class ConsistencyFix {
 
     private static final Logger logger = Logger.getLogger(ConsistencyFix.class);
@@ -135,6 +138,10 @@ public class ConsistencyFix {
         ExecutorService badKeyWriterService;
         ExecutorService consistencyFixWorkers;
 
+        // TODO: Add ThreadFactory usage to ExecutorService usage so that
+        // threads have sane names. Figure out if any parameters currently
+        // passed from object-to-object could be given directly to factories.
+
         // Create BadKeyWriter thread
         BlockingQueue<BadKeyResult> badKeyQOut = new ArrayBlockingQueue<BadKeyResult>(parallelism * 10);
         badKeyWriterService = Executors.newSingleThreadExecutor();
@@ -155,11 +162,19 @@ public class ConsistencyFix {
         // Create BadKeyReader thread
         CountDownLatch allBadKeysReadLatch = new CountDownLatch(1);
         badKeyReaderService = Executors.newSingleThreadExecutor();
-        badKeyReaderService.submit(new BadKeyReader(allBadKeysReadLatch,
-                                                    badKeyFileIn,
-                                                    this,
-                                                    consistencyFixWorkers,
-                                                    badKeyQOut));
+        if(!orphanFormat) {
+            badKeyReaderService.submit(new BadKeyReader(allBadKeysReadLatch,
+                                                        badKeyFileIn,
+                                                        this,
+                                                        consistencyFixWorkers,
+                                                        badKeyQOut));
+        } else {
+            badKeyReaderService.submit(new BadKeyOrphanReader(allBadKeysReadLatch,
+                                                              badKeyFileIn,
+                                                              this,
+                                                              consistencyFixWorkers,
+                                                              badKeyQOut));
+        }
         logger.info("Created badKeyReader.");
 
         try {

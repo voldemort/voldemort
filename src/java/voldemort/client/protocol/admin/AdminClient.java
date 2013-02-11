@@ -1606,6 +1606,9 @@ public class AdminClient {
             return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
+        // TODO: The use of "Pair" in the return for a fundamental type is
+        // awkward. We should have a core KeyValue type that effectively wraps
+        // up a ByteArray and a Versioned<byte[]>.
         /**
          * Fetch key/value tuples belonging to this map of replica type to
          * partition list

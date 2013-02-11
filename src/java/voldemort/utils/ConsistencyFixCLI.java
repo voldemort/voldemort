@@ -38,6 +38,7 @@ public class ConsistencyFixCLI {
     private static class Options {
 
         public final static int defaultParallelism = 8;
+        // TODO: change name to progressPeriodMs (or S, as case may be)
         public final static long defaultProgressBar = 1000;
         public final static long defaultPerServerIOPSLimit = 100;
 
