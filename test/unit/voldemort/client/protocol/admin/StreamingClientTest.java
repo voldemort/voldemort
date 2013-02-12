@@ -1,7 +1,14 @@
 package voldemort.client.protocol.admin;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -14,13 +21,19 @@ import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
 import voldemort.client.RoutingTier;
 import voldemort.cluster.Cluster;
+import voldemort.cluster.Node;
+import voldemort.routing.RoutingStrategy;
+import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.DefaultSerializerFactory;
+import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.SerializerFactory;
 import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
+import voldemort.store.compress.CompressionStrategy;
+import voldemort.store.compress.CompressionStrategyFactory;
 import voldemort.store.memory.InMemoryStorageConfiguration;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
@@ -31,6 +44,10 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.collect.Lists;
 
+/*
+ * Starts a streaming session and inserts some keys Using fetchKeys we check if
+ * they keys made it to the responsible node
+ */
 public class StreamingClientTest {
 
     private static long startTime;
@@ -40,6 +57,7 @@ public class StreamingClientTest {
 
     public static final int TOTAL_SERVERS = 2;
 
+    private static int NUM_KEYS_1 = 4000;
     private static SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(TOTAL_SERVERS,
                                                                                          10000,
                                                                                          100000,
@@ -70,8 +88,8 @@ public class StreamingClientTest {
                                                    .setReplicationFactor(2)
                                                    .setPreferredReads(1)
                                                    .setRequiredReads(1)
-                                                   .setPreferredWrites(1)
-                                                   .setRequiredWrites(1)
+                                                   .setPreferredWrites(2)
+                                                   .setRequiredWrites(2)
                                                    .build();
 
             File tempStoreXml = new File(TestUtils.createTempDir(), "stores.xml");
@@ -137,7 +155,7 @@ public class StreamingClientTest {
             }
         }, true);
 
-        for(int i = 0; i < 40000; i++) {
+        for(int i = 0; i < NUM_KEYS_1; i++) {
             String key = i + "";
             String value = key;
 
@@ -146,8 +164,84 @@ public class StreamingClientTest {
             // outputValue);
             streamer.streamingPut(new ByteArray(key.getBytes()), outputValue);
         }
+        streamer.commitToVoldemort();
         streamer.closeStreamingSession();
+        assertEquals(verifyKeysExist(), true);
 
     }
 
+    /*
+     * Checks if each node has the keys it is reponsible for returns false
+     * otherwise
+     */
+    public boolean verifyKeysExist() {
+        RoutingStrategyFactory factory = new RoutingStrategyFactory();
+        RoutingStrategy storeRoutingStrategy = factory.updateRoutingStrategy(storeDef,
+                                                                             adminClient.getAdminClientCluster());
+
+        HashMap<Integer, ArrayList<String>> expectedNodeIdToKeys;
+        expectedNodeIdToKeys = new HashMap();
+        Collection<Node> nodesInCluster = adminClient.getAdminClientCluster().getNodes();
+        for(Node node: nodesInCluster) {
+            ArrayList<String> keysForNode = new ArrayList();
+            expectedNodeIdToKeys.put(node.getId(), keysForNode);
+        }
+        for(int i = 0; i < NUM_KEYS_1; i++) {
+            String key = i + "";
+            String value = key;
+            List<Node> nodeList = storeRoutingStrategy.routeRequest(key.getBytes());
+            for(Node node: nodeList) {
+                ArrayList<String> keysForNode = expectedNodeIdToKeys.get(node.getId());
+                keysForNode.add(key);
+            }
+        }
+
+        ArrayList<String> fetchedKeysForNode = new ArrayList();
+        for(Node node: nodesInCluster) {
+
+            List<Integer> partitionIdList = Lists.newArrayList();
+            partitionIdList.addAll(node.getPartitionIds());
+
+            Iterator<ByteArray> keyIteratorRef = null;
+            keyIteratorRef = adminClient.bulkFetchOps.fetchKeys(node.getId(),
+                                                                TEST_STORE_NAME,
+                                                                partitionIdList,
+                                                                null,
+                                                                false);
+
+            final SerializerDefinition serializerDef = storeDef.getKeySerializer();
+            final SerializerFactory serializerFactory = new DefaultSerializerFactory();
+            @SuppressWarnings("unchecked")
+            final Serializer<Object> serializer = (Serializer<Object>) serializerFactory.getSerializer(serializerDef);
+
+            final CompressionStrategy keysCompressionStrategy;
+            if(serializerDef != null && serializerDef.hasCompression()) {
+                keysCompressionStrategy = new CompressionStrategyFactory().get(serializerDef.getCompression());
+            } else {
+                keysCompressionStrategy = null;
+            }
+            final Iterator<ByteArray> keyIterator = keyIteratorRef;
+            while(keyIterator.hasNext()) {
+                // Ugly hack to be able to separate text by newlines
+                // vs. spaces
+                byte[] keyBytes = keyIterator.next().get();
+                try {
+                    Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
+                                                                                            : keysCompressionStrategy.inflate(keyBytes));
+                    fetchedKeysForNode.add((String) keyObject);
+
+                } catch(IOException e) {
+
+                    e.printStackTrace();
+                }
+            }
+
+        }
+
+        ArrayList<String> keysForNode = expectedNodeIdToKeys.get(0);
+        if(!fetchedKeysForNode.containsAll(keysForNode))
+            return false;
+        else
+            return true;
+    }
 }
