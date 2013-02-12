@@ -60,12 +60,14 @@ public class ConsistencyFix {
     private final long perServerIOPSLimit;
     private final ConcurrentMap<Integer, EventThrottler> putThrottlers;
     private final boolean dryRun;
+    private final boolean parseOnly;
 
     ConsistencyFix(String url,
                    String storeName,
                    long progressBar,
                    long perServerIOPSLimit,
-                   boolean dryRun) {
+                   boolean dryRun,
+                   boolean parseOnly) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
         this.adminClient = new AdminClient(url, new AdminClientConfig(), 0);
@@ -85,6 +87,7 @@ public class ConsistencyFix {
         this.perServerIOPSLimit = perServerIOPSLimit;
         this.putThrottlers = new ConcurrentHashMap<Integer, EventThrottler>();
         this.dryRun = dryRun;
+        this.parseOnly = parseOnly;
     }
 
     public String getStoreName() {
@@ -105,6 +108,10 @@ public class ConsistencyFix {
 
     public boolean isDryRun() {
         return dryRun;
+    }
+
+    public boolean isParseOnly() {
+        return parseOnly;
     }
 
     /**
@@ -295,9 +302,11 @@ public class ConsistencyFix {
                         counter++;
                         logger.debug("BadKeyReader read line: key (" + key + ") and counter ("
                                      + counter + ")");
-                        consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
-                                                                              consistencyFix,
-                                                                              badKeyQOut));
+                        if(!consistencyFix.isParseOnly()) {
+                            consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
+                                                                                  consistencyFix,
+                                                                                  badKeyQOut));
+                        }
                     }
                 }
             } catch(IOException ioe) {
@@ -411,10 +420,12 @@ public class ConsistencyFix {
                             values.add(new Versioned<byte[]>(value, vectorClock));
                         }
                         QueryKeyResult queryKeyResult = new QueryKeyResult(keyByteArray, values);
-                        consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
-                                                                              consistencyFix,
-                                                                              badKeyQOut,
-                                                                              queryKeyResult));
+                        if(!consistencyFix.isParseOnly()) {
+                            consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
+                                                                                  consistencyFix,
+                                                                                  badKeyQOut,
+                                                                                  queryKeyResult));
+                        }
                     }
                 }
             } catch(Exception e) {

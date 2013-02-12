@@ -70,6 +70,7 @@ public class ConsistencyFixCLI {
         public long progressBar = defaultProgressBar;
         public long perServerIOPSLimit = defaultPerServerIOPSLimit;
         public boolean dryRun = false;
+        public boolean parseOnly = false;
     }
 
     /**
@@ -100,6 +101,9 @@ public class ConsistencyFixCLI {
                        "Indicates format of bad-key-file-in is of 'orphan' key-values.");
         parser.accepts("dry-run",
                        "Indicates to go through all of the read actions until the point of issuing repair puts. Then, do a 'no-op'.");
+        parser.accepts("parse-only",
+                       "Indicates to only parse the input file. Does not perform any key queries or repair puts. "
+                               + "Does bootstrap though so bootstrapUrl and storeName must be specified.");
         parser.accepts("bad-key-file-out",
                        "Name of bad-key-file-out. "
                                + "Keys that are not mae consistent are output to this file.")
@@ -167,6 +171,9 @@ public class ConsistencyFixCLI {
         if(optionSet.has("dry-run")) {
             options.dryRun = true;
         }
+        if(optionSet.has("parse-only")) {
+            options.parseOnly = true;
+        }
 
         return options;
     }
@@ -178,7 +185,8 @@ public class ConsistencyFixCLI {
                                                            options.storeName,
                                                            options.progressBar,
                                                            options.perServerIOPSLimit,
-                                                           options.dryRun);
+                                                           options.dryRun,
+                                                           options.parseOnly);
 
         String summary = consistencyFix.execute(options.parallelism,
                                                 options.badKeyFileIn,

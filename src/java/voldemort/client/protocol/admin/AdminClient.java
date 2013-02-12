@@ -1902,14 +1902,27 @@ public class AdminClient {
 
         private class NodeStore {
 
-            @SuppressWarnings("unused")
-            final public int nodeId;
-            @SuppressWarnings("unused")
+            final public Integer nodeId;
             final public String storeName;
 
             NodeStore(int nodeId, String storeName) {
-                this.nodeId = nodeId;
+                this.nodeId = new Integer(nodeId);
                 this.storeName = storeName;
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if(this == obj)
+                    return true;
+                if(!(obj instanceof NodeStore))
+                    return false;
+                NodeStore other = (NodeStore) obj;
+                return nodeId.equals(other.nodeId) && storeName.equals(other.storeName);
+            }
+
+            @Override
+            public int hashCode() {
+                return nodeId.hashCode() + storeName.hashCode();
             }
         }
 
@@ -1933,27 +1946,33 @@ public class AdminClient {
         public SocketStore getSocketStore(int nodeId, String storeName) {
             NodeStore nodeStore = new NodeStore(nodeId, storeName);
 
-            if(!nodeStoreSocketCache.containsKey(nodeStore)) {
-                SocketStore socketStore = null;
-
+            SocketStore socketStore = nodeStoreSocketCache.get(nodeStore);
+            if(socketStore == null) {
                 Node node = getAdminClientCluster().getNodeById(nodeId);
+
+                SocketStore newSocketStore = null;
                 try {
-                    // Can clientConfig.getRequestFormatType() default to
+                    // TODO: Can clientConfig.getRequestFormatType() default to
                     // something?
-                    socketStore = clientPool.create(storeName,
-                                                    node.getHost(),
-                                                    node.getSocketPort(),
-                                                    clientConfig.getRequestFormatType(),
-                                                    RequestRoutingType.IGNORE_CHECKS);
+                    newSocketStore = clientPool.create(storeName,
+                                                       node.getHost(),
+                                                       node.getSocketPort(),
+                                                       clientConfig.getRequestFormatType(),
+                                                       RequestRoutingType.IGNORE_CHECKS);
                 } catch(Exception e) {
                     clientPool.close();
                     throw new VoldemortException(e);
                 }
 
-                nodeStoreSocketCache.putIfAbsent(nodeStore, socketStore);
+                socketStore = nodeStoreSocketCache.putIfAbsent(nodeStore, newSocketStore);
+                if(socketStore == null) {
+                    socketStore = newSocketStore;
+                } else {
+                    newSocketStore.close();
+                }
             }
 
-            return nodeStoreSocketCache.get(nodeStore);
+            return socketStore;
         }
 
         public void stop() {
