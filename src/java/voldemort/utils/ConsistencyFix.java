@@ -397,6 +397,8 @@ public class ConsistencyFix {
                             throw new IOException("KeyNumVal line did not parse into two elements: "
                                                   + keyNumVals);
                         }
+                        logger.trace("parsed[0]: <" + parsed[0] + ">, parsed[1] <" + parsed[1]
+                                     + ">");
                         String key = parsed[0];
                         ByteArray keyByteArray = new ByteArray(ByteUtils.fromHexString(key));
                         int numVals = Integer.parseInt(parsed[1]);
@@ -471,7 +473,7 @@ public class ConsistencyFix {
                     badKeyResult = badKeyQOut.take();
                 }
             } catch(IOException ioe) {
-                logger.warn("IO exception reading badKeyFile " + badKeyFileOut + " : "
+                logger.warn("IO exception writing badKeyFile " + badKeyFileOut + " : "
                             + ioe.getMessage());
             } catch(InterruptedException ie) {
                 logger.warn("Interrupted exception during writing of badKeyFile " + badKeyFileOut

@@ -284,14 +284,14 @@ public class ConsistencyCheck {
         }
 
         // print inconsistent keys
-        if(verbose) {
-            System.out.println("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
-            for(Map.Entry<ByteArray, Map<Version, Set<PrefixNode>>> entry: keyVersionNodeSetMap.entrySet()) {
-                ByteArray key = entry.getKey();
-                Map<Version, Set<PrefixNode>> versionMap = entry.getValue();
-                System.out.print(keyVersionToString(key, versionMap, storeName, partitionId));
-            }
+        // if(verbose) {
+        System.out.println("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
+        for(Map.Entry<ByteArray, Map<Version, Set<PrefixNode>>> entry: keyVersionNodeSetMap.entrySet()) {
+            ByteArray key = entry.getKey();
+            Map<Version, Set<PrefixNode>> versionMap = entry.getValue();
+            System.out.print(keyVersionToString(key, versionMap, storeName, partitionId));
         }
+        // }
 
         ConsistencyCheckStats stats = new ConsistencyCheckStats();
         stats.consistentKeys = consistentKeys;
