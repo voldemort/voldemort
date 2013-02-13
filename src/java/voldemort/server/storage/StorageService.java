@@ -239,7 +239,7 @@ public class StorageService extends AbstractService {
 
     @Override
     protected void startInner() {
-        registerEngine(metadata, false, "metadata");
+        registerInternalEngine(metadata, false, "metadata");
 
         /* Initialize storage configurations */
         for(String configClassName: voldemortConfig.getStorageConfigurations())
@@ -296,7 +296,7 @@ public class StorageService extends AbstractService {
                                                                                  new RoutingStrategyFactory().updateRoutingStrategy(slopStoreDefinition,
                                                                                                                                     metadata.getCluster())),
                                                                  metadata.getCluster());
-            registerEngine(slopEngine, false, "slop");
+            registerInternalEngine(slopEngine, false, "slop");
             storeRepository.setSlopStore(slopEngine);
 
             if(voldemortConfig.isSlopPusherJobEnabled()) {
@@ -610,7 +610,7 @@ public class StorageService extends AbstractService {
 
         // openStore() should have atomic semantics
         try {
-            registerEngine(engine, isReadOnly, storeDef.getType());
+            registerEngine(engine, isReadOnly, storeDef.getType(), storeDef);
 
             if(voldemortConfig.isServerRoutingEnabled())
                 registerNodeStores(storeDef, metadata.getCluster(), voldemortConfig.getNodeId());
@@ -696,15 +696,31 @@ public class StorageService extends AbstractService {
     }
 
     /**
-     * Register the given engine with the storage repository
+     * Register the given internal engine (slop and metadata) with the storage
+     * repository
      * 
      * @param engine Register the storage engine
      * @param isReadOnly Boolean indicating if this store is read-only
      * @param storeType The type of the store
      */
+    public void registerInternalEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                                       boolean isReadOnly,
+                                       String storeType) {
+        registerEngine(engine, isReadOnly, storeType, null);
+    }
+
+    /**
+     * Register the given engine with the storage repository
+     * 
+     * @param engine Register the storage engine
+     * @param isReadOnly Boolean indicating if this store is read-only
+     * @param storeType The type of the store
+     * @param storeDef store definition for the store to be registered
+     */
     public void registerEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
                                boolean isReadOnly,
-                               String storeType) {
+                               String storeType,
+                               StoreDefinition storeDef) {
         Cluster cluster = this.metadata.getCluster();
         storeRepository.addStorageEngine(engine);
 
@@ -722,9 +738,9 @@ public class StorageService extends AbstractService {
         if(!isSlop) {
             if(!isReadOnly && !isMetadata && !isView) {
                 // wrap store to enforce retention policy
-                if(voldemortConfig.isEnforceRetentionPolicyOnRead()) {
+                if(voldemortConfig.isEnforceRetentionPolicyOnRead() && storeDef != null) {
                     RetentionEnforcingStore retentionEnforcingStore = new RetentionEnforcingStore(store,
-                                                                                                  metadata.getStoreDef(store.getName()),
+                                                                                                  storeDef,
                                                                                                   voldemortConfig.isDeleteExpiredValuesOnRead(),
                                                                                                   SystemTime.INSTANCE);
                     metadata.addMetadataStoreListener(store.getName(), retentionEnforcingStore);

@@ -110,14 +110,17 @@ public class AdminServiceBasicTest {
     private AdminClient adminClient;
 
     private final boolean useNio;
+    private final boolean onlineRetention;
 
-    public AdminServiceBasicTest(boolean useNio) {
+    public AdminServiceBasicTest(boolean useNio, boolean onlineRetention) {
         this.useNio = useNio;
+        this.onlineRetention = onlineRetention;
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { true, false }, { true, true }, { false, false },
+                { false, true } });
     }
 
     @Before
@@ -127,6 +130,8 @@ public class AdminServiceBasicTest {
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
         Properties serverProperties = new Properties();
         serverProperties.setProperty("client.max.connections.per.node", "20");
+        serverProperties.setProperty("enforce.retention.policy.on.read",
+                                     Boolean.toString(onlineRetention));
         cluster = ServerTestUtils.startVoldemortCluster(numServers,
                                                         servers,
                                                         partitionMap,
