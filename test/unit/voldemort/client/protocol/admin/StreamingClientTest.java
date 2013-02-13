@@ -222,8 +222,7 @@ public class StreamingClientTest {
             }
             final Iterator<ByteArray> keyIterator = keyIteratorRef;
             while(keyIterator.hasNext()) {
-                // Ugly hack to be able to separate text by newlines
-                // vs. spaces
+
                 byte[] keyBytes = keyIterator.next().get();
                 try {
                     Object keyObject = serializer.toObject((null == keysCompressionStrategy) ? keyBytes
