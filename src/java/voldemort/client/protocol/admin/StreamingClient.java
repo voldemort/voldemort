@@ -559,7 +559,7 @@ public class StreamingClient {
 
         commitActionLock.lock();
 
-        logger.info("Trying to commit to Voldemort");
+        logger.debug("Trying to commit to Voldemort");
         for(Node node: nodesToStream) {
 
             for(String store: storeNamesToCommit) {
@@ -596,8 +596,8 @@ public class StreamingClient {
                             throw new VoldemortException("Recovery Callback failed");
                         }
                     } else {
-                        logger.info("Commit successful");
-                        logger.info("calling checkpoint callback");
+                        logger.debug("Commit successful");
+                        logger.debug("calling checkpoint callback");
                         Future future = streamingresults.submit(checkpointCallback);
                         try {
                             future.get();
