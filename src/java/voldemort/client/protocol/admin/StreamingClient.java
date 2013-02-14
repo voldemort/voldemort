@@ -550,7 +550,9 @@ public class StreamingClient {
     @SuppressWarnings({ "unchecked", "rawtypes", "unused" })
     private void commitToVoldemort(List<String> storeNamesToCommit) {
 
-        logger.debug("Trying to commit to Voldemort");
+        if(logger.isDebugEnabled()) {
+            logger.debug("Trying to commit to Voldemort");
+        }
         for(Node node: nodesToStream) {
 
             for(String store: storeNamesToCommit) {
@@ -587,8 +589,10 @@ public class StreamingClient {
                             throw new VoldemortException("Recovery Callback failed");
                         }
                     } else {
-                        logger.debug("Commit successful");
-                        logger.debug("calling checkpoint callback");
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("Commit successful");
+                            logger.debug("calling checkpoint callback");
+                        }
                         Future future = streamingresults.submit(checkpointCallback);
                         try {
                             future.get();
