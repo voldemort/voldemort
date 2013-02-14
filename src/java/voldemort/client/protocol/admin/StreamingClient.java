@@ -294,11 +294,11 @@ public class StreamingClient {
      **/
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public void initStreamingSessions(List<String> stores,
-                                      Callable checkpointCallback,
-                                      Callable recoveryCallback,
-                                      boolean allowMerge,
-                                      List<Integer> blackListedNodes) {
+    public synchronized void initStreamingSessions(List<String> stores,
+                                                   Callable checkpointCallback,
+                                                   Callable recoveryCallback,
+                                                   boolean allowMerge,
+                                                   List<Integer> blackListedNodes) {
 
         logger.info("Initializing a streaming session");
         adminClientConfig = new AdminClientConfig();
@@ -423,7 +423,7 @@ public class StreamingClient {
      * 
      **/
     @SuppressWarnings({})
-    public void removeStoreFromSession(List<String> storeNameToRemove) {
+    public synchronized void removeStoreFromSession(List<String> storeNameToRemove) {
 
         logger.info("closing the Streaming session for a few stores");
 
@@ -446,7 +446,7 @@ public class StreamingClient {
      * 
      **/
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public void streamingPut(ByteArray key, Versioned<byte[]> value, String storeName) {
+    public synchronized void streamingPut(ByteArray key, Versioned<byte[]> value, String storeName) {
 
         commitActionLock.lock();
         // If store does not exist in the stores list
