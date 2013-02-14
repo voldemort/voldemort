@@ -31,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
 
@@ -129,10 +128,6 @@ public class StreamingClient {
 
     private final static int MAX_STORES_PER_SESSION = 100;
 
-    // use this as a guard against race conditions due to a sperate timer based
-    // checkpointer thread which flushes data to the V server
-    final ReentrantLock commitActionLock = new ReentrantLock();
-
     Calendar calendar = Calendar.getInstance();
 
     public StreamingClient(StreamingClientConfig config) {
@@ -142,7 +137,7 @@ public class StreamingClient {
 
     }
 
-    public void updateThrottleLimit(int throttleQPS) {
+    public synchronized void updateThrottleLimit(int throttleQPS) {
         THROTTLE_QPS = throttleQPS;
 
         this.throttler = new EventThrottler(THROTTLE_QPS);
@@ -167,10 +162,10 @@ public class StreamingClient {
      *        current streaming session.
      **/
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public void initStreamingSession(String store,
-                                     Callable checkpointCallback,
-                                     Callable recoveryCallback,
-                                     boolean allowMerge) {
+    public synchronized void initStreamingSession(String store,
+                                                  Callable checkpointCallback,
+                                                  Callable recoveryCallback,
+                                                  boolean allowMerge) {
 
         // internally call initsessions with a single store
         List<String> stores = new ArrayList();
@@ -187,7 +182,7 @@ public class StreamingClient {
      * @param value - The value
      **/
     @SuppressWarnings({})
-    public void streamingPut(ByteArray key, Versioned<byte[]> value) {
+    public synchronized void streamingPut(ByteArray key, Versioned<byte[]> value) {
 
         if(MARKED_BAD) {
             logger.error("Cannot stream more entries since Recovery Callback Failed!");
@@ -261,10 +256,10 @@ public class StreamingClient {
      *        current streaming session.
      **/
     @SuppressWarnings({ "rawtypes" })
-    public void initStreamingSessions(List<String> stores,
-                                      Callable checkpointCallback,
-                                      Callable recoveryCallback,
-                                      boolean allowMerge) {
+    public synchronized void initStreamingSessions(List<String> stores,
+                                                   Callable checkpointCallback,
+                                                   Callable recoveryCallback,
+                                                   boolean allowMerge) {
 
         initStreamingSessions(stores, checkpointCallback, recoveryCallback, allowMerge, null);
 
@@ -448,7 +443,6 @@ public class StreamingClient {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public synchronized void streamingPut(ByteArray key, Versioned<byte[]> value, String storeName) {
 
-        commitActionLock.lock();
         // If store does not exist in the stores list
         // add it and checkout a socket
         if(!storeNames.contains(storeName)) {
@@ -530,7 +524,6 @@ public class StreamingClient {
         }
 
         throttler.maybeThrottle(1);
-        commitActionLock.unlock();
 
     }
 
@@ -556,8 +549,6 @@ public class StreamingClient {
      */
     @SuppressWarnings({ "unchecked", "rawtypes", "unused" })
     private void commitToVoldemort(List<String> storeNamesToCommit) {
-
-        commitActionLock.lock();
 
         logger.debug("Trying to commit to Voldemort");
         for(Node node: nodesToStream) {
@@ -636,7 +627,6 @@ public class StreamingClient {
             }
 
         }
-        commitActionLock.unlock();
 
     }
 
@@ -697,7 +687,6 @@ public class StreamingClient {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private void cleanupSessions(List<String> storeNamesToCleanUp) {
 
-        commitActionLock.lock();
         logger.info("Performing cleanup");
         for(String store: storeNamesToCleanUp) {
 
@@ -714,7 +703,7 @@ public class StreamingClient {
         }
 
         cleanedUp = true;
-        commitActionLock.unlock();
+
     }
 
 }
