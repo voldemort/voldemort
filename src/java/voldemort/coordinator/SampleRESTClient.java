@@ -9,7 +9,7 @@ public class SampleRESTClient {
                                                                                 "test");
 
         // Sample put
-        clientStore.put("a", "How goesasdfsafsadf it  adsfasdfasdf!!!");
+        clientStore.put("a", "Be Meinnnnnnnn  !!!");
 
         // Do a sample operation:
         System.out.println("Received response : " + clientStore.get("a"));

@@ -22,11 +22,6 @@ import java.util.concurrent.Executors;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
-import voldemort.client.ClientConfig;
-import voldemort.client.SocketStoreClientFactory;
-import voldemort.client.ZenStoreClient;
-import voldemort.client.protocol.RequestFormatType;
-
 /**
  * An HTTP server that sends back the content of the received HTTP request in a
  * pretty plaintext form.
@@ -59,20 +54,8 @@ public class HttpServer {
                                                                                           Executors.newCachedThreadPool()));
         bootstrap.setOption("backlog", 1000);
 
-        // Setup the Voldemort client
-        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(args[0])
-                                                      .setEnableLazy(false)
-                                                      .setRequestFormatType(RequestFormatType.VOLDEMORT_V3)
-                                                      .setEnableCompressionLayer(false)
-                                                      .setEnableSerializationLayer(false)
-                                                      .setEnableInconsistencyResolvingLayer(false);
-
-        SocketStoreClientFactory factory = new SocketStoreClientFactory(clientConfig);
-        ZenStoreClient<Object, Object> storeClient = (ZenStoreClient<Object, Object>) factory.getStoreClient("test");
-        System.out.println("Successfully created ZenStoreClient");
-
         // Set up the event pipeline factory.
-        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(storeClient, noop));
+        bootstrap.setPipelineFactory(new HttpServerPipelineFactory(noop));
 
         // Bind and start to accept incoming connections.
         bootstrap.bind(new InetSocketAddress(8080));

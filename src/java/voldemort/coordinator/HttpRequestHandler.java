@@ -24,8 +24,6 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,11 +47,8 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 import org.jboss.netty.util.CharsetUtil;
 
-import voldemort.client.ZenStoreClient;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
-import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 /**
@@ -69,17 +64,19 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private boolean readingChunks;
     /** Buffer that stores the response content */
     private final StringBuilder buf = new StringBuilder();
-    private ZenStoreClient<Object, Object> storeClient;
     public ChannelBuffer responseContent;
     private final static String STORE_NAME = "store_name";
+    private FatClientWrapper fatClientWrapper = null;
 
     public static enum OP_TYPE {
         GET,
         PUT
-    };
+    }
 
-    public HttpRequestHandler(ZenStoreClient<Object, Object> storeClient) {
-        this.storeClient = storeClient;
+    public HttpRequestHandler() {
+        String[] bootstrapURLs = new String[1];
+        bootstrapURLs[0] = "tcp://localhost:6666";
+        this.fatClientWrapper = new FatClientWrapper("test", bootstrapURLs);
     }
 
     public OP_TYPE getOperationType(String path) {
@@ -97,7 +94,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         return new ByteArray(key);
     }
 
-    public void writeResults(List<Versioned<Object>> values) throws IOException {
+    public void writeResults(List<Versioned<Object>> values) {
         responseContent.writeInt(values.size());
         for(Versioned<Object> v: values) {
             byte[] clock = ((VectorClock) v.getVersion()).toBytes();
@@ -117,8 +114,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-        String storeName = "";
-        List<Versioned<Object>> results = new ArrayList<Versioned<Object>>();
 
         if(!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
@@ -128,9 +123,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             OP_TYPE operation = getOperationType(queryStringDecoder.getPath());
 
             Map<String, List<String>> params = queryStringDecoder.getParameters();
-            if(params != null && params.containsKey(STORE_NAME)) {
-                storeName = params.get(STORE_NAME).get(0);
-            } else {
+            if(params == null || !params.containsKey(STORE_NAME)) {
                 System.err.println("Store Name missing. Critical error");
                 this.responseContent = ChannelBuffers.copiedBuffer("Store Name missing. Critical error".getBytes());
                 return;
@@ -154,35 +147,21 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     case GET:
                         // System.out.println("GET operation");
                         ByteArray getKey = readKey(content);
-                        Versioned<Object> responseVersioned = this.storeClient.get(getKey);
-                        if(responseVersioned == null) {
-                            byte[] nullByteArray = new byte[1];
-                            nullByteArray[0] = 0;
-                            responseVersioned = new Versioned<Object>(nullByteArray);
-                        }
-                        results.add(responseVersioned);
-                        byte[] responseValue = (byte[]) responseVersioned.getValue();
-                        this.responseContent = ChannelBuffers.dynamicBuffer(responseValue.length);
-                        writeResults(results);
+                        this.fatClientWrapper.submitGetRequest(getKey, e);
                         break;
                     case PUT:
                         // System.out.println("PUT operation");
                         ByteArray putKey = readKey(content);
                         byte[] putValue = readValue(content);
-                        try {
-                            Version putVersion = this.storeClient.put(putKey, putValue);
-                        } catch(ObsoleteVersionException oe) {
-                            // Ideally propagate the exception !
-                        }
-                        this.responseContent = ChannelBuffers.EMPTY_BUFFER;
+                        this.fatClientWrapper.submitPutRequest(putKey, putValue, e);
                         break;
                     default:
                         System.err.println("Illegal operation.");
                         this.responseContent = ChannelBuffers.copiedBuffer("Illegal operation.".getBytes());
+                        writeResponse(e);
                         return;
                 }
 
-                writeResponse(e);
             }
         } else {
             HttpChunk chunk = (HttpChunk) e.getMessage();

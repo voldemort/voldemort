@@ -25,8 +25,6 @@ import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
-import voldemort.client.ZenStoreClient;
-
 /**
  * @author <a href="http://www.jboss.org/netty/">The Netty Project</a>
  * @author Andy Taylor (andy.taylor@jboss.org)
@@ -36,14 +34,13 @@ import voldemort.client.ZenStoreClient;
  */
 public class HttpServerPipelineFactory implements ChannelPipelineFactory {
 
-    private ZenStoreClient<Object, Object> storeClient;
     boolean noop = false;
 
-    public HttpServerPipelineFactory(ZenStoreClient<Object, Object> storeClient, boolean noop) {
-        this.storeClient = storeClient;
+    public HttpServerPipelineFactory(boolean noop) {
         this.noop = noop;
     }
 
+    @Override
     public ChannelPipeline getPipeline() throws Exception {
         // Create a default pipeline implementation.
         ChannelPipeline pipeline = pipeline();
@@ -62,9 +59,9 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         // compression.
         pipeline.addLast("deflater", new HttpContentCompressor());
         if(this.noop) {
-            pipeline.addLast("handler", new NoopHttpRequestHandler(null));
+            pipeline.addLast("handler", new NoopHttpRequestHandler());
         } else {
-            pipeline.addLast("handler", new HttpRequestHandler(storeClient));
+            pipeline.addLast("handler", new HttpRequestHandler());
         }
         return pipeline;
     }
