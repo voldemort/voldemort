@@ -259,9 +259,10 @@ public class HdfsFetcher implements FileFetcher {
                             }
                         }
 
-                        if(isValidFilesystem && retryCount < NUM_RETRIES - 1) {
-                            logger.error("Could not get a valid Filesystem object. Trying again.");
+                        if(isValidFilesystem) {
                             break;
+                        } else if(retryCount < NUM_RETRIES - 1) {
+                            logger.error("Could not get a valid Filesystem object. Trying again.");
                         }
                     }
 
