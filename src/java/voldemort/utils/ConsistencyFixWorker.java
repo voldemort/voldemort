@@ -88,7 +88,7 @@ class ConsistencyFixWorker implements Runnable {
         logger.trace("About to process key " + keyInHexFormat + " (" + myName() + ")");
         Status status = doConsistencyFix(keyInHexFormat);
         logger.trace("Finished processing key " + keyInHexFormat + " (" + myName() + ")");
-        consistencyFix.getStats().incrementCount();
+        consistencyFix.getStats().incrementFixCount();
 
         if(status != Status.SUCCESS) {
             try {
@@ -340,6 +340,7 @@ class ConsistencyFixWorker implements Runnable {
                 consistencyFix.maybePutThrottle(nodeKeyValue.getNodeId());
                 consistencyFix.getAdminClient().storeOps.putNodeKeyValue(consistencyFix.getStoreName(),
                                                                          nodeKeyValue);
+                consistencyFix.getStats().incrementPutCount();
             } catch(ObsoleteVersionException ove) {
                 // TODO: Add OVE catches to some statistics?
                 // NOOP. Treat OVE as success.

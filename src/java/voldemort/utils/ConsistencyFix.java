@@ -491,14 +491,16 @@ public class ConsistencyFix {
     public class Stats {
 
         final long progressBar;
-        long count;
+        long fixCount;
+        long putCount;
         long failures;
         long lastTimeMs;
         final long startTimeMs;
 
         Stats(long progressBar) {
             this.progressBar = progressBar;
-            this.count = 0;
+            this.fixCount = 0;
+            this.putCount = 0;
             this.failures = 0;
             this.lastTimeMs = System.currentTimeMillis();
             this.startTimeMs = lastTimeMs;
@@ -511,14 +513,25 @@ public class ConsistencyFix {
             return df.format(qps);
         }
 
-        public synchronized void incrementCount() {
-            count++;
-            if(count % progressBar == 0) {
+        public synchronized void incrementFixCount() {
+            fixCount++;
+            if(fixCount % progressBar == 0) {
                 long nowTimeMs = System.currentTimeMillis();
-                logger.info("Bad keys attempted to be processed count = " + count + " ("
-                            + getPrettyQPS(progressBar, lastTimeMs - nowTimeMs) + " keys/second)");
+                StringBuilder sb = new StringBuilder();
+                sb.append("\nConsistencyFix Progress Bar\n");
+                sb.append("\tBad keys processed : " + fixCount
+                          + " (during this progress bar period)\n");
+                sb.append("\tBad key processing rate : "
+                          + getPrettyQPS(progressBar, nowTimeMs - lastTimeMs)
+                          + " bad keys/second)\n");
+                sb.append("\tServer-puts issued : " + putCount + " (since fixer started)\n");
+                logger.info(sb.toString());
                 lastTimeMs = nowTimeMs;
             }
+        }
+
+        public synchronized void incrementPutCount() {
+            putCount++;
         }
 
         public synchronized void incrementFailures() {
@@ -533,12 +546,14 @@ public class ConsistencyFix {
             summary.append("\n\n");
             summary.append("Consistency Fix Summary\n");
             summary.append("-----------------------\n");
-            summary.append("Total keys processed: " + count + "\n");
+            summary.append("Total bad keys processed: " + fixCount + "\n");
+            summary.append("Total server-puts issued: " + putCount + "\n");
             summary.append("Total keys processed that were not corrected: " + failures + "\n");
-            long nowTimeMs = System.currentTimeMillis();
 
+            long nowTimeMs = System.currentTimeMillis();
             summary.append("Keys per second processed: "
-                           + getPrettyQPS(count, nowTimeMs - startTimeMs) + "\n");
+                           + getPrettyQPS(fixCount, nowTimeMs - startTimeMs) + "\n");
+
             return summary.toString();
         }
     }
