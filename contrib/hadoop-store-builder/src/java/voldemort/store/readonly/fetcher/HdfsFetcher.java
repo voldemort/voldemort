@@ -209,44 +209,62 @@ public class HdfsFetcher implements FileFetcher {
 
                 if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
 
-                    if(!new File(HdfsFetcher.keytabPath).exists()) {
-                        logger.error("Invalid keytab file path. Please provide a valid keytab path");
-                        return null;
-                    }
-
-                    // First login using the specified principal and keytab file
-                    UserGroupInformation.setConfiguration(config);
-                    UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal,
-                                                             HdfsFetcher.keytabPath);
-
                     /*
-                     * If login is successful, get the filesystem object. NOTE:
-                     * Ideally we do not need a doAs block for this. Consider
-                     * removing it in the future once the Hadoop jars have the
-                     * corresponding patch (tracked in the Hadoop Apache
-                     * project: HDFS-3367)
+                     * We're seeing intermittent errors while trying to get the
+                     * Hadoop filesystem in a privileged doAs block. This
+                     * happens when we fetch the files over hdfs or webhdfs.
+                     * This retry loop is inserted here as a temporary measure.
                      */
-                    try {
-                        logger.info("I've logged in and am now Doasing as "
-                                    + UserGroupInformation.getCurrentUser().getUserName());
-                        fs = UserGroupInformation.getCurrentUser()
-                                                 .doAs(new PrivilegedExceptionAction<FileSystem>() {
+                    for(int retryCount = 0; retryCount < NUM_RETRIES; retryCount++) {
+                        boolean isValidFilesystem = false;
 
-                                                     public FileSystem run() throws Exception {
-                                                         FileSystem fs = path.getFileSystem(config);
-                                                         return fs;
-                                                     }
-                                                 });
-                    } catch(InterruptedException e) {
-                        logger.error(e.getMessage());
-                    } catch(Exception e) {
-                        logger.error("Got an exception while getting the filesystem object: ");
-                        logger.error("Exception class : " + e.getClass());
-                        e.printStackTrace();
-                        for(StackTraceElement et: e.getStackTrace()) {
-                            logger.error(et.toString());
+                        if(!new File(HdfsFetcher.keytabPath).exists()) {
+                            logger.error("Invalid keytab file path. Please provide a valid keytab path");
+                            return null;
+                        }
+
+                        // First login using the specified principal and keytab
+                        // file
+                        UserGroupInformation.setConfiguration(config);
+                        UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal,
+                                                                 HdfsFetcher.keytabPath);
+
+                        /*
+                         * If login is successful, get the filesystem object.
+                         * NOTE: Ideally we do not need a doAs block for this.
+                         * Consider removing it in the future once the Hadoop
+                         * jars have the corresponding patch (tracked in the
+                         * Hadoop Apache project: HDFS-3367)
+                         */
+                        try {
+                            logger.info("I've logged in and am now Doasing as "
+                                        + UserGroupInformation.getCurrentUser().getUserName());
+                            fs = UserGroupInformation.getCurrentUser()
+                                                     .doAs(new PrivilegedExceptionAction<FileSystem>() {
+
+                                                         public FileSystem run() throws Exception {
+                                                             FileSystem fs = path.getFileSystem(config);
+                                                             return fs;
+                                                         }
+                                                     });
+                            isValidFilesystem = true;
+                        } catch(InterruptedException e) {
+                            logger.error(e.getMessage());
+                        } catch(Exception e) {
+                            logger.error("Got an exception while getting the filesystem object: ");
+                            logger.error("Exception class : " + e.getClass());
+                            e.printStackTrace();
+                            for(StackTraceElement et: e.getStackTrace()) {
+                                logger.error(et.toString());
+                            }
+                        }
+
+                        if(isValidFilesystem && retryCount < NUM_RETRIES - 1) {
+                            logger.error("Could not get a valid Filesystem object. Trying again.");
+                            break;
                         }
                     }
+
                 } else {
                     fs = path.getFileSystem(config);
                 }
