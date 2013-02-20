@@ -1,9 +1,29 @@
+Release 1.2.3 on 02/20/2013
+
+Changes made since 1.2.2
+* Added a retry loop and synchronized block while getting Hadoop FS
+* Code cleanup in HdfsFetcher to make it more readable.
+* Throwing explicit exceptions in HdfsFetcher instead of 
+  returning null to be more precise in the Azkaban logs.
+
+Release 1.2.2 on 02/19/2013
+
+Changes made since 1.2.1
+* Synchronized the streaming API
+* Fixed some of the streaming API tests.
+
+Release 1.2.1 on 0/30/2013
+
+Changes made since 1.2.0
+* Added a Streaming API and related tests.
+* Refactoring of the admin client apis into functional inner classes
+
 Release 1.2.0 on 01/21/2013
 
 Changes made since 1.1.9
-* Added an Admin API to fetch orphaned key / entries.
-* Improved some tests.
-* Correcting commons-codec version in ivy file (1.4).
+* Added an Admin API to fetch orphaned key / entries
+* Improved some tests related to streaming API.
+* Correcting commons-codec version in ivy file (1.4)
 
 Release 1.1.9 on 01/15/2013
 
@@ -11,10 +31,10 @@ Changes made since 1.1.8
 * Asynchronous socket checkout improvements
   * Changed checkout behavior of KeyedResourcePool to only create new
     connections when there are no resources available (rather than
-    creating new connections until the pool is full).
+    creating new connections until the pool is full)
   * Changed QueuedKeyedResourcePool.reset behavior to better match
     KeyedResourcePool (i.e., to not cancel queued asynchronous
-    requests unnecessarily).
+    requests unnecessarily)
   * Removed (unnecessary) synchronization primitives from keyed resource pool
   * Reduce granularity of failure detector locking within ThresholdFailureDetector
 * Minor features/improvements
@@ -23,7 +43,7 @@ Changes made since 1.1.8
 * Bug fixes
   * Fixed possible race condition for resource creation in KeyedResourcePool
   * More efficient (time & space) and simpler Histogram implementation
-    with improved tests.
+    with improved tests
 
 
 Release 1.1.8 on 01/14/2013
