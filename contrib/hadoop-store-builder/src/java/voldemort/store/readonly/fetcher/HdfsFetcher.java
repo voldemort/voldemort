@@ -198,33 +198,40 @@ public class HdfsFetcher implements FileFetcher {
                                  + " = "
                                  + config.get(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION));
                     logger.error("Please make sure that the Hadoop config directory path is valid.");
-                    return null;
+                    throw new VoldemortException("Error in getting Hadoop filesystem. Invalid Hadoop config directory path.");
                 } else {
                     logger.info("Security is turned on in the conf. Trying to authenticate ...");
 
                 }
             }
 
-            try {
+            if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
 
-                if(HdfsFetcher.keytabPath.length() > 0 && !isHftpBasedFetch) {
+                /*
+                 * We're seeing intermittent errors while trying to get the
+                 * Hadoop filesystem in a privileged doAs block. This happens
+                 * when we fetch the files over hdfs or webhdfs. This retry loop
+                 * is inserted here as a temporary measure.
+                 */
+                for(int retryCount = 0; retryCount < NUM_RETRIES; retryCount++) {
+                    boolean isValidFilesystem = false;
+
+                    if(!new File(HdfsFetcher.keytabPath).exists()) {
+                        logger.error("Invalid keytab file path. Please provide a valid keytab path");
+                        throw new VoldemortException("Error in getting Hadoop filesystem. Invalid keytab file path.");
+                    }
 
                     /*
-                     * We're seeing intermittent errors while trying to get the
-                     * Hadoop filesystem in a privileged doAs block. This
-                     * happens when we fetch the files over hdfs or webhdfs.
-                     * This retry loop is inserted here as a temporary measure.
+                     * The Hadoop path for getting a Filesystem object in a
+                     * privileged doAs block is not thread safe. This might be
+                     * causing intermittent NPE exceptions. Adding a
+                     * synchronized block.
                      */
-                    for(int retryCount = 0; retryCount < NUM_RETRIES; retryCount++) {
-                        boolean isValidFilesystem = false;
-
-                        if(!new File(HdfsFetcher.keytabPath).exists()) {
-                            logger.error("Invalid keytab file path. Please provide a valid keytab path");
-                            return null;
-                        }
-
-                        // First login using the specified principal and keytab
-                        // file
+                    synchronized(this) {
+                        /*
+                         * First login using the specified principal and keytab
+                         * file
+                         */
                         UserGroupInformation.setConfiguration(config);
                         UserGroupInformation.loginUserFromKeytab(HdfsFetcher.kerberosPrincipal,
                                                                  HdfsFetcher.keytabPath);
@@ -242,6 +249,7 @@ public class HdfsFetcher implements FileFetcher {
                             fs = UserGroupInformation.getCurrentUser()
                                                      .doAs(new PrivilegedExceptionAction<FileSystem>() {
 
+                                                         @Override
                                                          public FileSystem run() throws Exception {
                                                              FileSystem fs = path.getFileSystem(config);
                                                              return fs;
@@ -258,26 +266,17 @@ public class HdfsFetcher implements FileFetcher {
                                 logger.error(et.toString());
                             }
                         }
-
-                        if(isValidFilesystem) {
-                            break;
-                        } else if(retryCount < NUM_RETRIES - 1) {
-                            logger.error("Could not get a valid Filesystem object. Trying again.");
-                        }
                     }
 
-                } else {
-                    fs = path.getFileSystem(config);
+                    if(isValidFilesystem) {
+                        break;
+                    } else if(retryCount < NUM_RETRIES - 1) {
+                        logger.error("Could not get a valid Filesystem object. Trying again.");
+                    }
                 }
 
-            } catch(IOException e) {
-                e.printStackTrace();
-                logger.error("IOException in authenticating or getting the Filesystem object !!!");
-                return null;
-            } catch(Throwable te) {
-                te.printStackTrace();
-                logger.error("Error thrown while trying to get Hadoop filesystem");
-                return null;
+            } else {
+                fs = path.getFileSystem(config);
             }
 
             CopyStats stats = new CopyStats(sourceFileUrl, sizeOfPath(fs, path));
@@ -302,8 +301,14 @@ public class HdfsFetcher implements FileFetcher {
                 return null;
             }
         } catch(IOException e) {
+            e.printStackTrace();
             logger.error("Error while getting Hadoop filesystem : " + e);
-            return null;
+            throw new VoldemortException("Error while getting Hadoop filesystem : " + e);
+        } catch(Throwable te) {
+            te.printStackTrace();
+            logger.error("Error thrown while trying to get Hadoop filesystem");
+            throw new VoldemortException("Error thrown while trying to get Hadoop filesystem : "
+                                         + te);
         } finally {
             if(this.globalThrottleLimit != null) {
                 this.globalThrottleLimit.decrementNumJobs();
