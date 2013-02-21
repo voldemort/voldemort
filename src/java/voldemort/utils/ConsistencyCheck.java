@@ -1,18 +1,20 @@
 package voldemort.utils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+
+import org.apache.log4j.Logger;
+
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -26,22 +28,28 @@ import voldemort.versioning.Versioned;
 
 public class ConsistencyCheck {
 
-    private Boolean verbose = false;
-    private List<String> urls;
-    private String storeName;
-    private Integer partitionId;
+    private static Logger logger = Logger.getLogger(ConsistencyCheck.class);
+    private final Boolean quiet;
+    private final List<String> urls;
+    private final String storeName;
+    private final Integer partitionId;
 
-    private Integer retentionDays = 0;
+    private Integer retentionDays = null;
     private Integer replicationFactor = 0;
     private Integer requiredWrites = 0;
-    private Map<PrefixNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>> nodeEntriesMap;
 
-    public ConsistencyCheck(List<String> urls, String storeName, int partitionId, boolean verbose) {
+    private List<AdminClient> adminClients;
+    private List<ClusterNode> clusterNodeList = new ArrayList<ClusterNode>();
+    private final ProgressReporter reporter = new ProgressReporter();
+    private final Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap = new HashMap<ByteArray, Map<Version, Set<ClusterNode>>>();
+    private RetentionChecker retentionChecker;
+    private KeyFetchTracker keyFetchTracker;
+
+    public ConsistencyCheck(List<String> urls, String storeName, int partitionId, boolean quiet) {
         this.urls = urls;
         this.storeName = storeName;
         this.partitionId = partitionId;
-        this.verbose = verbose;
-
+        this.quiet = quiet;
     }
 
     /**
@@ -50,105 +58,92 @@ public class ConsistencyCheck {
      * 
      * @throws Exception When no such store is found
      */
+
     public void connect() throws Exception {
-        List<Integer> singlePartition = new ArrayList<Integer>();
-        singlePartition.add(partitionId);
+        adminClients = new ArrayList<AdminClient>(urls.size());
+        // bootstrap from two urls
+        Map<String, Cluster> clusterMap = new HashMap<String, Cluster>(urls.size());
+        Map<String, StoreDefinition> storeDefinitionMap = new HashMap<String, StoreDefinition>(urls.size());
 
-        nodeEntriesMap = new HashMap<PrefixNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>>();
-
-        List<AdminClient> adminClients = new ArrayList<AdminClient>(urls.size());
-        int urlId = 0;
-        List<PrefixNode> nodeList = new ArrayList<PrefixNode>();
-
-        for(String url: this.urls) {
+        for(String url: urls) {
             /* connect to cluster through admin port */
-            if(this.verbose) {
-                System.out.println("Connecting to bootstrap server: " + url);
+            if(logger.isInfoEnabled()) {
+                logger.info("Connecting to bootstrap server: " + url);
             }
             AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), 0);
             adminClients.add(adminClient);
+            /* get Cluster */
             Cluster cluster = adminClient.getAdminClientCluster();
-
-            /* find store */
+            clusterMap.put(url, cluster);
+            /* get StoreDefinition */
             Versioned<List<StoreDefinition>> storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0);
-            List<StoreDefinition> StoreDefitions = storeDefinitions.getValue();
-            StoreDefinition storeDefinition = null;
-            for(StoreDefinition def: StoreDefitions) {
-                if(def.getName().equals(storeName)) {
-                    storeDefinition = def;
-                    break;
-                }
-            }
-            if(storeDefinition == null) {
-                throw new Exception("No such store found: " + storeName);
-            }
+            StoreDefinition storeDefinition = StoreDefinitionUtils.getStoreDefinitionWithName(storeDefinitions.getValue(),
+                                                                                              storeName);
+            storeDefinitionMap.put(url, storeDefinition);
+        }
 
-            /* find the shorted retention policy */
-            int storeRetentionDays = 0;
-            if(storeDefinition.getRetentionDays() != null) {
-                storeRetentionDays = storeDefinition.getRetentionDays().intValue();
-            }
-            if((retentionDays == 0)
-               || (storeRetentionDays != 0 && storeRetentionDays < retentionDays)) {
-                retentionDays = storeRetentionDays;
-            }
-
-            /* make partitionId -> node mapping */
-            SortedMap<Integer, Node> partitionToNodeMap = new TreeMap<Integer, Node>();
-            Collection<Node> nodes = cluster.getNodes();
-            for(Node n: nodes) {
-                for(Integer partition: n.getPartitionIds()) {
-                    if(partitionToNodeMap.containsKey(partition))
-                        throw new IllegalArgumentException("Duplicate partition id " + partition
-                                                           + " in cluster configuration " + nodes);
-                    partitionToNodeMap.put(partition, n);
-                }
-            }
+        /* calculate nodes to scan */
+        for(String url: urls) {
+            StoreDefinition storeDefinition = storeDefinitionMap.get(url);
+            Cluster cluster = clusterMap.get(url);
+            Map<Integer, Integer> partitionToNodeMap = ClusterUtils.getCurrentPartitionMapping(cluster);
 
             /* find list of nodeId hosting partition */
             List<Integer> partitionList = new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition,
                                                                                              cluster)
                                                                       .getReplicatingPartitionList(partitionId);
-            List<Integer> nodeIdList = new ArrayList<Integer>(partitionList.size());
             for(int partition: partitionList) {
-                Integer nodeId = partitionToNodeMap.get(partition).getId();
-                nodeIdList.add(nodeId);
-                nodeList.add(new PrefixNode(urlId, cluster.getNodeById(nodeId)));
+                Integer nodeId = partitionToNodeMap.get(partition);
+                Node node = cluster.getNodeById(nodeId);
+                clusterNodeList.add(new ClusterNode(urls.indexOf(url), node));
             }
-
-            /* print config info */
-            if(verbose) {
-                StringBuilder configInfo = new StringBuilder();
-                configInfo.append("TYPE,Store,PartitionId,Node,ZoneId,BootstrapUrl\n");
-                for(Integer nodeId: nodeIdList) {
-                    configInfo.append("CONFIG,");
-                    configInfo.append(storeName + ",");
-                    configInfo.append(partitionId + ",");
-                    configInfo.append(nodeId + ",");
-                    configInfo.append(cluster.getNodeById(nodeId).getZoneId() + ",");
-                    configInfo.append(url + "\n");
-                }
-                System.out.println(configInfo);
-            }
-
-            /* get entry Iterator from each node */
-            for(Integer nodeId: nodeIdList) {
-                Iterator<Pair<ByteArray, Versioned<byte[]>>> entries;
-                entries = adminClient.bulkFetchOps.fetchEntries(nodeId,
-                                                                storeName,
-                                                                singlePartition,
-                                                                null,
-                                                                false);
-                nodeEntriesMap.put(new PrefixNode(urlId, cluster.getNodeById(nodeId)), entries);
-            }
-
-            // calculate overall replication factor and required writes
-            replicationFactor += storeDefinition.getReplicationFactor();
-            if(requiredWrites == 0) {
-                requiredWrites = storeDefinition.getRequiredWrites();
-            }
-            urlId++;
         }
+
+        /* print config info */
+        if(!quiet) {
+            StringBuilder configInfo = new StringBuilder();
+            configInfo.append("TYPE,Store,PartitionId,Node,ZoneId,BootstrapUrl\n");
+            for(ClusterNode clusterNode: clusterNodeList) {
+                configInfo.append("CONFIG,");
+                configInfo.append(storeName + ",");
+                configInfo.append(partitionId + ",");
+                configInfo.append(clusterNode.getNode().getId() + ",");
+                configInfo.append(clusterNode.getNode().getZoneId() + ",");
+                configInfo.append(urls.get(clusterNode.getPrefixId()) + "\n");
+            }
+            for(String line: configInfo.toString().split("\n")) {
+                logger.info(line);
+            }
+        }
+
+        /* calculate retention days and more */
+        for(String url: urls) {
+            StoreDefinition storeDefinition = storeDefinitionMap.get(url);
+            /* retention */
+            int storeRetentionDays = 0;
+            if(storeDefinition.getRetentionDays() != null) {
+                storeRetentionDays = storeDefinition.getRetentionDays().intValue();
+            }
+            if(retentionDays == null) {
+                retentionDays = storeRetentionDays;
+            }
+            if(retentionDays != storeRetentionDays) {
+                if(storeRetentionDays != 0 && (storeRetentionDays < retentionDays)) {
+                    retentionDays = storeRetentionDays;
+                }
+                logger.warn("Retention-days is not consistent between clusters by urls. Will use the shorter.");
+            }
+
+            /* replication writes */
+            replicationFactor += storeDefinition.getReplicationFactor();
+
+            /* required writes */
+            requiredWrites += storeDefinition.getRequiredWrites();
+        }
+        if(replicationFactor != clusterNodeList.size()) {
+            logger.error("Replication factor is not consistent with number of nodes routed to.");
+        }
+        retentionChecker = new RetentionChecker(retentionDays);
     }
 
     /**
@@ -156,227 +151,282 @@ public class ConsistencyCheck {
      * 
      * @return Results in form of ConsistencyCheckStats
      */
-    public ConsistencyCheckStats execute() {
-        // retention checker
-        RetentionChecker retentionChecker = new RetentionChecker(retentionDays);
+    public ProgressReporter execute() {
+        Map<ClusterNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>> nodeFetchIteratorMap;
+        nodeFetchIteratorMap = new HashMap<ClusterNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>>();
+        /* start fetch from each node */
+        for(ClusterNode clusterNode: clusterNodeList) {
+            AdminClient adminClient = adminClients.get(clusterNode.getPrefixId());
+            List<Integer> singlePartition = new ArrayList<Integer>();
+            singlePartition.add(partitionId);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Start fetch request to Node[" + clusterNode.toString()
+                             + "] for partition[" + partitionId + "] of store[" + storeName + "]");
+            }
 
-        // map to remember key-version-node information
-        Map<ByteArray, Map<Version, Set<PrefixNode>>> keyVersionNodeSetMap;
-        keyVersionNodeSetMap = new HashMap<ByteArray, Map<Version, Set<PrefixNode>>>();
+            Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIterator;
+            fetchIterator = adminClient.bulkFetchOps.fetchEntries(clusterNode.getNode().getId(),
+                                                                  storeName,
+                                                                  singlePartition,
+                                                                  null,
+                                                                  false);
+            nodeFetchIteratorMap.put(clusterNode, fetchIterator);
+        }
+        keyFetchTracker = new KeyFetchTracker(clusterNodeList.size());
 
-        // variables to sweep good keys on the fly
-        Map<ByteArray, Set<Iterator<Pair<ByteArray, Versioned<byte[]>>>>> fullyFetchedKeys;
-        fullyFetchedKeys = new HashMap<ByteArray, Set<Iterator<Pair<ByteArray, Versioned<byte[]>>>>>();
-        Map<Iterator<Pair<ByteArray, Versioned<byte[]>>>, ByteArray> lastFetchedKey;
-        lastFetchedKey = new HashMap<Iterator<Pair<ByteArray, Versioned<byte[]>>>, ByteArray>();
-
-        /* start fetch */
-        boolean anyNodeHasNext;
-        long consistentKeys = 0;
-        ProgressReporter reporter = new ProgressReporter();
+        /* start to fetch */
+        boolean fetchFinished;
         do {
-            anyNodeHasNext = false;
-            /* for each iterator(fetch one key at a time) */
-            for(Map.Entry<PrefixNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>> nodeEntriesMapEntry: nodeEntriesMap.entrySet()) {
-                PrefixNode node = nodeEntriesMapEntry.getKey();
-                Iterator<Pair<ByteArray, Versioned<byte[]>>> nodeEntries = nodeEntriesMapEntry.getValue();
-                if(nodeEntries.hasNext()) {
-                    anyNodeHasNext = true;
+            fetchFinished = true;
+            for(Map.Entry<ClusterNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>> nodeFetchIteratorMapEntry: nodeFetchIteratorMap.entrySet()) {
+                ClusterNode clusterNode = nodeFetchIteratorMapEntry.getKey();
+                Iterator<Pair<ByteArray, Versioned<byte[]>>> fetchIterator = nodeFetchIteratorMapEntry.getValue();
+                if(fetchIterator.hasNext()) {
+                    fetchFinished = false;
                     reporter.recordScans(1);
-                    Pair<ByteArray, Versioned<byte[]>> nodeEntry = nodeEntries.next();
-                    ByteArray key = nodeEntry.getFirst();
-                    Versioned<byte[]> versioned = nodeEntry.getSecond();
-                    Version version;
-                    if(urls.size() == 1) {
-                        version = nodeEntry.getSecond().getVersion();
-                    } else {
-                        version = new HashedValue(versioned);
-                    }
-                    // skip version if expired
-                    if(retentionChecker.isExpired(version)) {
-                        reporter.recordExpired(1);
-                        continue;
-                    }
-                    // try sweep last key fetched by this iterator
-                    if(lastFetchedKey.containsKey(nodeEntries)) {
-                        ByteArray lastKey = lastFetchedKey.get(nodeEntries);
-                        if(!key.equals(lastKey)) {
-                            if(!fullyFetchedKeys.containsKey(lastKey)) {
-                                fullyFetchedKeys.put(lastKey,
-                                                     new HashSet<Iterator<Pair<ByteArray, Versioned<byte[]>>>>());
-                            }
-                            Set<Iterator<Pair<ByteArray, Versioned<byte[]>>>> lastKeyIterSet = fullyFetchedKeys.get(lastKey);
-                            lastKeyIterSet.add(nodeEntries);
 
-                            // sweep if fully fetched by all iterators
-                            if(lastKeyIterSet.size() == nodeEntriesMap.size()) {
-                                // keyFetchComplete
-                                ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(lastKey),
-                                                                              replicationFactor);
-                                if(level == ConsistencyLevel.FULL
-                                   || level == ConsistencyLevel.LATEST_CONSISTENT) {
-                                    keyVersionNodeSetMap.remove(lastKey);
-                                    consistentKeys++;
-                                }
-                                fullyFetchedKeys.remove(lastKey);
-                            }
-                        }
-                    }
-                    // remember key fetch states
-                    lastFetchedKey.put(nodeEntries, key);
-                    // initialize key -> Map<Version, Set<nodeId>>
-                    if(!keyVersionNodeSetMap.containsKey(key)) {
-                        keyVersionNodeSetMap.put(key, new HashMap<Version, Set<PrefixNode>>());
-                    }
-                    Map<Version, Set<PrefixNode>> versionNodeSetMap = keyVersionNodeSetMap.get(key);
-                    // Initialize Version -> Set<nodeId>
-                    if(!versionNodeSetMap.containsKey(version)) {
-                        // decide if this is the newest version
-                        Iterator<Version> iter = versionNodeSetMap.keySet().iterator();
-                        // if after any one in the map, then reset map
-                        if(iter.hasNext()) {
-                            Version existingVersion = iter.next();
-                            // existing version(s) are old
-                            if(version.compare(existingVersion) == Occurred.AFTER) {
-                                // swap out the old map and put a new
-                                // map
-                                versionNodeSetMap = new HashMap<Version, Set<PrefixNode>>();
-                                keyVersionNodeSetMap.put(key, versionNodeSetMap);
-                            } else if(existingVersion.compare(version) == Occurred.AFTER) {
-                                // ignore this version
-                                continue;
-                            } else if(existingVersion.compare(version) == Occurred.CONCURRENTLY) {
-                                // put it into the node set
-                            } else {
-                                System.err.print("[ERROR]Two versions are not after each other nor currently(key, v1, v2)");
-                                System.err.print(key + ", " + existingVersion + ", " + version);
-                            }
-                        }
-                        // insert nodeIdSet into the map
-                        versionNodeSetMap.put(version, new HashSet<PrefixNode>());
-                    }
-                    // add nodeId to set
-                    Set<PrefixNode> nodeSet = versionNodeSetMap.get(version);
-                    nodeSet.add(node);
+                    Pair<ByteArray, Versioned<byte[]>> fetchedEntry = fetchIterator.next();
+                    ByteArray key = fetchedEntry.getFirst();
+                    Versioned<byte[]> versioned = fetchedEntry.getSecond();
+
+                    // record fetch
+                    recordFetch(clusterNode, key, versioned);
+
+                    // try sweep last key fetched by this iterator
+                    keyFetchTracker.recordFetch(clusterNode, key);
+                    System.out.println("fetched " + new String(key.get()));
+                    System.out.println("map has keys: " + keyVersionNodeSetMap.size());
+                    trySweepAll();
+                    System.out.println("sweeped; keys left: " + keyVersionNodeSetMap.size());
                 }
             }
+
             // stats reporting
-            if(verbose) {
-                reporter.tryReport();
+            if(logger.isInfoEnabled() && !quiet) {
+                String report = reporter.tryReport();
+                if(report != null) {
+                    for(String line: report.split("\n")) {
+                        logger.info(line);
+                    }
+                }
             }
-        } while(anyNodeHasNext);
+        } while(!fetchFinished);
+
+        /* adminClient shutdown */
+        for(AdminClient adminClient: adminClients) {
+            if(adminClient != null) {
+                adminClient.stop();
+            }
+        }
 
         // clean keys not sufficient for write
         cleanIneligibleKeys(keyVersionNodeSetMap, requiredWrites);
 
-        // clean the rest of consistent keys
-        Set<ByteArray> keysToDelete = new HashSet<ByteArray>();
-        for(ByteArray key: keyVersionNodeSetMap.keySet()) {
-            ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(key),
-                                                          replicationFactor);
-            if(level == ConsistencyLevel.FULL || level == ConsistencyLevel.LATEST_CONSISTENT) {
-                keysToDelete.add(key);
-            }
-        }
-        for(ByteArray key: keysToDelete) {
-            keyVersionNodeSetMap.remove(key);
-            consistentKeys++;
-        }
+        keyFetchTracker.finishAll();
+        trySweepAll();
 
         // print inconsistent keys
-        // if(verbose) {
-        System.out.println("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
-        for(Map.Entry<ByteArray, Map<Version, Set<PrefixNode>>> entry: keyVersionNodeSetMap.entrySet()) {
-            ByteArray key = entry.getKey();
-            Map<Version, Set<PrefixNode>> versionMap = entry.getValue();
-            System.out.print(keyVersionToString(key, versionMap, storeName, partitionId));
+        if(!quiet) {
+            logger.warn("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
+            for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
+                ByteArray key = entry.getKey();
+                Map<Version, Set<ClusterNode>> versionMap = entry.getValue();
+                logger.warn(keyVersionToString(key, versionMap, storeName, partitionId));
+            }
         }
-        // }
 
-        ConsistencyCheckStats stats = new ConsistencyCheckStats();
-        stats.consistentKeys = consistentKeys;
-        stats.totalKeys = keyVersionNodeSetMap.size() + consistentKeys;
+        reporter.recordInconsistentKey(keyVersionNodeSetMap.size());
 
-        return stats;
+        return reporter;
+    }
+
+    public void trySweepAll() {
+        for(ByteArray finishedKey = keyFetchTracker.nextFinished(); finishedKey != null; finishedKey = keyFetchTracker.nextFinished()) {
+            if(keyVersionNodeSetMap.containsKey(finishedKey)) {
+                ConsistencyLevel level = determineConsistency(keyVersionNodeSetMap.get(finishedKey),
+                                                              replicationFactor);
+                if(level == ConsistencyLevel.FULL || level == ConsistencyLevel.LATEST_CONSISTENT) {
+                    keyVersionNodeSetMap.remove(finishedKey);
+                    reporter.recordGoodKey(1);
+                }
+            }
+        }
+    }
+
+    public void recordFetch(ClusterNode clusterNode, ByteArray key, Versioned<byte[]> versioned) {
+        Version version;
+        if(urls.size() == 1) {
+            version = versioned.getVersion();
+        } else {
+            version = new HashedValue(versioned);
+        }
+
+        // skip version if expired
+        if(retentionChecker.isExpired(version)) {
+            reporter.recordExpired(1);
+            return;
+        }
+
+        // initialize key -> Map<Version, Set<nodeId>>
+        if(!keyVersionNodeSetMap.containsKey(key)) {
+            keyVersionNodeSetMap.put(key, new HashMap<Version, Set<ClusterNode>>());
+        }
+        Map<Version, Set<ClusterNode>> versionNodeSetMap = keyVersionNodeSetMap.get(key);
+
+        // check existing version
+        if(!versionNodeSetMap.containsKey(version) && versionNodeSetMap.size() != 0) {
+            // if this version is new, sweep old version
+            // if this version is old, ignore this version
+            Version oneExistingVersion = versionNodeSetMap.keySet().iterator().next();
+            if(version.compare(oneExistingVersion) == Occurred.AFTER) {
+                versionNodeSetMap.clear();
+            } else if(oneExistingVersion.compare(version) == Occurred.AFTER) {
+                return;
+            }
+        }
+
+        if(!versionNodeSetMap.containsKey(version)) {
+            // insert nodeSet into the map
+            versionNodeSetMap.put(version, new HashSet<ClusterNode>());
+        }
+
+        // add node to set
+        versionNodeSetMap.get(version).add(clusterNode);
+    }
+
+    /**
+     * A class to track what keys has been fetched and what keys will not appear
+     * any more It is used to detect keys that will not show up any more so that
+     * existing versions can be processed
+     */
+    protected static class KeyFetchTracker {
+
+        private final Integer fetcherCount;
+        Map<ByteArray, Set<ClusterNode>> fullyFetchedKeyMap = new HashMap<ByteArray, Set<ClusterNode>>();
+        Map<ClusterNode, ByteArray> lastFetchedKey = new HashMap<ClusterNode, ByteArray>();
+        List<ByteArray> fullyFetchedKeys = new LinkedList<ByteArray>();
+
+        public KeyFetchTracker(Integer fetcherCount) {
+            this.fetcherCount = fetcherCount;
+        }
+
+        /**
+         * Record a fetched result
+         * 
+         * @param clusterNode The clusterNode from which the key has been
+         *        fetched
+         * @param key The key itself
+         */
+        public void recordFetch(ClusterNode clusterNode, ByteArray key) {
+            if(lastFetchedKey.containsKey(clusterNode)) {
+                ByteArray lastKey = lastFetchedKey.get(clusterNode);
+                if(!key.equals(lastKey)) {
+                    if(!fullyFetchedKeyMap.containsKey(lastKey)) {
+                        fullyFetchedKeyMap.put(lastKey, new HashSet<ClusterNode>());
+                    }
+                    Set<ClusterNode> lastKeyIterSet = fullyFetchedKeyMap.get(lastKey);
+                    lastKeyIterSet.add(clusterNode);
+
+                    // sweep if fully fetched by all iterators
+                    if(lastKeyIterSet.size() == fetcherCount) {
+                        fullyFetchedKeys.add(lastKey);
+                        fullyFetchedKeyMap.remove(lastKey);
+                    }
+                }
+            }
+            // remember key fetch states
+            lastFetchedKey.put(clusterNode, key);
+        }
+
+        /**
+         * mark all keys appeared as finished So that they are all in the
+         * finished keys queue
+         */
+        public void finishAll() {
+            Set<ByteArray> keySet = new HashSet<ByteArray>();
+            keySet.addAll(fullyFetchedKeyMap.keySet());
+            keySet.addAll(lastFetchedKey.values());
+            fullyFetchedKeys.addAll(keySet);
+            fullyFetchedKeyMap.clear();
+        }
+
+        /**
+         * Get a key that are completed in fetching
+         * 
+         * @return key considered finished; otherwise null
+         */
+        public ByteArray nextFinished() {
+            if(fullyFetchedKeys.size() > 0) {
+                return fullyFetchedKeys.remove(0);
+            } else {
+                return null;
+            }
+        }
     }
 
     protected enum ConsistencyLevel {
         FULL,
         LATEST_CONSISTENT,
-        INCONSISTENT
+        INCONSISTENT,
+        EXPIRED,
+        INSUFFICIENT_WRITE
     }
 
-    protected static class PrefixNode {
+    /**
+     * Used to track nodes that may share the same nodeId in different clusters
+     * 
+     */
+    protected static class ClusterNode {
 
-        private Integer prefixId;
-        private Node node;
+        private final Integer clusterId;
+        private final Node node;
 
         /**
-         * Used to track nodes that may share the same nodeId in different
-         * clusters
-         * 
-         * @param prefixId a prefix to be associated different clusters
+         * @param clusterId a prefix to be associated different clusters
          * @param node the real node
          */
-        public PrefixNode(Integer prefixId, Node node) {
-            this.prefixId = prefixId;
+        public ClusterNode(Integer clusterId, Node node) {
+            this.clusterId = clusterId;
             this.node = node;
+        }
+
+        public Integer getPrefixId() {
+            return clusterId;
         }
 
         public Node getNode() {
             return node;
         }
 
-        public Integer getPrefixId() {
-            return prefixId;
-        }
-
         @Override
         public boolean equals(Object o) {
             if(this == o)
                 return true;
-            if(!(o instanceof PrefixNode))
+            if(!(o instanceof ClusterNode))
                 return false;
 
-            PrefixNode n = (PrefixNode) o;
-            return prefixId.equals(n.getPrefixId()) && node.equals(n.getNode());
+            ClusterNode n = (ClusterNode) o;
+            return clusterId.equals(n.getPrefixId()) && node.equals(n.getNode());
         }
 
         @Override
         public String toString() {
-            return prefixId + "." + node.getId();
+            return clusterId + "." + node.getId();
         }
 
     }
 
-    protected static class ConsistencyCheckStats {
-
-        public long consistentKeys;
-        public long totalKeys;
-
-        /**
-         * Used to track consistency results
-         */
-        public ConsistencyCheckStats() {
-            consistentKeys = 0;
-            totalKeys = 0;
-        }
-
-        public void append(ConsistencyCheckStats that) {
-            consistentKeys += that.consistentKeys;
-            totalKeys += that.totalKeys;
-        }
-    }
-
+    /**
+     * A class to save version and value hash It is used to compare versions by
+     * the value hash
+     * 
+     */
     protected static class HashedValue implements Version {
 
         final private Version innerVersion;
         final private Integer valueHash;
 
         /**
-         * A class to save version and value hash It is used to compare versions
-         * by the value hash
-         * 
          * @param versioned Versioned value with version information and value
          *        itself
          */
@@ -417,15 +467,17 @@ public class ConsistencyCheck {
         }
     }
 
+    /**
+     * A checker to determine if a key is to be cleaned according to retention
+     * policy
+     * 
+     */
     protected static class RetentionChecker {
 
         final private long bufferTimeSeconds = 600; // expire N seconds earlier
         final private long expiredTimeMs;
 
         /**
-         * A checker to determine if a key is to be cleaned according to
-         * retention policy
-         * 
          * @param days number of days ago from now to retain keys
          */
         public RetentionChecker(int days) {
@@ -433,8 +485,8 @@ public class ConsistencyCheck {
                 expiredTimeMs = 0;
             } else {
                 long now = System.currentTimeMillis();
-                expiredTimeMs = now - (Time.SECONDS_PER_DAY * days - bufferTimeSeconds)
-                                * Time.MS_PER_SECOND;
+                long expirationTimeS = TimeUnit.DAYS.toSeconds(days) - bufferTimeSeconds;
+                expiredTimeMs = now - TimeUnit.SECONDS.toMillis(expirationTimeS);
             }
         }
 
@@ -456,6 +508,10 @@ public class ConsistencyCheck {
         }
     }
 
+    /**
+     * Used to record progress and statistics
+     * 
+     */
     protected static class ProgressReporter {
 
         long lastReportTimeMs = 0;
@@ -463,6 +519,8 @@ public class ConsistencyCheck {
         long numRecordsScanned = 0;
         long numRecordsScannedLast = 0;
         long numExpiredRecords = 0;
+        long numGoodKeys = 0;
+        long numTotalKeys = 0;
 
         public ProgressReporter() {
             reportPeriodMs = 5000;
@@ -485,21 +543,30 @@ public class ConsistencyCheck {
             numExpiredRecords += count;
         }
 
-        public void tryReport() {
+        public String tryReport() {
             if(System.currentTimeMillis() > lastReportTimeMs + reportPeriodMs) {
                 long currentTimeMs = System.currentTimeMillis();
                 StringBuilder s = new StringBuilder();
-                s.append("Progress Report\n");
-                s.append("===============\n");
-                s.append("    Number of records Scanned: " + numRecordsScanned + "\n");
-                s.append("   Records Ignored(Retention): " + numExpiredRecords + "\n");
-                s.append("Recent fetch speed(records/s): "
-                         + (numRecordsScanned - numRecordsScannedLast)
-                         / ((currentTimeMs - lastReportTimeMs) / 1000) + "\n");
-                System.out.print(s.toString());
+                s.append("=====Progress=====\n");
+                s.append("Records Scanned: " + numRecordsScanned + "\n");
+                s.append("Records Ignored: " + numExpiredRecords + " (Out of Retention)\n");
+                s.append("Last Fetch Rate: " + (numRecordsScanned - numRecordsScannedLast)
+                         / ((currentTimeMs - lastReportTimeMs) / 1000) + " (records/s)\n");
                 lastReportTimeMs = currentTimeMs;
                 numRecordsScannedLast = numRecordsScanned;
+                return s.toString();
+            } else {
+                return null;
             }
+        }
+
+        public void recordGoodKey(long count) {
+            numGoodKeys += count;
+            numTotalKeys += count;
+        }
+
+        public void recordInconsistentKey(long count) {
+            numTotalKeys += count;
         }
     }
 
@@ -526,7 +593,7 @@ public class ConsistencyCheck {
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("verbose", "verbose");
+        parser.accepts("quiet", "quiet");
         return parser;
     }
 
@@ -535,18 +602,25 @@ public class ConsistencyCheck {
      */
     private static void printUsage() {
         StringBuilder help = new StringBuilder();
-        help.append("ConsistencyCheck Tool\n  Scan partitions of a store by bootstrap url(s) ");
-        help.append("for consistency and optionally print out inconsistent keys\n");
+        help.append("ConsistencyCheck Tool\n");
+        help.append("  Scan partitions of a store by bootstrap url(s) for consistency and\n");
+        help.append("  optionally print out inconsistent keys\n");
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --partitions <partitionId>[,<partitionId>...]\n");
         help.append("    --urls <url>[,<url>...]\n");
         help.append("    --store <storeName>\n");
         help.append("  Optional:\n");
-        help.append("    --verbose\n");
+        help.append("    --quiet\n");
         help.append("    --help\n");
         help.append("  Note:\n");
-        help.append("    When multiple urls are used, the versions are identified by value hashes, instead of VectorClocks\n");
+        help.append("    If you have two or more clusters to scan for consistency across them,\n");
+        help.append("    You will need to supply multiple bootstrap urls, one for each cluster.\n");
+        help.append("    When multiple urls are used, all versions are considered as concurrent.\n");
+        help.append("    Versioned objects from different nodes are identified by value hashes,\n");
+        help.append("    instead of VectorClocks\n");
+        help.append("    The behavior will be undefined if clusters does not share the same\n");
+        help.append("    number of partitions\n");
         System.out.print(help.toString());
     }
 
@@ -557,11 +631,11 @@ public class ConsistencyCheck {
      * @param replicationFactor Total replication factor for the set of clusters
      * @return ConsistencyLevel Enum
      */
-    public static ConsistencyLevel determineConsistency(Map<Version, Set<PrefixNode>> versionNodeSetMap,
+    public static ConsistencyLevel determineConsistency(Map<Version, Set<ClusterNode>> versionNodeSetMap,
                                                         int replicationFactor) {
         boolean fullyConsistent = true;
         Version latestVersion = null;
-        for(Map.Entry<Version, Set<PrefixNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
+        for(Map.Entry<Version, Set<ClusterNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
             Version version = versionNodeSetEntry.getKey();
             if(version instanceof VectorClock) {
                 if(latestVersion == null
@@ -569,7 +643,7 @@ public class ConsistencyCheck {
                     latestVersion = version;
                 }
             }
-            Set<PrefixNode> nodeSet = versionNodeSetEntry.getValue();
+            Set<ClusterNode> nodeSet = versionNodeSetEntry.getValue();
             fullyConsistent = fullyConsistent && (nodeSet.size() == replicationFactor);
         }
         if(fullyConsistent) {
@@ -593,17 +667,17 @@ public class ConsistencyCheck {
      *        that maps versions to set of PrefixNodes
      * @param requiredWrite Required Write configuration
      */
-    public static void cleanIneligibleKeys(Map<ByteArray, Map<Version, Set<PrefixNode>>> keyVersionNodeSetMap,
+    public static void cleanIneligibleKeys(Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap,
                                            int requiredWrite) {
         Set<ByteArray> keysToDelete = new HashSet<ByteArray>();
-        for(Map.Entry<ByteArray, Map<Version, Set<PrefixNode>>> entry: keyVersionNodeSetMap.entrySet()) {
+        for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
             Set<Version> versionsToDelete = new HashSet<Version>();
 
             ByteArray key = entry.getKey();
-            Map<Version, Set<PrefixNode>> versionNodeSetMap = entry.getValue();
+            Map<Version, Set<ClusterNode>> versionNodeSetMap = entry.getValue();
             // mark version for deletion if not enough writes
-            for(Map.Entry<Version, Set<PrefixNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
-                Set<PrefixNode> nodeSet = versionNodeSetEntry.getValue();
+            for(Map.Entry<Version, Set<ClusterNode>> versionNodeSetEntry: versionNodeSetMap.entrySet()) {
+                Set<ClusterNode> nodeSet = versionNodeSetEntry.getValue();
                 if(nodeSet.size() < requiredWrite) {
                     versionsToDelete.add(versionNodeSetEntry.getKey());
                 }
@@ -628,7 +702,7 @@ public class ConsistencyCheck {
         OptionSet options = getParser().parse(args);
 
         /* validate options */
-        boolean verbose = false;
+        boolean quiet = false;
         if(options.hasArgument("help")) {
             printUsage();
             return;
@@ -638,52 +712,54 @@ public class ConsistencyCheck {
             printUsage();
             return;
         }
-        if(options.has("verbose")) {
-            verbose = true;
+        if(options.has("quiet")) {
+            quiet = true;
         }
 
         List<String> urls = (List<String>) options.valuesOf("urls");
         String storeName = (String) options.valueOf("store");
         List<Integer> partitionIds = (List<Integer>) options.valuesOf("partitions");
 
-        ConsistencyCheckStats globalStats = new ConsistencyCheckStats();
-        Map<Integer, ConsistencyCheckStats> partitionStatsMap = new HashMap<Integer, ConsistencyCheckStats>();
+        Map<Integer, ProgressReporter> partitionStatsMap = new HashMap<Integer, ProgressReporter>();
+        long numGoodKeys = 0;
+        long numTotalKeys = 0;
         /* scan each partitions */
         for(Integer partitionId: partitionIds) {
-            ConsistencyCheck checker = new ConsistencyCheck(urls, storeName, partitionId, verbose);
+            ConsistencyCheck checker = new ConsistencyCheck(urls, storeName, partitionId, quiet);
             checker.connect();
-            ConsistencyCheckStats partitionStats = checker.execute();
-            partitionStatsMap.put(partitionId, partitionStats);
-            globalStats.append(partitionStats);
+            ProgressReporter reporter = checker.execute();
+            partitionStatsMap.put(partitionId, reporter);
+            numGoodKeys += reporter.numGoodKeys;
+            numTotalKeys += reporter.numTotalKeys;
         }
 
         /* print stats */
         StringBuilder statsString = new StringBuilder();
         // each partition
         statsString.append("TYPE,Store,ParitionId,KeysConsistent,KeysTotal,Consistency\n");
-        for(Map.Entry<Integer, ConsistencyCheckStats> entry: partitionStatsMap.entrySet()) {
+        for(Map.Entry<Integer, ProgressReporter> entry: partitionStatsMap.entrySet()) {
             Integer partitionId = entry.getKey();
-            ConsistencyCheckStats partitionStats = entry.getValue();
+            ProgressReporter reporter = entry.getValue();
             statsString.append("STATS,");
             statsString.append(storeName + ",");
             statsString.append(partitionId + ",");
-            statsString.append(partitionStats.consistentKeys + ",");
-            statsString.append(partitionStats.totalKeys + ",");
-            statsString.append((double) (partitionStats.consistentKeys)
-                               / (double) partitionStats.totalKeys);
+            statsString.append(reporter.numGoodKeys + ",");
+            statsString.append(reporter.numTotalKeys + ",");
+            statsString.append((double) (reporter.numGoodKeys) / (double) reporter.numTotalKeys);
             statsString.append("\n");
         }
         // all partitions
         statsString.append("STATS,");
         statsString.append(storeName + ",");
         statsString.append("aggregate,");
-        statsString.append(globalStats.consistentKeys + ",");
-        statsString.append(globalStats.totalKeys + ",");
-        statsString.append((double) (globalStats.consistentKeys) / (double) globalStats.totalKeys);
+        statsString.append(numGoodKeys + ",");
+        statsString.append(numTotalKeys + ",");
+        statsString.append((double) (numGoodKeys) / (double) numTotalKeys);
         statsString.append("\n");
 
-        System.out.println();
-        System.out.println(statsString.toString());
+        for(String line: statsString.toString().split("\n")) {
+            logger.info(line);
+        }
     }
 
     /**
@@ -696,13 +772,13 @@ public class ConsistencyCheck {
      * @return a string that describe the information passed in
      */
     public static String keyVersionToString(ByteArray key,
-                                            Map<Version, Set<PrefixNode>> versionMap,
+                                            Map<Version, Set<ClusterNode>> versionMap,
                                             String storeName,
                                             Integer partitionId) {
         StringBuilder record = new StringBuilder();
-        for(Map.Entry<Version, Set<PrefixNode>> versionSet: versionMap.entrySet()) {
+        for(Map.Entry<Version, Set<ClusterNode>> versionSet: versionMap.entrySet()) {
             Version version = versionSet.getKey();
-            Set<PrefixNode> nodeSet = versionSet.getValue();
+            Set<ClusterNode> nodeSet = versionSet.getValue();
 
             record.append("BAD_KEY,");
             record.append(storeName + ",");
@@ -726,7 +802,6 @@ public class ConsistencyCheck {
                                          .replaceAll("version\\((.*)\\)", "[$1],"));
                 record.append(hashValue);
             }
-            record.append("\n");
         }
         return record.toString();
     }

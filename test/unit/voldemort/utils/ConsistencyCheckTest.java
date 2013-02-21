@@ -3,6 +3,7 @@ package voldemort.utils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import voldemort.ServerTestUtils;
@@ -26,124 +28,120 @@ import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
-import voldemort.utils.ConsistencyCheck.ConsistencyCheckStats;
+import voldemort.utils.ConsistencyCheck.ClusterNode;
 import voldemort.utils.ConsistencyCheck.HashedValue;
-import voldemort.utils.ConsistencyCheck.PrefixNode;
+import voldemort.utils.ConsistencyCheck.KeyFetchTracker;
+import voldemort.utils.ConsistencyCheck.ProgressReporter;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
 public class ConsistencyCheckTest {
 
+    final String STORE_NAME = "consistency-check";
+    final String STORES_XML = "test/common/voldemort/config/stores.xml";
+
+    Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
+    Node n1_dup = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
+    Node n2 = new Node(2, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
+    Node n3 = new Node(3, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
+    Node n4 = new Node(4, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
+    ClusterNode cn0_1 = new ClusterNode(0, n1);
+    ClusterNode cn0_1_dup = new ClusterNode(0, n1);
+    ClusterNode cn1_1dup = new ClusterNode(1, n1_dup);
+    ClusterNode cn0_2 = new ClusterNode(0, n2);
+    ClusterNode cn0_3 = new ClusterNode(0, n3);
+    ClusterNode cn0_4 = new ClusterNode(0, n4);
+    ClusterNode cn1_2 = new ClusterNode(1, n2); // 1.1
+
+    byte[] value1 = { 0, 1, 2, 3, 4 };
+    byte[] value2 = { 0, 1, 2, 3, 5 };
+    byte[] value3 = { 0, 1, 2, 3, 6 };
+    byte[] value4 = { 0, 1, 2, 3, 7 };
+    Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1);
+    Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2);
+    Version hv1 = new ConsistencyCheck.HashedValue(versioned1);
+    Version hv1_dup = new ConsistencyCheck.HashedValue(versioned1);
+    Version hv2 = new ConsistencyCheck.HashedValue(versioned2);
+
+    long now = System.currentTimeMillis();
+    Version vc1 = new VectorClock(now - Time.MS_PER_DAY);
+    Version vc2 = new VectorClock(now);
+    Version hv3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value1));
+    Version vc3 = new VectorClock(now - Time.MS_PER_HOUR * 24 + 500 * Time.MS_PER_SECOND);
+
+    // make set
+    Set<ConsistencyCheck.ClusterNode> setFourNodes = new HashSet<ConsistencyCheck.ClusterNode>();
+    Set<ConsistencyCheck.ClusterNode> setThreeNodes = new HashSet<ConsistencyCheck.ClusterNode>();
+
+    @Before
+    public void setUp() {
+        setFourNodes.add(cn0_1);
+        setFourNodes.add(cn0_2);
+        setFourNodes.add(cn0_3);
+        setFourNodes.add(cn0_4);
+        setThreeNodes.add(cn0_1);
+        setThreeNodes.add(cn0_2);
+        setThreeNodes.add(cn0_3);
+    }
+
     @Test
-    public void testPrefixNode() {
-        Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n2 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n3 = new Node(2, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        ConsistencyCheck.PrefixNode pn1 = new ConsistencyCheck.PrefixNode(0, n1);
-        ConsistencyCheck.PrefixNode pn1dup = new ConsistencyCheck.PrefixNode(0, n1);
-        ConsistencyCheck.PrefixNode pn2 = new ConsistencyCheck.PrefixNode(1, n2);
-        ConsistencyCheck.PrefixNode pn3 = new ConsistencyCheck.PrefixNode(0, n3);
+    public void testClusterNode() {
 
         // test getter
-        assertEquals(pn1.getNode(), n1);
-        assertEquals(pn2.getNode(), n2);
-        assertEquals(pn3.getNode(), n3);
-        assertEquals(new Integer(0), pn1.getPrefixId());
-        assertEquals(new Integer(1), pn2.getPrefixId());
-        assertEquals(new Integer(0), pn3.getPrefixId());
+        assertEquals(cn0_1.getNode(), n1);
+        assertEquals(cn1_1dup.getNode(), n1_dup);
+        assertEquals(cn0_2.getNode(), n2);
+        assertEquals(new Integer(0), cn0_1.getPrefixId());
+        assertEquals(new Integer(1), cn1_1dup.getPrefixId());
+        assertEquals(new Integer(0), cn0_2.getPrefixId());
 
         // test equals function
-        assertTrue(pn1.equals(pn1dup));
-        assertFalse(pn2.equals(pn1));
-        assertFalse(pn3.equals(pn1));
-        assertFalse(pn3.equals(pn2));
+        assertTrue(cn0_1.equals(cn0_1_dup));
+        assertFalse(cn1_1dup.equals(cn0_1));
+        assertFalse(cn0_2.equals(cn0_1));
+        assertFalse(cn0_2.equals(cn1_1dup));
 
         // test toString function
-        assertEquals("0.1", pn1.toString());
-        assertEquals("1.1", pn2.toString());
-        assertEquals("0.2", pn3.toString());
+        assertEquals("0.1", cn0_1.toString());
+        assertEquals("1.1", cn1_1dup.toString());
+        assertEquals("0.2", cn0_2.toString());
     }
 
     @Test
     public void testHashedValue() {
-        byte[] value1 = { 0, 1, 2, 3, 4 };
-        byte[] value2 = { 0, 1, 2, 3, 5 };
-        Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1);
-        Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2);
-        Version v1 = new ConsistencyCheck.HashedValue(versioned1);
-        Version v2 = new ConsistencyCheck.HashedValue(versioned1);
-        Version v3 = new ConsistencyCheck.HashedValue(versioned2);
 
-        assertTrue(v1.equals(v2));
-        assertEquals(v1.hashCode(), v2.hashCode());
-        assertFalse(v1.hashCode() == v3.hashCode());
+        assertTrue(hv1.equals(hv1_dup));
+        assertEquals(hv1.hashCode(), hv1_dup.hashCode());
+        assertFalse(hv1.hashCode() == hv2.hashCode());
+        assertFalse(hv1.equals(hv2));
+        assertFalse(hv1.equals(null));
+        assertFalse(hv1.equals(new Versioned<byte[]>(null)));
+        assertFalse(hv1.equals(new Integer(0)));
 
-        assertEquals(versioned1.getVersion(), ((ConsistencyCheck.HashedValue) v1).getInner());
-        assertEquals(((ConsistencyCheck.HashedValue) v1).getValueHash(), v1.hashCode());
+        assertEquals(versioned1.getVersion(), ((ConsistencyCheck.HashedValue) hv1).getInner());
+        assertEquals(((ConsistencyCheck.HashedValue) hv1).getValueHash(), hv1.hashCode());
     }
 
     @Test
     public void testRetentionChecker() {
-        byte[] value = { 0, 1, 2, 3, 5 };
-        long now = System.currentTimeMillis();
-        Version v1 = new VectorClock(now - Time.MS_PER_DAY);
-        Version v2 = new VectorClock(now);
-        Version v3 = new ConsistencyCheck.HashedValue(new Versioned<byte[]>(value));
-        Version v4 = new VectorClock(now - Time.MS_PER_HOUR * 24 + 500 * Time.MS_PER_SECOND);
         ConsistencyCheck.RetentionChecker rc1 = new ConsistencyCheck.RetentionChecker(0);
         ConsistencyCheck.RetentionChecker rc2 = new ConsistencyCheck.RetentionChecker(1);
 
-        assertFalse(rc1.isExpired(v1));
-        assertFalse(rc1.isExpired(v2));
-        assertFalse(rc1.isExpired(v3));
-        assertTrue(rc2.isExpired(v1));
-        assertFalse(rc2.isExpired(v2));
-        assertFalse(rc2.isExpired(v3));
-        assertTrue(rc2.isExpired(v4));
+        assertFalse(rc1.isExpired(vc1));
+        assertFalse(rc1.isExpired(vc2));
+        assertFalse(rc1.isExpired(hv3));
+        assertFalse(rc1.isExpired(vc3));
+        assertTrue(rc2.isExpired(vc1));
+        assertFalse(rc2.isExpired(vc2));
+        assertFalse(rc2.isExpired(hv3));
+        assertTrue(rc2.isExpired(vc3));
     }
 
     @Test
-    public void testConsistencyCheckStats() {
-        ConsistencyCheck.ConsistencyCheckStats stats1 = new ConsistencyCheck.ConsistencyCheckStats();
-        ConsistencyCheck.ConsistencyCheckStats stats2 = new ConsistencyCheck.ConsistencyCheckStats();
-
-        assertEquals(0, stats1.consistentKeys);
-        assertEquals(0, stats1.totalKeys);
-
-        stats1.consistentKeys = 500;
-        stats1.totalKeys = 2000;
-        stats2.consistentKeys = 600;
-        stats2.totalKeys = 2400;
-
-        stats1.append(stats2);
-        assertEquals(1100, stats1.consistentKeys);
-        assertEquals(4400, stats1.totalKeys);
-    }
-
-    @Test
-    public void testDetermineConsistency() {
-        Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n2 = new Node(2, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n3 = new Node(3, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n4 = new Node(4, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        PrefixNode pn1 = new PrefixNode(0, n1);
-        PrefixNode pn2 = new PrefixNode(0, n2);
-        PrefixNode pn3 = new PrefixNode(0, n3);
-        PrefixNode pn4 = new PrefixNode(0, n4);
-        Map<Version, Set<ConsistencyCheck.PrefixNode>> versionNodeSetMap = new HashMap<Version, Set<ConsistencyCheck.PrefixNode>>();
+    public void testDetermineConsistencyVectorClock() {
+        Map<Version, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<Version, Set<ConsistencyCheck.ClusterNode>>();
         int replicationFactor = 4;
-
-        // make set
-        Set<ConsistencyCheck.PrefixNode> setFourNodes = new HashSet<ConsistencyCheck.PrefixNode>();
-        setFourNodes.add(pn1);
-        setFourNodes.add(pn2);
-        setFourNodes.add(pn3);
-        setFourNodes.add(pn4);
-        Set<ConsistencyCheck.PrefixNode> setThreeNodes = new HashSet<ConsistencyCheck.PrefixNode>();
-        setFourNodes.add(pn1);
-        setFourNodes.add(pn2);
-        setFourNodes.add(pn3);
 
         // Version is vector clock
         Version v1 = new VectorClock();
@@ -196,12 +194,24 @@ public class ConsistencyCheckTest {
         versionNodeSetMap.put(v3, setThreeNodes);
         assertEquals(ConsistencyCheck.ConsistencyLevel.INCONSISTENT,
                      ConsistencyCheck.determineConsistency(versionNodeSetMap, replicationFactor));
+    }
+
+    public void testDetermineConsistencyHashValue() {
+        Map<Version, Set<ConsistencyCheck.ClusterNode>> versionNodeSetMap = new HashMap<Version, Set<ConsistencyCheck.ClusterNode>>();
+        int replicationFactor = 4;
+
+        // vector clocks
+        Version v1 = new VectorClock();
+        ((VectorClock) v1).incrementVersion(1, 100000001);
+        ((VectorClock) v1).incrementVersion(2, 100000003);
+        Version v2 = new VectorClock();
+        ((VectorClock) v2).incrementVersion(1, 100000001);
+        ((VectorClock) v2).incrementVersion(3, 100000002);
+        Version v3 = new VectorClock();
+        ((VectorClock) v3).incrementVersion(1, 100000001);
+        ((VectorClock) v3).incrementVersion(4, 100000001);
 
         // Version is HashedValue
-        // Version is vector clock
-        byte[] value1 = { 0, 1, 2, 3, 4 };
-        byte[] value2 = { 0, 1, 2, 3, 5 };
-        byte[] value3 = { 0, 1, 2, 3, 6 };
         Versioned<byte[]> versioned1 = new Versioned<byte[]>(value1, v1);
         Versioned<byte[]> versioned2 = new Versioned<byte[]>(value2, v2);
         Versioned<byte[]> versioned3 = new Versioned<byte[]>(value3, v3);
@@ -241,12 +251,6 @@ public class ConsistencyCheckTest {
 
     @Test
     public void testCleanInlegibleKeys() {
-        // nodes
-        Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n2 = new Node(2, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        PrefixNode pn1 = new PrefixNode(0, n1);
-        PrefixNode pn2 = new PrefixNode(0, n2);
-
         // versions
         Version v1 = new VectorClock();
         ((VectorClock) v1).incrementVersion(1, 100000001);
@@ -255,16 +259,15 @@ public class ConsistencyCheckTest {
         ((VectorClock) v2).incrementVersion(1, 100000002);
 
         // setup
-        Map<ByteArray, Map<Version, Set<PrefixNode>>> map = new HashMap<ByteArray, Map<Version, Set<PrefixNode>>>();
-        Map<Version, Set<PrefixNode>> nodeSetMap = new HashMap<Version, Set<PrefixNode>>();
-        Set<PrefixNode> oneNodeSet = new HashSet<PrefixNode>();
-        oneNodeSet.add(pn1);
-        Set<PrefixNode> twoNodeSet = new HashSet<PrefixNode>();
-        twoNodeSet.add(pn1);
-        twoNodeSet.add(pn2);
+        Map<ByteArray, Map<Version, Set<ClusterNode>>> map = new HashMap<ByteArray, Map<Version, Set<ClusterNode>>>();
+        Map<Version, Set<ClusterNode>> nodeSetMap = new HashMap<Version, Set<ClusterNode>>();
+        Set<ClusterNode> oneNodeSet = new HashSet<ClusterNode>();
+        oneNodeSet.add(cn0_1);
+        Set<ClusterNode> twoNodeSet = new HashSet<ClusterNode>();
+        twoNodeSet.add(cn0_1);
+        twoNodeSet.add(cn0_2);
         int requiredWrite = 2;
-        byte[] keybytes1 = { 1, 2, 3, 4, 5 };
-        ByteArray key1 = new ByteArray(keybytes1);
+        ByteArray key1 = new ByteArray(value1);
 
         // delete one key
         map.clear();
@@ -294,31 +297,24 @@ public class ConsistencyCheckTest {
     public void testKeyVersionToString() {
         byte[] keyBytes = { 0, 1, 2, 17, 4 };
         ByteArray key = new ByteArray(keyBytes);
-        byte[] value1 = { 0, 1, 2, 3, 4 };
         long now = System.currentTimeMillis();
         Version v1 = new VectorClock(now);
         Version v2 = new VectorClock(now + 1);
         Versioned<byte[]> versioned = new Versioned<byte[]>(value1, v1);
 
         // make Prefix Nodes
-        Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n2 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        Node n3 = new Node(2, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
-        ConsistencyCheck.PrefixNode pn1 = new ConsistencyCheck.PrefixNode(0, n1); // 0.1
-        ConsistencyCheck.PrefixNode pn2 = new ConsistencyCheck.PrefixNode(1, n2); // 1.1
-        ConsistencyCheck.PrefixNode pn3 = new ConsistencyCheck.PrefixNode(0, n3); // 0.2
-        Set<PrefixNode> set = new HashSet<PrefixNode>();
-        set.add(pn1);
-        set.add(pn2);
-        set.add(pn3);
+        Set<ClusterNode> set = new HashSet<ClusterNode>();
+        set.add(cn0_1);
+        set.add(cn1_2);
+        set.add(cn0_3);
 
         // test vector clock
-        Map<Version, Set<PrefixNode>> mapVector = new HashMap<Version, Set<PrefixNode>>();
+        Map<Version, Set<ClusterNode>> mapVector = new HashMap<Version, Set<ClusterNode>>();
         mapVector.put(v1, set);
         ((VectorClock) v1).incrementVersion(1, now);
         String sVector = ConsistencyCheck.keyVersionToString(key, mapVector, "testStore", 99);
         assertEquals("BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
-                     + now + ",[1:1]\n", sVector);
+                     + now + ",[1:1]", sVector);
 
         // test two lines
         ((VectorClock) v2).incrementVersion(1, now);
@@ -326,20 +322,55 @@ public class ConsistencyCheckTest {
         mapVector.put(v2, set);
         String sVector2 = ConsistencyCheck.keyVersionToString(key, mapVector, "testStore", 99);
         String s1 = "BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
-                    + now + ",[1:1]\n";
+                    + now + ",[1:1]";
 
         String s2 = "BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
-                    + (now + 1) + ",[1:2]\n";
+                    + (now + 1) + ",[1:2]";
         assertTrue(sVector2.equals(s1 + s2) || sVector2.equals(s2 + s1));
 
         // test value hash
         Version v3 = new HashedValue(versioned);
-        Map<Version, Set<PrefixNode>> mapHashed = new HashMap<Version, Set<PrefixNode>>();
+        Map<Version, Set<ClusterNode>> mapHashed = new HashMap<Version, Set<ClusterNode>>();
         mapHashed.put(v3, set);
         assertEquals("BAD_KEY,testStore,99,0001021104," + set.toString().replace(", ", ";") + ","
-                             + now + ",[1:1],-1172398097\n",
+                             + now + ",[1:1],-1172398097",
                      ConsistencyCheck.keyVersionToString(key, mapHashed, "testStore", 99));
 
+    }
+
+    @Test
+    public void testKeyFetchTracker() {
+        KeyFetchTracker tracker = new KeyFetchTracker(4);
+        tracker.recordFetch(cn0_1, new ByteArray(value1));
+        tracker.recordFetch(cn0_2, new ByteArray(value1));
+        tracker.recordFetch(cn0_3, new ByteArray(value1));
+        tracker.recordFetch(cn0_4, new ByteArray(value1));
+        tracker.recordFetch(cn0_1, new ByteArray(value2));
+        tracker.recordFetch(cn0_2, new ByteArray(value2));
+        tracker.recordFetch(cn0_3, new ByteArray(value2));
+        assertNull(tracker.nextFinished());
+        tracker.recordFetch(cn0_4, new ByteArray(value2));
+        assertEquals(new ByteArray(value1), tracker.nextFinished());
+        assertNull(tracker.nextFinished());
+        // multiple fetch on same node same key
+        tracker.recordFetch(cn0_1, new ByteArray(value3));
+        tracker.recordFetch(cn0_2, new ByteArray(value3));
+        tracker.recordFetch(cn0_3, new ByteArray(value3));
+        tracker.recordFetch(cn0_4, new ByteArray(value3));
+        tracker.recordFetch(cn0_4, new ByteArray(value3));
+        tracker.recordFetch(cn0_4, new ByteArray(value3));
+        assertEquals(new ByteArray(value2), tracker.nextFinished());
+
+        tracker.recordFetch(cn0_1, new ByteArray(value4));
+        tracker.recordFetch(cn0_2, new ByteArray(value4));
+        tracker.recordFetch(cn0_3, new ByteArray(value4));
+
+        assertNull(tracker.nextFinished());
+
+        tracker.finishAll();
+        assertEquals(new ByteArray(value3), tracker.nextFinished());
+        assertEquals(new ByteArray(value4), tracker.nextFinished());
+        assertNull(tracker.nextFinished());
     }
 
     @Test
@@ -347,8 +378,6 @@ public class ConsistencyCheckTest {
         long now = System.currentTimeMillis();
 
         // setup four nodes with one store and one partition
-        final String STORE_NAME = "consistency-check";
-        final String STORES_XML = "test/common/voldemort/config/stores.xml";
         final SocketStoreFactory socketStoreFactory = new ClientRequestExecutorPool(2,
                                                                                     10000,
                                                                                     100000,
@@ -480,11 +509,11 @@ public class ConsistencyCheckTest {
         List<String> urls = new ArrayList<String>();
         urls.add(bootstrapUrl);
         ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, true);
-        ConsistencyCheckStats partitionStats = null;
+        ProgressReporter reporter = null;
         checker.connect();
-        partitionStats = checker.execute();
+        reporter = checker.execute();
 
-        assertEquals(7 - 2, partitionStats.totalKeys);
-        assertEquals(3, partitionStats.consistentKeys);
+        assertEquals(7 - 2, reporter.numTotalKeys);
+        assertEquals(3, reporter.numGoodKeys);
     }
 }
