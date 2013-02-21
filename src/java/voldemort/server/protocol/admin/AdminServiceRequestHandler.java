@@ -1202,9 +1202,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
                 if(storeRepository.hasLocalStore(storeName)) {
                     if(storeName.compareTo(SlopStorageEngine.SLOP_STORE_NAME) == 0) {
-                        storageService.unregisterEngine(storeRepository.getStorageEngine(storeName),
-                                                        false,
-                                                        "slop");
+                        storageService.removeEngine(storeRepository.getStorageEngine(storeName),
+                                                    false,
+                                                    "slop",
+                                                    true);
                     } else {
                         // update stores list in metadata store
                         List<StoreDefinition> oldStoreDefList = metadataStore.getStoreDefList();
@@ -1218,9 +1219,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                     newStoreDefList.add(storeDef);
                                 } else {
                                     logger.info("Deleting view '" + storeDef.getName() + "'");
-                                    storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
-                                                                    isReadOnly,
-                                                                    storeDef.getType());
+                                    storageService.removeEngine(storeRepository.getStorageEngine(storeDef.getName()),
+                                                                isReadOnly,
+                                                                storeDef.getType(),
+                                                                false);
                                     logger.info("Successfully deleted view '" + storeDef.getName()
                                                 + "'");
                                 }
@@ -1229,9 +1231,10 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                     newStoreDefList.add(storeDef);
                                 } else {
                                     logger.info("Deleting store '" + storeDef.getName() + "'");
-                                    storageService.unregisterEngine(storeRepository.getStorageEngine(storeDef.getName()),
-                                                                    isReadOnly,
-                                                                    storeDef.getType());
+                                    storageService.removeEngine(storeRepository.getStorageEngine(storeDef.getName()),
+                                                                isReadOnly,
+                                                                storeDef.getType(),
+                                                                true);
                                     logger.info("Successfully deleted store '" + storeDef.getName()
                                                 + "'");
                                 }

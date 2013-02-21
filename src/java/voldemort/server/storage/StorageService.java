@@ -618,21 +618,25 @@ public class StorageService extends AbstractService {
             if(storeDef.hasRetentionPeriod())
                 scheduleCleanupJob(storeDef, engine);
         } catch(Exception e) {
-            unregisterEngine(engine, isReadOnly, storeDef.getType());
+            removeEngine(engine, isReadOnly, storeDef.getType(), false);
             throw new VoldemortException(e);
         }
     }
 
     /**
-     * Unregister and remove the engine from the storage repository
+     * Unregister and remove the engine from the storage repository. This is
+     * called during deletion of stores and if there are exceptions
+     * adding/opening stores
      * 
      * @param engine The actual engine to remove
      * @param isReadOnly Is this read-only?
      * @param storeType The storage type of the store
+     * @param truncate Should the store be truncated?
      */
-    public void unregisterEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
-                                 boolean isReadOnly,
-                                 String storeType) {
+    public void removeEngine(StorageEngine<ByteArray, byte[], byte[]> engine,
+                             boolean isReadOnly,
+                             String storeType,
+                             boolean truncate) {
         String storeName = engine.getName();
         Store<ByteArray, byte[], byte[]> store = storeRepository.removeLocalStore(storeName);
 
@@ -690,7 +694,7 @@ public class StorageService extends AbstractService {
         }
 
         storeRepository.removeStorageEngine(storeName);
-        if(!isView)
+        if(truncate)
             engine.truncate();
         engine.close();
     }
