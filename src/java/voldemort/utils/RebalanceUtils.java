@@ -757,7 +757,10 @@ public class RebalanceUtils {
      * @param outputDir Output directory where to dump this file
      * @throws IOException
      */
-    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
+    public static void dumpCluster(Cluster initialCluster,
+                                   Cluster finalCluster,
+                                   File outputDir,
+                                   String fileSuffix) {
 
         // Create the output directory if it doesn't exist
         if(!outputDir.exists()) {
@@ -765,8 +768,8 @@ public class RebalanceUtils {
         }
 
         // Get the file paths
-        File initialClusterFile = new File(outputDir, initialClusterFileName);
-        File finalClusterFile = new File(outputDir, finalClusterFileName);
+        File initialClusterFile = new File(outputDir, initialClusterFileName + fileSuffix);
+        File finalClusterFile = new File(outputDir, finalClusterFileName + fileSuffix);
 
         // Write the output
         ClusterMapper mapper = new ClusterMapper();

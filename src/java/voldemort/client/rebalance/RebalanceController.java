@@ -248,6 +248,7 @@ public class RebalanceController {
         logger.info("Total number of tasks : " + numTasks);
 
         int tasksCompleted = 0;
+        int batchCounter = 0;
         int primaryPartitionId = 0;
         double totalTimeMs = 0.0;
 
@@ -269,6 +270,7 @@ public class RebalanceController {
                 if(primaryPartitionBatchSize == rebalanceConfig.getPrimaryPartitionBatchSize())
                     break;
             }
+            batchCounter++;
 
             // Remove the partitions moved + Prepare message to print
             StringBuffer buffer = new StringBuffer();
@@ -303,7 +305,8 @@ public class RebalanceController {
             if(rebalanceConfig.hasOutputDirectory())
                 RebalanceUtils.dumpCluster(currentCluster,
                                            transitionCluster,
-                                           new File(rebalanceConfig.getOutputDirectory()));
+                                           new File(rebalanceConfig.getOutputDirectory()),
+                                           Integer.toString(batchCounter));
 
             long startTimeMs = System.currentTimeMillis();
             rebalancePerPartitionTransition(orderedClusterTransition);
@@ -378,9 +381,9 @@ public class RebalanceController {
 
             // Split the store definitions
             List<StoreDefinition> readOnlyStoreDefs = StoreDefinitionUtils.filterStores(orderedClusterTransition.getStoreDefs(),
-                                                                                  true);
+                                                                                        true);
             List<StoreDefinition> readWriteStoreDefs = StoreDefinitionUtils.filterStores(orderedClusterTransition.getStoreDefs(),
-                                                                                   false);
+                                                                                         false);
             boolean hasReadOnlyStores = readOnlyStoreDefs != null && readOnlyStoreDefs.size() > 0;
             boolean hasReadWriteStores = readWriteStoreDefs != null
                                          && readWriteStoreDefs.size() > 0;
