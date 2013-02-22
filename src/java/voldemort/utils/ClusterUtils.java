@@ -260,6 +260,54 @@ public class ClusterUtils {
     }
 
     /**
+     * Returns a pretty printed string of nodes that host specific "hot"
+     * partitions, where hot is defined as following a contiguous run of
+     * partitions of some length in another zone.
+     * 
+     * @param cluster The cluster to analyze
+     * @param hotContiguityCutoff cutoff below which a contiguous run is not
+     *        hot.
+     * @return
+     */
+    public static String getHotPartitionsDueToContiguity(final Cluster cluster,
+                                                         int hotContiguityCutoff) {
+
+        StringBuilder sb = new StringBuilder();
+
+        for(Integer zoneId: cluster.getZoneIds()) {
+            List<Integer> partitionIds = new ArrayList<Integer>(cluster.getPartitionIdsInZone(zoneId));
+
+            int lastPartitionId = partitionIds.get(0);
+            int initPartitionId = lastPartitionId;
+
+            for(int offset = 1; offset < partitionIds.size(); offset++) {
+                int partitionId = partitionIds.get(offset);
+                if(partitionId == lastPartitionId + 1) {
+                    lastPartitionId = partitionId;
+                    continue;
+                }
+                int runLength = lastPartitionId - initPartitionId + 1;
+                if(runLength > hotContiguityCutoff) {
+                    int hotPartitionId = lastPartitionId + 1;
+                    for(Node node: cluster.getNodes()) {
+                        if(node.getPartitionIds().contains(hotPartitionId)) {
+                            sb.append("\tNode " + node.getId() + " (" + node.getHost()
+                                      + ") has hot primary partition " + hotPartitionId
+                                      + " that follows contiguous run of length " + runLength
+                                      + "\n");
+                        }
+                    }
+                }
+
+                initPartitionId = partitionId;
+                lastPartitionId = initPartitionId;
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
      * Prints the details of cluster xml in various formats. Some information is
      * repeated in different forms. This is intentional so that it is easy to
      * find the specific view of the cluster xml that you want.
@@ -313,24 +361,35 @@ public class ClusterUtils {
         }
         builder.append("\n");
 
-        builder.append("Partitions in each zone:\n");
-        for(Zone zone: cluster.getZones()) {
-            builder.append("\tZone: " + zone.getId() + " - "
-                           + ClusterUtils.compressedListOfPartitionsInZone(cluster, zone.getId())
-                           + "\n");
-        }
-        builder.append("\n");
+        if(cluster.getZones().size() > 1) {
+            builder.append("ZONE-PARTITION SUMMARY:\n");
+            builder.append("\n");
 
-        builder.append("Contiguous partition run lengths in each zone ('{run length : count}'):\n");
-        for(Zone zone: cluster.getZones()) {
-            builder.append("\tZone: "
-                           + zone.getId()
-                           + " - "
-                           + ClusterUtils.getPrettyMapOfContiguousPartitionRunLengths(cluster,
-                                                                                      zone.getId())
-                           + "\n");
+            builder.append("Partitions in each zone:\n");
+            for(Zone zone: cluster.getZones()) {
+                builder.append("\tZone: "
+                               + zone.getId()
+                               + " - "
+                               + ClusterUtils.compressedListOfPartitionsInZone(cluster,
+                                                                               zone.getId()) + "\n");
+            }
+            builder.append("\n");
+
+            builder.append("Contiguous partition run lengths in each zone ('{run length : count}'):\n");
+            for(Zone zone: cluster.getZones()) {
+                builder.append("\tZone: "
+                               + zone.getId()
+                               + " - "
+                               + ClusterUtils.getPrettyMapOfContiguousPartitionRunLengths(cluster,
+                                                                                          zone.getId())
+                               + "\n");
+            }
+            builder.append("\n");
+
+            builder.append("The following nodes have hot partitions:\n");
+            builder.append(ClusterUtils.getHotPartitionsDueToContiguity(cluster, 5));
+            builder.append("\n");
         }
-        builder.append("\n");
 
         return builder.toString();
     }
