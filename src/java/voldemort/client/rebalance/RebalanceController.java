@@ -186,6 +186,12 @@ public class RebalanceController {
         // Used for creating clones
         ClusterMapper mapper = new ClusterMapper();
 
+        // Output initial and final cluster
+        if(rebalanceConfig.hasOutputDirectory())
+            RebalanceUtils.dumpCluster(currentCluster,
+                                       targetCluster,
+                                       new File(rebalanceConfig.getOutputDirectory()));
+
         // Start first dry run to compute the stolen partitions
         for(Node stealerNode: targetCluster.getNodes()) {
             List<Integer> stolenPrimaryPartitions = RebalanceUtils.getStolenPrimaryPartitions(currentCluster,
@@ -306,7 +312,7 @@ public class RebalanceController {
                 RebalanceUtils.dumpCluster(currentCluster,
                                            transitionCluster,
                                            new File(rebalanceConfig.getOutputDirectory()),
-                                           Integer.toString(batchCounter));
+                                           "batch-" + Integer.toString(batchCounter) + ".");
 
             long startTimeMs = System.currentTimeMillis();
             rebalancePerPartitionTransition(orderedClusterTransition);

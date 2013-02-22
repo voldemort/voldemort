@@ -755,12 +755,14 @@ public class RebalanceUtils {
      * @param initialCluster Initial cluster metadata
      * @param finalCluster Final cluster metadata
      * @param outputDir Output directory where to dump this file
+     * @param filePrefix String to prepend to the initial & final cluster
+     *        metadata files
      * @throws IOException
      */
     public static void dumpCluster(Cluster initialCluster,
                                    Cluster finalCluster,
                                    File outputDir,
-                                   String fileSuffix) {
+                                   String filePrefix) {
 
         // Create the output directory if it doesn't exist
         if(!outputDir.exists()) {
@@ -768,8 +770,8 @@ public class RebalanceUtils {
         }
 
         // Get the file paths
-        File initialClusterFile = new File(outputDir, initialClusterFileName + fileSuffix);
-        File finalClusterFile = new File(outputDir, finalClusterFileName + fileSuffix);
+        File initialClusterFile = new File(outputDir, filePrefix + initialClusterFileName);
+        File finalClusterFile = new File(outputDir, filePrefix + finalClusterFileName);
 
         // Write the output
         ClusterMapper mapper = new ClusterMapper();
@@ -779,6 +781,18 @@ public class RebalanceUtils {
         } catch(IOException e) {
             logger.error("Error writing cluster metadata to file");
         }
+    }
+
+    /**
+     * Given the initial and final cluster dumps it into the output directory
+     * 
+     * @param initialCluster Initial cluster metadata
+     * @param finalCluster Final cluster metadata
+     * @param outputDir Output directory where to dump this file
+     * @throws IOException
+     */
+    public static void dumpCluster(Cluster initialCluster, Cluster finalCluster, File outputDir) {
+        dumpCluster(initialCluster, finalCluster, outputDir, "");
     }
 
     /**
