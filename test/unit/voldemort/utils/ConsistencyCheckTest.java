@@ -31,7 +31,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 import voldemort.utils.ConsistencyCheck.ClusterNode;
 import voldemort.utils.ConsistencyCheck.HashedValue;
 import voldemort.utils.ConsistencyCheck.KeyFetchTracker;
-import voldemort.utils.ConsistencyCheck.ProgressReporter;
+import voldemort.utils.ConsistencyCheck.Reporter;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -508,8 +508,8 @@ public class ConsistencyCheckTest {
         // INCONSISTENT:2(K6,K2), ignored(K1,K0)
         List<String> urls = new ArrayList<String>();
         urls.add(bootstrapUrl);
-        ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, true);
-        ProgressReporter reporter = null;
+        ConsistencyCheck checker = new ConsistencyCheck(urls, STORE_NAME, 0, null);
+        Reporter reporter = null;
         checker.connect();
         reporter = checker.execute();
 

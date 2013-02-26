@@ -1,5 +1,8 @@
 package voldemort.utils;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -7,6 +10,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -15,6 +19,7 @@ import joptsimple.OptionSet;
 
 import org.apache.log4j.Logger;
 
+import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -29,10 +34,10 @@ import voldemort.versioning.Versioned;
 public class ConsistencyCheck {
 
     private static Logger logger = Logger.getLogger(ConsistencyCheck.class);
-    private final Boolean quiet;
     private final List<String> urls;
     private final String storeName;
     private final Integer partitionId;
+    private final Reporter reporter;
 
     private Integer retentionDays = null;
     private Integer replicationFactor = 0;
@@ -40,16 +45,18 @@ public class ConsistencyCheck {
 
     private List<AdminClient> adminClients;
     private List<ClusterNode> clusterNodeList = new ArrayList<ClusterNode>();
-    private final ProgressReporter reporter = new ProgressReporter();
     private final Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap = new HashMap<ByteArray, Map<Version, Set<ClusterNode>>>();
     private RetentionChecker retentionChecker;
     private KeyFetchTracker keyFetchTracker;
 
-    public ConsistencyCheck(List<String> urls, String storeName, int partitionId, boolean quiet) {
+    public ConsistencyCheck(List<String> urls,
+                            String storeName,
+                            int partitionId,
+                            BufferedWriter badKeyWriter) {
         this.urls = urls;
         this.storeName = storeName;
         this.partitionId = partitionId;
-        this.quiet = quiet;
+        this.reporter = new Reporter(badKeyWriter);
     }
 
     /**
@@ -82,6 +89,20 @@ public class ConsistencyCheck {
             storeDefinitionMap.put(url, storeDefinition);
         }
 
+        /* confirm same number of partitions in all clusters. */
+        Integer partitionCount = null;
+        for(Entry<String, Cluster> entry: clusterMap.entrySet()) {
+            Integer currentPartitionCount = entry.getValue().getNumberOfPartitions();
+            if(partitionCount == null) {
+                partitionCount = currentPartitionCount;
+            }
+            if(partitionCount != currentPartitionCount) {
+                logger.error("Partition count of different clusters is not the same: "
+                             + partitionCount + " vs " + currentPartitionCount);
+                throw new VoldemortException("Will not connect because partition counts differ among clusters.");
+            }
+        }
+
         /* calculate nodes to scan */
         for(String url: urls) {
             StoreDefinition storeDefinition = storeDefinitionMap.get(url);
@@ -100,7 +121,7 @@ public class ConsistencyCheck {
         }
 
         /* print config info */
-        if(!quiet) {
+        if(logger.isInfoEnabled()) {
             StringBuilder configInfo = new StringBuilder();
             configInfo.append("TYPE,Store,PartitionId,Node,ZoneId,BootstrapUrl\n");
             for(ClusterNode clusterNode: clusterNodeList) {
@@ -142,6 +163,7 @@ public class ConsistencyCheck {
         }
         if(replicationFactor != clusterNodeList.size()) {
             logger.error("Replication factor is not consistent with number of nodes routed to.");
+            throw new VoldemortException("Will not connect because replication factor does not accord with number of nodes routed to.");
         }
         retentionChecker = new RetentionChecker(retentionDays);
     }
@@ -151,7 +173,7 @@ public class ConsistencyCheck {
      * 
      * @return Results in form of ConsistencyCheckStats
      */
-    public ProgressReporter execute() {
+    public Reporter execute() throws IOException {
         Map<ClusterNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>> nodeFetchIteratorMap;
         nodeFetchIteratorMap = new HashMap<ClusterNode, Iterator<Pair<ByteArray, Versioned<byte[]>>>>();
         /* start fetch from each node */
@@ -194,16 +216,20 @@ public class ConsistencyCheck {
 
                     // try sweep last key fetched by this iterator
                     keyFetchTracker.recordFetch(clusterNode, key);
-                    System.out.println("fetched " + new String(key.get()));
-                    System.out.println("map has keys: " + keyVersionNodeSetMap.size());
+                    if(logger.isTraceEnabled()) {
+                        logger.trace("fetched " + new String(key.get()));
+                        logger.trace("map has keys: " + keyVersionNodeSetMap.size());
+                    }
                     trySweepAll();
-                    System.out.println("sweeped; keys left: " + keyVersionNodeSetMap.size());
+                    if(logger.isTraceEnabled()) {
+                        logger.trace("sweeped; keys left: " + keyVersionNodeSetMap.size());
+                    }
                 }
             }
 
             // stats reporting
-            if(logger.isInfoEnabled() && !quiet) {
-                String report = reporter.tryReport();
+            if(logger.isInfoEnabled()) {
+                String report = reporter.tryProgressReport();
                 if(report != null) {
                     for(String line: report.split("\n")) {
                         logger.info(line);
@@ -225,17 +251,7 @@ public class ConsistencyCheck {
         keyFetchTracker.finishAll();
         trySweepAll();
 
-        // print inconsistent keys
-        if(!quiet) {
-            logger.warn("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
-            for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
-                ByteArray key = entry.getKey();
-                Map<Version, Set<ClusterNode>> versionMap = entry.getValue();
-                logger.warn(keyVersionToString(key, versionMap, storeName, partitionId));
-            }
-        }
-
-        reporter.recordInconsistentKey(keyVersionNodeSetMap.size());
+        reporter.processInconsistentKeys(storeName, partitionId, keyVersionNodeSetMap);
 
         return reporter;
     }
@@ -295,9 +311,9 @@ public class ConsistencyCheck {
     }
 
     /**
-     * A class to track what keys has been fetched and what keys will not appear
-     * any more It is used to detect keys that will not show up any more so that
-     * existing versions can be processed
+     * A class to track what keys have been fetched and what keys will not
+     * appear any more. It is used to detect keys that will not show up any more
+     * so that existing versions can be processed.
      */
     protected static class KeyFetchTracker {
 
@@ -484,9 +500,9 @@ public class ConsistencyCheck {
             if(days <= 0) {
                 expiredTimeMs = 0;
             } else {
-                long now = System.currentTimeMillis();
+                long nowMs = System.currentTimeMillis();
                 long expirationTimeS = TimeUnit.DAYS.toSeconds(days) - bufferTimeSeconds;
-                expiredTimeMs = now - TimeUnit.SECONDS.toMillis(expirationTimeS);
+                expiredTimeMs = nowMs - TimeUnit.SECONDS.toMillis(expirationTimeS);
             }
         }
 
@@ -502,37 +518,45 @@ public class ConsistencyCheck {
             } else if(v instanceof HashedValue) {
                 return false;
             } else {
-                System.err.println("[WARNING]Version type is not supported for checking expiration");
-                return false;
+                logger.error("Version type is not supported for checking expiration");
+                throw new VoldemortException("Version type is not supported for checking expiration"
+                                             + v.getClass().getCanonicalName());
             }
         }
     }
 
     /**
-     * Used to record progress and statistics
+     * Used to report bad keys, progress, and statistics
      * 
      */
-    protected static class ProgressReporter {
+    protected static class Reporter {
+
+        final BufferedWriter badKeyWriter;
+        final long reportPeriodMs;
 
         long lastReportTimeMs = 0;
-        long reportPeriodMs = 0;
         long numRecordsScanned = 0;
         long numRecordsScannedLast = 0;
         long numExpiredRecords = 0;
         long numGoodKeys = 0;
         long numTotalKeys = 0;
 
-        public ProgressReporter() {
-            reportPeriodMs = 5000;
+        /**
+         * Will output progress reports every 5 seconds.
+         * 
+         * @param badKeyWriter Writer to which to output bad keys. Null is OK.
+         */
+        public Reporter(BufferedWriter badKeyWriter) {
+            this(badKeyWriter, 5000);
         }
 
         /**
-         * Progress Reporter
-         * 
-         * @param intervalMs interval between printing progress in miliseconds
+         * @param badKeyWriter Writer to which to output bad keys. Null is OK.
+         * @param intervalMs Milliseconds between progress reports.
          */
-        public ProgressReporter(long intervalMs) {
-            reportPeriodMs = intervalMs;
+        public Reporter(BufferedWriter badKeyWriter, long intervalMs) {
+            this.badKeyWriter = badKeyWriter;
+            this.reportPeriodMs = intervalMs;
         }
 
         public void recordScans(long count) {
@@ -543,7 +567,7 @@ public class ConsistencyCheck {
             numExpiredRecords += count;
         }
 
-        public String tryReport() {
+        public String tryProgressReport() {
             if(System.currentTimeMillis() > lastReportTimeMs + reportPeriodMs) {
                 long currentTimeMs = System.currentTimeMillis();
                 StringBuilder s = new StringBuilder();
@@ -558,6 +582,27 @@ public class ConsistencyCheck {
             } else {
                 return null;
             }
+        }
+
+        public void processInconsistentKeys(String storeName,
+                                            Integer partitionId,
+                                            Map<ByteArray, Map<Version, Set<ClusterNode>>> keyVersionNodeSetMap)
+                throws IOException {
+            if(logger.isDebugEnabled()) {
+                logger.debug("TYPE,Store,ParId,Key,ServerSet,VersionTS,VectorClock[,ValueHash]");
+            }
+            for(Map.Entry<ByteArray, Map<Version, Set<ClusterNode>>> entry: keyVersionNodeSetMap.entrySet()) {
+                ByteArray key = entry.getKey();
+                if(badKeyWriter != null) {
+                    badKeyWriter.write(ByteUtils.toHexString(key.get()) + "\n");
+                }
+                if(logger.isDebugEnabled()) {
+                    Map<Version, Set<ClusterNode>> versionMap = entry.getValue();
+                    logger.debug(keyVersionToString(key, versionMap, storeName, partitionId));
+                }
+            }
+
+            recordInconsistentKey(keyVersionNodeSetMap.size());
         }
 
         public void recordGoodKey(long count) {
@@ -593,7 +638,10 @@ public class ConsistencyCheck {
               .withRequiredArg()
               .describedAs("store-name")
               .ofType(String.class);
-        parser.accepts("quiet", "quiet");
+        parser.accepts("bad-key-file", "File name to which inconsistent keys are to be written.")
+              .withRequiredArg()
+              .describedAs("badKeyFileOut")
+              .ofType(String.class);
         return parser;
     }
 
@@ -604,14 +652,14 @@ public class ConsistencyCheck {
         StringBuilder help = new StringBuilder();
         help.append("ConsistencyCheck Tool\n");
         help.append("  Scan partitions of a store by bootstrap url(s) for consistency and\n");
-        help.append("  optionally print out inconsistent keys\n");
+        help.append("  output inconsistent keys to a file.\n");
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --partitions <partitionId>[,<partitionId>...]\n");
         help.append("    --urls <url>[,<url>...]\n");
         help.append("    --store <storeName>\n");
+        help.append("    --bad-key-file <badKeyFileOut>\n");
         help.append("  Optional:\n");
-        help.append("    --quiet\n");
         help.append("    --help\n");
         help.append("  Note:\n");
         help.append("    If you have two or more clusters to scan for consistency across them,\n");
@@ -619,8 +667,8 @@ public class ConsistencyCheck {
         help.append("    When multiple urls are used, all versions are considered as concurrent.\n");
         help.append("    Versioned objects from different nodes are identified by value hashes,\n");
         help.append("    instead of VectorClocks\n");
-        help.append("    The behavior will be undefined if clusters does not share the same\n");
-        help.append("    number of partitions\n");
+        help.append("    If specified clusters do not have the same number of partitions, \n");
+        help.append("    checking will fail.\n");
         System.out.print(help.toString());
     }
 
@@ -702,44 +750,57 @@ public class ConsistencyCheck {
         OptionSet options = getParser().parse(args);
 
         /* validate options */
-        boolean quiet = false;
         if(options.hasArgument("help")) {
             printUsage();
             return;
         }
         if(!options.hasArgument("urls") || !options.hasArgument("partitions")
-           || !options.hasArgument("store")) {
+           || !options.hasArgument("store") || !options.hasArgument("bad-key-file")) {
             printUsage();
             return;
-        }
-        if(options.has("quiet")) {
-            quiet = true;
         }
 
         List<String> urls = (List<String>) options.valuesOf("urls");
         String storeName = (String) options.valueOf("store");
         List<Integer> partitionIds = (List<Integer>) options.valuesOf("partitions");
+        String badKeyFile = (String) options.valueOf("bad-key-file");
 
-        Map<Integer, ProgressReporter> partitionStatsMap = new HashMap<Integer, ProgressReporter>();
-        long numGoodKeys = 0;
-        long numTotalKeys = 0;
+        BufferedWriter badKeyWriter = null;
+        try {
+            badKeyWriter = new BufferedWriter(new FileWriter(badKeyFile));
+        } catch(IOException e) {
+            Utils.croak("Failure to open output file : " + e.getMessage());
+        }
+
+        Map<Integer, Reporter> partitionStatsMap = new HashMap<Integer, Reporter>();
         /* scan each partitions */
-        for(Integer partitionId: partitionIds) {
-            ConsistencyCheck checker = new ConsistencyCheck(urls, storeName, partitionId, quiet);
-            checker.connect();
-            ProgressReporter reporter = checker.execute();
-            partitionStatsMap.put(partitionId, reporter);
-            numGoodKeys += reporter.numGoodKeys;
-            numTotalKeys += reporter.numTotalKeys;
+        try {
+            for(Integer partitionId: partitionIds) {
+                ConsistencyCheck checker = new ConsistencyCheck(urls,
+                                                                storeName,
+                                                                partitionId,
+                                                                badKeyWriter);
+                checker.connect();
+                Reporter reporter = checker.execute();
+                partitionStatsMap.put(partitionId, reporter);
+            }
+        } catch(Exception e) {
+            Utils.croak("Exception during consistency checking : " + e.getMessage());
+        } finally {
+            badKeyWriter.close();
         }
 
         /* print stats */
         StringBuilder statsString = new StringBuilder();
+        long totalGoodKeys = 0;
+        long totalTotalKeys = 0;
         // each partition
         statsString.append("TYPE,Store,ParitionId,KeysConsistent,KeysTotal,Consistency\n");
-        for(Map.Entry<Integer, ProgressReporter> entry: partitionStatsMap.entrySet()) {
+        for(Map.Entry<Integer, Reporter> entry: partitionStatsMap.entrySet()) {
             Integer partitionId = entry.getKey();
-            ProgressReporter reporter = entry.getValue();
+            Reporter reporter = entry.getValue();
+            totalGoodKeys += reporter.numGoodKeys;
+            totalTotalKeys += reporter.numTotalKeys;
             statsString.append("STATS,");
             statsString.append(storeName + ",");
             statsString.append(partitionId + ",");
@@ -752,9 +813,9 @@ public class ConsistencyCheck {
         statsString.append("STATS,");
         statsString.append(storeName + ",");
         statsString.append("aggregate,");
-        statsString.append(numGoodKeys + ",");
-        statsString.append(numTotalKeys + ",");
-        statsString.append((double) (numGoodKeys) / (double) numTotalKeys);
+        statsString.append(totalGoodKeys + ",");
+        statsString.append(totalTotalKeys + ",");
+        statsString.append((double) (totalGoodKeys) / (double) totalTotalKeys);
         statsString.append("\n");
 
         for(String line: statsString.toString().split("\n")) {
