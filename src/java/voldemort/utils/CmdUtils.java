@@ -36,14 +36,14 @@ public class CmdUtils {
 
     @SuppressWarnings("unchecked")
     public static <T> T valueOf(OptionSet options, String opt, T defaultValue) {
-        if(options.has(opt))
+        if(options.has(opt) && options.valueOf(opt) != null)
             return (T) options.valueOf(opt);
         else
             return defaultValue;
     }
 
     public static <T> T valueOf(OptionSet options, OptionSpec<T> opt, T defaultValue) {
-        if(options.has(opt))
+        if(options.has(opt) && options.valueOf(opt) != null)
             return options.valueOf(opt);
         else
             return defaultValue;
