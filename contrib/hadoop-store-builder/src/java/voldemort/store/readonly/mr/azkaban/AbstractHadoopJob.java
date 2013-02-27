@@ -216,28 +216,14 @@ public abstract class AbstractHadoopJob extends AbstractJob {
             }
         }
 
+        // this property can be set by azkaban to manage voldemort lib path on
+        // hdfs
+        addToDistributedCache("voldemort.distributedcache", conf);
+
         String hadoopCacheJarDir = _props.getString("hdfs.default.classpath.dir", null);
-        if(hadoopCacheJarDir != null) {
-            FileSystem fs = FileSystem.get(conf);
-            if(fs != null) {
-                FileStatus[] status = fs.listStatus(new Path(hadoopCacheJarDir));
-
-                if(status != null) {
-                    for(int i = 0; i < status.length; ++i) {
-                        if(!status[i].isDir()) {
-                            Path path = new Path(hadoopCacheJarDir, status[i].getPath().getName());
-                            info("Adding Jar to Distributed Cache Archive File:" + path);
-
-                            DistributedCache.addFileToClassPath(path, conf);
-                        }
-                    }
-                } else {
-                    info("hdfs.default.classpath.dir " + hadoopCacheJarDir + " is empty.");
-                }
-            } else {
-                info("hdfs.default.classpath.dir " + hadoopCacheJarDir
-                     + " filesystem doesn't exist");
-            }
+        boolean isAddFiles = _props.getBoolean("hdfs.default.classpath.dir.enable", false);
+        if(hadoopCacheJarDir != null && isAddFiles) {
+            addToDistributedCache("hdfs.default.classpath.dir", conf);
         }
 
         // May want to add this to HadoopUtils, but will await refactoring
@@ -251,6 +237,36 @@ public abstract class AbstractHadoopJob extends AbstractJob {
 
         HadoopUtils.setPropsInJob(conf, getProps());
         return conf;
+    }
+
+    /*
+     * Loads jar files into distributed cache This way the mappers and reducers
+     * have the jars they need at run time
+     */
+    private void addToDistributedCache(String propertyName, JobConf conf) throws IOException {
+        String jarDir = _props.getString(propertyName, null);
+        if(jarDir != null) {
+            FileSystem fs = FileSystem.get(conf);
+            if(fs != null) {
+                FileStatus[] status = fs.listStatus(new Path(jarDir));
+
+                if(status != null) {
+                    for(int i = 0; i < status.length; ++i) {
+                        if(!status[i].isDir()) {
+                            Path path = new Path(jarDir, status[i].getPath().getName());
+                            info("Adding Jar to Distributed Cache Archive File:" + path);
+
+                            DistributedCache.addFileToClassPath(path, conf);
+                        }
+                    }
+                } else {
+                    info(propertyName + jarDir + " is empty.");
+                }
+            } else {
+                info(propertyName + jarDir + " filesystem doesn't exist");
+            }
+        }
+
     }
 
     public Props getProps() {
