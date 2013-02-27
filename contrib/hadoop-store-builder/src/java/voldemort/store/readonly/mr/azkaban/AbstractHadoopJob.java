@@ -239,6 +239,17 @@ public abstract class AbstractHadoopJob extends AbstractJob {
         }
 
         HadoopUtils.setPropsInJob(conf, getProps());
+
+        // http://hadoop.apache.org/docs/r1.1.1/mapred_tutorial.html#Job+Credentials
+
+        // The MapReduce tokens are provided so that tasks can spawn jobs if
+        // they wish to.
+        // The tasks authenticate to the JobTracker via the MapReduce delegation
+        // tokens.
+        if(System.getenv("HADOOP_TOKEN_FILE_LOCATION") != null) {
+            conf.set("mapreduce.job.credentials.binary",
+                     System.getenv("HADOOP_TOKEN_FILE_LOCATION"));
+        }
         return conf;
     }
 
