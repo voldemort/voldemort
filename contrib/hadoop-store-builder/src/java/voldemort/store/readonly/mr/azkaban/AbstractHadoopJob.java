@@ -59,6 +59,10 @@ public abstract class AbstractHadoopJob extends AbstractJob {
     private final Props _props;
     private RunningJob _runningJob;
 
+    private final static String voldemortLibPath = "voldemort.distributedcache";
+
+    private final static String hadoopLibPath = "hdfs.default.classpath.dir";
+
     public AbstractHadoopJob(String name, Props props) {
         super(name);
         this._props = props;
@@ -218,12 +222,11 @@ public abstract class AbstractHadoopJob extends AbstractJob {
 
         // this property can be set by azkaban to manage voldemort lib path on
         // hdfs
-        addToDistributedCache("voldemort.distributedcache", conf);
+        addToDistributedCache(voldemortLibPath, conf);
 
-        String hadoopCacheJarDir = _props.getString("hdfs.default.classpath.dir", null);
         boolean isAddFiles = _props.getBoolean("hdfs.default.classpath.dir.enable", false);
-        if(hadoopCacheJarDir != null && isAddFiles) {
-            addToDistributedCache("hdfs.default.classpath.dir", conf);
+        if(isAddFiles) {
+            addToDistributedCache(hadoopLibPath, conf);
         }
 
         // May want to add this to HadoopUtils, but will await refactoring
