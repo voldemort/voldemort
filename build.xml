@@ -79,7 +79,9 @@
       </fileset>
     </copy>
     <replace-dir dir="META-INF" />
-    <manifest file="META-INF/MANIFEST.MF">       
+  	<echo message="creating manifest"/>
+    <manifest file="META-INF/MANIFEST.MF">   
+      <attribute name="Voldemort-Implementation-Version" value="${curr.release}" />
       <attribute name="Implementation-Title" value="Voldemort" />
       <attribute name="Implementation-Version" value="${curr.release}" />
       <attribute name="Implementation-Vendor" value="LinkedIn" />
@@ -141,7 +143,7 @@
   </target>
 
   <target name="jar" depends="build" description="Build server jar file">
-    <jar destfile="${dist.dir}/${name}-${curr.release}.jar">
+    <jar destfile="${dist.dir}/${name}-${curr.release}.jar"  manifest="META-INF/MANIFEST.MF">
       <fileset dir="${classes.dir}">
         <include name="**/*.*" />
       </fileset>
@@ -149,8 +151,9 @@
       <fileset dir="${java.dir}">
         <include name="**/*.xsd" />
       </fileset>
+    	
     	<fileset dir=".">
-    		<include name="META-INF/MANIFEST.MF" />
+    	 		<include name="META-INF/MANIFEST.MF" />
       </fileset>
     </jar>
   </target>

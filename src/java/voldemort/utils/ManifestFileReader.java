@@ -35,7 +35,7 @@ public class ManifestFileReader {
     private static String MANIFEST_FILE = "META-INF/MANIFEST.MF";
 
     // this seems too generic we should have a voldemort-implmentation-version?
-    private static String RELEASE_VERSION_KEY = "Implementation-Version";
+    private static String RELEASE_VERSION_KEY = "Voldemort-Implementation-Version";
 
     public static String getReleaseVersion() {
 
@@ -49,7 +49,9 @@ public class ManifestFileReader {
                 // the next one
                 Attributes mainAttribs = manifest.getMainAttributes();
                 String version = mainAttribs.getValue(RELEASE_VERSION_KEY);
+
                 if(version != null) {
+                    logger.debug("Voldemort Release version is:" + version);
                     return version;
                 }
 
