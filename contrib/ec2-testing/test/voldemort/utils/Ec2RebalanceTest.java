@@ -44,7 +44,7 @@ import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
-import voldemort.client.rebalance.AbstractRebalanceTest;
+import voldemort.client.rebalance.AbstractNonZonedRebalanceTest;
 import voldemort.cluster.Cluster;
 import voldemort.cluster.Node;
 import voldemort.server.RequestRoutingType;
@@ -55,7 +55,7 @@ import voldemort.store.socket.clientrequest.ClientRequestExecutorPool;
 
 /**
  */
-public class Ec2RebalanceTest extends AbstractRebalanceTest {
+public class Ec2RebalanceTest extends AbstractNonZonedRebalanceTest {
 
     private static int NUM_KEYS;
 
@@ -66,7 +66,10 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
 
     private Map<Integer, String> nodeIdsInv = new HashMap<Integer, String>();
     private List<String> activeHostNames = new ArrayList<String>();
-    private boolean useDonorBased = true;
+
+    public Ec2RebalanceTest() {
+        super(true, true);
+    }
 
     @BeforeClass
     public static void ec2Setup() throws Exception {
@@ -207,11 +210,6 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
             hostsToStop.add(nodeIdsInv.get(nodeId));
         }
         stopCluster(hostsToStop, ec2RebalanceTestConfig);
-    }
-
-    @Override
-    protected boolean useDonorBased() {
-        return this.useDonorBased;
     }
 
     private static class Ec2RebalanceTestConfig extends Ec2RemoteTestConfig {

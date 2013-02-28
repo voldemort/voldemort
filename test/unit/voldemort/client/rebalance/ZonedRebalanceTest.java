@@ -13,7 +13,6 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package voldemort.client.rebalance;
 
 import java.util.Arrays;
@@ -23,18 +22,12 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/**
- * Start VoldemortServer locally using ServerTestUtils and run rebalancing
- * tests.
- * 
- * 
- */
 @RunWith(Parameterized.class)
-public class RebalanceTest extends AbstractNonZonedRebalanceTest {
+public class ZonedRebalanceTest extends AbstractZonedRebalanceTest {
 
     private final int NUM_KEYS = 20;
 
-    public RebalanceTest(boolean useNio, boolean useDonorBased) {
+    public ZonedRebalanceTest(boolean useNio, boolean useDonorBased) {
         super(useNio, useDonorBased);
     }
 

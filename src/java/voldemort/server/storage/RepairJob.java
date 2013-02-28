@@ -97,8 +97,7 @@ public class RepairJob implements Runnable {
                     long repairSlops = 0L;
                     long numDeletedKeys = 0;
                     while(iterator.hasNext()) {
-                        Pair<ByteArray, Versioned<byte[]>> keyAndVal;
-                        keyAndVal = iterator.next();
+                        Pair<ByteArray, Versioned<byte[]>> keyAndVal = iterator.next();
                         List<Node> nodes = routingStrategy.routeRequest(keyAndVal.getFirst().get());
 
                         if(!hasDestination(nodes)) {
@@ -111,7 +110,8 @@ public class RepairJob implements Runnable {
                     }
                     closeIterator(iterator);
                     localStats.put(storeDef.getName(), repairSlops);
-                    logger.info("Completed store " + storeDef.getName());
+                    logger.info("Completed store " + storeDef.getName() + " #Scanned:"
+                                + progress.get() + " #Deleted:" + numDeletedKeys);
                 }
             }
         } catch(Exception e) {

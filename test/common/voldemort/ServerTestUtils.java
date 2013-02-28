@@ -60,6 +60,7 @@ import voldemort.server.niosocket.NioSocketService;
 import voldemort.server.protocol.RequestHandler;
 import voldemort.server.protocol.RequestHandlerFactory;
 import voldemort.server.protocol.SocketRequestHandlerFactory;
+import voldemort.server.protocol.admin.AsyncOperationService;
 import voldemort.server.socket.SocketService;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
@@ -302,66 +303,57 @@ public class ServerTestUtils {
     }
 
     /**
-     * Update a cluster by replacing the specified server with a new host, i.e.
-     * new ports since they are all localhost
+     * Returns a cluster with <b>numberOfNodes</b> nodes in <b>numberOfZones</b>
+     * zones. It is important that <b>numberOfNodes</b> be divisible by
+     * <b>numberOfZones</b>
      * 
-     * @param original The original cluster to be updated
-     * @param serverIds The ids of the server to be replaced with new hosts
-     * @return updated cluster
+     * @param numberOfNodes Number of nodes in the cluster
+     * @param partitionsPerNode Number of partitions in one node
+     * @param numberOfZones Number of zones
+     * @return Cluster
      */
-    public static Cluster updateClusterWithNewHost(Cluster original, int... serverIds) {
-        int highestPortInuse = 0;
+    public static Cluster getLocalZonedCluster(int numberOfNodes,
+                                               int numberOfZones,
+                                               int[] nodeToZoneMapping,
+                                               int[][] partitionMapping) {
 
-        for(Node node: original.getNodes()) {
-            int nodeMaxPort = 0;
-            nodeMaxPort = Math.max(nodeMaxPort, node.getAdminPort());
-            nodeMaxPort = Math.max(nodeMaxPort, node.getHttpPort());
-            nodeMaxPort = Math.max(nodeMaxPort, node.getSocketPort());
-            highestPortInuse = Math.max(highestPortInuse, nodeMaxPort);
+        if(numberOfZones > 0 && numberOfNodes > 0 && numberOfNodes % numberOfZones != 0) {
+            throw new VoldemortException("The number of nodes (" + numberOfNodes
+                                         + ") is not divisible by number of zones ("
+                                         + numberOfZones + ")");
         }
 
-        Set<Integer> newNodesSet = new HashSet<Integer>(serverIds.length);
-        for(int id: serverIds) {
-            newNodesSet.add(id);
-        }
+        int[] ports = findFreePorts(3 * numberOfNodes);
 
-        List<Node> newNodeList = new ArrayList<Node>(serverIds.length);
-        for(Node node: original.getNodes()) {
-            if(newNodesSet.contains(node.getId())) {
-                node = new Node(node.getId(),
-                                "localhost",
-                                ++highestPortInuse,
-                                ++highestPortInuse,
-                                ++highestPortInuse,
-                                node.getPartitionIds());
+        List<Node> nodes = new ArrayList<Node>();
+        for(int i = 0; i < numberOfNodes; i++) {
+
+            List<Integer> partitions = new ArrayList<Integer>(partitionMapping[i].length);
+            for(int p: partitionMapping[i]) {
+                partitions.add(p);
             }
-            newNodeList.add(node);
+
+            nodes.add(new Node(i,
+                               "localhost",
+                               ports[3 * i],
+                               ports[3 * i + 1],
+                               ports[3 * i + 2],
+                               nodeToZoneMapping[i],
+                               partitions));
         }
 
-        return new Cluster(original.getName(), newNodeList);
-    }
-
-    /**
-     * Returns a list of zones with their proximity list being in increasing
-     * order
-     * 
-     * @param numberOfZones The number of zones to return
-     * @return List of zones
-     */
-    public static List<Zone> getZones(int numberOfZones) {
+        // Generate zones
         List<Zone> zones = Lists.newArrayList();
         for(int i = 0; i < numberOfZones; i++) {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
             for(int j = 0; j < numberOfZones; j++) {
-                if(zoneId % numberOfZones == i)
-                    break;
                 proximityList.add(zoneId % numberOfZones);
                 zoneId++;
             }
             zones.add(new Zone(i, proximityList));
         }
-        return zones;
+        return new Cluster("cluster", nodes, zones);
     }
 
     /**
@@ -425,6 +417,69 @@ public class ServerTestUtils {
         }
     }
 
+    /**
+     * Update a cluster by replacing the specified server with a new host, i.e.
+     * new ports since they are all localhost
+     * 
+     * @param original The original cluster to be updated
+     * @param serverIds The ids of the server to be replaced with new hosts
+     * @return updated cluster
+     */
+    public static Cluster updateClusterWithNewHost(Cluster original, int... serverIds) {
+        int highestPortInuse = 0;
+
+        for(Node node: original.getNodes()) {
+            int nodeMaxPort = 0;
+            nodeMaxPort = Math.max(nodeMaxPort, node.getAdminPort());
+            nodeMaxPort = Math.max(nodeMaxPort, node.getHttpPort());
+            nodeMaxPort = Math.max(nodeMaxPort, node.getSocketPort());
+            highestPortInuse = Math.max(highestPortInuse, nodeMaxPort);
+        }
+
+        Set<Integer> newNodesSet = new HashSet<Integer>(serverIds.length);
+        for(int id: serverIds) {
+            newNodesSet.add(id);
+        }
+
+        List<Node> newNodeList = new ArrayList<Node>(serverIds.length);
+        for(Node node: original.getNodes()) {
+            if(newNodesSet.contains(node.getId())) {
+                node = new Node(node.getId(),
+                                "localhost",
+                                ++highestPortInuse,
+                                ++highestPortInuse,
+                                ++highestPortInuse,
+                                node.getPartitionIds());
+            }
+            newNodeList.add(node);
+        }
+
+        return new Cluster(original.getName(), newNodeList);
+    }
+
+    /**
+     * Returns a list of zones with their proximity list being in increasing
+     * order
+     * 
+     * @param numberOfZones The number of zones to return
+     * @return List of zones
+     */
+    public static List<Zone> getZones(int numberOfZones) {
+        List<Zone> zones = Lists.newArrayList();
+        for(int i = 0; i < numberOfZones; i++) {
+            LinkedList<Integer> proximityList = Lists.newLinkedList();
+            int zoneId = i + 1;
+            for(int j = 0; j < numberOfZones; j++) {
+                if(zoneId % numberOfZones == i)
+                    break;
+                proximityList.add(zoneId % numberOfZones);
+                zoneId++;
+            }
+            zones.add(new Zone(i, proximityList));
+        }
+        return zones;
+    }
+
     public static Node getLocalNode(int nodeId, List<Integer> partitions) {
         int[] ports = findFreePorts(3);
         return new Node(nodeId, "localhost", ports[0], ports[1], ports[2], partitions);
@@ -450,7 +505,7 @@ public class ServerTestUtils {
                                                  .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                  .setKeySerializer(serDef)
                                                  .setValueSerializer(serDef)
-                                                 .setRoutingPolicy(RoutingTier.SERVER)
+                                                 .setRoutingPolicy(RoutingTier.CLIENT)
                                                  .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                  .setReplicationFactor(2)
                                                  .setPreferredReads(1)
@@ -473,7 +528,7 @@ public class ServerTestUtils {
                                            .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                            .setKeySerializer(serDef)
                                            .setValueSerializer(serDef)
-                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingPolicy(RoutingTier.CLIENT)
                                            .setRoutingStrategyType(strategyType)
                                            .setReplicationFactor(replicationFactor)
                                            .setPreferredReads(preads)
@@ -502,7 +557,7 @@ public class ServerTestUtils {
                                            .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                            .setKeySerializer(serDef)
                                            .setValueSerializer(serDef)
-                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingPolicy(RoutingTier.CLIENT)
                                            .setRoutingStrategyType(strategyType)
                                            .setPreferredReads(preads)
                                            .setRequiredReads(rreads)
@@ -614,7 +669,7 @@ public class ServerTestUtils {
         Props props = new Props();
         props.put("node.id", nodeId);
         props.put("voldemort.home", baseDir + "/node-" + nodeId);
-        props.put("bdb.cache.size", 1 * 1024 * 1024);
+        props.put("bdb.cache.size", 10 * 1024 * 1024);
         props.put("bdb.write.transactions", "true");
         props.put("bdb.flush.transactions", "true");
         props.put("jmx.enable", "false");
@@ -759,6 +814,51 @@ public class ServerTestUtils {
         store.close();
         if(!success)
             throw new RuntimeException("Failed to connect with server:" + node);
+    }
+
+    /***
+     * 
+     * 
+     * NOTE: This relies on the current behavior of the AsyncOperationService to
+     * remove an operation if an explicit isComplete() is invoked. If/When that
+     * is changed, this method will always block upto timeoutMs & return
+     * 
+     * @param server
+     * @param asyncOperationPattern substring to match with the operation
+     *        description
+     * @param timeoutMs
+     * @return
+     */
+    public static boolean waitForAsyncOperationOnServer(VoldemortServer server,
+                                                        String asyncOperationPattern,
+                                                        long timeoutMs) {
+        long endTimeMs = System.currentTimeMillis() + timeoutMs;
+        AsyncOperationService service = server.getAsyncRunner();
+        List<Integer> matchingOperationIds = null;
+        // wait till the atleast one matching operation shows up
+        while(System.currentTimeMillis() < endTimeMs) {
+            matchingOperationIds = service.getMatchingAsyncOperationList(asyncOperationPattern,
+                                                                         true);
+            if(matchingOperationIds.size() > 0) {
+                System.err.println(">>" + matchingOperationIds);
+                break;
+            }
+        }
+        // now wait for those operations to complete
+        while(System.currentTimeMillis() < endTimeMs) {
+            List<Integer> completedOps = new ArrayList<Integer>(matchingOperationIds.size());
+            for(Integer op: matchingOperationIds) {
+                if(service.isComplete(op)) {
+                    System.err.println("Operation " + op + " is complete");
+                    completedOps.add(op);
+                }
+            }
+            matchingOperationIds.removeAll(completedOps);
+            if(matchingOperationIds.size() == 0) {
+                return false;
+            }
+        }
+        return false;
     }
 
     protected static Cluster internalStartVoldemortCluster(int numServers,

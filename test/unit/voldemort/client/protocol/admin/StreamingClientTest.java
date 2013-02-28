@@ -83,7 +83,7 @@ public class StreamingClientTest {
                                                    .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                    .setKeySerializer(new SerializerDefinition("string"))
                                                    .setValueSerializer(new SerializerDefinition("string"))
-                                                   .setRoutingPolicy(RoutingTier.SERVER)
+                                                   .setRoutingPolicy(RoutingTier.CLIENT)
                                                    .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                    .setReplicationFactor(2)
                                                    .setPreferredReads(1)

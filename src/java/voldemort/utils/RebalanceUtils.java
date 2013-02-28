@@ -315,7 +315,7 @@ public class RebalanceUtils {
      * 
      * @param currentCluster Existing cluster metadata. Both stealer and donor
      *        node should already exist in this metadata
-     * @param stealerNodeId Id of node from which we are stealing the partitions
+     * @param stealerNodeId Id of node for which we are stealing the partitions
      * @param donatedPartitions List of partitions we are moving
      * @param partitionList List of partitions we are moving
      * @return Updated cluster metadata

@@ -23,9 +23,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.Map.Entry;
 
 import junit.framework.TestCase;
 
@@ -109,7 +109,7 @@ public class RedirectingStoreTest extends TestCase {
                                                     .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                                     .setKeySerializer(new SerializerDefinition("string"))
                                                     .setValueSerializer(new SerializerDefinition("string"))
-                                                    .setRoutingPolicy(RoutingTier.SERVER)
+                                                    .setRoutingPolicy(RoutingTier.CLIENT)
                                                     .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                                     .setReplicationFactor(2)
                                                     .setPreferredReads(1)

@@ -41,7 +41,7 @@ public final class ByteArray implements Serializable {
 
     @Override
     public String toString() {
-        return Arrays.toString(underlying);
+        return ByteUtils.toHexString(underlying);
     }
 
     /**

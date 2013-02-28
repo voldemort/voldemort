@@ -91,22 +91,6 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         return this.isRedirectingStoreEnabled.get();
     }
 
-    @Override
-    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
-            throws VoldemortException {
-        RebalancePartitionsInfo stealInfo = redirectingKey(key);
-
-        /**
-         * If I am rebalancing for this key, try to do remote get() , put it
-         * locally first to get the correct version ignoring any
-         * {@link ObsoleteVersionException}
-         */
-        if(stealInfo != null)
-            proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
-
-        getInnerStore().put(key, value, transforms);
-    }
-
     private RebalancePartitionsInfo redirectingKey(ByteArray key) {
         if(VoldemortState.REBALANCING_MASTER_SERVER.equals(metadata.getServerState())
            && isRedirectingStoreEnabled.get()) {
@@ -129,6 +113,9 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * locally first to get the correct version ignoring any
          * {@link ObsoleteVersionException}
          */
+        // TODO this is correct per se. But, had a heavy performance hit for
+        // cross zone moves. Check locally first, if you cannot find, then go
+        // remote and store it locally.
         if(stealInfo != null) {
             proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
         }
@@ -145,6 +132,9 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
          * locally first to get the correct version ignoring any
          * {@link ObsoleteVersionException}.
          */
+        // TODO this is correct per se. But, had a heavy performance hit for
+        // cross zone moves. Check locally first, if you cannot find, then go
+        // remote and store it locally.
         if(stealInfo != null) {
             proxyGetAndLocalPut(key, stealInfo.getDonorId(), null);
         }
@@ -163,12 +153,35 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
                 rebalancePartitionsInfoPerKey.put(key, info);
             }
         }
-
+        // TODO this is correct per se. But, had a heavy performance hit for
+        // cross zone moves. Check locally first, if you cannot find, then go
+        // remote and store it locally.
         if(!rebalancePartitionsInfoPerKey.isEmpty()) {
             proxyGetAllAndLocalPut(rebalancePartitionsInfoPerKey, transforms);
         }
 
         return getInnerStore().getAll(keys, transforms);
+    }
+
+    @Override
+    public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
+            throws VoldemortException {
+        RebalancePartitionsInfo stealInfo = redirectingKey(key);
+
+        /**
+         * If I am rebalancing for this key, try to do remote get() , put it
+         * locally first to get the correct version ignoring any
+         * {@link ObsoleteVersionException}
+         */
+        if(stealInfo != null)
+            proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
+
+        // Just sychronous replication,if remote fails, I fail.
+        if(stealInfo != null)
+            proxyPut(key, value, transforms, stealInfo.getDonorId());
+        // TODO if I fail though for some reason, the aborting rebalance can
+        // surface phantom writes
+        getInnerStore().put(key, value, transforms);
     }
 
     /**
@@ -213,6 +226,31 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
             List<Versioned<byte[]>> values = redirectingStore.get(key, transform);
             recordSuccess(donorNode, startNs);
             return values;
+        } catch(UnreachableStoreException e) {
+            recordException(donorNode, startNs, e);
+            throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
+        }
+    }
+
+    /**
+     * Replay the put to a remote proxy node so we will have the data available
+     * at the proxy host, in case the rebalancing fails
+     * 
+     * @param key
+     * @param value
+     * @param transforms
+     * @param donorNodeId
+     * @throws ProxyUnreachableException if donor node can't be reached
+     */
+    private void proxyPut(ByteArray key, Versioned<byte[]> value, byte[] transforms, int donorNodeId) {
+        Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
+        checkNodeAvailable(donorNode);
+        long startNs = System.nanoTime();
+        try {
+            Store<ByteArray, byte[], byte[]> redirectingStore = getRedirectingSocketStore(getName(),
+                                                                                          donorNodeId);
+            redirectingStore.put(key, value, transforms);
+            recordSuccess(donorNode, startNs);
         } catch(UnreachableStoreException e) {
             recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);

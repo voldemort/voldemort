@@ -88,7 +88,7 @@ public class E2EClientRequestExecutorPoolAndFailureDetectorTest {
                                              .setType(storageConfiguration)
                                              .setKeySerializer(serDef)
                                              .setValueSerializer(serDef)
-                                             .setRoutingPolicy(RoutingTier.SERVER)
+                                             .setRoutingPolicy(RoutingTier.CLIENT)
                                              .setRoutingStrategyType(RoutingStrategyType.CONSISTENT_STRATEGY)
                                              .setHintedHandoffStrategy(HintedHandoffStrategyType.PROXIMITY_STRATEGY)
                                              .setReplicationFactor(3)

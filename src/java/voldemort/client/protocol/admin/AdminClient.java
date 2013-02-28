@@ -73,7 +73,6 @@ import voldemort.store.StoreDefinition;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
-import voldemort.store.mysql.MysqlStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageFormat;
 import voldemort.store.readonly.ReadOnlyStorageMetadata;
@@ -2118,7 +2117,8 @@ public class AdminClient {
         }
 
         /**
-         * Fetch key/value tuples belonging to a node with given key values
+         * Fetch key/value tuples from a given server, directly from storage
+         * engine
          * 
          * <p>
          * Entries are being queried synchronously
@@ -2139,7 +2139,6 @@ public class AdminClient {
 
             try {
                 store = adminStoreClient.getSocketStore(nodeId, storeName);
-
             } catch(Exception e) {
                 throw new VoldemortException(e);
             }

@@ -136,7 +136,7 @@ public class HintedHandoffTest {
                                            .setType(InMemoryStorageConfiguration.TYPE_NAME)
                                            .setKeySerializer(serDef)
                                            .setValueSerializer(serDef)
-                                           .setRoutingPolicy(RoutingTier.SERVER)
+                                           .setRoutingPolicy(RoutingTier.CLIENT)
                                            .setRoutingStrategyType(strategyType)
                                            .setReplicationFactor(replicationFactor)
                                            .setPreferredReads(preads)
