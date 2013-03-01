@@ -31,7 +31,8 @@ public class RepairJob implements Runnable {
     private final static int DELETE_BATCH_SIZE = 10000;
     private final static Logger logger = Logger.getLogger(RepairJob.class.getName());
 
-    public final static List<String> blackList = Arrays.asList("mysql", "krati", "read-only");
+    public final static List<String> blackList = Arrays.asList("krati",
+                                                               ReadOnlyStorageConfiguration.TYPE_NAME);
 
     private final ScanPermitWrapper repairPermits;
     private final StoreRepository storeRepo;
