@@ -55,7 +55,7 @@ public class ManifestFileReader {
 
             }
         } catch(IOException IoE) {
-            logger.warn("Unable to load voldemort release version due to the following error:", IoE);
+            logger.warn("Unable to load voldemort release version, could not find a manifest file");
         }
 
         return null;
