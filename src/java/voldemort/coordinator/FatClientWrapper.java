@@ -5,10 +5,7 @@ import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
@@ -16,6 +13,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
@@ -29,15 +27,13 @@ import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
 
 public class FatClientWrapper {
 
     private ExecutorService fatClientExecutor;
-    private SynchronousQueue<Future> fatClientRequestQueue;
     private SocketStoreClientFactory storeClientFactory;
     private DefaultStoreClient<Object, Object> storeClient;
+    private final Logger logger = Logger.getLogger(FatClientWrapper.class);
 
     /**
      * A Wrapper class to provide asynchronous API for calling the fat client
@@ -47,7 +43,7 @@ public class FatClientWrapper {
      * @param storeName: Store to connect to via this fat client
      * @param bootstrapURLs: Bootstrap URLs for the intended cluster
      */
-    public FatClientWrapper(String storeName, String[] bootstrapURLs) {
+    public FatClientWrapper(String storeName, String[] bootstrapURLs, ClientConfig clientConfig) {
         this.fatClientExecutor = new ThreadPoolExecutor(20, // Core pool size
                                                         20, // Max pool size
                                                         60, // Keepalive
@@ -80,15 +76,7 @@ public class FatClientWrapper {
 
                                                             }
                                                         });
-        this.fatClientRequestQueue = new SynchronousQueue<Future>();
-
-        // Setup the Voldemort client
-        ClientConfig clientConfig = new ClientConfig().setBootstrapUrls(bootstrapURLs)
-                                                      .setEnableLazy(false)
-                                                      .setEnableCompressionLayer(false)
-                                                      .setEnableSerializationLayer(false)
-                                                      .setEnableInconsistencyResolvingLayer(false)
-                                                      .enableDefaultClient(true);
+        // this.fatClientRequestQueue = new SynchronousQueue<Future>();
 
         this.storeClientFactory = new SocketStoreClientFactory(clientConfig);
         this.storeClient = (DefaultStoreClient<Object, Object>) this.storeClientFactory.getStoreClient(storeName);
@@ -105,7 +93,10 @@ public class FatClientWrapper {
     void submitGetRequest(final ByteArray key, final MessageEvent getRequest) {
         try {
 
-            Future f = this.fatClientExecutor.submit(new GetRequestExecutor(key, null, getRequest));
+            this.fatClientExecutor.submit(new GetRequestExecutor(key,
+                                                                 null,
+                                                                 getRequest,
+                                                                 this.storeClient));
 
             // Keep track of this request for monitoring
             // this.fatClientRequestQueue.add(f);
@@ -124,7 +115,7 @@ public class FatClientWrapper {
     void submitPutRequest(final ByteArray key, final byte[] value, final MessageEvent putRequest) {
         try {
 
-            Future f = this.fatClientExecutor.submit(new PutRequestExecutor(key, value, putRequest));
+            this.fatClientExecutor.submit(new PutRequestExecutor(key, value, putRequest));
 
             // Keep track of this request for monitoring
             // this.fatClientRequestQueue.add(f);
@@ -136,74 +127,6 @@ public class FatClientWrapper {
     private void handleRejectedException(MessageEvent getRequest) {
         getRequest.getChannel().write(null); // Write error back to the thin
                                              // client
-    }
-
-    private class GetRequestExecutor implements Runnable {
-
-        private ByteArray key;
-        private Versioned<Object> defaultValue;
-        private MessageEvent getRequest;
-        private ChannelBuffer responseContent;
-
-        public GetRequestExecutor(ByteArray key,
-                                  Versioned<Object> defaultValue,
-                                  MessageEvent request) {
-            this.key = key;
-            this.defaultValue = defaultValue;
-            this.getRequest = request;
-        }
-
-        private void writeResponse(List<Versioned<Object>> values) {
-            responseContent.writeInt(values.size());
-            for(Versioned<Object> v: values) {
-                byte[] clock = ((VectorClock) v.getVersion()).toBytes();
-                byte[] value = (byte[]) v.getValue();
-                responseContent.writeInt(clock.length + value.length);
-                responseContent.writeBytes(clock);
-                responseContent.writeBytes(value);
-            }
-
-            // 1. Create the Response object
-            HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-
-            // 2. Set the right headers
-            // response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
-            response.setHeader(CONTENT_TYPE, "application/pdf");
-            // response.setChunked(true);
-
-            // 3. Copy the data into the payload
-            response.setContent(responseContent);
-            response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
-
-            // Write the response to the Netty Channel
-            ChannelFuture future = this.getRequest.getChannel().write(response);
-
-            // Close the non-keep-alive connection after the write operation is
-            // done.
-            future.addListener(ChannelFutureListener.CLOSE);
-
-        }
-
-        @Override
-        public void run() {
-            List<Versioned<Object>> results = new ArrayList<Versioned<Object>>();
-            Versioned<Object> responseVersioned = storeClient.get(this.key);
-            System.out.println("Get successful !");
-            if(responseVersioned == null) {
-                if(this.defaultValue != null) {
-                    responseVersioned = this.defaultValue;
-                } else {
-                    byte[] nullByteArray = new byte[1];
-                    nullByteArray[0] = 0;
-                    responseVersioned = new Versioned<Object>(nullByteArray);
-                }
-            }
-            results.add(responseVersioned);
-            byte[] responseValue = (byte[]) responseVersioned.getValue();
-            this.responseContent = ChannelBuffers.dynamicBuffer(responseValue.length);
-            writeResponse(results);
-        }
-
     }
 
     private class PutRequestExecutor implements Runnable {
@@ -225,7 +148,7 @@ public class FatClientWrapper {
 
             // 2. Set the right headers
             // response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
-            response.setHeader(CONTENT_TYPE, "application/pdf");
+            response.setHeader(CONTENT_TYPE, "application/json");
             // response.setChunked(true);
 
             // 3. Copy the data into the payload
@@ -245,7 +168,7 @@ public class FatClientWrapper {
 
             try {
                 storeClient.put(key, value);
-                System.out.println("Put successful !");
+                logger.info("Put successful !");
             } catch(ObsoleteVersionException oe) {
                 // Ideally propagate the exception !
             }

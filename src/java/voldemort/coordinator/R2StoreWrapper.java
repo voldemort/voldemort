@@ -1,7 +1,6 @@
 package voldemort.coordinator;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -14,12 +13,14 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import org.apache.commons.codec.binary.Base64;
+import org.codehaus.jackson.map.ObjectMapper;
+
 import voldemort.VoldemortException;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ByteUtils;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -37,6 +38,8 @@ import com.linkedin.r2.transport.http.client.HttpClientFactory;
 
 public class R2StoreWrapper implements Store<ByteArray, byte[], byte[]> {
 
+    private static final String GET = "GET";
+    private static final String PUT = "PUT";
     private URL url = null;
     HttpURLConnection conn = null;
     private HttpClientFactory _clientFactory;
@@ -85,12 +88,15 @@ public class R2StoreWrapper implements Store<ByteArray, byte[], byte[]> {
             DataOutputStream outputStream = new DataOutputStream(outputBytes);
             writeGetRequest(outputStream, key);
 
-            // Create the REST request with this byte array
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL
-                                                                   + "/get?store_name=test"));
-            rb.setMethod("POST");
+            String base64Key = new String(Base64.encodeBase64(key.get()));
+            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/test/"
+                                                                   + base64Key));
+            // RestRequestBuilder rb = new RestRequestBuilder(new
+            // URI(this.baseURL + "/" + base64Key));
+
+            rb.setMethod(GET);
             rb.setEntity(outputBytes.toByteArray());
-            rb.setHeader("CONTENT_TYPE", "application/pdf");
+            rb.setHeader("Accept", "application/json");
 
             RestRequest request = rb.build();
             Future<RestResponse> f = client.restRequest(request);
@@ -98,10 +104,10 @@ public class R2StoreWrapper implements Store<ByteArray, byte[], byte[]> {
             // This will block
             RestResponse response = f.get();
             final ByteString entity = response.getEntity();
+            String eTag = response.getHeader("ETag");
+            String lastModified = response.getHeader("Last-Modified");
             if(entity != null) {
-                // System.out.println(entity.asString("UTF-8"));
-                DataInputStream inputStream = new DataInputStream(entity.asInputStream());
-                resultList = readResults(inputStream);
+                resultList = readResults(entity, eTag, lastModified);
             } else {
                 System.out.println("NOTHING!");
             }
@@ -122,14 +128,22 @@ public class R2StoreWrapper implements Store<ByteArray, byte[], byte[]> {
             // Create the byte[] array
             ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
             DataOutputStream outputStream = new DataOutputStream(outputBytes);
-            writePutRequest(outputStream, key, value.getValue());
+
+            // Write the value in the payload
+            byte[] payload = value.getValue();
+            outputStream.write(payload);
 
             // Create the REST request with this byte array
-            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL
-                                                                   + "/put?store_name=test"));
-            rb.setMethod("POST");
+            String base64Key = new String(Base64.encodeBase64(key.get()));
+            RestRequestBuilder rb = new RestRequestBuilder(new URI(this.baseURL + "/test/"
+                                                                   + base64Key));
+            // RestRequestBuilder rb = new RestRequestBuilder(new
+            // URI(this.baseURL + "/" + base64Key));
+
+            rb.setMethod(PUT);
             rb.setEntity(outputBytes.toByteArray());
-            rb.setHeader("CONTENT_TYPE", "application/pdf");
+            rb.setHeader("Content-Type", "application/json");
+            rb.setHeader("Content-Length", "" + payload.length);
 
             RestRequest request = rb.build();
             Future<RestResponse> f = client.restRequest(request);
@@ -155,18 +169,19 @@ public class R2StoreWrapper implements Store<ByteArray, byte[], byte[]> {
         outputStream.write(key.get());
     }
 
-    private List<Versioned<byte[]>> readResults(DataInputStream inputStream) throws IOException {
-        int resultSize = inputStream.readInt();
-        List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(resultSize);
-        for(int i = 0; i < resultSize; i++) {
-            int valueSize = inputStream.readInt();
-            byte[] bytes = new byte[valueSize];
-            ByteUtils.read(inputStream, bytes);
-            VectorClock clock = new VectorClock(bytes);
-            results.add(new Versioned<byte[]>(ByteUtils.copy(bytes,
-                                                             clock.sizeInBytes(),
-                                                             bytes.length), clock));
-        }
+    private List<Versioned<byte[]>> readResults(ByteString entity, String eTag, String lastModified)
+            throws IOException {
+
+        ObjectMapper mapper = new ObjectMapper();
+        System.out.println("Received etag : " + eTag);
+        System.out.println("Received last modified date : " + lastModified);
+        VectorClockWrapper vcWrapper = mapper.readValue(eTag, VectorClockWrapper.class);
+        List<Versioned<byte[]>> results = new ArrayList<Versioned<byte[]>>(2);
+
+        byte[] bytes = new byte[entity.length()];
+        entity.copyBytes(bytes, 0);
+        VectorClock clock = new VectorClock(vcWrapper.getVersions(), vcWrapper.getTimestamp());
+        results.add(new Versioned<byte[]>(bytes, clock));
         return results;
     }
 

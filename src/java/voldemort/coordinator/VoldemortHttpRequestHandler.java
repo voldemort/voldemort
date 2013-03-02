@@ -1,26 +1,11 @@
 package voldemort.coordinator;
 
-/*
- * Copyright 2009 Red Hat, Inc.
- * 
- * Red Hat licenses this file to you under the Apache License, version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
-
 import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -28,8 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.codec.binary.Base64;
+import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -42,56 +28,43 @@ import org.jboss.netty.handler.codec.http.CookieEncoder;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
+import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.QueryStringDecoder;
 import org.jboss.netty.util.CharsetUtil;
 
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-/**
- * @author <a href="http://www.jboss.org/netty/">The Netty Project</a>
- * @author Andy Taylor (andy.taylor@jboss.org)
- * @author <a href="http://gleamynode.net/">Trustin Lee</a>
- * 
- * @version $Rev: 2288 $, $Date: 2010-05-27 21:40:50 +0900 (Thu, 27 May 2010) $
- */
-public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
+public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     public HttpRequest request;
     private boolean readingChunks;
     /** Buffer that stores the response content */
     private final StringBuilder buf = new StringBuilder();
     public ChannelBuffer responseContent;
-    private final static String STORE_NAME = "store_name";
-    private FatClientWrapper fatClientWrapper = null;
+    private Map<String, FatClientWrapper> fatClientMap;
+    private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
 
     public static enum OP_TYPE {
         GET,
         PUT
     }
 
-    public HttpRequestHandler() {
-        String[] bootstrapURLs = new String[1];
-        bootstrapURLs[0] = "tcp://localhost:6666";
-        this.fatClientWrapper = new FatClientWrapper("test", bootstrapURLs);
+    // Implicit constructor defined for the derived classes
+    public VoldemortHttpRequestHandler() {}
+
+    public VoldemortHttpRequestHandler(Map<String, FatClientWrapper> fatClientMap) {
+        this.fatClientMap = fatClientMap;
     }
 
-    public OP_TYPE getOperationType(String path) {
-        if(path.equals("/put")) {
+    public OP_TYPE getOperationType(HttpMethod httpMethod) {
+        if(httpMethod.equals(HttpMethod.PUT)) {
             return OP_TYPE.PUT;
         }
 
         return OP_TYPE.GET;
-    }
-
-    public ByteArray readKey(ChannelBuffer content) {
-        int keySize = content.readInt();
-        byte[] key = new byte[keySize];
-        content.readBytes(key);
-        return new ByteArray(key);
     }
 
     public void writeResults(List<Versioned<Object>> values) {
@@ -105,60 +78,63 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
     }
 
-    private byte[] readValue(ChannelBuffer content) {
-        int valueSize = content.readInt();
-        byte[] value = new byte[valueSize];
-        content.readBytes(value);
-        return value;
-    }
-
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 
+        String storeName = "";
+
         if(!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
-            QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.getUri());
+            OP_TYPE operation = getOperationType(this.request.getMethod());
+            String requestURI = this.request.getUri();
+            logger.info(requestURI);
 
-            // Decode the operation type
-            OP_TYPE operation = getOperationType(queryStringDecoder.getPath());
-
-            Map<String, List<String>> params = queryStringDecoder.getParameters();
-            if(params == null || !params.containsKey(STORE_NAME)) {
-                System.err.println("Store Name missing. Critical error");
-                this.responseContent = ChannelBuffers.copiedBuffer("Store Name missing. Critical error".getBytes());
+            storeName = getStoreName(requestURI);
+            if(storeName == null) {
+                String errorMessage = "Invalid store name. Critical error.";
+                // this.responseContent =
+                // ChannelBuffers.copiedBuffer("Invalid store name. Critical error.".getBytes());
+                logger.error(errorMessage);
+                RESTErrorHandler.handleError(BAD_REQUEST, e, false, errorMessage);
                 return;
-                // TODO: Return the right error code here
             }
 
             if(request.isChunked()) {
                 readingChunks = true;
             } else {
 
-                ChannelBuffer content = request.getContent();
-                if(!content.readable()) {
-                    System.err.println("Contents not readable");
-                    this.responseContent = ChannelBuffers.copiedBuffer("Contents not readable".getBytes());
-                    return;
-                }
-
                 // TODO: Check for correct number of parameters and Decoding
 
                 switch(operation) {
                     case GET:
-                        // System.out.println("GET operation");
-                        ByteArray getKey = readKey(content);
-                        this.fatClientWrapper.submitGetRequest(getKey, e);
+                        ByteArray getKey = readKey(requestURI);
+                        this.fatClientMap.get(storeName).submitGetRequest(getKey, e);
                         break;
                     case PUT:
-                        // System.out.println("PUT operation");
-                        ByteArray putKey = readKey(content);
+                        ChannelBuffer content = request.getContent();
+                        if(!content.readable()) {
+                            String errorMessage = "Contents not readable";
+                            // this.responseContent =
+                            // ChannelBuffers.copiedBuffer("Contents not readable".getBytes());
+                            logger.error(errorMessage);
+                            RESTErrorHandler.handleError(BAD_REQUEST,
+                                                         e,
+                                                         isKeepAlive(request),
+                                                         errorMessage);
+                            return;
+                        }
+
+                        ByteArray putKey = readKey(requestURI);
                         byte[] putValue = readValue(content);
-                        this.fatClientWrapper.submitPutRequest(putKey, putValue, e);
+                        this.fatClientMap.get(storeName).submitPutRequest(putKey, putValue, e);
                         break;
                     default:
-                        System.err.println("Illegal operation.");
-                        this.responseContent = ChannelBuffers.copiedBuffer("Illegal operation.".getBytes());
-                        writeResponse(e);
+                        String errorMessage = "Illegal operation.";
+                        logger.error(errorMessage);
+                        RESTErrorHandler.handleError(BAD_REQUEST,
+                                                     e,
+                                                     isKeepAlive(request),
+                                                     errorMessage);
                         return;
                 }
 
@@ -180,12 +156,37 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     buf.append("\r\n");
                 }
 
-                writeResponse(e);
             } else {
                 buf.append("CHUNK: " + chunk.getContent().toString(CharsetUtil.UTF_8) + "\r\n");
             }
 
         }
+    }
+
+    private byte[] readValue(ChannelBuffer content) {
+        byte[] value = new byte[content.capacity()];
+        content.readBytes(value);
+        return value;
+    }
+
+    private ByteArray readKey(String requestURI) {
+        ByteArray key = null;
+        String[] parts = requestURI.split("/");
+        if(parts.length > 2) {
+            String base64Key = parts[2];
+            key = new ByteArray(Base64.decodeBase64(base64Key.getBytes()));
+        }
+        return key;
+    }
+
+    private String getStoreName(String requestURI) {
+        String storeName = null;
+        String[] parts = requestURI.split("/");
+        if(parts.length > 1 && this.fatClientMap.containsKey(parts[1])) {
+            storeName = parts[1];
+        }
+
+        return storeName;
     }
 
     public void writeResponse(MessageEvent e) {

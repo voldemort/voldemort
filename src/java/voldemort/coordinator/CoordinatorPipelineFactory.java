@@ -18,6 +18,8 @@ package voldemort.coordinator;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
+import java.util.Map;
+
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
@@ -25,18 +27,13 @@ import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
-/**
- * @author <a href="http://www.jboss.org/netty/">The Netty Project</a>
- * @author Andy Taylor (andy.taylor@jboss.org)
- * @author <a href="http://gleamynode.net/">Trustin Lee</a>
- * 
- * @version $Rev: 2080 $, $Date: 2010-01-26 18:04:19 +0900 (Tue, 26 Jan 2010) $
- */
-public class HttpServerPipelineFactory implements ChannelPipelineFactory {
+public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
 
-    boolean noop = false;
+    private boolean noop = false;
+    private Map<String, FatClientWrapper> fatClientMap;
 
-    public HttpServerPipelineFactory(boolean noop) {
+    public CoordinatorPipelineFactory(Map<String, FatClientWrapper> fatClientMap, boolean noop) {
+        this.fatClientMap = fatClientMap;
         this.noop = noop;
     }
 
@@ -61,7 +58,7 @@ public class HttpServerPipelineFactory implements ChannelPipelineFactory {
         if(this.noop) {
             pipeline.addLast("handler", new NoopHttpRequestHandler());
         } else {
-            pipeline.addLast("handler", new HttpRequestHandler());
+            pipeline.addLast("handler", new VoldemortHttpRequestHandler(this.fatClientMap));
         }
         return pipeline;
     }
