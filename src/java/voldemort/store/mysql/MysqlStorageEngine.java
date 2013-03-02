@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
@@ -56,11 +57,13 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     private static int MYSQL_ERR_DUP_ENTRY = 1062;
 
     private final String name;
+    private final String valueType;
     private final DataSource datasource;
 
-    public MysqlStorageEngine(String name, DataSource datasource) {
+    public MysqlStorageEngine(final String name, final DataSource datasource, final String valueType) {
         this.name = name;
         this.datasource = datasource;
+        this.valueType = valueType;
 
         if(!tableExists()) {
             create();
@@ -94,7 +97,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     public void create() {
         execute("create table " + getName()
                 + " (key_ varbinary(200) not null, version_ varbinary(200) not null, "
-                + " value_ blob, primary key(key_, version_)) engine = InnoDB");
+                + " value_ " + valueType + ", primary key(key_, version_)) engine = InnoDB");
     }
 
     public void execute(String query) {
@@ -113,7 +116,20 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     }
 
     public ClosableIterator<ByteArray> keys() {
-        return StoreUtils.keys(entries());
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+        String select = "select key_ from " + name;
+        try {
+            conn = datasource.getConnection();
+            stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            stmt.setFetchSize(Integer.MIN_VALUE);
+            rs = stmt.executeQuery(select);
+            return new MysqlKeyIterator(conn, stmt, rs);
+        } catch(SQLException e) {
+        	logger.error(e.getMessage());
+            throw new PersistenceFailureException(e.getMessage(), e);
+        }
     }
 
     public void truncate() {
@@ -125,7 +141,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             stmt = conn.prepareStatement(select);
             stmt.executeUpdate();
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
+        	logger.error(e.getMessage());
+            throw new PersistenceFailureException(e.getMessage(), e)
         } finally {
             tryClose(stmt);
             tryClose(conn);
@@ -134,17 +151,20 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
-        PreparedStatement stmt = null;
+        Statement stmt = null;
         ResultSet rs = null;
         String select = "select key_, version_, value_ from " + name;
+
         try {
             conn = datasource.getConnection();
-            stmt = conn.prepareStatement(select);
-            rs = stmt.executeQuery();
-            return new MysqlClosableIterator(conn, stmt, rs);
+            stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+            stmt.setFetchSize(Integer.MIN_VALUE);
+            rs = stmt.executeQuery(select);
+            return new MysqlEntryIterator(conn, stmt, rs);
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
-        }
+        	logger.error(e.getMessage());
+            throw new PersistenceFailureException(e.getMessage(), e);
+        
     }
 
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
@@ -187,7 +207,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
 
             return deletedSomething;
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
+        	logger.error(e.getMessage());
+            throw new PersistenceFailureException(e.getMessage(), e);
         } finally {
             tryClose(rs);
             tryClose(selectStmt);
@@ -235,7 +256,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             }
             return result;
         } catch(SQLException e) {
-            throw new PersistenceFailureException("Fix me!", e);
+        	logger.error(e.getMessage());
+            throw new PersistenceFailureException(e.getMessage(), e);
         } finally {
             tryClose(rs);
             tryClose(stmt);
@@ -341,17 +363,14 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
-    private class MysqlClosableIterator implements
-            ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
+    private abstract class MysqlClosableIterator<T> implements ClosableIterator<T> {
 
-        private boolean hasMore;
-        private final ResultSet rs;
-        private final Connection connection;
-        private final PreparedStatement statement;
+        boolean hasMore;
+        final ResultSet rs;
+        final Connection connection;
+        final Statement statement;
 
-        public MysqlClosableIterator(Connection connection,
-                                     PreparedStatement statement,
-                                     ResultSet resultSet) {
+        public MysqlClosableIterator(Connection connection, Statement statement, ResultSet resultSet) {
             try {
                 // Move to the first item
                 this.hasMore = resultSet.next();
@@ -373,6 +392,45 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             return this.hasMore;
         }
 
+        public abstract T next();
+
+        public void remove() {
+            try {
+                rs.deleteRow();
+            } catch(SQLException e) {
+                throw new PersistenceFailureException(e);
+            }
+        }
+    }
+
+    private class MysqlKeyIterator extends MysqlClosableIterator<ByteArray> {
+
+        public MysqlKeyIterator(Connection connection, Statement statement, ResultSet resultSet) {
+            super(connection, statement, resultSet);
+        }
+
+        @Override
+        public ByteArray next() {
+            try {
+                if(!this.hasMore)
+                    throw new PersistenceFailureException("Next called on iterator, but no more items available!");
+                ByteArray key = new ByteArray(rs.getBytes("key_"));
+                this.hasMore = rs.next();
+                return key;
+            } catch(SQLException e) {
+                throw new PersistenceFailureException(e);
+            }
+        }
+    }
+
+    private class MysqlEntryIterator extends
+            MysqlClosableIterator<Pair<ByteArray, Versioned<byte[]>>> {
+
+        public MysqlEntryIterator(Connection connection, Statement statement, ResultSet resultSet) {
+            super(connection, statement, resultSet);
+        }
+
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             try {
                 if(!this.hasMore)
@@ -386,15 +444,6 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
                 throw new PersistenceFailureException(e);
             }
         }
-
-        public void remove() {
-            try {
-                rs.deleteRow();
-            } catch(SQLException e) {
-                throw new PersistenceFailureException(e);
-            }
-        }
-
     }
 
     public List<Version> getVersions(ByteArray key) {
