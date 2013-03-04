@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Cluster;
@@ -165,7 +165,8 @@ public class RebalancePartitionsInfo {
                                 replicaToAddPartition.get(replicaNum));
                 } else {
                     builder.put(unbalancedStore + "replicaToAddPartitionList"
-                                + Integer.toString(replicaNum), Lists.newArrayList());
+                                        + Integer.toString(replicaNum),
+                                Lists.newArrayList());
                 }
 
                 if(replicaToDeletePartition != null
@@ -175,7 +176,8 @@ public class RebalancePartitionsInfo {
                                 replicaToDeletePartition.get(replicaNum));
                 } else {
                     builder.put(unbalancedStore + "replicaToDeletePartitionList"
-                                + Integer.toString(replicaNum), Lists.newArrayList());
+                                        + Integer.toString(replicaNum),
+                                Lists.newArrayList());
                 }
             }
         }
@@ -261,7 +263,9 @@ public class RebalancePartitionsInfo {
     @Override
     public String toString() {
         StringBuffer sb = new StringBuffer();
-        sb.append("\nRebalancePartitionsInfo(" + getStealerId() + " <--- " + getDonorId() + " ");
+        sb.append("\nRebalancePartitionsInfo(" + getStealerId() + " ["
+                  + initialCluster.getNodeById(getStealerId()).getHost() + "] <--- " + getDonorId()
+                  + " [" + initialCluster.getNodeById(getDonorId()).getHost() + "] ");
 
         for(String unbalancedStore: storeToReplicaToAddPartitionList.keySet()) {
 

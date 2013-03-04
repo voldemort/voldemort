@@ -121,11 +121,17 @@ public class ClusterInstance {
         HashMap<StoreDefinition, Integer> uniqueStores = KeyDistributionGenerator.getUniqueStoreDefinitionsWithCounts(storeDefs);
         List<ByteArray> keys = KeyDistributionGenerator.generateKeys(KeyDistributionGenerator.DEFAULT_NUM_KEYS);
         Set<Integer> nodeIds = cluster.getNodeIds();
+        Set<Integer> zoneIds = cluster.getZoneIds();
 
         builder.append("PARTITION DUMP\n");
         Map<Integer, Integer> primaryAggNodeIdToPartitionCount = Maps.newHashMap();
         for(Integer nodeId: nodeIds) {
             primaryAggNodeIdToPartitionCount.put(nodeId, 0);
+        }
+
+        Map<Integer, Integer> aggNodeIdToZonePrimaryCount = Maps.newHashMap();
+        for(Integer nodeId: nodeIds) {
+            aggNodeIdToZonePrimaryCount.put(nodeId, 0);
         }
 
         Map<Integer, Integer> allAggNodeIdToPartitionCount = Maps.newHashMap();
@@ -134,6 +140,8 @@ public class ClusterInstance {
         }
 
         for(StoreDefinition storeDefinition: uniqueStores.keySet()) {
+            StoreInstance storeInstance = new StoreInstance(cluster, storeDefinition);
+
             builder.append("\n");
             builder.append("Store exemplar: " + storeDefinition.getName() + "\n");
             builder.append("\tReplication factor: " + storeDefinition.getReplicationFactor() + "\n");
@@ -147,14 +155,17 @@ public class ClusterInstance {
                                                                                                                       storeDefinition,
                                                                                                                       true);
             Map<Integer, Integer> primaryNodeIdToPartitionCount = Maps.newHashMap();
+            Map<Integer, Integer> nodeIdToZonePrimaryCount = Maps.newHashMap();
             Map<Integer, Integer> allNodeIdToPartitionCount = Maps.newHashMap();
 
             // Print out all partitions, by replica type, per node
             builder.append("\n");
             builder.append("\tDetailed Dump:\n");
             for(Integer nodeId: nodeIds) {
-                builder.append("\tNode ID: " + nodeId + "\n");
+                builder.append("\tNode ID: " + nodeId + "in zone "
+                               + cluster.getNodeById(nodeId).getZoneId() + "\n");
                 primaryNodeIdToPartitionCount.put(nodeId, 0);
+                nodeIdToZonePrimaryCount.put(nodeId, 0);
                 allNodeIdToPartitionCount.put(nodeId, 0);
                 Set<Pair<Integer, Integer>> partitionPairs = nodeIdToAllPartitions.get(nodeId);
 
@@ -172,16 +183,44 @@ public class ClusterInstance {
                         partitions.add(pair.getSecond());
                     }
                     java.util.Collections.sort(partitions);
-                    builder.append("\t\t" + replicaType + " : " + partitions.size() + " : "
-                                   + partitions.toString() + "\n");
+
+                    builder.append("\t\t" + replicaType);
+                    for(int zoneId: zoneIds) {
+                        builder.append(" : z" + zoneId + " : ");
+                        List<Integer> zonePartitions = new ArrayList<Integer>();
+                        for(int partitionId: partitions) {
+                            if(cluster.getPartitionIdsInZone(zoneId).contains(partitionId)) {
+                                zonePartitions.add(partitionId);
+                            }
+                        }
+                        builder.append(zonePartitions.toString());
+
+                    }
+                    builder.append("\n");
                     if(replicaType == 0) {
                         primaryNodeIdToPartitionCount.put(nodeId,
                                                           primaryNodeIdToPartitionCount.get(nodeId)
                                                                   + partitions.size());
                     }
+
                     allNodeIdToPartitionCount.put(nodeId, allNodeIdToPartitionCount.get(nodeId)
                                                           + partitions.size());
                     replicaType++;
+                }
+            }
+
+            // Go through all partition IDs and determine which node is "first"
+            // in the replicating node list for every zone. This determines the
+            // number of "zone primaries" each node hosts.
+            for(int partitionId = 0; partitionId < cluster.getNumberOfPartitions(); partitionId++) {
+                for(int zoneId: zoneIds) {
+                    for(int nodeId: storeInstance.getReplicationNodeList(partitionId)) {
+                        if(cluster.getNodeById(nodeId).getZoneId() == zoneId) {
+                            nodeIdToZonePrimaryCount.put(nodeId,
+                                                         nodeIdToZonePrimaryCount.get(nodeId) + 1);
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -193,6 +232,9 @@ public class ClusterInstance {
                 primaryAggNodeIdToPartitionCount.put(nodeId,
                                                      primaryAggNodeIdToPartitionCount.get(nodeId)
                                                              + (primaryNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
+                aggNodeIdToZonePrimaryCount.put(nodeId, aggNodeIdToZonePrimaryCount.get(nodeId)
+                                                        + nodeIdToZonePrimaryCount.get(nodeId)
+                                                        * uniqueStores.get(storeDefinition));
                 allAggNodeIdToPartitionCount.put(nodeId,
                                                  allAggNodeIdToPartitionCount.get(nodeId)
                                                          + (allNodeIdToPartitionCount.get(nodeId) * uniqueStores.get(storeDefinition)));
@@ -208,6 +250,10 @@ public class ClusterInstance {
 
         Pair<Double, String> summary = summarizeBalance(primaryAggNodeIdToPartitionCount,
                                                         "AGGREGATE PRIMARY-PARTITION COUNT (across all stores)");
+        builder.append(summary.getSecond());
+
+        summary = summarizeBalance(aggNodeIdToZonePrimaryCount,
+                                   "AGGREGATE ZONEPRIMARY-PARTITION COUNT (across all stores)");
         builder.append(summary.getSecond());
 
         summary = summarizeBalance(allAggNodeIdToPartitionCount,
