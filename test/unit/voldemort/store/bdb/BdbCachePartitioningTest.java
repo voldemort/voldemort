@@ -133,13 +133,19 @@ public class BdbCachePartitioningTest {
                                                             TestUtils.makeSingleNodeRoutingStrategy());
 
             // before any traffic, the cache will not have grown
-            assertTrue(Math.abs(shareA - getCacheSize(defA)) > ByteUtils.BYTES_PER_MB);
-            assertTrue(Math.abs(shareB - getCacheSize(defB)) > ByteUtils.BYTES_PER_MB);
+            assertTrue("Store A grew without traffic",
+                       Math.abs(shareA - getCacheSize(defA)) > ByteUtils.BYTES_PER_MB);
+            assertTrue("Store B grew without traffic",
+                       Math.abs(shareB - getCacheSize(defB)) > ByteUtils.BYTES_PER_MB);
 
             // sharedCacheSize reading 0 confirms that the store has a private
             // cache
-            assertEquals(0, getStats(bdbStorage.getEnvironment(defA)).getSharedCacheTotalBytes());
-            assertEquals(0, getStats(bdbStorage.getEnvironment(defB)).getSharedCacheTotalBytes());
+            assertEquals("Store A has non zero shared cache",
+                         0,
+                         getStats(bdbStorage.getEnvironment(defA)).getSharedCacheTotalBytes());
+            assertEquals("Store B has non zero shared cache",
+                         0,
+                         getStats(bdbStorage.getEnvironment(defB)).getSharedCacheTotalBytes());
 
             // load data into the stores; each store is guaranteed to be ~ 40MB.
             // Data won't fit in memory
@@ -169,16 +175,11 @@ public class BdbCachePartitioningTest {
                 }
             }
 
-            // check that they are certainly less than expected limits.
-            assertTrue(cacheSizeA <= shareA);
-            assertTrue(cacheSizeB <= shareB);
-            assertTrue(cacheSizeC <= shareC);
-
-            // check that they are not exceedingly high than their limits. Small
+            // check that they are certainly less than expected limits.Small
             // overflows are okay. But should not be more than a 1MB
-            assertTrue(Math.abs(cacheSizeA - shareA) <= ByteUtils.BYTES_PER_MB);
-            assertTrue(Math.abs(cacheSizeB - shareB) <= ByteUtils.BYTES_PER_MB);
-            assertTrue(Math.abs(cacheSizeC - shareC) <= ByteUtils.BYTES_PER_MB);
+            assertTrue("Store A not within limits", cacheSizeA <= (shareA + ByteUtils.BYTES_PER_MB));
+            assertTrue("Store B not within limits", cacheSizeB <= (shareB + ByteUtils.BYTES_PER_MB));
+            assertTrue("Store C not within limits", cacheSizeC <= (shareC + ByteUtils.BYTES_PER_MB));
 
             // try doing reads on store C alone, for which we have no
             // reservations.
@@ -193,7 +194,8 @@ public class BdbCachePartitioningTest {
                 }
             }
 
-            assertTrue(cacheSizeCNow <= shareC);
+            assertTrue("Store C not within limits after spike",
+                       cacheSizeCNow <= (shareC + ByteUtils.BYTES_PER_MB));
         } finally {
             if(storeA != null)
                 storeA.close();
@@ -227,7 +229,7 @@ public class BdbCachePartitioningTest {
 
         BdbStorageEngine storeA = null;
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
-        assertEquals(0, bdbStorage.getReservedCacheSize());
+        assertEquals("Reserved cache size not zero", 0, bdbStorage.getReservedCacheSize());
 
         try {
             StoreDefinition defA = TestUtils.makeStoreDefinition("storeA", shareA
@@ -239,7 +241,9 @@ public class BdbCachePartitioningTest {
             // should come here.
         }
         // failing operations should not alter reserved cache size
-        assertEquals(0, bdbStorage.getReservedCacheSize());
+        assertEquals("failure somehow altered the reservedCacheSize",
+                     0,
+                     bdbStorage.getReservedCacheSize());
 
         voldemortConfig.setBdbMinimumSharedCache(10 * ByteUtils.BYTES_PER_MB);
         bdbStorage = new BdbStorageConfiguration(voldemortConfig);
@@ -252,7 +256,9 @@ public class BdbCachePartitioningTest {
             // should not come here.
             fail("minSharedCache should n't have been violated");
         }
-        assertEquals(shareA, bdbStorage.getReservedCacheSize());
+        assertEquals("store A's share does not match up with reserved cache size",
+                     shareA,
+                     bdbStorage.getReservedCacheSize());
 
         long reserveCacheSize = bdbStorage.getReservedCacheSize();
         // now, try increasing the reservation dynamically and it should fail
@@ -263,8 +269,9 @@ public class BdbCachePartitioningTest {
         } catch(StorageInitializationException sie) {
             // should come here.
         }
-        // this failure cannot alter the reservedCacheSize
-        assertEquals(reserveCacheSize, bdbStorage.getReservedCacheSize());
+        assertEquals("failure somehow altered the reservedCacheSize",
+                     reserveCacheSize,
+                     bdbStorage.getReservedCacheSize());
 
         if(storeA != null)
             storeA.close();
@@ -320,8 +327,8 @@ public class BdbCachePartitioningTest {
             }
         }
 
-        assertTrue(Math.abs(cacheSizeA - shareA) <= ByteUtils.BYTES_PER_MB);
-        assertTrue(Math.abs(cacheSizeB - shareB) <= ByteUtils.BYTES_PER_MB);
+        assertTrue("Store A not within limits ", cacheSizeA <= (shareA + ByteUtils.BYTES_PER_MB));
+        assertTrue("Store B not within limits", cacheSizeB <= (shareB + ByteUtils.BYTES_PER_MB));
 
         // 2. dynamically grow the cache to 15MB and watch B shrink.
         shareA = 15 * ByteUtils.BYTES_PER_MB;
@@ -342,8 +349,8 @@ public class BdbCachePartitioningTest {
             }
         }
 
-        assertTrue(Math.abs(cacheSizeA - shareA) <= ByteUtils.BYTES_PER_MB);
-        assertTrue(Math.abs(cacheSizeB - shareB) <= ByteUtils.BYTES_PER_MB);
+        assertTrue("Store A not within limits ", cacheSizeA <= (shareA + ByteUtils.BYTES_PER_MB));
+        assertTrue("Store B not within limits ", cacheSizeB <= (shareB + ByteUtils.BYTES_PER_MB));
 
         // 3. dynamically shrink it back to 10MB and watch B expand again.
         shareA = 10 * ByteUtils.BYTES_PER_MB;
@@ -366,8 +373,8 @@ public class BdbCachePartitioningTest {
 
         // check that they are not exceedingly high than their limits. Small
         // overflows are expected. But should not be more than a 1MB
-        assertTrue(Math.abs(cacheSizeA - shareA) <= ByteUtils.BYTES_PER_MB);
-        assertTrue(Math.abs(cacheSizeB - shareB) <= ByteUtils.BYTES_PER_MB);
+        assertTrue("Store A not within limits ", cacheSizeA <= (shareA + ByteUtils.BYTES_PER_MB));
+        assertTrue("Store B not within limits ", cacheSizeB <= (shareB + ByteUtils.BYTES_PER_MB));
 
         storeA.close();
         storeB.close();

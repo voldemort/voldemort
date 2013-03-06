@@ -50,7 +50,7 @@ public class ReadOnlyStorageConfiguration implements StorageConfiguration {
 
     public ReadOnlyStorageConfiguration(VoldemortConfig config) {
         this.storageDir = new File(config.getReadOnlyDataStorageDirectory());
-        this.numBackups = config.getReadOnlyBackups();
+        this.numBackups = config.getNumReadOnlyVersions();
         this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
         this.searcher = (SearchStrategy) ReflectUtils.callConstructor(ReflectUtils.loadClass(config.getReadOnlySearchStrategy()
                                                                                                    .trim()));

@@ -16,7 +16,6 @@
 
 package voldemort.cluster.failuredetector;
 
-import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 import java.util.Collection;
@@ -56,8 +55,7 @@ public class FailureDetectorConfig {
 
     public static final long DEFAULT_ASYNC_RECOVERY_INTERVAL = 10000;
 
-    public static final List<String> DEFAULT_CATASTROPHIC_ERROR_TYPES = ImmutableList.of(ConnectException.class.getName(),
-                                                                                         UnknownHostException.class.getName(),
+    public static final List<String> DEFAULT_CATASTROPHIC_ERROR_TYPES = ImmutableList.of(UnknownHostException.class.getName(),
                                                                                          NoRouteToHostException.class.getName());
 
     public static final long DEFAULT_REQUEST_LENGTH_THRESHOLD = 5000;

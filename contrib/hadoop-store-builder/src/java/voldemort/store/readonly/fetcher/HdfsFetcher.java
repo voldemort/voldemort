@@ -84,9 +84,9 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(VoldemortConfig config) {
         this(null,
              null,
-             config.getReportingIntervalBytes(),
+             config.getHdfsReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getMinBytesPerSecond(),
+             config.getHdfsMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
              config.getReadOnlyKerberosUser());
 
@@ -99,9 +99,9 @@ public class HdfsFetcher implements FileFetcher {
     public HdfsFetcher(VoldemortConfig config, DynamicThrottleLimit dynThrottleLimit) {
         this(dynThrottleLimit,
              null,
-             config.getReportingIntervalBytes(),
+             config.getHdfsReportingIntervalBytes(),
              config.getFetcherBufferSize(),
-             config.getMinBytesPerSecond(),
+             config.getHdfsMinBytesPerSecond(),
              config.getReadOnlyKeytabPath(),
              config.getReadOnlyKerberosUser());
 
