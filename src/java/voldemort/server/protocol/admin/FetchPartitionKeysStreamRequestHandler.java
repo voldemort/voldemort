@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -90,8 +90,9 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
 
         // process the next partition
         if(keysPartitionIterator == null) {
-            if(currentIndex == partitionList.size()) {
-                // we are finally done
+            if(currentIndex == partitionList.size() || counter >= maxRecords * skipRecords) {
+                logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
+                            + " records processed.");
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -105,10 +106,10 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                 // requested replicatype
                 if(!fetchedPartitions.contains(currentPartition)
                    && StoreInstance.checkPartitionBelongsToNode(currentPartition,
-                                                                 currentReplicaType,
-                                                                 nodeId,
-                                                                 initialCluster,
-                                                                 storeDef)) {
+                                                                currentReplicaType,
+                                                                nodeId,
+                                                                initialCluster,
+                                                                storeDef)) {
                     fetchedPartitions.add(currentPartition);
                     found = true;
                     logger.info("Fetching [partition: " + currentPartition + ", replica type:"
@@ -122,11 +123,11 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
             // do a check before reading in case partition has 0 elements
             if(keysPartitionIterator.hasNext()) {
                 counter++;
+                ByteArray key = keysPartitionIterator.next();
 
                 // honor skipRecords
                 if(counter % skipRecords == 0) {
                     // do the filtering
-                    ByteArray key = keysPartitionIterator.next();
                     if(streamStats != null) {
                         streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
                         streamStats.reportStreamingScan(operation);
@@ -163,8 +164,9 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                 }
             }
 
-            // reset the iterator if done with this partition
-            if(!keysPartitionIterator.hasNext()) {
+            // reset the iterator if done with this partition or fetched enough
+            // records
+            if(!keysPartitionIterator.hasNext() || counter >= maxRecords * skipRecords) {
                 keysPartitionIterator.close();
                 keysPartitionIterator = null;
             }

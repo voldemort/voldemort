@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -92,8 +92,9 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
 
         // process the next partition
         if(entriesPartitionIterator == null) {
-            // we are finally done
-            if(currentIndex == partitionList.size()) {
+            if(currentIndex == partitionList.size() || counter >= maxRecords * skipRecords) {
+                logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
+                            + " records processed.");
                 return StreamRequestHandlerState.COMPLETE;
             }
 
@@ -107,10 +108,10 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 // requested replicatype
                 if(!fetchedPartitions.contains(currentPartition)
                    && StoreInstance.checkPartitionBelongsToNode(currentPartition,
-                                                                 currentReplicaType,
-                                                                 nodeId,
-                                                                 initialCluster,
-                                                                 storeDef)) {
+                                                                currentReplicaType,
+                                                                nodeId,
+                                                                initialCluster,
+                                                                storeDef)) {
                     fetchedPartitions.add(currentPartition);
                     found = true;
                     logger.info("Fetching [partition: " + currentPartition + ", replica type:"
@@ -124,11 +125,11 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
             // do a check before reading in case partition has 0 elements
             if(entriesPartitionIterator.hasNext()) {
                 counter++;
+                Pair<ByteArray, Versioned<byte[]>> entry = entriesPartitionIterator.next();
 
                 // honor skipRecords
                 if(counter % skipRecords == 0) {
                     // do the filtering
-                    Pair<ByteArray, Versioned<byte[]>> entry = entriesPartitionIterator.next();
                     if(streamStats != null) {
                         streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
                         streamStats.reportStreamingScan(operation);
@@ -173,7 +174,7 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
             }
 
             // reset the iterator if done with this partition
-            if(!entriesPartitionIterator.hasNext()) {
+            if(!entriesPartitionIterator.hasNext() || counter >= maxRecords * skipRecords) {
                 entriesPartitionIterator.close();
                 entriesPartitionIterator = null;
             }

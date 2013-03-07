@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.utils;
 
 import java.io.File;
@@ -222,13 +238,18 @@ public class Entropy {
 
                             int numKeysPerNode = (int) Math.floor(numKeys
                                                                   / cluster.getNumberOfNodes());
+                            int numKeysStored = 0;
                             for(Node node: cluster.getNodes()) {
+                                System.out.println("Fetching " + numKeysPerNode
+                                                   + " keys from node " + node.getHost());
                                 keys = adminClient.bulkFetchOps.fetchKeys(node.getId(),
                                                                           storeDef.getName(),
                                                                           cluster.getNodeById(node.getId())
                                                                                  .getPartitionIds(),
                                                                           null,
-                                                                          false);
+                                                                          false,
+                                                                          0,
+                                                                          numKeysPerNode);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
                                     // entropy returns distinct keys from each
@@ -239,9 +260,11 @@ public class Entropy {
                                                 .contains(node.getId())) {
                                         writer.write(key.length());
                                         writer.write(key.get());
+                                        numKeysStored++;
                                     }
                                 }
                             }
+                            System.out.println("Fetched a total of  " + numKeysStored + " keys.");
                         } else {
                             List<Integer> partitions = cluster.getNodeById(nodeId)
                                                               .getPartitionIds();
@@ -257,7 +280,9 @@ public class Entropy {
                                                                       storeDef.getName(),
                                                                       partitions,
                                                                       null,
-                                                                      false);
+                                                                      false,
+                                                                      0,
+                                                                      numKeysPerPartition);
                             while(keys.hasNext() && numKeysStored < numKeys) {
                                 ByteArray key = keys.next();
                                 // entropy returns distinct keys from each
@@ -321,6 +346,7 @@ public class Entropy {
                     long deletedKeys = 0L;
                     long foundKeys = 0L;
                     long totalKeys = 0L;
+                    long keysRead = 0L;
 
                     try {
                         reader = new FileInputStream(storesKeyFile);
@@ -328,12 +354,14 @@ public class Entropy {
                             int size = reader.read();
 
                             if(size <= 0) {
+                                System.out.println("End of file reached.");
                                 break;
                             }
 
                             // Read the key
                             byte[] key = new byte[size];
                             reader.read(key);
+                            keysRead++;
 
                             List<Node> responsibleNodes = strategy.routeRequest(key);
 
@@ -378,7 +406,8 @@ public class Entropy {
                         }
 
                         if(!negativeTest) {
-                            System.out.println("Found = " + foundKeys + " Total = " + totalKeys);
+                            System.out.println("Found = " + foundKeys + ", Total = " + totalKeys
+                                               + ", Keys read = " + keysRead);
                             if(foundKeys > 0 && totalKeys > 0) {
                                 System.out.println("%age found - " + 100.0 * (double) foundKeys
                                                    / totalKeys);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -974,6 +974,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                                      filter,
                                                                                                                                      false,
                                                                                                                                      initialCluster,
+                                                                                                                                     0,
                                                                                                                                      0);
                                 long numTuples = 0;
                                 long startTime = System.currentTimeMillis();
@@ -1089,11 +1090,11 @@ public class AdminServiceRequestHandler implements RequestHandler {
                 Versioned<byte[]> value = entry.getSecond();
                 throttler.maybeThrottle(key.length() + valueSize(value));
                 if(StoreInstance.checkKeyBelongsToPartition(metadataStore.getNodeId(),
-                                                             key.get(),
-                                                             replicaToPartitionList,
-                                                             request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
-                                                                                        : metadataStore.getCluster(),
-                                                             metadataStore.getStoreDef(storeName))
+                                                            key.get(),
+                                                            replicaToPartitionList,
+                                                            request.hasInitialCluster() ? new ClusterMapper().readCluster(new StringReader(request.getInitialCluster()))
+                                                                                       : metadataStore.getCluster(),
+                                                            metadataStore.getStoreDef(storeName))
                    && filter.accept(key, value)) {
                     if(storageEngine.delete(key, value.getVersion())) {
                         deleteSuccess++;

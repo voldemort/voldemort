@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.server.protocol.admin;
 
 import java.io.DataOutputStream;
@@ -54,6 +70,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected long skipRecords;
 
+    protected long maxRecords;
+
     protected int fetched;
 
     protected final long startTime;
@@ -107,6 +125,10 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.skipRecords = 1;
         if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
             this.skipRecords = request.getSkipRecords() + 1;
+        }
+        this.maxRecords = Long.MAX_VALUE;
+        if(request.hasMaxRecords() && request.getMaxRecords() > 0) {
+            this.maxRecords = request.getMaxRecords();
         }
         this.fetchOrphaned = request.hasFetchOrphaned() && request.getFetchOrphaned();
     }
