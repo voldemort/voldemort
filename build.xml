@@ -124,6 +124,10 @@
     </jar>
   </target>
 
+  <!--
+    Use protoc version 2.3.0 to recompile by hand:
+      https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
+  
   <target name="protobuff" description="Generate source files from .proto files">
     <pathconvert property="proto.sources" pathsep=" ">
       <path id="proto-files">
@@ -141,6 +145,7 @@
       <arg line="${proto.sources}"/>
     </exec>
   </target>
+  -->
 
   <target name="jar" depends="build" description="Build server jar file">
     <jar destfile="${dist.dir}/${name}-${curr.release}.jar"  manifest="META-INF/MANIFEST.MF">
