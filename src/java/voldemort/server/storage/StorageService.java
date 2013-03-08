@@ -175,7 +175,7 @@ public class StorageService extends AbstractService {
          */
         if(this.voldemortConfig.getStorageConfigurations()
                                .contains(ReadOnlyStorageConfiguration.class.getName())) {
-            long rate = this.voldemortConfig.getHdfsMaxBytesPerSecond();
+            long rate = this.voldemortConfig.getReadOnlyFetcherMaxBytesPerSecond();
             this.dynThrottleLimit = new DynamicThrottleLimit(rate);
         } else
             this.dynThrottleLimit = null;

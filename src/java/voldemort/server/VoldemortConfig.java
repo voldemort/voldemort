@@ -128,9 +128,9 @@ public class VoldemortConfig implements Serializable {
     private String readOnlyStorageDir;
     private String readOnlySearchStrategy;
     private int readOnlyDeleteBackupTimeMs;
-    private long hdfsMaxBytesPerSecond;
-    private long hdfsMinBytesPerSecond;
-    private long hdfsReportingIntervalBytes;
+    private long readOnlyFetcherMaxBytesPerSecond;
+    private long readOnlyFetcherMinBytesPerSecond;
+    private long readOnlyFetcherReportingIntervalBytes;
     private int fetcherBufferSize;
     private String readOnlyKeytabPath;
     private String readOnlyKerberosUser;
@@ -202,7 +202,7 @@ public class VoldemortConfig implements Serializable {
 
     private long streamMaxReadBytesPerSec;
     private long streamMaxWriteBytesPerSec;
-    private int gossipInterval;
+    private int gossipIntervalMs;
 
     private String failureDetectorImplementation;
     private long failureDetectorBannagePeriod;
@@ -286,10 +286,10 @@ public class VoldemortConfig implements Serializable {
                                                                              + File.separator
                                                                              + "read-only");
         this.readOnlyDeleteBackupTimeMs = props.getInt("readonly.delete.backup.ms", 0);
-        this.hdfsMaxBytesPerSecond = props.getBytes("fetcher.max.bytes.per.sec", 0);
-        this.hdfsMinBytesPerSecond = props.getBytes("fetcher.min.bytes.per.sec", 0);
-        this.hdfsReportingIntervalBytes = props.getBytes("fetcher.reporting.interval.bytes",
-                                                         REPORTING_INTERVAL_BYTES);
+        this.readOnlyFetcherMaxBytesPerSecond = props.getBytes("fetcher.max.bytes.per.sec", 0);
+        this.readOnlyFetcherMinBytesPerSecond = props.getBytes("fetcher.min.bytes.per.sec", 0);
+        this.readOnlyFetcherReportingIntervalBytes = props.getBytes("fetcher.reporting.interval.bytes",
+                                                                    REPORTING_INTERVAL_BYTES);
         this.fetcherBufferSize = (int) props.getBytes("hdfs.fetcher.buffer.size",
                                                       DEFAULT_BUFFER_SIZE);
         this.readOnlyKeytabPath = props.getString("readonly.keytab.path",
@@ -407,7 +407,7 @@ public class VoldemortConfig implements Serializable {
         this.enableRepair = props.getBoolean("enable.repair", true);
         this.enableJmxClusterName = props.getBoolean("enable.jmx.clustername", false);
 
-        this.gossipInterval = props.getInt("gossip.interval.ms", 30 * 1000);
+        this.gossipIntervalMs = props.getInt("gossip.interval.ms", 30 * 1000);
 
         this.slopMaxWriteBytesPerSec = props.getBytes("slop.write.byte.per.sec", 10 * 1000 * 1000);
         this.slopMaxReadBytesPerSec = props.getBytes("slop.read.byte.per.sec", 10 * 1000 * 1000);
@@ -736,7 +736,10 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * A log file will be cleaned if its utilization percentage is below this
-     * value, irrespective of total utilization.
+     * value, irrespective of total utilization. In practice, setting this to a
+     * value greater than 0, might potentially hurt if the workload generates a
+     * cleaning pattern with a heavy skew of utilization distribution amongs the
+     * jdb files
      * 
      * <ul>
      * <li>property: "bdb.cleaner.minFileUtilization"</li>
@@ -1005,7 +1008,7 @@ public class VoldemortConfig implements Serializable {
      * If true, Cleaner offloads some work to application threads, to keep up
      * with the write rate. Side effect is that data is staged on the JVM till
      * it is flushed down by Checkpointer, hence not GC friendly (Will cause
-     * promotions). Use if you have lots of spare RAM by running low on
+     * promotions). Use if you have lots of spare RAM but running low on
      * threads/IOPS
      * 
      * <ul>
@@ -1240,7 +1243,8 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * The comfortable number of threads the threadpool will attempt to
-     * maintain. Not applicable with enable.nio=true
+     * maintain. Not applicable with enable.nio=true and not officially
+     * supported anymore
      * 
      * <ul>
      * <li>Property : "core.threads"</li>
@@ -1248,6 +1252,7 @@ public class VoldemortConfig implements Serializable {
      * </ul>
      * 
      */
+    @Deprecated
     public void setCoreThreads(int coreThreads) {
         this.coreThreads = coreThreads;
     }
@@ -1258,7 +1263,7 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * The maximum number of threads in the server thread pool. Not applicable
-     * with enable.nio.connector=true
+     * with enable.nio.connector=true. Not officially supported anymore
      * 
      * <ul>
      * <li>Property : "max.threads"</li>
@@ -1266,6 +1271,7 @@ public class VoldemortConfig implements Serializable {
      * </ul>
      * 
      */
+    @Deprecated
     public void setMaxThreads(int maxThreads) {
         this.maxThreads = maxThreads;
     }
@@ -1312,7 +1318,7 @@ public class VoldemortConfig implements Serializable {
 
     /**
      * Determines whether the server will use NIO style selectors while handling
-     * requests
+     * requests. This is recommended over using old style BIO.
      * 
      * <ul>
      * <li>Property : "enable.nio.connector"</li>
@@ -2503,12 +2509,12 @@ public class VoldemortConfig implements Serializable {
         return readOnlySearchStrategy;
     }
 
-    public long getHdfsMaxBytesPerSecond() {
-        return hdfsMaxBytesPerSecond;
+    public long getReadOnlyFetcherMaxBytesPerSecond() {
+        return readOnlyFetcherMaxBytesPerSecond;
     }
 
     /**
-     * Global throttle limit for all HDFS fetches. New flows will dynamically
+     * Global throttle limit for all hadoop fetches. New flows will dynamically
      * share bandwidth with existing flows, to respect this parameter at all
      * times.
      * 
@@ -2517,30 +2523,30 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :0, No throttling</li>
      * </ul>
      */
-    public void setHdfsMaxBytesPerSecond(long maxBytesPerSecond) {
-        this.hdfsMaxBytesPerSecond = maxBytesPerSecond;
+    public void setReadOnlyFetcherMaxBytesPerSecond(long maxBytesPerSecond) {
+        this.readOnlyFetcherMaxBytesPerSecond = maxBytesPerSecond;
     }
 
-    public long getHdfsMinBytesPerSecond() {
-        return hdfsMinBytesPerSecond;
+    public long getReadOnlyFetcherMinBytesPerSecond() {
+        return readOnlyFetcherMinBytesPerSecond;
     }
 
     /**
-     * Minimum amount of bandwidth that is guaranteed for any HDFS fetch.. New
-     * flows will be rejected if the server cannot guarantee this property for
-     * existing flows, if it accepts the new flow.
+     * Minimum amount of bandwidth that is guaranteed for any read only hadoop
+     * fetch.. New flows will be rejected if the server cannot guarantee this
+     * property for existing flows, if it accepts the new flow.
      * 
      * <ul>
      * <li>Property :"fetcher.min.bytes.per.sec"</li>
      * <li>Default :0, no lower limit</li>
      * </ul>
      */
-    public void setHdfsMinBytesPerSecond(long minBytesPerSecond) {
-        this.hdfsMinBytesPerSecond = minBytesPerSecond;
+    public void setReadOnlyFetcherMinBytesPerSecond(long minBytesPerSecond) {
+        this.readOnlyFetcherMinBytesPerSecond = minBytesPerSecond;
     }
 
-    public long getHdfsReportingIntervalBytes() {
-        return hdfsReportingIntervalBytes;
+    public long getReadOnlyFetcherReportingIntervalBytes() {
+        return readOnlyFetcherReportingIntervalBytes;
     }
 
     /**
@@ -2551,8 +2557,8 @@ public class VoldemortConfig implements Serializable {
      * <li>Default :25MB</li>
      * </ul>
      */
-    public void setHdfsReportingIntervalBytes(long reportingIntervalBytes) {
-        this.hdfsReportingIntervalBytes = reportingIntervalBytes;
+    public void setReadOnlyFetcherReportingIntervalBytes(long reportingIntervalBytes) {
+        this.readOnlyFetcherReportingIntervalBytes = reportingIntervalBytes;
     }
 
     public int getFetcherBufferSize() {
@@ -2717,18 +2723,18 @@ public class VoldemortConfig implements Serializable {
     }
 
     public int getGossipInterval() {
-        return gossipInterval;
+        return gossipIntervalMs;
     }
 
     /**
-     * Enabled gossip between servers, in server side routing.. Has no effect
-     * when using client side routing, as in {@link DefaultStoreClient}
+     * When Gossip is enabled, time interval to exchange gossip messages between
+     * servers
      * <ul>
-     * <li>Property :"enable.gossip"</li>
-     * <li>Default :false</li>
+     * <li>Property :"gossip.interval.ms"</li>
+     * <li>Default :30000</li>
      * </ul>
      */
-    public void setGossipInterval(int gossipInterval) {
-        this.gossipInterval = gossipInterval;
+    public void setGossipInterval(int gossipIntervalMs) {
+        this.gossipIntervalMs = gossipIntervalMs;
     }
 }

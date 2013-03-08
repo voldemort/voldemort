@@ -386,10 +386,10 @@ public class ClientConfig {
      * @param sysRoutingTimeout
      * @return
      */
-    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeout) {
-        if(sysRoutingTimeout <= 0)
+    private ClientConfig setSysRoutingTimeout(int sysRoutingTimeoutMs) {
+        if(sysRoutingTimeoutMs <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
-        this.sysRoutingTimeoutMs = sysRoutingTimeout;
+        this.sysRoutingTimeoutMs = sysRoutingTimeoutMs;
         return this;
     }
 
@@ -404,10 +404,10 @@ public class ClientConfig {
      * @param sysSocketTimeout
      * @return
      */
-    private ClientConfig setSysSocketTimeout(int sysSocketTimeout) {
-        if(sysSocketTimeout <= 0)
+    private ClientConfig setSysSocketTimeout(int sysSocketTimeoutMs) {
+        if(sysSocketTimeoutMs <= 0)
             throw new IllegalArgumentException("Value must be greater than zero.");
-        this.sysSocketTimeoutMs = sysSocketTimeout;
+        this.sysSocketTimeoutMs = sysSocketTimeoutMs;
         return this;
     }
 
@@ -468,10 +468,10 @@ public class ClientConfig {
     }
 
     /**
-     * Set the maximum number of connection allowed to each voldemort node. Play
-     * with this value to determine how many connections are enough for your
-     * workload. Without high enough connections, you may not be able to throw
-     * enough traffic at the servers
+     * Set the maximum number of connections allowed to each voldemort node.
+     * Play with this value to determine how many connections are enough for
+     * your workload. Without high enough connections, you may not be able to
+     * throw enough traffic at the servers
      * 
      * @param maxConnectionsPerNode The maximum number of connections
      */
