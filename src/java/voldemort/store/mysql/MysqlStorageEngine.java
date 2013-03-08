@@ -28,10 +28,8 @@ import javax.sql.DataSource;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.NoSuchCapabilityException;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.PersistenceFailureException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
@@ -49,17 +47,16 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class MysqlStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(MysqlStorageEngine.class);
     private static int MYSQL_ERR_DUP_KEY = 1022;
     private static int MYSQL_ERR_DUP_ENTRY = 1062;
 
-    private final String name;
     private final DataSource datasource;
 
     public MysqlStorageEngine(String name, DataSource datasource) {
-        this.name = name;
+        super(name);
         this.datasource = datasource;
 
         if(!tableExists()) {
@@ -112,14 +109,16 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         return StoreUtils.keys(entries());
     }
 
+    @Override
     public void truncate() {
         Connection conn = null;
         PreparedStatement stmt = null;
-        String select = "delete from " + name;
+        String select = "delete from " + getName();
         try {
             conn = datasource.getConnection();
             stmt = conn.prepareStatement(select);
@@ -132,11 +131,12 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
-        String select = "select key_, version_, value_ from " + name;
+        String select = "select key_, version_, value_ from " + getName();
         try {
             conn = datasource.getConnection();
             stmt = conn.prepareStatement(select);
@@ -147,28 +147,28 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
+    @Override
     public void close() throws PersistenceFailureException {
         // don't close datasource cause others could be using it
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
+    @Override
     public boolean delete(ByteArray key, Version maxVersion) throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         Connection conn = null;
         PreparedStatement selectStmt = null;
         ResultSet rs = null;
-        String select = "select key_, version_ from " + name + " where key_ = ? for update";
+        String select = "select key_, version_ from " + getName() + " where key_ = ? for update";
 
         try {
             conn = datasource.getConnection();
@@ -196,7 +196,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
     }
 
     private void delete(Connection connection, byte[] key, byte[] version) throws SQLException {
-        String delete = "delete from " + name + " where key_ = ? and version_ = ?";
+        String delete = "delete from " + getName() + " where key_ = ? and version_ = ?";
         PreparedStatement deleteStmt = null;
         try {
 
@@ -209,6 +209,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -216,7 +217,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         Connection conn = null;
         PreparedStatement stmt = null;
         ResultSet rs = null;
-        String select = "select version_, value_ from " + name + " where key_ = ?";
+        String select = "select version_, value_ from " + getName() + " where key_ = ?";
         try {
             conn = datasource.getConnection();
             stmt = conn.prepareStatement(select);
@@ -243,16 +244,14 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
         return StoreUtils.get(this, key, transforms);
     }
 
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
@@ -261,8 +260,9 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
         PreparedStatement insert = null;
         PreparedStatement select = null;
         ResultSet results = null;
-        String insertSql = "insert into " + name + " (key_, version_, value_) values (?, ?, ?)";
-        String selectSql = "select key_, version_ from " + name + " where key_ = ?";
+        String insertSql = "insert into " + getName()
+                           + " (key_, version_, value_) values (?, ?, ?)";
+        String selectSql = "select key_, version_ from " + getName() + " where key_ = ?";
         try {
             conn = datasource.getConnection();
             conn.setAutoCommit(false);
@@ -363,16 +363,19 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             this.statement = statement;
         }
 
+        @Override
         public void close() {
             tryClose(rs);
             tryClose(statement);
             tryClose(connection);
         }
 
+        @Override
         public boolean hasNext() {
             return this.hasMore;
         }
 
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             try {
                 if(!this.hasMore)
@@ -387,6 +390,7 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
             }
         }
 
+        @Override
         public void remove() {
             try {
                 rs.deleteRow();
@@ -397,26 +401,8 @@ public class MysqlStorageEngine implements StorageEngine<ByteArray, byte[], byte
 
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
-    }
-
-    public boolean isPartitionAware() {
-        return false;
-    }
-
-    public boolean isPartitionScanSupported() {
-        // no reason why we cannot do this on MySQL. Will be added later
-        return false;
-    }
-
-    @Override
-    public boolean beginBatchModifications() {
-        return false;
-    }
-
-    @Override
-    public boolean endBatchModifications() {
-        return false;
     }
 }

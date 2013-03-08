@@ -1104,4 +1104,13 @@ public class ClientConfig {
         this.enableInconsistencyResolvingLayer = enableInconsistencyResolvingLayer;
         return this;
     }
+
+    public String toString() {
+        StringBuilder clientConfigInfo = new StringBuilder();
+        clientConfigInfo.append("Max connections per node: " + this.maxConnectionsPerNode + "\n");
+        clientConfigInfo.append("Connection timeout : " + this.connectionTimeoutMs + "\n");
+        clientConfigInfo.append("Socket timeout : " + this.socketTimeoutMs + "\n");
+        clientConfigInfo.append("Routing timeout : " + this.routingTimeoutMs + "\n");
+        return clientConfigInfo.toString();
+    }
 }

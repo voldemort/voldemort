@@ -10,6 +10,7 @@ import voldemort.cluster.Node;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.UnreachableStoreException;
+import voldemort.store.VoldemortRequestWrapper;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -98,6 +99,27 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
             public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
                     throws VoldemortException {}
 
+            @Override
+            public List<Versioned<byte[]>> get(VoldemortRequestWrapper<ByteArray, byte[]> request)
+                    throws VoldemortException {
+                return null;
+            }
+
+            @Override
+            public Map<ByteArray, List<Versioned<byte[]>>> getAll(VoldemortRequestWrapper<ByteArray, byte[]> request)
+                    throws VoldemortException {
+                return null;
+            }
+
+            @Override
+            public void put(VoldemortRequestWrapper<ByteArray, byte[]> request)
+                    throws VoldemortException {}
+
+            @Override
+            public boolean delete(VoldemortRequestWrapper<ByteArray, byte[]> request)
+                    throws VoldemortException {
+                return false;
+            }
         };
     }
 

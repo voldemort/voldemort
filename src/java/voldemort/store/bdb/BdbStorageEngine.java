@@ -31,13 +31,11 @@ import org.apache.log4j.Logger;
 import voldemort.VoldemortException;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.server.protocol.admin.AsyncOperationStatus;
-import voldemort.store.NoSuchCapabilityException;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.PersistenceFailureException;
-import voldemort.store.StorageEngine;
 import voldemort.store.StorageInitializationException;
 import voldemort.store.Store;
 import voldemort.store.StoreBinaryFormat;
-import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.backup.NativeBackupable;
 import voldemort.store.bdb.stats.BdbEnvironmentStats;
@@ -69,12 +67,12 @@ import com.sleepycat.je.Transaction;
  * A store that uses BDB for persistence
  * 
  */
-public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]>, NativeBackupable {
+public class BdbStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> implements
+        NativeBackupable {
 
     private static final Logger logger = Logger.getLogger(BdbStorageEngine.class);
     private static final Hex hexCodec = new Hex();
 
-    private final String name;
     private Database bdbDatabase;
     private final Environment environment;
     private final AtomicBoolean isOpen;
@@ -90,7 +88,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
                             Environment environment,
                             Database database,
                             BdbRuntimeConfig config) {
-        this.name = Utils.notNull(name);
+        super(name);
         this.bdbDatabase = Utils.notNull(database);
         this.environment = Utils.notNull(environment);
         this.isOpen = new AtomicBoolean(true);
@@ -103,10 +101,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         this.checkpointerOffForBatchWrites = config.isCheckpointerOffForBatchWrites();
     }
 
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         try {
             Cursor cursor = getBdbDatabase().openCursor(null, null);
@@ -121,6 +116,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         try {
             Cursor cursor = getBdbDatabase().openCursor(null, null);
@@ -135,14 +131,17 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
+    @Override
     public void truncate() {
 
         if(isTruncating.compareAndSet(false, true)) {
@@ -225,10 +224,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return bdbDatabase;
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
             throws PersistenceFailureException {
         StoreUtils.assertValidKey(key);
@@ -263,6 +264,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -290,6 +292,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return results;
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws PersistenceFailureException {
 
@@ -366,6 +369,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws PersistenceFailureException {
 
         StoreUtils.assertValidKey(key);
@@ -443,13 +447,9 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
     @Override
     public int hashCode() {
-        return name.hashCode();
+        return getName().hashCode();
     }
 
     @Override
@@ -460,6 +460,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         return s.getName().equals(s.getName());
     }
 
+    @Override
     public void close() throws PersistenceFailureException {
         try {
             if(this.isOpen.compareAndSet(true, false))
@@ -534,12 +535,14 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             this.cache = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
         }
 
+        @Override
         public boolean hasNext() {
             // we have a next element if there is at least one cached
             // element or we can make more
             return cache.size() > 0 || makeMore();
         }
 
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             if(cache.size() == 0) {
                 if(!makeMore())
@@ -586,10 +589,12 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
             super(cursor, bdbEngine);
         }
 
+        @Override
         public boolean hasNext() {
             return current != null || fetchNextKey();
         }
 
+        @Override
         public ByteArray next() {
             ByteArray result = null;
             if(current == null) {
@@ -627,14 +632,7 @@ public class BdbStorageEngine implements StorageEngine<ByteArray, byte[], byte[]
         }
     }
 
-    public boolean isPartitionAware() {
-        return false;
-    }
-
-    public boolean isPartitionScanSupported() {
-        return false;
-    }
-
+    @Override
     public void nativeBackup(File toDir,
                              boolean verifyFiles,
                              boolean isIncremental,

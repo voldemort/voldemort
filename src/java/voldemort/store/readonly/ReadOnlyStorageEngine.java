@@ -34,9 +34,7 @@ import voldemort.VoldemortUnsupportedOperationalException;
 import voldemort.annotations.jmx.JmxGetter;
 import voldemort.annotations.jmx.JmxOperation;
 import voldemort.routing.RoutingStrategy;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.store.readonly.chunk.ChunkedFileSet;
 import voldemort.utils.ByteArray;
@@ -54,11 +52,10 @@ import com.google.common.collect.Lists;
  * 
  * 
  */
-public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class ReadOnlyStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     private static Logger logger = Logger.getLogger(ReadOnlyStorageEngine.class);
 
-    private final String name;
     private final int numBackups, nodeId;
     private long currentVersionId;
     private final File storeDir;
@@ -125,10 +122,10 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
                                  int deleteBackupMs,
                                  boolean enforceMlock) {
 
+        super(name);
         this.enforceMlock = enforceMlock;
         this.storeDir = storeDir;
         this.numBackups = numBackups;
-        this.name = Utils.notNull(name);
         this.searchStrategy = searchStrategy;
         this.routingStrategy = Utils.notNull(routingStrategy);
         this.nodeId = nodeId;
@@ -273,6 +270,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     /**
      * Close the store.
      */
+    @Override
     public void close() throws VoldemortException {
         logger.debug("Close called for read-only store.");
         this.fileModificationLock.writeLock().lock();
@@ -389,6 +387,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     private void deleteAsync(final File file) {
         new Thread(new Runnable() {
 
+            @Override
             public void run() {
                 try {
                     try {
@@ -466,6 +465,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         if(!(fileSet.getReadOnlyStorageFormat().compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0))
             throw new UnsupportedOperationException("Iteration is not supported for "
@@ -475,6 +475,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         return new ChunkedFileSet.ROKeyIterator(fileSet, fileModificationLock);
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         if(!(fileSet.getReadOnlyStorageFormat().compareTo(ReadOnlyStorageFormat.READONLY_V2) == 0))
             throw new UnsupportedOperationException("Iteration is not supported for "
@@ -484,14 +485,17 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         return new ChunkedFileSet.ROEntriesIterator(fileSet, fileModificationLock);
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
+    @Override
     public void truncate() {
         if(isOpen)
             close();
@@ -499,6 +503,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         logger.debug("Truncate successful for read-only store ");
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
@@ -526,6 +531,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -560,6 +566,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     /**
      * Not supported, throws UnsupportedOperationException if called
      */
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new UnsupportedOperationException("Delete is not supported on this store, it is read-only.");
     }
@@ -567,18 +574,16 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
     /**
      * Not supported, throws UnsupportedOperationException if called
      */
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         throw new VoldemortUnsupportedOperationalException("Put is not supported on this store, it is read-only.");
     }
 
     @JmxGetter(name = "name", description = "The name of the store.")
+    @Override
     public String getName() {
-        return name;
-    }
-
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
+        return super.getName();
     }
 
     private final static class KeyValueLocation implements Comparable<KeyValueLocation> {
@@ -606,6 +611,7 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
             return valueLocation;
         }
 
+        @Override
         public int compareTo(KeyValueLocation kvl) {
             if(chunk == kvl.getChunk()) {
                 if(valueLocation == kvl.getValueLocation())
@@ -618,26 +624,13 @@ public class ReadOnlyStorageEngine implements StorageEngine<ByteArray, byte[], b
         }
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
+    @Override
     public boolean isPartitionAware() {
         return true;
-    }
-
-    public boolean isPartitionScanSupported() {
-        // this should be easy to support, will be added later
-        return false;
-    }
-
-    @Override
-    public boolean beginBatchModifications() {
-        return false;
-    }
-
-    @Override
-    public boolean endBatchModifications() {
-        return false;
     }
 }

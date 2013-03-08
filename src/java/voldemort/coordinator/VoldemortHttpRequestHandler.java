@@ -1,42 +1,50 @@
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.COOKIE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.SET_COOKIE;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.handler.codec.http.Cookie;
-import org.jboss.netty.handler.codec.http.CookieDecoder;
-import org.jboss.netty.handler.codec.http.CookieEncoder;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpChunkTrailer;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.util.CharsetUtil;
 
+import voldemort.common.VoldemortOpCode;
+import voldemort.store.VoldemortRequestWrapper;
 import voldemort.utils.ByteArray;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
 
+/**
+ * A class to handle the HTTP request and execute the same on behalf of the thin
+ * client.
+ * 
+ * Currently, we're using a fat client to handle this request.
+ * 
+ */
 public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     public HttpRequest request;
@@ -46,11 +54,8 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     public ChannelBuffer responseContent;
     private Map<String, FatClientWrapper> fatClientMap;
     private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
-
-    public static enum OP_TYPE {
-        GET,
-        PUT
-    }
+    private String storeName = null;
+    private FatClientWrapper fatClientWrapper = null;
 
     // Implicit constructor defined for the derived classes
     public VoldemortHttpRequestHandler() {}
@@ -59,74 +64,110 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         this.fatClientMap = fatClientMap;
     }
 
-    public OP_TYPE getOperationType(HttpMethod httpMethod) {
-        if(httpMethod.equals(HttpMethod.PUT)) {
-            return OP_TYPE.PUT;
+    /**
+     * Function to parse the HTTP headers and build a Voldemort request object
+     * 
+     * @param requestURI URI of the REST request
+     * @param operationType Message Event object used to write the response to
+     * @param e The REST (Voldemort) operation type
+     * @return true if a valid request was received. False otherwise
+     */
+    private VoldemortRequestWrapper parseRequest(String requestURI,
+                                                 MessageEvent e,
+                                                 byte operationType) {
+        VoldemortRequestWrapper requestWrapper = null;
+        long operationTimeoutInMs = 1500;
+        boolean resolveConflicts = true;
+
+        // Retrieve the timeout value from the REST request
+        String timeoutValStr = this.request.getHeader(R2Store.X_VOLD_REQUEST_TIMEOUT_MS);
+        if(timeoutValStr != null) {
+            try {
+                Long.parseLong(timeoutValStr);
+            } catch(NumberFormatException nfe) {
+                handleBadRequest(e, "Incorrect timeout parameter. Cannot parse this to long: "
+                                    + timeoutValStr + ". Details: " + nfe.getMessage());
+                return null;
+            }
         }
 
-        return OP_TYPE.GET;
-    }
-
-    public void writeResults(List<Versioned<Object>> values) {
-        responseContent.writeInt(values.size());
-        for(Versioned<Object> v: values) {
-            byte[] clock = ((VectorClock) v.getVersion()).toBytes();
-            byte[] value = (byte[]) v.getValue();
-            responseContent.writeInt(clock.length + value.length);
-            responseContent.writeBytes(clock);
-            responseContent.writeBytes(value);
+        // Retrieve the inconsistency resolving strategy from the REST request
+        String inconsistencyResolverOption = this.request.getHeader(R2Store.X_VOLD_INCONSISTENCY_RESOLVER);
+        if(inconsistencyResolverOption != null) {
+            if(inconsistencyResolverOption.equalsIgnoreCase(R2Store.CUSTOM_RESOLVING_STRATEGY)) {
+                resolveConflicts = false;
+            } else if(!inconsistencyResolverOption.equalsIgnoreCase(R2Store.DEFAULT_RESOLVING_STRATEGY)) {
+                handleBadRequest(e,
+                                 "Invalid Inconsistency Resolving strategy specified in the Request : "
+                                         + inconsistencyResolverOption);
+                return null;
+            }
         }
+
+        // Get the store name from the REST request
+        storeName = getStoreName(requestURI);
+        this.fatClientWrapper = null;
+        if(storeName != null) {
+            this.fatClientWrapper = this.fatClientMap.get(storeName);
+        }
+
+        if(storeName == null || fatClientWrapper == null) {
+            handleBadRequest(e, "Invalid store name. Critical error.");
+            return null;
+        }
+
+        // Build the request object based on the operation type
+        switch(operationType) {
+            case VoldemortOpCode.GET_OP_CODE:
+                ByteArray getKey = readKey(requestURI);
+                requestWrapper = new VoldemortRequestWrapper(getKey,
+                                                             operationTimeoutInMs,
+                                                             resolveConflicts);
+                break;
+            case VoldemortOpCode.PUT_OP_CODE:
+                ChannelBuffer content = request.getContent();
+                if(!content.readable()) {
+                    handleBadRequest(e, "Contents not readable");
+                    return null;
+                }
+
+                ByteArray putKey = readKey(requestURI);
+                byte[] putValue = readValue(content);
+                requestWrapper = new VoldemortRequestWrapper(putKey, putValue, operationTimeoutInMs);
+
+                break;
+            default:
+                handleBadRequest(e, "Illegal Operation.");
+                return null;
+        }
+
+        return requestWrapper;
     }
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 
-        String storeName = "";
-
         if(!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
-            OP_TYPE operation = getOperationType(this.request.getMethod());
+            byte operationType = getOperationType(this.request.getMethod());
             String requestURI = this.request.getUri();
             logger.info(requestURI);
-
-            storeName = getStoreName(requestURI);
-            if(storeName == null) {
-                String errorMessage = "Invalid store name. Critical error.";
-                // this.responseContent =
-                // ChannelBuffers.copiedBuffer("Invalid store name. Critical error.".getBytes());
-                logger.error(errorMessage);
-                RESTErrorHandler.handleError(BAD_REQUEST, e, false, errorMessage);
-                return;
-            }
 
             if(request.isChunked()) {
                 readingChunks = true;
             } else {
 
-                // TODO: Check for correct number of parameters and Decoding
+                VoldemortRequestWrapper requestObject = parseRequest(requestURI, e, operationType);
+                if(requestObject == null) {
+                    return;
+                }
 
-                switch(operation) {
-                    case GET:
-                        ByteArray getKey = readKey(requestURI);
-                        this.fatClientMap.get(storeName).submitGetRequest(getKey, e);
+                switch(operationType) {
+                    case VoldemortOpCode.GET_OP_CODE:
+                        this.fatClientWrapper.submitGetRequest(requestObject, e);
                         break;
-                    case PUT:
-                        ChannelBuffer content = request.getContent();
-                        if(!content.readable()) {
-                            String errorMessage = "Contents not readable";
-                            // this.responseContent =
-                            // ChannelBuffers.copiedBuffer("Contents not readable".getBytes());
-                            logger.error(errorMessage);
-                            RESTErrorHandler.handleError(BAD_REQUEST,
-                                                         e,
-                                                         isKeepAlive(request),
-                                                         errorMessage);
-                            return;
-                        }
-
-                        ByteArray putKey = readKey(requestURI);
-                        byte[] putValue = readValue(content);
-                        this.fatClientMap.get(storeName).submitPutRequest(putKey, putValue, e);
+                    case VoldemortOpCode.PUT_OP_CODE:
+                        this.fatClientWrapper.submitPutRequest(requestObject, e);
                         break;
                     default:
                         String errorMessage = "Illegal operation.";
@@ -163,12 +204,53 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
     }
 
+    /**
+     * Send a BAD_REQUEST HTTP error back to the client with the specified
+     * message.
+     * 
+     * @param e Message event to write the error to
+     * @param msg Error message
+     */
+    private void handleBadRequest(MessageEvent e, String msg) {
+        String errorMessage = msg;
+        logger.error(errorMessage);
+        RESTErrorHandler.handleError(BAD_REQUEST, e, false, errorMessage);
+    }
+
+    /**
+     * Method to determine the operation type
+     * 
+     * @param httpMethod The HTTP Method object received by the Netty handler
+     * @return A voldemortOpCode object representing the operation type
+     */
+    protected byte getOperationType(HttpMethod httpMethod) {
+        if(httpMethod.equals(HttpMethod.POST)) {
+            return VoldemortOpCode.PUT_OP_CODE;
+        } else if(httpMethod.equals(HttpMethod.GET)) {
+            return VoldemortOpCode.GET_OP_CODE;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Method to read a value for a put operation
+     * 
+     * @param content The ChannelBuffer object containing the value
+     * @return The byte[] array representing the value
+     */
     private byte[] readValue(ChannelBuffer content) {
         byte[] value = new byte[content.capacity()];
         content.readBytes(value);
         return value;
     }
 
+    /**
+     * Method to read a key present in the HTTP request URI
+     * 
+     * @param requestURI The URI of the HTTP request
+     * @return the ByteArray representing the key
+     */
     private ByteArray readKey(String requestURI) {
         ByteArray key = null;
         String[] parts = requestURI.split("/");
@@ -179,6 +261,12 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         return key;
     }
 
+    /**
+     * Retrieve the store name from the URI
+     * 
+     * @param requestURI The URI of the HTTP request
+     * @return The string representing the store name
+     */
     private String getStoreName(String requestURI) {
         String storeName = null;
         String[] parts = requestURI.split("/");
@@ -187,47 +275,6 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
 
         return storeName;
-    }
-
-    public void writeResponse(MessageEvent e) {
-        // Decide whether to close the connection or not.
-        boolean keepAlive = isKeepAlive(request);
-
-        // Build the response object.
-        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-        response.setContent(this.responseContent);
-        // response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
-        response.setHeader(CONTENT_TYPE, "application/pdf");
-        // response.setChunked(true);
-
-        if(keepAlive) {
-            // Add 'Content-Length' header only for a keep-alive connection.
-            response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
-        }
-
-        // Encode the cookie.
-        String cookieString = request.getHeader(COOKIE);
-        if(cookieString != null) {
-            CookieDecoder cookieDecoder = new CookieDecoder();
-            Set<Cookie> cookies = cookieDecoder.decode(cookieString);
-            if(!cookies.isEmpty()) {
-                // Reset the cookies if necessary.
-                CookieEncoder cookieEncoder = new CookieEncoder(true);
-                for(Cookie cookie: cookies) {
-                    cookieEncoder.addCookie(cookie);
-                }
-                response.addHeader(SET_COOKIE, cookieEncoder.encode());
-            }
-        }
-
-        // Write the response.
-        ChannelFuture future = e.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        if(!keepAlive) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
     }
 
     @Override

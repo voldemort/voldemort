@@ -1,11 +1,9 @@
-package voldemort.coordinator;
-
 /*
- * Copyright 2009 Red Hat, Inc.
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
- * Red Hat licenses this file to you under the Apache License, version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
  * 
  * http://www.apache.org/licenses/LICENSE-2.0
  * 
@@ -15,6 +13,8 @@ package voldemort.coordinator;
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
+package voldemort.coordinator;
 
 import static org.jboss.netty.channel.Channels.pipeline;
 
@@ -27,6 +27,11 @@ import org.jboss.netty.handler.codec.http.HttpContentCompressor;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 
+/**
+ * A PipelineFactory implementation to setup the Netty Pipeline in the
+ * Coordinator
+ * 
+ */
 public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
 
     private boolean noop = false;
@@ -42,14 +47,7 @@ public class CoordinatorPipelineFactory implements ChannelPipelineFactory {
         // Create a default pipeline implementation.
         ChannelPipeline pipeline = pipeline();
 
-        // Uncomment the following line if you want HTTPS
-        // SSLEngine engine =
-        // SecureChatSslContextFactory.getServerContext().createSSLEngine();
-        // engine.setUseClientMode(false);
-        // pipeline.addLast("ssl", new SslHandler(engine));
-
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        // Uncomment the following line if you don't want to handle HttpChunks.
         pipeline.addLast("aggregator", new HttpChunkAggregator(1048576));
         pipeline.addLast("encoder", new HttpResponseEncoder());
         // Remove the following line if you don't want automatic content

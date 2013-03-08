@@ -1,9 +1,20 @@
-package voldemort.coordinator;
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
-import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+package voldemort.coordinator;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -14,36 +25,40 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.client.ClientConfig;
-import voldemort.client.DefaultStoreClient;
 import voldemort.client.SocketStoreClientFactory;
-import voldemort.utils.ByteArray;
-import voldemort.versioning.ObsoleteVersionException;
+import voldemort.store.VoldemortRequestWrapper;
 
+/**
+ * A Wrapper class to provide asynchronous API for calling the fat client
+ * methods. These methods will be invoked by the Netty request handler instead
+ * of invoking the Fat Client methods on its own
+ * 
+ */
 public class FatClientWrapper {
 
     private ExecutorService fatClientExecutor;
     private SocketStoreClientFactory storeClientFactory;
-    private DefaultStoreClient<Object, Object> storeClient;
     private final Logger logger = Logger.getLogger(FatClientWrapper.class);
+    private DynamicTimeoutStoreClient dynamicTimeoutClient;
 
     /**
-     * A Wrapper class to provide asynchronous API for calling the fat client
-     * methods. These methods will be invoked by the Netty request handler
-     * instead of invoking the Fat Client methods on its own
      * 
-     * @param storeName: Store to connect to via this fat client
-     * @param bootstrapURLs: Bootstrap URLs for the intended cluster
+     * @param storeName Store to connect to via this fat client
+     * @param bootstrapURLs Bootstrap URLs for the intended cluster
+     * @param clientConfig The config used to bootstrap the fat client
+     * @param storesXml Stores XML used to bootstrap the fat client
+     * @param clusterXml Cluster XML used to bootstrap the fat client
      */
-    public FatClientWrapper(String storeName, String[] bootstrapURLs, ClientConfig clientConfig) {
+    public FatClientWrapper(String storeName,
+                            String[] bootstrapURLs,
+                            ClientConfig clientConfig,
+                            String storesXml,
+                            String clusterXml) {
+
+        // TODO: Import this from Config
         this.fatClientExecutor = new ThreadPoolExecutor(20, // Core pool size
                                                         20, // Max pool size
                                                         60, // Keepalive
@@ -79,24 +94,32 @@ public class FatClientWrapper {
         // this.fatClientRequestQueue = new SynchronousQueue<Future>();
 
         this.storeClientFactory = new SocketStoreClientFactory(clientConfig);
-        this.storeClient = (DefaultStoreClient<Object, Object>) this.storeClientFactory.getStoreClient(storeName);
+        this.dynamicTimeoutClient = new DynamicTimeoutStoreClient<Object, Object>(storeName,
+                                                                                  this.storeClientFactory,
+                                                                                  1,
+                                                                                  storesXml,
+                                                                                  clusterXml);
 
     }
 
     /**
      * Interface to do get from the Fat client
      * 
+     * 
      * @param key: ByteArray representation of the key to get received from the
      *        thin client
      * @param getRequest: MessageEvent to write the response on.
+     * @param operationTimeoutInMs The timeout value for this operation
+     * @param resolveConflicts Determines whether the default resolver should be
+     *        used in case of conflicts
      */
-    void submitGetRequest(final ByteArray key, final MessageEvent getRequest) {
+    void submitGetRequest(final VoldemortRequestWrapper getRequestObject,
+                          final MessageEvent getRequest) {
         try {
 
-            this.fatClientExecutor.submit(new GetRequestExecutor(key,
-                                                                 null,
+            this.fatClientExecutor.submit(new GetRequestExecutor(getRequestObject,
                                                                  getRequest,
-                                                                 this.storeClient));
+                                                                 this.dynamicTimeoutClient));
 
             // Keep track of this request for monitoring
             // this.fatClientRequestQueue.add(f);
@@ -111,11 +134,15 @@ public class FatClientWrapper {
      * @param key: ByteArray representation of the key to put
      * @param value: value corresponding to the key to put
      * @param putRequest: MessageEvent to write the response on.
+     * @param operationTimeoutInMs The timeout value for this operation
      */
-    void submitPutRequest(final ByteArray key, final byte[] value, final MessageEvent putRequest) {
+    void submitPutRequest(final VoldemortRequestWrapper putRequestObject,
+                          final MessageEvent putRequest) {
         try {
 
-            this.fatClientExecutor.submit(new PutRequestExecutor(key, value, putRequest));
+            this.fatClientExecutor.submit(new PutRequestExecutor(putRequestObject,
+                                                                 putRequest,
+                                                                 this.dynamicTimeoutClient));
 
             // Keep track of this request for monitoring
             // this.fatClientRequestQueue.add(f);
@@ -129,52 +156,4 @@ public class FatClientWrapper {
                                              // client
     }
 
-    private class PutRequestExecutor implements Runnable {
-
-        private ByteArray key;
-        private byte[] value;
-        private MessageEvent putRequest;
-        private ChannelBuffer responseContent;
-
-        public PutRequestExecutor(ByteArray key, byte[] value, MessageEvent request) {
-            this.key = key;
-            this.value = value;
-            this.putRequest = request;
-        }
-
-        private void writeResponse() {
-            // 1. Create the Response object
-            HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
-
-            // 2. Set the right headers
-            // response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
-            response.setHeader(CONTENT_TYPE, "application/json");
-            // response.setChunked(true);
-
-            // 3. Copy the data into the payload
-            response.setContent(responseContent);
-            response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
-
-            // Write the response to the Netty Channel
-            ChannelFuture future = this.putRequest.getChannel().write(response);
-
-            // Close the non-keep-alive connection after the write operation is
-            // done.
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
-
-        @Override
-        public void run() {
-
-            try {
-                storeClient.put(key, value);
-                logger.info("Put successful !");
-            } catch(ObsoleteVersionException oe) {
-                // Ideally propagate the exception !
-            }
-            this.responseContent = ChannelBuffers.EMPTY_BUFFER;
-            writeResponse();
-        }
-
-    }
 }

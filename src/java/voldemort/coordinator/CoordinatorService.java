@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.coordinator;
 
 import java.io.File;
@@ -36,6 +52,11 @@ import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
 
+/**
+ * A Netty based HTTP service that accepts REST requests from the Voldemort thin
+ * clients and invokes the corresponding Fat client API.
+ * 
+ */
 public class CoordinatorService {
 
     private static boolean noop = false;
@@ -49,13 +70,24 @@ public class CoordinatorService {
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
+    private static String CLIENT_CONFIG_AVRO_FILE_PATH = "";
 
+    /**
+     * Initializes all the Fat clients (1 per store) for the cluster that this
+     * Coordinator talks to. This is invoked once during startup and then every
+     * time the Metadata manager detects changes to the cluster and stores
+     * metadata.
+     */
     private static void initializeFatClients() {
         StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
+
+        // Fetch the state once and use this to initialize all the Fat clients
         String storesXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.STORES_KEY);
+        String clusterXml = storeClientFactory.bootstrapMetadataWithRetries(MetadataStore.CLUSTER_KEY);
+
         List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
                                                                        false);
-        Map<String, ClientConfig> fatClientConfigMap = readClientConfig("/home/csoman/Downloads/clientConfigs.avro",
+        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(CLIENT_CONFIG_AVRO_FILE_PATH,
                                                                         bootstrapURLs);
         // For now Simply create the map of store definition to
         // FatClientWrappers
@@ -70,7 +102,9 @@ public class CoordinatorService {
             logger.info("Using config: " + fatClientConfigMap.get(storeName));
             fatClientMap.put(storeName, new FatClientWrapper(storeName,
                                                              bootstrapURLs,
-                                                             fatClientConfigMap.get(storeName)));
+                                                             fatClientConfigMap.get(storeName),
+                                                             storesXml,
+                                                             clusterXml));
 
         }
 
@@ -78,20 +112,23 @@ public class CoordinatorService {
 
     public static void main(String[] args) {
 
-        if(args.length < 1) {
-            System.err.println("Missing argument: <Bootstrap URL>");
+        if(args.length < 2) {
+            System.err.println("Missing argument: <Bootstrap URL> <fat client config file path>");
             System.exit(-1);
         }
 
-        if(args.length == 2) {
-            if(args[1].equals("noop")) {
+        if(args.length == 3) {
+            if(args[2].equals("noop")) {
                 noop = true;
             }
         }
 
-        // Initialize the Voldemort Metadata
+        // Initialize Config
         bootstrapURLs = new String[1];
         bootstrapURLs[0] = args[0];
+        CLIENT_CONFIG_AVRO_FILE_PATH = args[1];
+
+        // Initialize the Voldemort Metadata
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setBootstrapUrls(bootstrapURLs);
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
@@ -107,6 +144,7 @@ public class CoordinatorService {
         // Create a callback for re-bootstrapping the client
         Callable<Void> rebootstrapCallback = new Callable<Void>() {
 
+            @Override
             public Void call() throws Exception {
                 initializeFatClients();
                 return null;
@@ -136,6 +174,14 @@ public class CoordinatorService {
         bootstrap.bind(new InetSocketAddress(8080));
     }
 
+    /**
+     * A function to parse the specified Avro file in order to obtain the config
+     * for each fat client managed by this coordinator.
+     * 
+     * @param configFilePath Path of the Avro file containing fat client configs
+     * @param bootstrapURLs The server URLs used during bootstrap
+     * @return Map of store name to the corresponding fat client config
+     */
     @SuppressWarnings("unchecked")
     private static Map<String, ClientConfig> readClientConfig(String configFilePath,
                                                               String[] bootstrapURLs) {

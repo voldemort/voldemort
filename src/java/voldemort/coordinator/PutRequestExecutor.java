@@ -17,24 +17,15 @@
 package voldemort.coordinator;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TRANSFER_ENCODING;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
-import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.ETAG;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
-import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
+import static org.jboss.netty.handler.codec.http.HttpResponseStatus.PRECONDITION_FAILED;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIMEOUT;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import java.io.IOException;
-
 import org.apache.log4j.Logger;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
@@ -44,126 +35,97 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import voldemort.VoldemortException;
 import voldemort.store.StoreTimeoutException;
 import voldemort.store.VoldemortRequestWrapper;
-import voldemort.versioning.VectorClock;
-import voldemort.versioning.Versioned;
+import voldemort.versioning.ObsoleteVersionException;
 
 /**
  * A Runnable class that uses the specified Fat client to perform a Voldemort
- * GET operation. This is invoked by a FatClientWrapper thread to satisfy a
- * corresponding REST GET request.
+ * PUT operation. This is invoked by a FatClientWrapper thread to satisfy a
+ * corresponding REST POST (PUT) request.
  * 
  */
-public class GetRequestExecutor implements Runnable {
+public class PutRequestExecutor implements Runnable {
 
-    private MessageEvent getRequestMessageEvent;
-    private ChannelBuffer responseContent;
+    private MessageEvent putRequestMessageEvent;
     DynamicTimeoutStoreClient<Object, Object> storeClient;
-    private final Logger logger = Logger.getLogger(GetRequestExecutor.class);
-    private final VoldemortRequestWrapper getRequestObject;
+    private final Logger logger = Logger.getLogger(PutRequestExecutor.class);
+    private final VoldemortRequestWrapper putRequestObject;
 
     /**
      * 
-     * @param getRequestObject The request object containing key and timeout
+     * @param putRequestObject The request object containing key and timeout
      *        values
      * @param requestEvent Reference to the MessageEvent for the response /
      *        error
      * @param storeClient Reference to the fat client for performing this Get
      *        operation
      */
-    public GetRequestExecutor(VoldemortRequestWrapper getRequestObject,
+    public PutRequestExecutor(VoldemortRequestWrapper putRequestObject,
                               MessageEvent requestEvent,
                               DynamicTimeoutStoreClient<Object, Object> storeClient) {
-        this.getRequestMessageEvent = requestEvent;
+        this.putRequestMessageEvent = requestEvent;
         this.storeClient = storeClient;
-        this.getRequestObject = getRequestObject;
+        this.putRequestObject = putRequestObject;
     }
 
-    public void writeResponse(Versioned<Object> responseVersioned) {
-
-        byte[] value = (byte[]) responseVersioned.getValue();
-
-        // Set the value as the HTTP response payload
-        byte[] responseValue = (byte[]) responseVersioned.getValue();
-        this.responseContent = ChannelBuffers.dynamicBuffer(responseValue.length);
-        this.responseContent.writeBytes(value);
-
-        VectorClock vc = (VectorClock) responseVersioned.getVersion();
-        VectorClockWrapper vcWrapper = new VectorClockWrapper(vc);
-        ObjectMapper mapper = new ObjectMapper();
-        String eTag = "";
-        try {
-            eTag = mapper.writeValueAsString(vcWrapper);
-        } catch(JsonGenerationException e) {
-            e.printStackTrace();
-        } catch(JsonMappingException e) {
-            e.printStackTrace();
-        } catch(IOException e) {
-            e.printStackTrace();
-        }
-
-        logger.info("ETAG : " + eTag);
-
+    private void writeResponse() {
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 
         // 2. Set the right headers
         response.setHeader(CONTENT_TYPE, "application/json");
-        response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
-        response.setHeader(ETAG, eTag);
 
         // 3. Copy the data into the payload
-        response.setContent(responseContent);
-        response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
-
-        logger.info("Response = " + response);
+        // response.setContent(responseContent);
+        response.setHeader(CONTENT_LENGTH, 0);
 
         // Write the response to the Netty Channel
-        ChannelFuture future = this.getRequestMessageEvent.getChannel().write(response);
+        ChannelFuture future = this.putRequestMessageEvent.getChannel().write(response);
 
         // Close the non-keep-alive connection after the write operation is
         // done.
         future.addListener(ChannelFutureListener.CLOSE);
-
     }
 
     @Override
     public void run() {
+
         try {
-            Versioned<Object> responseVersioned = storeClient.getWithCustomTimeout(this.getRequestObject);
-            logger.info("Get successful !");
-            if(responseVersioned == null) {
-                if(this.getRequestObject.getValue() != null) {
-                    responseVersioned = this.getRequestObject.getValue();
-                } else {
-                    RESTErrorHandler.handleError(NOT_FOUND,
-                                                 this.getRequestMessageEvent,
-                                                 false,
-                                                 "Requested Key does not exist");
-                }
-            }
-            writeResponse(responseVersioned);
+            this.storeClient.putWithCustomTimeout(putRequestObject);
+            logger.info("Put successful !");
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "PUT Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
             logger.error(errorDescription);
             RESTErrorHandler.handleError(BAD_REQUEST,
-                                         this.getRequestMessageEvent,
+                                         this.putRequestMessageEvent,
                                          false,
                                          errorDescription);
+        } catch(ObsoleteVersionException oe) {
+            String errorDescription = "PUT Failed !!! Obsolete version exception: "
+                                      + oe.getMessage();
+            logger.error(errorDescription);
+            RESTErrorHandler.handleError(PRECONDITION_FAILED,
+                                         this.putRequestMessageEvent,
+                                         false,
+                                         errorDescription);
+
         } catch(StoreTimeoutException timeoutException) {
             String errorDescription = "GET Request timed out: " + timeoutException.getMessage();
             logger.error(errorDescription);
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
-                                         this.getRequestMessageEvent,
+                                         this.putRequestMessageEvent,
                                          false,
                                          errorDescription);
+
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
-                                         this.getRequestMessageEvent,
+                                         this.putRequestMessageEvent,
                                          false,
                                          errorDescription);
         }
+
+        writeResponse();
     }
 
 }

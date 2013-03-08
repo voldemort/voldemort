@@ -42,7 +42,7 @@ import voldemort.routing.RouteToAllStrategy;
 import voldemort.routing.RoutingStrategy;
 import voldemort.routing.RoutingStrategyFactory;
 import voldemort.server.rebalance.RebalancerState;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreDefinition;
@@ -68,7 +68,7 @@ import com.google.common.collect.Lists;
  * Metadata is persisted as strings in inner store for ease of readability.<br>
  * Metadata Store keeps an in memory write-through-cache for performance.
  */
-public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
+public class MetadataStore extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String METADATA_STORE_NAME = "metadata";
 
@@ -119,6 +119,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
     private static final Logger logger = Logger.getLogger(MetadataStore.class);
 
     public MetadataStore(Store<String, String, String> innerStore, int nodeId) {
+        super(innerStore.getName());
         this.innerStore = innerStore;
         this.metadataCache = new HashMap<String, Versioned<Object>>();
         this.storeNameTolisteners = new ConcurrentHashMap<String, List<MetadataStoreListener>>();
@@ -154,6 +155,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         return new MetadataStore(innerStore, nodeId);
     }
 
+    @Override
     public String getName() {
         return METADATA_STORE_NAME;
     }
@@ -213,6 +215,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      *        definitions
      * @throws VoldemortException
      */
+    @Override
     public synchronized void put(ByteArray keyBytes, Versioned<byte[]> valueBytes, byte[] transforms)
             throws VoldemortException {
         String key = ByteUtils.getString(keyBytes.get(), "UTF-8");
@@ -225,10 +228,12 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         this.put(key, valueObject);
     }
 
+    @Override
     public void close() throws VoldemortException {
         innerStore.close();
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return innerStore.getCapability(capability);
     }
@@ -239,6 +244,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
      *         bytes for cluster xml definitions
      * @throws VoldemortException
      */
+    @Override
     public synchronized List<Versioned<byte[]>> get(ByteArray keyBytes, byte[] transforms)
             throws VoldemortException {
         try {
@@ -286,6 +292,7 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         init(getNodeId());
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         List<Versioned<byte[]>> values = get(key, null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -473,30 +480,37 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         throw new VoldemortException("You cannot iterate over all entries in Metadata");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         throw new VoldemortException("You cannot iterate over all keys in Metadata");
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
+    @Override
     public void truncate() {
         throw new VoldemortException("You cannot truncate entries in Metadata");
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         throw new VoldemortException("You cannot delete your metadata fool !!");
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -649,23 +663,5 @@ public class MetadataStore implements StorageEngine<ByteArray, byte[], byte[]> {
             return values.get(0);
 
         throw new VoldemortException("No metadata found for required key:" + key);
-    }
-
-    public boolean isPartitionAware() {
-        return false;
-    }
-
-    public boolean isPartitionScanSupported() {
-        return false;
-    }
-
-    @Override
-    public boolean beginBatchModifications() {
-        return false;
-    }
-
-    @Override
-    public boolean endBatchModifications() {
-        return false;
     }
 }

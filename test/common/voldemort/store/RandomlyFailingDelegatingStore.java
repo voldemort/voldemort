@@ -16,19 +16,23 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
         this.innerStorageEngine = innerStorageEngine;
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries() {
         return new ClosableIterator<Pair<K, Versioned<V>>>() {
 
             ClosableIterator<Pair<K, Versioned<V>>> iterator = innerStorageEngine.entries();
 
+            @Override
             public void close() {
                 iterator.close();
             }
 
+            @Override
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
+            @Override
             public Pair<K, Versioned<V>> next() {
                 if(Math.random() > FAIL_PROBABILITY)
                     return iterator.next();
@@ -36,23 +40,28 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
                 throw new VoldemortException("Failing now !!");
             }
 
+            @Override
             public void remove() {}
         };
     }
 
+    @Override
     public ClosableIterator<K> keys() {
         return new ClosableIterator<K>() {
 
             ClosableIterator<K> iterator = innerStorageEngine.keys();
 
+            @Override
             public void close() {
                 iterator.close();
             }
 
+            @Override
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
+            @Override
             public K next() {
                 if(Math.random() > FAIL_PROBABILITY)
                     return iterator.next();
@@ -60,23 +69,28 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
                 throw new VoldemortException("Failing now !!");
             }
 
+            @Override
             public void remove() {}
         };
     }
 
+    @Override
     public ClosableIterator<Pair<K, Versioned<V>>> entries(final int partition) {
         return new ClosableIterator<Pair<K, Versioned<V>>>() {
 
             ClosableIterator<Pair<K, Versioned<V>>> iterator = innerStorageEngine.entries(partition);
 
+            @Override
             public void close() {
                 iterator.close();
             }
 
+            @Override
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
+            @Override
             public Pair<K, Versioned<V>> next() {
                 if(Math.random() > FAIL_PROBABILITY)
                     return iterator.next();
@@ -84,23 +98,28 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
                 throw new VoldemortException("Failing now !!");
             }
 
+            @Override
             public void remove() {}
         };
     }
 
+    @Override
     public ClosableIterator<K> keys(final int partition) {
         return new ClosableIterator<K>() {
 
             ClosableIterator<K> iterator = innerStorageEngine.keys(partition);
 
+            @Override
             public void close() {
                 iterator.close();
             }
 
+            @Override
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
+            @Override
             public K next() {
                 if(Math.random() > FAIL_PROBABILITY)
                     return iterator.next();
@@ -108,10 +127,12 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
                 throw new VoldemortException("Failing now !!");
             }
 
+            @Override
             public void remove() {}
         };
     }
 
+    @Override
     public void truncate() {
         if(Math.random() > FAIL_PROBABILITY) {
             innerStorageEngine.truncate();
@@ -120,10 +141,12 @@ public class RandomlyFailingDelegatingStore<K, V, T> extends DelegatingStore<K, 
         throw new VoldemortException("Failing now !!");
     }
 
+    @Override
     public boolean isPartitionAware() {
         return innerStorageEngine.isPartitionAware();
     }
 
+    @Override
     public boolean isPartitionScanSupported() {
         return innerStorageEngine.isPartitionScanSupported();
     }

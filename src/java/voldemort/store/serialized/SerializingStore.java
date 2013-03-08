@@ -22,6 +22,7 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.serialization.Serializer;
+import voldemort.store.AbstractStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
@@ -42,7 +43,7 @@ import com.google.common.collect.Maps;
  * @param <V> The type of the value being stored
  * @param <T> The type of transform
  */
-public class SerializingStore<K, V, T> implements Store<K, V, T> {
+public class SerializingStore<K, V, T> extends AbstractStore<K, V, T> {
 
     private final Store<ByteArray, byte[], byte[]> store;
     private final Serializer<K> keySerializer;
@@ -53,6 +54,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
                             Serializer<K> keySerializer,
                             Serializer<V> valueSerializer,
                             Serializer<T> transformsSerializer) {
+        super(store.getName());
         this.store = Utils.notNull(store);
         this.keySerializer = Utils.notNull(keySerializer);
         this.valueSerializer = Utils.notNull(valueSerializer);
@@ -66,6 +68,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return new SerializingStore<K1, V1, T1>(s, k, v, t);
     }
 
+    @Override
     public boolean delete(K key, Version version) throws VoldemortException {
         return store.delete(keyToBytes(key), version);
     }
@@ -99,6 +102,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return result;
     }
 
+    @Override
     public List<Versioned<V>> get(K key, T transforms) throws VoldemortException {
         List<Versioned<byte[]>> found = store.get(keyToBytes(key),
                                                   (transformsSerializer != null && transforms != null) ? transformsSerializer.toBytes(transforms)
@@ -110,6 +114,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return results;
     }
 
+    @Override
     public Map<K, List<Versioned<V>>> getAll(Iterable<K> keys, Map<K, T> transforms)
             throws VoldemortException {
         StoreUtils.assertValidKeys(keys);
@@ -129,10 +134,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return result;
     }
 
-    public String getName() {
-        return store.getName();
-    }
-
+    @Override
     public void put(K key, Versioned<V> value, T transforms) throws VoldemortException {
         store.put(keyToBytes(key),
                   new Versioned<byte[]>(valueSerializer.toBytes(value.getValue()),
@@ -140,10 +142,12 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
                   transformToBytes(transforms));
     }
 
+    @Override
     public List<Version> getVersions(K key) {
         return store.getVersions(keyToBytes(key));
     }
 
+    @Override
     public void close() {
         store.close();
     }
@@ -156,6 +160,7 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
         return keySerializer;
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         switch(capability) {
             case KEY_SERIALIZER:
@@ -166,5 +171,4 @@ public class SerializingStore<K, V, T> implements Store<K, V, T> {
                 return store.getCapability(capability);
         }
     }
-
 }

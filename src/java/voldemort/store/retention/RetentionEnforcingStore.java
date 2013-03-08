@@ -39,6 +39,7 @@ public class RetentionEnforcingStore extends DelegatingStore<ByteArray, byte[], 
         this.time = time;
     }
 
+    @Override
     public void updateRoutingStrategy(RoutingStrategy routingStrategyMap) {
         return; // no-op
     }
@@ -47,6 +48,7 @@ public class RetentionEnforcingStore extends DelegatingStore<ByteArray, byte[], 
      * Updates the store definition object and the retention time based on the
      * updated store definition
      */
+    @Override
     public void updateStoreDefinition(StoreDefinition storeDef) {
         this.storeDef = storeDef;
         if(storeDef.hasRetentionPeriod())

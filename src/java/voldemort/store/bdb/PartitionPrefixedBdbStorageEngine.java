@@ -144,12 +144,14 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             this.positioned = false;
         }
 
+        @Override
         public boolean hasNext() {
             // we have a next element if there is at least one cached
             // element or we can make more
             return cache.size() > 0 || makeMore();
         }
 
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             if(cache.size() == 0) {
                 if(!makeMore())
@@ -216,10 +218,12 @@ public class PartitionPrefixedBdbStorageEngine extends BdbStorageEngine {
             positioned = false;
         }
 
+        @Override
         public boolean hasNext() {
             return current != null || fetchNextKey();
         }
 
+        @Override
         public ByteArray next() {
             ByteArray result = null;
             if(current == null) {

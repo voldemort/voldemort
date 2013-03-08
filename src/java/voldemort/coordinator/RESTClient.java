@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.coordinator;
 
 import java.util.List;
@@ -33,11 +49,19 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private StoreDefinition storeDef;
 
+    /**
+     * A REST ful equivalent of the DefaultStoreClient. This uses the R2Store to
+     * interact with the RESTful Coordinator
+     * 
+     * @param bootstrapURL The bootstrap URL of the Voldemort cluster
+     * @param storeName Name of the store to interact with
+     */
     public RESTClient(String bootstrapURL, String storeName) {
 
         String baseURL = "http://" + bootstrapURL.split(":")[1].substring(2) + ":8080";
         // The lowest layer : Transporting request to coordinator
-        Store<ByteArray, byte[], byte[]> store = (Store<ByteArray, byte[], byte[]>) new R2StoreWrapper(baseURL);
+        Store<ByteArray, byte[], byte[]> store = (Store<ByteArray, byte[], byte[]>) new R2Store(baseURL,
+                                                                                                "R2Store");
 
         // TODO
         // Get the store definition so that we can learn the Serialization
@@ -48,6 +72,9 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         // Add compression layer
 
         // Add Serialization layer
+
+        // Set the following values although we don't need them
+        // TODO: Fix this, so that we only need to set the needed parameters
         storeDef = new StoreDefinitionBuilder().setName(storeName)
                                                .setType("bdb")
                                                .setKeySerializer(new SerializerDefinition("string"))

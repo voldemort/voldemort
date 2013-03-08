@@ -25,6 +25,7 @@ import voldemort.cluster.Cluster;
 import voldemort.serialization.ByteArraySerializer;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.SlopSerializer;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.serialized.SerializingStorageEngine;
@@ -41,7 +42,7 @@ import voldemort.versioning.Versioned;
  * last run
  * 
  */
-public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class SlopStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     public static final String SLOP_STORE_NAME = "slop";
 
@@ -50,6 +51,7 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
     private final SlopStats slopStats;
 
     public SlopStorageEngine(StorageEngine<ByteArray, byte[], byte[]> slopEngine, Cluster cluster) {
+        super(slopEngine.getName());
         this.slopEngine = slopEngine;
         this.slopSerializer = new SlopSerializer();
         this.slopStats = new SlopStats(cluster);
@@ -81,65 +83,75 @@ public class SlopStorageEngine implements StorageEngine<ByteArray, byte[], byte[
                                              new IdentitySerializer());
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         return slopEngine.entries();
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         return slopEngine.keys();
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         return slopEngine.entries(partition);
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         return slopEngine.keys(partition);
     }
 
+    @Override
     public void truncate() {
         slopEngine.truncate();
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         return slopEngine.get(key, transforms);
     }
 
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
         return slopEngine.getAll(keys, transforms);
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         slopEngine.put(key, value, transforms);
     }
 
+    @Override
     public boolean delete(ByteArray key, Version version) throws VoldemortException {
         return slopEngine.delete(key, version);
     }
 
-    public String getName() {
-        return slopEngine.getName();
-    }
-
+    @Override
     public void close() throws VoldemortException {
         slopEngine.close();
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         return slopEngine.getCapability(capability);
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return slopEngine.getVersions(key);
     }
 
+    @Override
     public boolean isPartitionAware() {
         return slopEngine.isPartitionAware();
     }
 
+    @Override
     public boolean isPartitionScanSupported() {
         return slopEngine.isPartitionScanSupported();
     }

@@ -23,6 +23,7 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
+import voldemort.store.VoldemortRequestWrapper;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -65,6 +66,27 @@ public class InconsistencyResolvingStore<K, V, T> extends DelegatingStore<K, V, 
             return this.resolver;
         else
             return super.getCapability(capability);
+    }
+
+    @Override
+    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+        if(request.resolveConflicts()) {
+            return resolver.resolveConflicts(super.get(request));
+        }
+        return super.get(request);
+    }
+
+    @Override
+    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+            throws VoldemortException {
+        Map<K, List<Versioned<V>>> m = super.getAll(request);
+        if(request.resolveConflicts()) {
+            for(Map.Entry<K, List<Versioned<V>>> entry: m.entrySet()) {
+                m.put(entry.getKey(), resolver.resolveConflicts(entry.getValue()));
+            }
+        }
+
+        return m;
     }
 
 }

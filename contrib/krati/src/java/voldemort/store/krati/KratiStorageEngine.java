@@ -20,25 +20,21 @@ import krati.util.FnvHashFunction;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.NoSuchCapabilityException;
-import voldemort.store.StorageEngine;
-import voldemort.store.StoreCapabilityType;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreUtils;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.Pair;
 import voldemort.utils.StripedLock;
-import voldemort.utils.Utils;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Occurred;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
-public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte[]> {
+public class KratiStorageEngine extends AbstractStorageEngine<ByteArray, byte[], byte[]> {
 
     private static final Logger logger = Logger.getLogger(KratiStorageEngine.class);
-    private final String name;
     private final DynamicDataStore datastore;
     private final StripedLock locks;
 
@@ -49,7 +45,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
                               double hashLoadFactor,
                               int initLevel,
                               File dataDirectory) {
-        this.name = Utils.notNull(name);
+        super(name);
         try {
             this.datastore = new DynamicDataStore(dataDirectory,
                                                   initLevel,
@@ -64,16 +60,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
 
     }
 
-    public Object getCapability(StoreCapabilityType capability) {
-        throw new NoSuchCapabilityException(capability, getName());
-    }
-
-    public String getName() {
-        return this.name;
-    }
-
-    public void close() throws VoldemortException {}
-
+    @Override
     public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                           Map<ByteArray, byte[]> transforms)
             throws VoldemortException {
@@ -81,19 +68,22 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         return StoreUtils.getAll(this, keys, null);
     }
 
+    @Override
     public List<Version> getVersions(ByteArray key) {
         return StoreUtils.getVersions(get(key, null));
     }
 
+    @Override
     public void truncate() {
         try {
             datastore.clear();
         } catch(Exception e) {
-            logger.error("Failed to truncate store '" + name + "': ", e);
-            throw new VoldemortException("Failed to truncate store '" + name + "'.");
+            logger.error("Failed to truncate store '" + getName() + "': ", e);
+            throw new VoldemortException("Failed to truncate store '" + getName() + "'.");
         }
     }
 
+    @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         try {
@@ -104,6 +94,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries() {
         List<Pair<ByteArray, Versioned<byte[]>>> returnedList = new ArrayList<Pair<ByteArray, Versioned<byte[]>>>();
         DataArray array = datastore.getDataArray();
@@ -143,18 +134,22 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         return new KratiClosableIterator(returnedList);
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys() {
         return StoreUtils.keys(entries());
     }
 
+    @Override
     public ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<ByteArray> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
+    @Override
     public boolean delete(ByteArray key, Version maxVersion) throws VoldemortException {
         StoreUtils.assertValidKey(key);
 
@@ -197,6 +192,7 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
         }
     }
 
+    @Override
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -298,40 +294,26 @@ public class KratiStorageEngine implements StorageEngine<ByteArray, byte[], byte
             iter = list.iterator();
         }
 
+        @Override
         public void close() {
             // Nothing to close here
         }
 
+        @Override
         public boolean hasNext() {
             return iter.hasNext();
         }
 
+        @Override
         public Pair<ByteArray, Versioned<byte[]>> next() {
             return iter.next();
         }
 
+        @Override
         public void remove() {
             Pair<ByteArray, Versioned<byte[]>> currentPair = next();
             delete(currentPair.getFirst(), currentPair.getSecond().getVersion());
         }
 
-    }
-
-    public boolean isPartitionAware() {
-        return false;
-    }
-
-    public boolean isPartitionScanSupported() {
-        return false;
-    }
-
-    @Override
-    public boolean beginBatchModifications() {
-        return false;
-    }
-
-    @Override
-    public boolean endBatchModifications() {
-        return false;
     }
 }

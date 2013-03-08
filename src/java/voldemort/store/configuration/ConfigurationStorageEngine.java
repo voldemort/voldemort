@@ -27,7 +27,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
-import voldemort.store.StorageEngine;
+import voldemort.store.AbstractStorageEngine;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.StoreUtils;
 import voldemort.store.metadata.MetadataStore;
@@ -45,36 +45,35 @@ import voldemort.versioning.Versioned;
  * 
  * 
  */
-public class ConfigurationStorageEngine implements StorageEngine<String, String, String> {
+public class ConfigurationStorageEngine extends AbstractStorageEngine<String, String, String> {
 
     private final static Logger logger = Logger.getLogger(ConfigurationStorageEngine.class);
-    private final String name;
     private final File directory;
 
     public ConfigurationStorageEngine(String name, String directory) {
-        this.name = name;
+        super(name);
         this.directory = new File(directory);
         if(!this.directory.exists() && this.directory.canRead())
             throw new IllegalArgumentException("Directory " + this.directory.getAbsolutePath()
                                                + " does not exist or can not be read.");
     }
 
+    @Override
     public ClosableIterator<Pair<String, Versioned<String>>> entries() {
         throw new VoldemortException("Iteration  not supported in ConfigurationStorageEngine");
     }
 
+    @Override
     public ClosableIterator<Pair<String, Versioned<String>>> entries(int partition) {
         throw new UnsupportedOperationException("Partition based entries scan not supported for this storage type");
     }
 
+    @Override
     public ClosableIterator<String> keys(int partition) {
         throw new UnsupportedOperationException("Partition based key scan not supported for this storage type");
     }
 
-    public void close() throws VoldemortException {
-
-    }
-
+    @Override
     public synchronized boolean delete(String key, Version version) throws VoldemortException {
         StoreUtils.assertValidKey(key);
         for(File file: getDirectory(key).listFiles()) {
@@ -92,12 +91,14 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return false;
     }
 
+    @Override
     public synchronized List<Versioned<String>> get(String key, String transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
         return get(key, getDirectory(key).listFiles());
     }
 
+    @Override
     public List<Version> getVersions(String key) {
         List<Versioned<String>> values = get(key, (String) null);
         List<Version> versions = new ArrayList<Version>(values.size());
@@ -107,6 +108,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return versions;
     }
 
+    @Override
     public synchronized Map<String, List<Versioned<String>>> getAll(Iterable<String> keys,
                                                                     Map<String, String> transforms)
             throws VoldemortException {
@@ -120,10 +122,7 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return result;
     }
 
-    public String getName() {
-        return name;
-    }
-
+    @Override
     public synchronized void put(String key, Versioned<String> value, String transforms)
             throws VoldemortException {
         StoreUtils.assertValidKey(key);
@@ -236,33 +235,18 @@ public class ConfigurationStorageEngine implements StorageEngine<String, String,
         return tempDir;
     }
 
+    @Override
     public Object getCapability(StoreCapabilityType capability) {
         throw new VoldemortException("No extra capability.");
     }
 
+    @Override
     public ClosableIterator<String> keys() {
         throw new VoldemortException("keys iteration not supported.");
     }
 
+    @Override
     public void truncate() {
         throw new VoldemortException("Truncate not supported in ConfigurationStorageEngine");
-    }
-
-    public boolean isPartitionAware() {
-        return false;
-    }
-
-    public boolean isPartitionScanSupported() {
-        return false;
-    }
-
-    @Override
-    public boolean beginBatchModifications() {
-        return false;
-    }
-
-    @Override
-    public boolean endBatchModifications() {
-        return false;
     }
 }

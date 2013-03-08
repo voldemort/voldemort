@@ -100,6 +100,51 @@ public interface Store<K, V, T> {
      */
     public Object getCapability(StoreCapabilityType capability);
 
+    /**
+     * Get the versions associated with the given key. This is used in a put
+     * call to write a new value for this key
+     * 
+     * @param key The key to retrieve the versions for
+     * @return List of Versions associated with this key.
+     */
     public List<Version> getVersions(K key);
 
+    /**
+     * Get the value associated with the given key
+     * 
+     * @param request Contains the key to check for and associated transforms
+     * @return The value associated with the key or an empty list if no values
+     *         are found.
+     * @throws VoldemortException
+     */
+    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
+
+    /**
+     * Get the values associated with the given keys and returns them in a Map
+     * of keys to a list of versioned values. Note that the returned map will
+     * only contain entries for the keys which have a value associated with
+     * them.
+     * 
+     * @param requests Contains the keys to check for.
+     * @return A Map of keys to a list of versioned values.
+     * @throws VoldemortException
+     */
+    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+            throws VoldemortException;
+
+    /**
+     * Associate the value with the key and version in this store
+     * 
+     * @param request Contains the key to use along with the value and version
+     *        to use.
+     */
+    public void put(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
+
+    /**
+     * Delete all entries prior to the given version
+     * 
+     * @param request: Contains the key to delete and current version of the key
+     * @return True if anything was deleted
+     */
+    public boolean delete(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
 }
