@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.coordinator;
+package voldemort.restclient;
 
 public class SampleRESTClient {
 

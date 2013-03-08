@@ -56,6 +56,10 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
     private String storeName = null;
     private FatClientWrapper fatClientWrapper = null;
+    public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
+    public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
+    public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
+    public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
 
     // Implicit constructor defined for the derived classes
     public VoldemortHttpRequestHandler() {}
@@ -80,7 +84,7 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         boolean resolveConflicts = true;
 
         // Retrieve the timeout value from the REST request
-        String timeoutValStr = this.request.getHeader(R2Store.X_VOLD_REQUEST_TIMEOUT_MS);
+        String timeoutValStr = this.request.getHeader(X_VOLD_REQUEST_TIMEOUT_MS);
         if(timeoutValStr != null) {
             try {
                 Long.parseLong(timeoutValStr);
@@ -92,11 +96,11 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
 
         // Retrieve the inconsistency resolving strategy from the REST request
-        String inconsistencyResolverOption = this.request.getHeader(R2Store.X_VOLD_INCONSISTENCY_RESOLVER);
+        String inconsistencyResolverOption = this.request.getHeader(X_VOLD_INCONSISTENCY_RESOLVER);
         if(inconsistencyResolverOption != null) {
-            if(inconsistencyResolverOption.equalsIgnoreCase(R2Store.CUSTOM_RESOLVING_STRATEGY)) {
+            if(inconsistencyResolverOption.equalsIgnoreCase(CUSTOM_RESOLVING_STRATEGY)) {
                 resolveConflicts = false;
-            } else if(!inconsistencyResolverOption.equalsIgnoreCase(R2Store.DEFAULT_RESOLVING_STRATEGY)) {
+            } else if(!inconsistencyResolverOption.equalsIgnoreCase(DEFAULT_RESOLVING_STRATEGY)) {
                 handleBadRequest(e,
                                  "Invalid Inconsistency Resolving strategy specified in the Request : "
                                          + inconsistencyResolverOption);

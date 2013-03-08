@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.coordinator;
+package voldemort.restclient;
 
 import java.util.List;
 import java.util.Map;

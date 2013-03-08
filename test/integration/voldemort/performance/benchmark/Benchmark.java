@@ -36,7 +36,6 @@ import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.StoreClient;
 import voldemort.client.StoreClientFactory;
 import voldemort.client.protocol.RequestFormatType;
-import voldemort.coordinator.RESTClient;
 import voldemort.serialization.IdentitySerializer;
 import voldemort.serialization.Serializer;
 import voldemort.serialization.SerializerDefinition;
@@ -357,9 +356,7 @@ public class Benchmark {
                 clientConfig.setClientZoneId(clientZoneId);
             }
             SocketStoreClientFactory socketFactory = new SocketStoreClientFactory(clientConfig);
-            // this.storeClient = socketFactory.getStoreClient(storeName);
-            this.storeClient = new RESTClient<Object, Object>(clientConfig.getBootstrapUrls()[0],
-                                                              storeName);
+            this.storeClient = socketFactory.getStoreClient(storeName);
             StoreDefinition storeDef = getStoreDefinition(socketFactory, storeName);
             this.keyType = findKeyType(storeDef);
             benchmarkProps.put(Benchmark.KEY_TYPE, this.keyType);

@@ -15,6 +15,7 @@
 	<classpathentry kind="src" path="contrib/krati/test"/>
 	<classpathentry kind="src" path="contrib/collections/src/java"/>
 	<classpathentry kind="src" path="contrib/collections/test"/>
+	<classpathentry kind="src" path="contrib/restclient/src/java"/>
 	<classpathentry kind="lib" path="lib/catalina-ant.jar"/>
 	<classpathentry kind="lib" path="lib/commons-codec-1.4.jar"/>
 	<classpathentry kind="lib" path="lib/commons-dbcp-1.2.2.jar"/>
@@ -56,12 +57,12 @@
 	<classpathentry kind="lib" path="lib/httpclient-4.1.2.jar"/>
 	<classpathentry kind="lib" path="lib/httpcore-4.1.2.jar"/>
 	<classpathentry kind="lib" path="lib/netty-3.5.8.Final.jar"/>
-	<classpathentry kind="lib" path="lib/r2-1.5.10.jar"/>
-	<classpathentry kind="lib" path="lib/pegasus-common-1.5.10.jar"/>
-	<classpathentry kind="lib" path="lib/data-1.5.10.jar"/>
 	<classpathentry kind="lib" path="lib/joda-time-1.6.jar"/>
 	<classpathentry kind="lib" path="lib/mail-1.4.1.jar"/>
 	<classpathentry kind="lib" path="lib/azkaban-common-0.05.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/data-1.5.10.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/pegasus-common-1.5.10.jar"/>
+	<classpathentry kind="lib" path="contrib/restclient/lib/r2-1.5.10.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="classes"/>
 </classpath>

@@ -14,7 +14,7 @@
  * the License.
  */
 
-package voldemort.coordinator;
+package voldemort.restclient;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -33,6 +33,7 @@ import org.apache.log4j.Logger;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import voldemort.VoldemortException;
+import voldemort.coordinator.VectorClockWrapper;
 import voldemort.store.AbstractStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
