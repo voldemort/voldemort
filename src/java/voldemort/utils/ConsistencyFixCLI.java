@@ -34,7 +34,7 @@ public class ConsistencyFixCLI {
         sb.append("Optional arguments: \n");
         sb.append("\t--orphan-format\n");
         sb.append("\t--dry-run\n");
-        sb.append("\t--progress-bar <progressBarPeriod>\n");
+        sb.append("\t--progress-period-ops <progressPeriodOps>\n");
         sb.append("\t--parallelism <parallelism>\n");
         sb.append("\t--per-server-iops-limit <perServerIOPSLimit>\n");
         sb.append("\n");
@@ -57,9 +57,8 @@ public class ConsistencyFixCLI {
     private static class Options {
 
         public final static int defaultParallelism = 8;
-        // TODO: change name to progressPeriodMs (or S, as case may be)
-        public final static long defaultProgressBar = 1000;
-        public final static long defaultPerServerIOPSLimit = 100;
+        public final static long defaultProgressPeriodOps = 1000;
+        public final static long defaultPerServerQPSLimit = 100;
 
         public String url = null;
         public String storeName = null;
@@ -67,8 +66,8 @@ public class ConsistencyFixCLI {
         public boolean badKeyFileInOrphanFormat = false;
         public String badKeyFileOut = null;
         public int parallelism = defaultParallelism;
-        public long progressBar = defaultProgressBar;
-        public long perServerIOPSLimit = defaultPerServerIOPSLimit;
+        public long progressPeriodOps = defaultProgressPeriodOps;
+        public long perServerQPSLimit = defaultPerServerQPSLimit;
         public boolean dryRun = false;
         public boolean parseOnly = false;
     }
@@ -115,15 +114,17 @@ public class ConsistencyFixCLI {
               .withRequiredArg()
               .describedAs("parallelism [Default value: " + Options.defaultParallelism + "]")
               .ofType(Integer.class);
-        parser.accepts("progress-bar", "Number of operations between 'info' progress messages. ")
+        parser.accepts("progress-period-ops",
+                       "Number of operations between 'info' progress messages. ")
               .withRequiredArg()
-              .describedAs("progressBar [Default value: " + Options.defaultProgressBar + "]")
+              .describedAs("period (in operations) between outputting progress [Default value: "
+                           + Options.defaultProgressPeriodOps + "]")
               .ofType(Long.class);
-        parser.accepts("per-server-iops-limit",
-                       "Number of operations that the consistency fixer will issue into any individual server in one second. ")
+        parser.accepts("per-server-qps-limit",
+                       "Number of operations that the consistency fixer will issue to any individual server in one second. ")
               .withRequiredArg()
-              .describedAs("perServerIOPSLimit [Default value: "
-                           + Options.defaultPerServerIOPSLimit + "]")
+              .describedAs("perServerQPSLimit [Default value: " + Options.defaultPerServerQPSLimit
+                           + "]")
               .ofType(Long.class);
 
         OptionSet optionSet = parser.parse(args);
@@ -162,11 +163,11 @@ public class ConsistencyFixCLI {
         if(optionSet.has("parallelism")) {
             options.parallelism = (Integer) optionSet.valueOf("parallelism");
         }
-        if(optionSet.has("progress-bar")) {
-            options.progressBar = (Long) optionSet.valueOf("progress-bar");
+        if(optionSet.has("progress-period-ops")) {
+            options.progressPeriodOps = (Long) optionSet.valueOf("progress-period-ops");
         }
-        if(optionSet.has("per-server-iops-limit")) {
-            options.perServerIOPSLimit = (Long) optionSet.valueOf("per-server-iops-limit");
+        if(optionSet.has("per-server-qps-limit")) {
+            options.perServerQPSLimit = (Long) optionSet.valueOf("per-server-qps-limit");
         }
         if(optionSet.has("dry-run")) {
             options.dryRun = true;
@@ -183,8 +184,8 @@ public class ConsistencyFixCLI {
 
         ConsistencyFix consistencyFix = new ConsistencyFix(options.url,
                                                            options.storeName,
-                                                           options.progressBar,
-                                                           options.perServerIOPSLimit,
+                                                           options.progressPeriodOps,
+                                                           options.perServerQPSLimit,
                                                            options.dryRun,
                                                            options.parseOnly);
 
@@ -192,6 +193,8 @@ public class ConsistencyFixCLI {
                                                 options.badKeyFileIn,
                                                 options.badKeyFileInOrphanFormat,
                                                 options.badKeyFileOut);
+
+        consistencyFix.close();
 
         System.out.println(summary);
     }

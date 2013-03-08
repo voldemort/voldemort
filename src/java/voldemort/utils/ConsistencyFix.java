@@ -23,7 +23,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +59,7 @@ public class ConsistencyFix {
     private final AdminClient adminClient;
     private final StoreInstance storeInstance;
     private final Stats stats;
-    private final long perServerIOPSLimit;
+    private final long perServerQPSLimit;
     private final ConcurrentMap<Integer, EventThrottler> putThrottlers;
     private final boolean dryRun;
     private final boolean parseOnly;
@@ -65,7 +67,7 @@ public class ConsistencyFix {
     ConsistencyFix(String url,
                    String storeName,
                    long progressBar,
-                   long perServerIOPSLimit,
+                   long perServerQPSLimit,
                    boolean dryRun,
                    boolean parseOnly) {
         this.storeName = storeName;
@@ -84,7 +86,7 @@ public class ConsistencyFix {
 
         stats = new Stats(progressBar);
 
-        this.perServerIOPSLimit = perServerIOPSLimit;
+        this.perServerQPSLimit = perServerQPSLimit;
         this.putThrottlers = new ConcurrentHashMap<Integer, EventThrottler>();
         this.dryRun = dryRun;
         this.parseOnly = parseOnly;
@@ -100,6 +102,10 @@ public class ConsistencyFix {
 
     public AdminClient getAdminClient() {
         return adminClient;
+    }
+
+    public void close() {
+        adminClient.stop();
     }
 
     public Stats getStats() {
@@ -121,7 +127,7 @@ public class ConsistencyFix {
      */
     public void maybePutThrottle(int nodeId) {
         if(!putThrottlers.containsKey(nodeId)) {
-            putThrottlers.putIfAbsent(nodeId, new EventThrottler(perServerIOPSLimit));
+            putThrottlers.putIfAbsent(nodeId, new EventThrottler(perServerQPSLimit));
         }
         putThrottlers.get(nodeId).maybeThrottle(1);
     }
@@ -160,7 +166,7 @@ public class ConsistencyFix {
         // passed from object-to-object could be given directly to factories.
 
         // Create BadKeyWriter thread
-        BlockingQueue<BadKeyResult> badKeyQOut = new ArrayBlockingQueue<BadKeyResult>(parallelism * 10);
+        BlockingQueue<BadKeyStatus> badKeyQOut = new ArrayBlockingQueue<BadKeyStatus>(parallelism * 10);
         badKeyWriterService = Executors.newSingleThreadExecutor();
         badKeyWriterService.submit(new BadKeyWriter(badKeyFileOut, badKeyQOut));
         logger.info("Created badKeyWriter.");
@@ -179,19 +185,22 @@ public class ConsistencyFix {
         // Create BadKeyReader thread
         CountDownLatch allBadKeysReadLatch = new CountDownLatch(1);
         badKeyReaderService = Executors.newSingleThreadExecutor();
+        BadKeyReader badKeyReader = null;
         if(!orphanFormat) {
-            badKeyReaderService.submit(new BadKeyReader(allBadKeysReadLatch,
-                                                        badKeyFileIn,
-                                                        this,
-                                                        consistencyFixWorkers,
-                                                        badKeyQOut));
+            badKeyReader = new BadKeyReader(allBadKeysReadLatch,
+                                            badKeyFileIn,
+                                            this,
+                                            consistencyFixWorkers,
+                                            badKeyQOut);
         } else {
-            badKeyReaderService.submit(new BadKeyOrphanReader(allBadKeysReadLatch,
-                                                              badKeyFileIn,
-                                                              this,
-                                                              consistencyFixWorkers,
-                                                              badKeyQOut));
+            badKeyReader = new BadKeyOrphanReader(allBadKeysReadLatch,
+                                                  badKeyFileIn,
+                                                  this,
+                                                  consistencyFixWorkers,
+                                                  badKeyQOut);
         }
+        badKeyReaderService.submit(badKeyReader);
+
         logger.info("Created badKeyReader.");
 
         try {
@@ -206,19 +215,61 @@ public class ConsistencyFix {
             logger.info("All workers have shutdown.");
 
             // Poison the bad key writer to have it exit.
-            badKeyQOut.put(new BadKeyResult());
+            badKeyQOut.put(new BadKeyStatus());
             badKeyWriterService.shutdown();
             badKeyWriterService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
             logger.info("Bad key writer service has shutdown.");
         } catch(InterruptedException e) {
-            logger.warn("InterruptedException caught.");
+            logger.error("InterruptedException caught.");
             if(logger.isDebugEnabled()) {
                 e.printStackTrace();
             }
         } finally {
             adminClient.stop();
         }
-        return stats.summary();
+
+        // Cobble together a status string for overall execution.
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n\n");
+        sb.append("Exit statuses of various threads:\n");
+        sb.append("\tBadKeyReader: ");
+        if(badKeyReader.hasException()) {
+            sb.append("Had exception!\n");
+        } else {
+            sb.append("OK.\n");
+        }
+        sb.append("\tBadKeyWriter: ");
+        if(badKeyReader.hasException()) {
+            sb.append("Had exception!\n");
+        } else {
+            sb.append("OK.\n");
+        }
+        sb.append("\n\n");
+        sb.append(stats.summary());
+
+        return sb.toString();
+    }
+
+    /**
+     * Type with which to wrap a "bad key"
+     */
+    public static class BadKey {
+
+        private final String keyInHexFormat;
+        private final String readerInput;
+
+        BadKey(String keyInHexFormat, String readerInput) {
+            this.keyInHexFormat = keyInHexFormat;
+            this.readerInput = readerInput;
+        }
+
+        public String getKeyInHexFormat() {
+            return keyInHexFormat;
+        }
+
+        public String getReaderInput() {
+            return readerInput;
+        }
     }
 
     /**
@@ -226,27 +277,27 @@ public class ConsistencyFix {
      * needs to be written to output file. Has a "poison" value to effectively
      * signal end-of-stream.
      */
-    public class BadKeyResult {
+    public static class BadKeyStatus {
 
-        private final String keyInHexFormat;
-        private final Status fixKeyResult;
+        private final BadKey badKey;
+        private final Status status;
         private final boolean poison;
 
         /**
          * Common case constructor.
          */
-        BadKeyResult(String keyInHexFormat, Status fixKeyResult) {
-            this.keyInHexFormat = keyInHexFormat;
-            this.fixKeyResult = fixKeyResult;
+        BadKeyStatus(BadKey badKey, Status fixKeyResult) {
+            this.badKey = badKey;
+            this.status = fixKeyResult;
             this.poison = false;
         }
 
         /**
          * Constructs a "poison" object.
          */
-        BadKeyResult() {
-            this.keyInHexFormat = null;
-            this.fixKeyResult = null;
+        BadKeyStatus() {
+            this.badKey = null;
+            this.status = null;
             this.poison = true;
         }
 
@@ -254,31 +305,32 @@ public class ConsistencyFix {
             return poison;
         }
 
-        public String getKey() {
-            return keyInHexFormat;
+        public BadKey getBadKey() {
+            return badKey;
         }
 
-        public Status getResult() {
-            return fixKeyResult;
+        public Status getStatus() {
+            return status;
         }
     }
 
-    public class BadKeyReader implements Runnable {
+    public static class BadKeyReader implements Runnable {
 
         protected final CountDownLatch latch;
         protected final String badKeyFileIn;
 
         protected final ConsistencyFix consistencyFix;
         protected final ExecutorService consistencyFixWorkers;
-        protected final BlockingQueue<BadKeyResult> badKeyQOut;
+        protected final BlockingQueue<BadKeyStatus> badKeyQOut;
 
         protected BufferedReader fileReader;
+        protected boolean hasException;
 
         BadKeyReader(CountDownLatch latch,
                      String badKeyFileIn,
                      ConsistencyFix consistencyFix,
                      ExecutorService consistencyFixWorkers,
-                     BlockingQueue<BadKeyResult> badKeyQOut) {
+                     BlockingQueue<BadKeyStatus> badKeyQOut) {
             this.latch = latch;
             this.badKeyFileIn = badKeyFileIn;
 
@@ -287,31 +339,35 @@ public class ConsistencyFix {
             this.badKeyQOut = badKeyQOut;
 
             try {
-                fileReader = new BufferedReader(new FileReader(badKeyFileIn));
+                this.fileReader = new BufferedReader(new FileReader(badKeyFileIn));
             } catch(IOException e) {
                 Utils.croak("Failure to open input stream: " + e.getMessage());
             }
+
+            this.hasException = false;
         }
 
         @Override
         public void run() {
             try {
                 int counter = 0;
-                for(String key = fileReader.readLine(); key != null; key = fileReader.readLine()) {
-                    if(!key.isEmpty()) {
+                for(String keyLine = fileReader.readLine(); keyLine != null; keyLine = fileReader.readLine()) {
+                    BadKey badKey = new BadKey(keyLine.trim(), keyLine);
+                    if(!keyLine.isEmpty()) {
                         counter++;
-                        logger.debug("BadKeyReader read line: key (" + key + ") and counter ("
+                        logger.debug("BadKeyReader read line: key (" + keyLine + ") and counter ("
                                      + counter + ")");
                         if(!consistencyFix.isParseOnly()) {
-                            consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
+                            consistencyFixWorkers.submit(new ConsistencyFixWorker(badKey,
                                                                                   consistencyFix,
                                                                                   badKeyQOut));
                         }
                     }
                 }
             } catch(IOException ioe) {
-                logger.warn("IO exception reading badKeyFile " + badKeyFileIn + " : "
-                            + ioe.getMessage());
+                logger.error("IO exception reading badKeyFile " + badKeyFileIn + " : "
+                             + ioe.getMessage());
+                hasException = true;
             } finally {
                 latch.countDown();
                 try {
@@ -321,42 +377,45 @@ public class ConsistencyFix {
                 }
             }
         }
+
+        boolean hasException() {
+            return hasException;
+        }
     }
 
-    public class BadKeyOrphanReader extends BadKeyReader {
+    public static class BadKeyOrphanReader extends BadKeyReader {
 
         BadKeyOrphanReader(CountDownLatch latch,
                            String badKeyFileIn,
                            ConsistencyFix consistencyFix,
                            ExecutorService consistencyFixWorkers,
-                           BlockingQueue<BadKeyResult> badKeyQOut) {
+                           BlockingQueue<BadKeyStatus> badKeyQOut) {
             super(latch, badKeyFileIn, consistencyFix, consistencyFixWorkers, badKeyQOut);
         }
 
-        // TODO: if we ever do an orphan fix again, we should
-        // serialize/deserialize VectorClock to/from bytes. Indeed, any object
-        // that can be persisted and offers a toString, should probably offer
-        // some to/from options for serde.
         /**
          * Parses a "version" string of the following format:
          * 
-         * 
          * 'version(2:25, 25:2, 29:156) ts:1355451322089'
          * 
-         * and converts this parsed value back into a VectorClock type.
+         * and converts this parsed value back into a VectorClock type. Note
+         * that parsing is white space sensitive. I.e., trim the string first
+         * and make skippy sure that the white space matches the above.
+         * 
+         * This method should not be necessary. VectorClock.toBytes() should be
+         * used for serialization, *not* VectorClock.toString(). VectorClocks
+         * serialized via toBytes can be deserialized via VectorClock(byte[]).
          * 
          * @param versionString
          * @return
          * @throws IOException
          */
+        @Deprecated
         private VectorClock parseVersion(String versionString) throws IOException {
             List<ClockEntry> versions = new ArrayList<ClockEntry>();
             long timestamp = 0;
 
             String parsed[] = versionString.split(" ts:");
-            // TODO: remove .trace outputs after we have a unit test for this
-            // method.
-            // TODO: move this method to be a method of VectorClock?
             logger.trace("parsed[0]: " + parsed[0]);
             if(parsed.length != 2) {
                 throw new IOException("Could not parse vector clock: " + versionString);
@@ -389,7 +448,10 @@ public class ConsistencyFix {
         public void run() {
             try {
                 int counter = 0;
-                for(String keyNumVals = fileReader.readLine(); keyNumVals != null; keyNumVals = fileReader.readLine()) {
+                for(String keyNumValsLine = fileReader.readLine(); keyNumValsLine != null; keyNumValsLine = fileReader.readLine()) {
+                    String badKeyEntry = keyNumValsLine;
+
+                    String keyNumVals = keyNumValsLine.trim();
                     if(!keyNumVals.isEmpty()) {
                         counter++;
                         String parsed[] = keyNumVals.split(",");
@@ -407,7 +469,10 @@ public class ConsistencyFix {
 
                         List<Versioned<byte[]>> values = new ArrayList<Versioned<byte[]>>();
                         for(int i = 0; i < numVals; ++i) {
-                            String valueVersion = fileReader.readLine();
+                            String valueVersionLine = fileReader.readLine();
+                            badKeyEntry.concat(valueVersionLine);
+                            String valueVersion = valueVersionLine.trim();
+
                             if(valueVersion.isEmpty()) {
                                 throw new IOException("ValueVersion line was empty!");
                             }
@@ -423,7 +488,8 @@ public class ConsistencyFix {
                         }
                         QueryKeyResult queryKeyResult = new QueryKeyResult(keyByteArray, values);
                         if(!consistencyFix.isParseOnly()) {
-                            consistencyFixWorkers.submit(new ConsistencyFixWorker(key,
+                            BadKey badKey = new BadKey(key, badKeyEntry);
+                            consistencyFixWorkers.submit(new ConsistencyFixWorker(badKey,
                                                                                   consistencyFix,
                                                                                   badKeyQOut,
                                                                                   queryKeyResult));
@@ -431,7 +497,9 @@ public class ConsistencyFix {
                     }
                 }
             } catch(Exception e) {
-                logger.warn("Exception reading badKeyFile " + badKeyFileIn + " : " + e.getMessage());
+                logger.error("Exception reading badKeyFile " + badKeyFileIn + " : "
+                             + e.getMessage());
+                hasException = true;
             } finally {
                 latch.countDown();
                 try {
@@ -443,14 +511,15 @@ public class ConsistencyFix {
         }
     }
 
-    public class BadKeyWriter implements Runnable {
+    public static class BadKeyWriter implements Runnable {
 
         private final String badKeyFileOut;
-        private final BlockingQueue<BadKeyResult> badKeyQOut;
+        private final BlockingQueue<BadKeyStatus> badKeyQOut;
 
         private BufferedWriter fileWriter = null;
+        private boolean hasException;
 
-        BadKeyWriter(String badKeyFile, BlockingQueue<BadKeyResult> badKeyQOut) {
+        BadKeyWriter(String badKeyFile, BlockingQueue<BadKeyStatus> badKeyQOut) {
             this.badKeyFileOut = badKeyFile;
             this.badKeyQOut = badKeyQOut;
 
@@ -459,25 +528,28 @@ public class ConsistencyFix {
             } catch(IOException e) {
                 Utils.croak("Failure to open output file : " + e.getMessage());
             }
+            this.hasException = false;
         }
 
         @Override
         public void run() {
             try {
-                BadKeyResult badKeyResult = badKeyQOut.take();
-                while(!badKeyResult.isPoison()) {
-                    logger.debug("BadKeyWriter write key (" + badKeyResult.keyInHexFormat + ")");
+                BadKeyStatus badKeyStatus = badKeyQOut.take();
+                while(!badKeyStatus.isPoison()) {
+                    logger.debug("BADKEY," + badKeyStatus.getBadKey().getKeyInHexFormat() + ","
+                                 + badKeyStatus.getStatus().name() + "\n");
 
-                    fileWriter.write("BADKEY," + badKeyResult.keyInHexFormat + ","
-                                     + badKeyResult.fixKeyResult.name() + "\n");
-                    badKeyResult = badKeyQOut.take();
+                    fileWriter.write(badKeyStatus.getBadKey().getReaderInput());
+                    badKeyStatus = badKeyQOut.take();
                 }
             } catch(IOException ioe) {
-                logger.warn("IO exception writing badKeyFile " + badKeyFileOut + " : "
-                            + ioe.getMessage());
+                logger.error("IO exception writing badKeyFile " + badKeyFileOut + " : "
+                             + ioe.getMessage());
+                hasException = true;
             } catch(InterruptedException ie) {
-                logger.warn("Interrupted exception during writing of badKeyFile " + badKeyFileOut
-                            + " : " + ie.getMessage());
+                logger.error("Interrupted exception during writing of badKeyFile " + badKeyFileOut
+                             + " : " + ie.getMessage());
+                hasException = true;
             } finally {
                 try {
                     fileWriter.close();
@@ -486,22 +558,35 @@ public class ConsistencyFix {
                 }
             }
         }
+
+        boolean hasException() {
+            return hasException;
+        }
     }
 
-    public class Stats {
+    public static class Stats {
 
-        final long progressBar;
+        final long progressPeriodOps;
         long fixCount;
         long putCount;
         long failures;
+        Map<Status, Long> failureDistribution;
+        long oveCount; // ObsoleteVersionExceptions
         long lastTimeMs;
         final long startTimeMs;
 
-        Stats(long progressBar) {
-            this.progressBar = progressBar;
+        /**
+         * 
+         * @param progressPeriodOps Number of operations between progress bar
+         *        updates.
+         */
+        Stats(long progressPeriodOps) {
+            this.progressPeriodOps = progressPeriodOps;
             this.fixCount = 0;
             this.putCount = 0;
             this.failures = 0;
+            this.failureDistribution = new HashMap<Status, Long>();
+            this.oveCount = 0;
             this.lastTimeMs = System.currentTimeMillis();
             this.startTimeMs = lastTimeMs;
         }
@@ -515,16 +600,18 @@ public class ConsistencyFix {
 
         public synchronized void incrementFixCount() {
             fixCount++;
-            if(fixCount % progressBar == 0) {
+            if(fixCount % progressPeriodOps == 0) {
                 long nowTimeMs = System.currentTimeMillis();
                 StringBuilder sb = new StringBuilder();
-                sb.append("\nConsistencyFix Progress Bar\n");
+                sb.append("\nConsistencyFix Progress\n");
                 sb.append("\tBad keys processed : " + fixCount
-                          + " (during this progress bar period)\n");
+                          + " (during this progress period of " + progressPeriodOps + " ops)\n");
                 sb.append("\tBad key processing rate : "
-                          + getPrettyQPS(progressBar, nowTimeMs - lastTimeMs)
+                          + getPrettyQPS(progressPeriodOps, nowTimeMs - lastTimeMs)
                           + " bad keys/second)\n");
                 sb.append("\tServer-puts issued : " + putCount + " (since fixer started)\n");
+                sb.append("\tObsoleteVersionExceptions encountered : " + oveCount
+                          + " (since fixer started)\n");
                 logger.info(sb.toString());
                 lastTimeMs = nowTimeMs;
             }
@@ -534,11 +621,19 @@ public class ConsistencyFix {
             putCount++;
         }
 
-        public synchronized void incrementFailures() {
+        public synchronized void incrementObsoleteVersionExceptions() {
+            oveCount++;
+        }
+
+        public synchronized void incrementFailures(Status status) {
             failures++;
-            if(failures % progressBar == 0) {
+            if(failures % progressPeriodOps == 0) {
                 logger.info("Bad key failed to process count = " + failures);
             }
+            if(!failureDistribution.containsKey(status)) {
+                failureDistribution.put(status, 0L);
+            }
+            failureDistribution.put(status, failureDistribution.get(status) + 1);
         }
 
         public synchronized String summary() {
@@ -548,7 +643,11 @@ public class ConsistencyFix {
             summary.append("-----------------------\n");
             summary.append("Total bad keys processed: " + fixCount + "\n");
             summary.append("Total server-puts issued: " + putCount + "\n");
+            summary.append("Total ObsoleteVersionExceptions encountered: " + oveCount + "\n");
             summary.append("Total keys processed that were not corrected: " + failures + "\n");
+            for(Status status: failureDistribution.keySet()) {
+                summary.append("\t" + status + " : " + failureDistribution.get(status) + "\n");
+            }
 
             long nowTimeMs = System.currentTimeMillis();
             summary.append("Keys per second processed: "

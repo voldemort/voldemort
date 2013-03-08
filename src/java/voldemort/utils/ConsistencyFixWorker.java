@@ -28,7 +28,8 @@ import voldemort.VoldemortException;
 import voldemort.client.protocol.admin.QueryKeyResult;
 import voldemort.store.routed.NodeValue;
 import voldemort.store.routed.ReadRepairer;
-import voldemort.utils.ConsistencyFix.BadKeyResult;
+import voldemort.utils.ConsistencyFix.BadKey;
+import voldemort.utils.ConsistencyFix.BadKeyStatus;
 import voldemort.utils.ConsistencyFix.Status;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
@@ -41,9 +42,9 @@ class ConsistencyFixWorker implements Runnable {
     private static final Logger logger = Logger.getLogger(ConsistencyFixWorker.class);
     private static final int fakeNodeID = Integer.MIN_VALUE;
 
-    private final String keyInHexFormat;
+    private final BadKey badKey;
     private final ConsistencyFix consistencyFix;
-    private final BlockingQueue<BadKeyResult> badKeyQOut;
+    private final BlockingQueue<BadKeyStatus> badKeyQOut;
     private final QueryKeyResult orphanedValues;
 
     /**
@@ -53,10 +54,10 @@ class ConsistencyFixWorker implements Runnable {
      * @param consistencyFix
      * @param badKeyQOut
      */
-    ConsistencyFixWorker(String keyInHexFormat,
+    ConsistencyFixWorker(BadKey badKey,
                          ConsistencyFix consistencyFix,
-                         BlockingQueue<BadKeyResult> badKeyQOut) {
-        this(keyInHexFormat, consistencyFix, badKeyQOut, null);
+                         BlockingQueue<BadKeyStatus> badKeyQOut) {
+        this(badKey, consistencyFix, badKeyQOut, null);
     }
 
     /**
@@ -69,11 +70,11 @@ class ConsistencyFixWorker implements Runnable {
      * @param badKeyQOut
      * @param orphanedValues Set to null if no orphaned values to be included.
      */
-    ConsistencyFixWorker(String keyInHexFormat,
+    ConsistencyFixWorker(BadKey badKey,
                          ConsistencyFix consistencyFix,
-                         BlockingQueue<BadKeyResult> badKeyQOut,
+                         BlockingQueue<BadKeyStatus> badKeyQOut,
                          QueryKeyResult orphanedValues) {
-        this.keyInHexFormat = keyInHexFormat;
+        this.badKey = badKey;
         this.consistencyFix = consistencyFix;
         this.badKeyQOut = badKeyQOut;
         this.orphanedValues = orphanedValues;
@@ -85,29 +86,28 @@ class ConsistencyFixWorker implements Runnable {
 
     @Override
     public void run() {
-        logger.trace("About to process key " + keyInHexFormat + " (" + myName() + ")");
-        Status status = doConsistencyFix(keyInHexFormat);
-        logger.trace("Finished processing key " + keyInHexFormat + " (" + myName() + ")");
+        logger.trace("About to process key " + badKey + " (" + myName() + ")");
+        Status status = doConsistencyFix(badKey);
+        logger.trace("Finished processing key " + badKey + " (" + myName() + ")");
         consistencyFix.getStats().incrementFixCount();
 
         if(status != Status.SUCCESS) {
             try {
-                badKeyQOut.put(consistencyFix.new BadKeyResult(keyInHexFormat, status));
+                badKeyQOut.put(new BadKeyStatus(badKey, status));
             } catch(InterruptedException ie) {
                 logger.warn("Worker thread " + myName() + " interrupted.");
             }
-            consistencyFix.getStats().incrementFailures();
+            consistencyFix.getStats().incrementFailures(status);
         }
     }
 
-    public Status doConsistencyFix(String keyInHexFormat) {
-
+    public Status doConsistencyFix(BadKey badKey) {
         // Initialization.
         byte[] keyInBytes;
         List<Integer> nodeIdList = null;
         int masterPartitionId = -1;
         try {
-            keyInBytes = ByteUtils.fromHexString(keyInHexFormat);
+            keyInBytes = ByteUtils.fromHexString(badKey.getKeyInHexFormat());
             masterPartitionId = consistencyFix.getStoreInstance().getMasterPartitionId(keyInBytes);
             nodeIdList = consistencyFix.getStoreInstance()
                                        .getReplicationNodeList(masterPartitionId);
@@ -123,12 +123,12 @@ class ConsistencyFixWorker implements Runnable {
         // Do the reads
         Map<Integer, QueryKeyResult> nodeIdToKeyValues = doReads(nodeIdList,
                                                                  keyInBytes,
-                                                                 keyInHexFormat);
+                                                                 badKey.getKeyInHexFormat());
 
         // Process read replies (i.e., nodeIdToKeyValues)
         ProcessReadRepliesResult result = processReadReplies(nodeIdList,
                                                              keyAsByteArray,
-                                                             keyInHexFormat,
+                                                             badKey.getKeyInHexFormat(),
                                                              nodeIdToKeyValues);
         if(result.status != Status.SUCCESS) {
             return result.status;
@@ -136,6 +136,14 @@ class ConsistencyFixWorker implements Runnable {
 
         // Resolve conflicts indicated in nodeValues
         List<NodeValue<ByteArray, byte[]>> toReadRepair = resolveReadConflicts(result.nodeValues);
+        if(logger.isTraceEnabled()) {
+            if(toReadRepair.size() == 0) {
+                logger.trace("Nothing to repair");
+            }
+            for(NodeValue<ByteArray, byte[]> nodeValue: toReadRepair) {
+                logger.trace(nodeValue.getNodeId() + " --- " + nodeValue.getKey().toString());
+            }
+        }
 
         // Do the repairs
         Status status = doRepairPut(toReadRepair);
@@ -248,6 +256,7 @@ class ConsistencyFixWorker implements Runnable {
             logger.info("Aborting fixKey because exceptions were encountered when fetching key-values.");
             return new ProcessReadRepliesResult(Status.FETCH_EXCEPTION);
         }
+
         if(logger.isDebugEnabled()) {
             for(NodeValue<ByteArray, byte[]> nkv: nodeValues) {
                 logger.debug("\tRead NodeKeyValue : " + ByteUtils.toHexString(nkv.getKey().get())
@@ -267,6 +276,17 @@ class ConsistencyFixWorker implements Runnable {
      */
     private List<NodeValue<ByteArray, byte[]>> resolveReadConflicts(final List<NodeValue<ByteArray, byte[]>> nodeValues) {
 
+        if(logger.isTraceEnabled()) {
+            logger.trace("NodeValues passed into resolveReadConflicts.");
+            if(nodeValues.size() == 0) {
+                logger.trace("Empty nodeValues passed to resolveReadConflicts");
+            }
+            for(NodeValue<ByteArray, byte[]> nodeValue: nodeValues) {
+                logger.trace("\t" + nodeValue.getNodeId() + " - " + nodeValue.getKey().toString()
+                             + " - " + nodeValue.getVersion().toString());
+            }
+        }
+
         // If orphaned values exist, add them to fake nodes to be processed by
         // "getRepairs"
         int currentFakeNodeId = fakeNodeID;
@@ -279,13 +299,18 @@ class ConsistencyFixWorker implements Runnable {
             }
         }
 
-        // Some cut-paste-and-modify (CPAM) coding from
+        // Some cut-paste-and-modify coding from
         // store/routed/action/AbstractReadRepair.java and
         // store/routed/ThreadPoolRoutedStore.java
         ReadRepairer<ByteArray, byte[]> readRepairer = new ReadRepairer<ByteArray, byte[]>();
-        if(logger.isDebugEnabled()) {
-            for(NodeValue<ByteArray, byte[]> nodeKeyValue: readRepairer.getRepairs(nodeValues)) {
-                logger.debug("\tNodeKeyValue result from readRepairer.getRepairs : "
+        List<NodeValue<ByteArray, byte[]>> nodeKeyValues = readRepairer.getRepairs(nodeValues);
+
+        if(logger.isTraceEnabled()) {
+            if(nodeKeyValues.size() == 0) {
+                logger.trace("\treadRepairer returned an empty list.");
+            }
+            for(NodeValue<ByteArray, byte[]> nodeKeyValue: nodeKeyValues) {
+                logger.trace("\tNodeKeyValue result from readRepairer.getRepairs : "
                              + ByteUtils.toHexString(nodeKeyValue.getKey().get())
                              + " on node with id " + nodeKeyValue.getNodeId() + " for version "
                              + nodeKeyValue.getVersion());
@@ -293,7 +318,7 @@ class ConsistencyFixWorker implements Runnable {
         }
 
         List<NodeValue<ByteArray, byte[]>> toReadRepair = Lists.newArrayList();
-        for(NodeValue<ByteArray, byte[]> v: readRepairer.getRepairs(nodeValues)) {
+        for(NodeValue<ByteArray, byte[]> v: nodeKeyValues) {
             if(v.getNodeId() > currentFakeNodeId) {
                 // Only copy repairs intended for real nodes.
                 Versioned<byte[]> versioned = Versioned.value(v.getVersioned().getValue(),
@@ -311,9 +336,12 @@ class ConsistencyFixWorker implements Runnable {
 
         }
 
-        if(logger.isDebugEnabled()) {
+        if(logger.isTraceEnabled()) {
+            if(toReadRepair.size() == 0) {
+                logger.trace("\ttoReadRepair is empty.");
+            }
             for(NodeValue<ByteArray, byte[]> nodeKeyValue: toReadRepair) {
-                logger.debug("\tRepair key " + ByteUtils.toHexString(nodeKeyValue.getKey().get())
+                logger.trace("\tRepair key " + ByteUtils.toHexString(nodeKeyValue.getKey().get())
                              + " on node with id " + nodeKeyValue.getNodeId() + " for version "
                              + nodeKeyValue.getVersion());
 
@@ -342,8 +370,8 @@ class ConsistencyFixWorker implements Runnable {
                                                                          nodeKeyValue);
                 consistencyFix.getStats().incrementPutCount();
             } catch(ObsoleteVersionException ove) {
-                // TODO: Add OVE catches to some statistics?
-                // NOOP. Treat OVE as success.
+                // Treat OVE as success.
+                consistencyFix.getStats().incrementObsoleteVersionExceptions();
             } catch(VoldemortException ve) {
                 allRepairsSuccessful = false;
                 logger.debug("Repair of key " + nodeKeyValue.getKey() + "on node with id "
