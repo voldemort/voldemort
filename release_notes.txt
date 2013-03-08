@@ -1,3 +1,13 @@
+Release 1.3.0 on 03/08/2013
+
+NOTE: This is an open source release! This release can be downloaded here:
+      http://github.com/voldemort/voldemort/downloads.
+
+Changes made since 1.2.3
+* VoldemortConfig and ClientConfig now contain detailed documentation
+* BDB-JE defaults set to ones in prod@linkedin
+* Bug fixes on kerberos support for Hadoop
+
 Release 1.2.3 on 02/20/2013
 
 Changes made since 1.2.2
