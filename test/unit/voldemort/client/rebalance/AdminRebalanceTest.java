@@ -330,7 +330,7 @@ public class AdminRebalanceTest {
 
     public void shutDown() throws IOException {
         if(adminClient != null)
-            adminClient.stop();
+            adminClient.close();
         for(VoldemortServer server: servers) {
             if(server != null)
                 ServerTestUtils.stopVoldemortServer(server);

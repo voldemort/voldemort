@@ -100,8 +100,8 @@ public class StoreInstance {
         return getNodeIdListForPartitionIdList(getReplicationPartitionList(partitionId));
     }
 
-    // TODO: Move from static methods to non-static methods that use this
-    // object's cluster and storeDefinition member for the various
+    // TODO: (refactor) Move from static methods to non-static methods that use
+    // this object's cluster and storeDefinition member for the various
     // check*BelongsTo* methods.
 
     /**

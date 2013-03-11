@@ -37,6 +37,7 @@ import joptsimple.OptionSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -78,7 +79,7 @@ public class KeySamplerCLI {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
-        this.adminClient = new AdminClient(url, new AdminClientConfig());
+        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         this.cluster = adminClient.getAdminClientCluster();
         this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
         this.storeNameToKeyStringsMap = new HashMap<String, StringBuilder>();
@@ -265,7 +266,7 @@ public class KeySamplerCLI {
 
     public void stop() {
         if(adminClient != null) {
-            adminClient.stop();
+            adminClient.close();
         }
         nodeSamplerService.shutdown();
     }

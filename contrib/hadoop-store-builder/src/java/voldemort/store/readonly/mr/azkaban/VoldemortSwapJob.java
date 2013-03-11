@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -176,7 +177,8 @@ public class VoldemortSwapJob extends AbstractJob {
         AdminClient client = new AdminClient(cluster,
                                              new AdminClientConfig().setMaxConnectionsPerNode(cluster.getNumberOfNodes())
                                                                     .setAdminConnectionTimeoutSec(httpTimeoutMs / 1000)
-                                                                    .setMaxBackoffDelayMs(swapConf.getMaxBackoffDelayMs()));
+                                                                    .setMaxBackoffDelayMs(swapConf.getMaxBackoffDelayMs()),
+                                             new ClientConfig());
 
         if(pushVersion == -1L) {
 

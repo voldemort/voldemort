@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -28,6 +28,7 @@ import java.util.Set;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -156,9 +157,11 @@ public class RequestFileFilter {
         String outputFile = (String) options.valueOf("output");
         boolean stringKeys = options.has("string-keys");
 
-        AdminClient adminClient = new AdminClient(bootstrapURL, new AdminClientConfig());
+        AdminClient adminClient = new AdminClient(bootstrapURL,
+                                                  new AdminClientConfig(),
+                                                  new ClientConfig());
         List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
-                                                                        .getValue();
+                                                                               .getValue();
 
         StoreDefinition storeDefinition = null;
         for(StoreDefinition def: storeDefinitionList) {

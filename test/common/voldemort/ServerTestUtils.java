@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -39,6 +39,7 @@ import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.RoutingTier;
 import voldemort.client.protocol.RequestFormatFactory;
 import voldemort.client.protocol.RequestFormatType;
@@ -653,12 +654,12 @@ public class ServerTestUtils {
     public static AdminClient getAdminClient(Cluster cluster) {
 
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(cluster, config);
+        return new AdminClient(cluster, config, new ClientConfig());
     }
 
     public static AdminClient getAdminClient(String bootstrapURL) {
         AdminClientConfig config = new AdminClientConfig();
-        return new AdminClient(bootstrapURL, config);
+        return new AdminClient(bootstrapURL, config, new ClientConfig());
     }
 
     public static RequestHandlerFactory getSocketRequestHandlerFactory(StoreRepository repository) {

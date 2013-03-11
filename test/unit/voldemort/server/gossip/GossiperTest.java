@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -38,6 +38,7 @@ import org.junit.runners.Parameterized.Parameters;
 import voldemort.Attempt;
 import voldemort.ServerTestUtils;
 import voldemort.TestUtils;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -149,7 +150,7 @@ public class GossiperTest {
     }
 
     private AdminClient getAdminClient(Cluster newCluster) {
-        return new AdminClient(newCluster, new AdminClientConfig());
+        return new AdminClient(newCluster, new AdminClientConfig(), new ClientConfig());
     }
 
     private Cluster attemptStartAdditionalServer() throws IOException {
@@ -215,7 +216,7 @@ public class GossiperTest {
         AdminClient localAdminClient = getAdminClient(newCluster);
 
         Versioned<String> versionedClusterXML = localAdminClient.metadataMgmtOps.getRemoteMetadata(3,
-                                                                                            MetadataStore.CLUSTER_KEY);
+                                                                                                   MetadataStore.CLUSTER_KEY);
 
         // Increment the version, let what would be the "donor node" know about
         // it to seed the Gossip.
@@ -224,11 +225,11 @@ public class GossiperTest {
         ((VectorClock) version).incrementVersion(0, ((VectorClock) version).getTimestamp() + 1);
 
         localAdminClient.metadataMgmtOps.updateRemoteMetadata(0,
-                                                       MetadataStore.CLUSTER_KEY,
-                                                       versionedClusterXML);
+                                                              MetadataStore.CLUSTER_KEY,
+                                                              versionedClusterXML);
         localAdminClient.metadataMgmtOps.updateRemoteMetadata(3,
-                                                       MetadataStore.CLUSTER_KEY,
-                                                       versionedClusterXML);
+                                                              MetadataStore.CLUSTER_KEY,
+                                                              versionedClusterXML);
 
         try {
             Thread.sleep(500);

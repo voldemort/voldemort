@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -116,7 +116,9 @@ public class VoldemortClientShell {
             try {
                 factory = new SocketStoreClientFactory(clientConfig);
                 client = (DefaultStoreClient<Object, Object>) factory.getStoreClient(storeName);
-                adminClient = new AdminClient(bootstrapUrl, new AdminClientConfig());
+                adminClient = new AdminClient(bootstrapUrl,
+                                              new AdminClientConfig(),
+                                              new ClientConfig());
             } catch(Exception e) {
                 Utils.croak("Could not connect to server: " + e.getMessage());
             }
@@ -130,7 +132,7 @@ public class VoldemortClientShell {
             processCommands(factory, adminClient, inputReader, false);
         } finally {
             if(adminClient != null)
-                adminClient.stop();
+                adminClient.close();
             if(factory != null)
                 factory.close();
         }

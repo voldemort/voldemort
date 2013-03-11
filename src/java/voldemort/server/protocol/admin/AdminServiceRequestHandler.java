@@ -1020,7 +1020,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
                         }
 
                     } finally {
-                        adminClient.stop();
+                        adminClient.close();
                     }
                 }
             });

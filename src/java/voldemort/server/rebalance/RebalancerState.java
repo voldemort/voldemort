@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -104,8 +104,8 @@ public class RebalancerState {
                 // If yes, check if the key belongs to one of the partitions
                 // being moved
                 if(StoreInstance.checkKeyBelongsToPartition(keyPartitions,
-                                                             nodePartitions,
-                                                             info.getReplicaToAddPartitionList(storeName))) {
+                                                            nodePartitions,
+                                                            info.getReplicaToAddPartitionList(storeName))) {
                     return info;
                 }
             }

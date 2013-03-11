@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
@@ -48,9 +49,9 @@ import voldemort.versioning.ClockEntry;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
-// TODO: Move to new directory voldemort/tools. Also move ConsistencyCheck,
-// Rebalance, and possibly other tools (shells and so on). This would reduce the
-// amount of different stuff in the utils directory.
+// TODO: (refactor) Move to new directory voldemort/tools. Also move
+// ConsistencyCheck, Rebalance, and possibly other tools (shells and so on).
+// This would reduce the amount of different stuff in the utils directory.
 public class ConsistencyFix {
 
     private static final Logger logger = Logger.getLogger(ConsistencyFix.class);
@@ -72,7 +73,7 @@ public class ConsistencyFix {
                    boolean parseOnly) {
         this.storeName = storeName;
         logger.info("Connecting to bootstrap server: " + url);
-        this.adminClient = new AdminClient(url, new AdminClientConfig(), 0);
+        this.adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig(), 0);
         Cluster cluster = adminClient.getAdminClientCluster();
         logger.info("Cluster determined to be: " + cluster.getName());
 
@@ -105,7 +106,7 @@ public class ConsistencyFix {
     }
 
     public void close() {
-        adminClient.stop();
+        adminClient.close();
     }
 
     public Stats getStats() {
@@ -160,10 +161,6 @@ public class ConsistencyFix {
         ExecutorService badKeyReaderService;
         ExecutorService badKeyWriterService;
         ExecutorService consistencyFixWorkers;
-
-        // TODO: Add ThreadFactory usage to ExecutorService usage so that
-        // threads have sane names. Figure out if any parameters currently
-        // passed from object-to-object could be given directly to factories.
 
         // Create BadKeyWriter thread
         BlockingQueue<BadKeyStatus> badKeyQOut = new ArrayBlockingQueue<BadKeyStatus>(parallelism * 10);
@@ -225,7 +222,7 @@ public class ConsistencyFix {
                 e.printStackTrace();
             }
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
 
         // Cobble together a status string for overall execution.

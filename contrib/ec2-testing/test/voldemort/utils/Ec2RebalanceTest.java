@@ -25,6 +25,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -81,7 +82,9 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
             return adminClient.getAdminClientCluster();
         }
     }
@@ -92,7 +95,9 @@ public class Ec2RebalanceTest extends AbstractRebalanceTest {
         if(hostName == null) {
             throw new VoldemortException("Node id " + nodeId + " does not exist");
         } else {
-            AdminClient adminClient = new AdminClient(hostName, new AdminClientConfig());
+            AdminClient adminClient = new AdminClient(hostName,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig());
             return adminClient.rebalanceOps.getRemoteServerState(nodeId).getValue();
         }
     }

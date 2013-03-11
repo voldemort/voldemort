@@ -31,6 +31,7 @@ import org.junit.Test;
 
 import voldemort.Attempt;
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -154,10 +155,11 @@ public class Ec2GossipTest {
             for(String hostname: newHostnames) {
                 int nodeId = nodeIds.get(hostname);
                 AdminClient adminClient = new AdminClient("tcp://" + hostname + ":6666",
-                                                          new AdminClientConfig());
+                                                          new AdminClientConfig(),
+                                                          new ClientConfig());
 
                 Versioned<String> versioned = adminClient.metadataMgmtOps.getRemoteMetadata(nodeId,
-                                                                                     MetadataStore.CLUSTER_KEY);
+                                                                                            MetadataStore.CLUSTER_KEY);
                 Version version = versioned.getVersion();
 
                 VectorClock vectorClock = (VectorClock) version;
@@ -165,11 +167,11 @@ public class Ec2GossipTest {
 
                 try {
                     adminClient.metadataMgmtOps.updateRemoteMetadata(peerNodeId,
-                                                              MetadataStore.CLUSTER_KEY,
-                                                              versioned);
+                                                                     MetadataStore.CLUSTER_KEY,
+                                                                     versioned);
                     adminClient.metadataMgmtOps.updateRemoteMetadata(nodeId,
-                                                              MetadataStore.CLUSTER_KEY,
-                                                              versioned);
+                                                                     MetadataStore.CLUSTER_KEY,
+                                                                     versioned);
                 } catch(VoldemortException e) {
                     logger.error(e);
                 }
@@ -183,7 +185,8 @@ public class Ec2GossipTest {
                 private int count = 1;
                 private AdminClient adminClient = new AdminClient("tcp://" + hostNames.get(0)
                                                                           + ":6666",
-                                                                  new AdminClientConfig());
+                                                                  new AdminClientConfig(),
+                                                                  new ClientConfig());
 
                 public void checkCondition() throws Exception, AssertionError {
                     logger.info("Attempt " + count++);
@@ -192,7 +195,7 @@ public class Ec2GossipTest {
                         logger.info("Testing node " + testNodeId);
                         try {
                             Cluster cluster = adminClient.metadataMgmtOps.getRemoteCluster(testNodeId)
-                                                                  .getValue();
+                                                                         .getValue();
                             Set<Integer> allNodeIds = new HashSet<Integer>();
                             for(Node node: cluster.getNodes()) {
                                 allNodeIds.add(node.getId());

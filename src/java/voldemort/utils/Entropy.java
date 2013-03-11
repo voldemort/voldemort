@@ -28,6 +28,7 @@ import java.util.Set;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
@@ -203,7 +204,8 @@ public class Entropy {
         AdminClient adminClient = null;
         try {
             adminClient = new AdminClient(cluster,
-                                          new AdminClientConfig().setMaxConnectionsPerNode(storeDefs.size()));
+                                          new AdminClientConfig().setMaxConnectionsPerNode(storeDefs.size()),
+                                          new ClientConfig());
 
             if(opType) {
                 System.out.println("Running entropy calculator");
@@ -433,7 +435,7 @@ public class Entropy {
             }
         } finally {
             if(adminClient != null)
-                adminClient.stop();
+                adminClient.close();
         }
     }
 }

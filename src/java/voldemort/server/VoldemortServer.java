@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2012 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -361,7 +361,7 @@ public class VoldemortServer extends AbstractService {
             adminClient.restoreOps.restoreDataFromReplications(metadata.getNodeId(),
                                                                numberOfParallelTransfers);
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 

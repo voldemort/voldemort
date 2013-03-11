@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.log4j.Logger;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -318,7 +319,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
 
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
             List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
                                                                                .getValue();
@@ -457,7 +458,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                   valSchema)));
             cluster = adminClient.getAdminClientCluster();
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 
@@ -655,7 +656,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
         // get store def from cluster
         log.info("Getting store definition from: " + url + " (node id " + this.nodeId + ")");
 
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig());
+        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), new ClientConfig());
         try {
             List<StoreDefinition> remoteStoreDefs = adminClient.metadataMgmtOps.getRemoteStoreDefList(this.nodeId)
                                                                                .getValue();
@@ -829,7 +830,7 @@ public class VoldemortBuildAndPushJob extends AbstractJob {
                                                                                                   valSchema)));
             cluster = adminClient.getAdminClientCluster();
         } finally {
-            adminClient.stop();
+            adminClient.close();
         }
     }
 

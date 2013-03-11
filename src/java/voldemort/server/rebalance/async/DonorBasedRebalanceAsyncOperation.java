@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 LinkedIn, Inc
+ * Copyright 2012-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -206,7 +206,7 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                             + " completed successfully for all " + totalStoresCount + " stores");
             }
         } finally {
-            adminClient.stop();
+            adminClient.close();
             adminClient = null;
             for(RebalancePartitionsInfo stealInfo: stealInfos) {
                 rebalancer.releaseRebalancingPermit(stealInfo.getStealerId());
@@ -331,9 +331,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
                 ByteArray key = keys.next();
                 scanned++;
                 List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
-                                                                                  optimizedStealerNodeToMappingTuples,
-                                                                                  targetCluster,
-                                                                                  storeDef);
+                                                                                 optimizedStealerNodeToMappingTuples,
+                                                                                 targetCluster,
+                                                                                 storeDef);
 
                 if(nodeIds.size() > 0) {
                     List<Versioned<byte[]>> values = storageEngine.get(key, null);
@@ -379,9 +379,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
         // current node
         for(Integer partition: partitionsToDonate) {
             if(!StoreInstance.checkPartitionBelongsToNode(partition,
-                                                           voldemortConfig.getNodeId(),
-                                                           initialCluster,
-                                                           storeDef)) {
+                                                          voldemortConfig.getNodeId(),
+                                                          initialCluster,
+                                                          storeDef)) {
                 logger.info("Node " + voldemortConfig.getNodeId()
                             + " does not seem to contain partition " + partition
                             + " as primary/secondary");
@@ -399,9 +399,9 @@ public class DonorBasedRebalanceAsyncOperation extends RebalanceAsyncOperation {
 
                 scanned++;
                 List<Integer> nodeIds = StoreInstance.checkKeyBelongsToPartition(key.get(),
-                                                                                  optimizedStealerNodeToMappingTuples,
-                                                                                  targetCluster,
-                                                                                  storeDef);
+                                                                                 optimizedStealerNodeToMappingTuples,
+                                                                                 targetCluster,
+                                                                                 storeDef);
 
                 if(nodeIds.size() > 0) {
                     putValue(nodeIds, key, value, nodeToQueue, fetched);

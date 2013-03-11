@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -54,6 +54,7 @@ import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.protocol.admin.QueryKeyResult;
@@ -294,7 +295,10 @@ public class VoldemortAdminTool {
         Integer zoneId = CmdUtils.valueOf(options, "zone", -1);
 
         int zone = zoneId == -1 ? 0 : zoneId;
-        AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), zone);
+        AdminClient adminClient = new AdminClient(url,
+                                                  new AdminClientConfig(),
+                                                  new ClientConfig(),
+                                                  zone);
 
         if(options.has("verify-metadata-version")) {
             checkMetadataVersion(adminClient);
@@ -1624,8 +1628,8 @@ public class VoldemortAdminTool {
         }
         for(final String storeName: storeNames) {
             final Iterator<QueryKeyResult> iterator = adminClient.streamingOps.queryKeys(nodeId.intValue(),
-                                                                                     storeName,
-                                                                                     listKeys.iterator());
+                                                                                         storeName,
+                                                                                         listKeys.iterator());
             List<StoreDefinition> storeDefinitionList = adminClient.metadataMgmtOps.getRemoteStoreDefList(nodeId)
                                                                                    .getValue();
             StoreDefinition storeDefinition = null;

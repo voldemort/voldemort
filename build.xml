@@ -127,7 +127,9 @@
   <!--
     Use protoc version 2.3.0 to recompile by hand:
       https://code.google.com/p/protobuf/downloads/detail?name=protobuf-2.3.0.tar.gz&can=2&q=
-  
+
+    Below, '<DASH/>' means '-'. This was done to nest double-dashes within xml comment.
+
   <target name="protobuff" description="Generate source files from .proto files">
     <pathconvert property="proto.sources" pathsep=" ">
       <path id="proto-files">
@@ -139,9 +141,9 @@
     <property name="javaout.path" location="${java.dir}"/>
     <property name="pythonout.path" location="${python.proto.dir}"/>
     <exec executable="protoc" failonerror="true">
-      <arg value="--proto_path=${proto.path}"/>
-      <arg value="--java_out=${javaout.path}"/>
-      <arg value="--python_out=${pythonout.path}"/>
+      <arg value="<DASH/><DASH/>proto_path=${proto.path}"/>
+      <arg value=""<DASH/><DASH/>java_out=${javaout.path}"/>
+      <arg value=""<DASH/><DASH/>python_out=${pythonout.path}"/>
       <arg line="${proto.sources}"/>
     </exec>
   </target>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 LinkedIn, Inc
+ * Copyright 2011-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -135,7 +135,7 @@ public class StealerBasedRebalanceAsyncOperation extends RebalanceAsyncOperation
                         + stealInfo.getDonorId());
 
             rebalancer.releaseRebalancingPermit(stealInfo.getDonorId());
-            adminClient.stop();
+            adminClient.close();
             adminClient = null;
         }
     }

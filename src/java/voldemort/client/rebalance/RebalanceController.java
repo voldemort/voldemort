@@ -29,6 +29,7 @@ import java.util.concurrent.Semaphore;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.rebalance.task.DonorBasedRebalanceTask;
 import voldemort.client.rebalance.task.RebalanceTask;
@@ -57,12 +58,12 @@ public class RebalanceController {
     private final RebalanceClientConfig rebalanceConfig;
 
     public RebalanceController(String bootstrapUrl, RebalanceClientConfig rebalanceConfig) {
-        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig);
+        this.adminClient = new AdminClient(bootstrapUrl, rebalanceConfig, new ClientConfig());
         this.rebalanceConfig = rebalanceConfig;
     }
 
     public RebalanceController(Cluster cluster, RebalanceClientConfig config) {
-        this.adminClient = new AdminClient(cluster, config);
+        this.adminClient = new AdminClient(cluster, config, new ClientConfig());
         this.rebalanceConfig = config;
     }
 
@@ -751,7 +752,7 @@ public class RebalanceController {
     }
 
     public void stop() {
-        adminClient.stop();
+        adminClient.close();
     }
 
 }

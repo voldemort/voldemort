@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2009 LinkedIn, Inc
+ * Copyright 2008-2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -143,6 +143,7 @@ public class EndToEndRebootstrapTest {
             String newBootstrapTime = "";
             AdminClient adminClient = new AdminClient(bootStrapUrls[0],
                                                       new AdminClientConfig(),
+                                                      new ClientConfig(),
                                                       CLIENT_ZONE_ID);
 
             try {

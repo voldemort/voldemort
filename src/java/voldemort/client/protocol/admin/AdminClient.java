@@ -165,11 +165,15 @@ public class AdminClient {
     final public AdminClient.ReadOnlySpecificOperations readonlyOps;
 
     /**
-     * Common initialization
+     * Common initialization of AdminClient.
      * 
-     * @param adminClientConfig
+     * @param adminClientConfig Client configuration for SocketPool-based
+     *        operations.
+     * @param clientConfig Client configurations for
+     *        ClientRequestExecutorPool-based operations via the (private)
+     *        AdminStoreClient.
      */
-    private AdminClient(AdminClientConfig adminClientConfig) {
+    private AdminClient(AdminClientConfig adminClientConfig, ClientConfig clientConfig) {
         this.helperOps = this.new HelperOperations();
         this.rpcOps = this.new RPCOperations();
         this.metadataMgmtOps = this.new MetadataManagementOperations();
@@ -182,12 +186,13 @@ public class AdminClient {
         this.rebalanceOps = this.new RebalancingOperations();
         this.readonlyOps = this.new ReadOnlySpecificOperations();
 
-        this.adminClientConfig = adminClientConfig;
         this.errorMapper = new ErrorCodeMapper();
         this.networkClassLoader = new NetworkClassLoader(Thread.currentThread()
                                                                .getContextClassLoader());
+
+        this.adminClientConfig = adminClientConfig;
         this.socketPool = helperOps.createSocketPool(adminClientConfig);
-        this.adminStoreClient = new AdminStoreClient();
+        this.adminStoreClient = new AdminStoreClient(clientConfig);
     }
 
     /**
@@ -204,8 +209,10 @@ public class AdminClient {
      *        <li>socket buffer size</li>
      *        </ul>
      */
-    public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig) {
-        this(adminClientConfig);
+    public AdminClient(String bootstrapURL,
+                       AdminClientConfig adminClientConfig,
+                       ClientConfig clientConfig) {
+        this(adminClientConfig, clientConfig);
         this.currentCluster = helperOps.getClusterFromBootstrapURL(bootstrapURL);
         helperOps.cacheSystemStoreParams(bootstrapURL, DEFAULT_ZONE_ID);
     }
@@ -224,8 +231,10 @@ public class AdminClient {
      *        <li>socket buffer size</li>
      *        </ul>
      */
-    public AdminClient(Cluster cluster, AdminClientConfig adminClientConfig) {
-        this(adminClientConfig);
+    public AdminClient(Cluster cluster,
+                       AdminClientConfig adminClientConfig,
+                       ClientConfig clientConfig) {
+        this(adminClientConfig, clientConfig);
         this.currentCluster = cluster;
         Node node = cluster.getNodeById(0);
         String bootstrapURL = "tcp://" + node.getHost() + ":" + node.getSocketPort();
@@ -247,17 +256,20 @@ public class AdminClient {
      *        </ul>
      * @param zoneID The primary Zone ID for the purpose of the SystemStore
      */
-    public AdminClient(String bootstrapURL, AdminClientConfig adminClientConfig, int zoneID) {
-        this(bootstrapURL, adminClientConfig);
+    public AdminClient(String bootstrapURL,
+                       AdminClientConfig adminClientConfig,
+                       ClientConfig clientConfig,
+                       int zoneID) {
+        this(bootstrapURL, adminClientConfig, clientConfig);
         helperOps.cacheSystemStoreParams(bootstrapURL, zoneID);
     }
 
     /**
      * Stop the AdminClient cleanly freeing all resources.
      */
-    public void stop() {
+    public void close() {
         this.socketPool.close();
-        this.adminStoreClient.stop();
+        this.adminStoreClient.close();
     }
 
     /**
@@ -346,7 +358,7 @@ public class AdminClient {
             }
         }
 
-        // TODO: Move this helper method to ClusterInstance?
+        // TODO: (refactor) Move this helper method to ClusterInstance
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -363,7 +375,7 @@ public class AdminClient {
             return getReplicationMapping(restoringNode, cluster, storeDef, -1);
         }
 
-        // TODO: Move this helper method to ClusterInstance?
+        // TODO: (refactor) Move this helper method to ClusterInstance
         /**
          * For a particular node, finds out all the [replica, partition] tuples
          * it needs to steal in order to be brought back to normal state
@@ -421,7 +433,7 @@ public class AdminClient {
             return returnMap;
         }
 
-        // TODO: Move this helper method to ClusterInstance?
+        // TODO: (refactor) Move this helper method to ClusterInstance
         /**
          * For each partition that need to be restored, find a donor node that
          * owns the partition AND has the same zone ID as requested. -1 means no
@@ -501,7 +513,7 @@ public class AdminClient {
                                               .build();
         }
 
-        // TODO: It is weird that a helper method invokes
+        // TODO: (refactor) It is weird that a helper method invokes
         // metadataMgmtOps.getRemoteStoreDefList. Refactor this method to split
         // some of the functionality into ClusterInstance, and then move this
         // method to metadataMgmtOps. Or, do the refactoring wrt ClusterInstance
@@ -1483,9 +1495,6 @@ public class AdminClient {
             return response.build();
         }
 
-        // TODO: Should socketPool.checkin be in a finally clause? What are the
-        // semantics around closing the socket and then checking it in? Same
-        // questions apply to fetchOrphanedKeys...
         /**
          * Fetches entries that don't belong to the node, based on current
          * metadata and yet persisted on the node
@@ -1945,9 +1954,8 @@ public class AdminClient {
 
         private final ConcurrentMap<NodeStore, SocketStore> nodeStoreSocketCache;
 
-        AdminStoreClient() {
-            // TODO: Pass in a ClientConfig or a AdminClientConfig?
-            this.clientConfig = new ClientConfig();
+        AdminStoreClient(ClientConfig clientConfig) {
+            this.clientConfig = clientConfig;
             clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
                                                        clientConfig.getMaxConnectionsPerNode(),
                                                        clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
@@ -1966,8 +1974,6 @@ public class AdminClient {
 
                 SocketStore newSocketStore = null;
                 try {
-                    // TODO: Can clientConfig.getRequestFormatType() default to
-                    // something?
                     newSocketStore = clientPool.create(storeName,
                                                        node.getHost(),
                                                        node.getSocketPort(),
@@ -1989,7 +1995,7 @@ public class AdminClient {
             return socketStore;
         }
 
-        public void stop() {
+        public void close() {
             clientPool.close();
         }
     }
@@ -2124,8 +2130,6 @@ public class AdminClient {
             }
         }
 
-        // TODO: Use storeOperation.getNodeKey()? Or some other way of using
-        // adminStoreClient?
         /**
          * Fetch key/value tuples belonging to a node with given key values
          * 
@@ -2144,24 +2148,13 @@ public class AdminClient {
                                                   String storeName,
                                                   final Iterator<ByteArray> keys) {
 
-            Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
-            ClientConfig clientConfig = new ClientConfig();
             final Store<ByteArray, byte[], byte[]> store;
-            final ClientRequestExecutorPool clientPool = new ClientRequestExecutorPool(clientConfig.getSelectors(),
-                                                                                       clientConfig.getMaxConnectionsPerNode(),
-                                                                                       clientConfig.getConnectionTimeout(TimeUnit.MILLISECONDS),
-                                                                                       clientConfig.getSocketTimeout(TimeUnit.MILLISECONDS),
-                                                                                       clientConfig.getSocketBufferSize(),
-                                                                                       clientConfig.getSocketKeepAlive());
+
             try {
-                store = clientPool.create(storeName,
-                                          node.getHost(),
-                                          node.getSocketPort(),
-                                          clientConfig.getRequestFormatType(),
-                                          RequestRoutingType.IGNORE_CHECKS);
+                store = adminStoreClient.getSocketStore(nodeId, storeName);
 
             } catch(Exception e) {
-                clientPool.close();
+                AdminClient.this.close();
                 throw new VoldemortException(e);
             }
 
@@ -2172,7 +2165,7 @@ public class AdminClient {
                     ByteArray key;
                     List<Versioned<byte[]>> value = null;
                     if(!keys.hasNext()) {
-                        clientPool.close();
+                        AdminClient.this.close();
                         return endOfData();
                     } else {
                         key = keys.next();
@@ -2718,7 +2711,8 @@ public class AdminClient {
                                final String urlToMirrorFrom,
                                List<String> stores) {
             final AdminClient mirrorAdminClient = new AdminClient(urlToMirrorFrom,
-                                                                  new AdminClientConfig());
+                                                                  new AdminClientConfig(),
+                                                                  new ClientConfig());
             final AdminClient currentAdminClient = AdminClient.this;
 
             // determine the partitions residing on the mirror node

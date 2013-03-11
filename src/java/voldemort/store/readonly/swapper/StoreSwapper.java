@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.store.readonly.swapper;
 
 import java.io.File;
@@ -18,6 +33,7 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.log4j.Logger;
 
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -118,7 +134,7 @@ public abstract class StoreSwapper {
 
         DefaultHttpClient httpClient = null;
         if(useAdminServices) {
-            adminClient = new AdminClient(cluster, new AdminClientConfig());
+            adminClient = new AdminClient(cluster, new AdminClientConfig(), new ClientConfig());
             swapper = new AdminStoreSwapper(cluster, executor, adminClient, timeoutMs);
         } else {
             int numConnections = cluster.getNumberOfNodes() + 3;
@@ -146,7 +162,7 @@ public abstract class StoreSwapper {
                         + " seconds.");
         } finally {
             if(useAdminServices && adminClient != null)
-                adminClient.stop();
+                adminClient.close();
             executor.shutdownNow();
             executor.awaitTermination(1, TimeUnit.SECONDS);
             VoldemortIOUtils.closeQuietly(httpClient);

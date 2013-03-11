@@ -1,3 +1,18 @@
+/*
+ * Copyright 2013 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package voldemort.utils;
 
 import java.io.BufferedWriter;
@@ -20,6 +35,7 @@ import joptsimple.OptionSet;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.cluster.Cluster;
@@ -77,7 +93,10 @@ public class ConsistencyCheck {
             if(logger.isInfoEnabled()) {
                 logger.info("Connecting to bootstrap server: " + url);
             }
-            AdminClient adminClient = new AdminClient(url, new AdminClientConfig(), 0);
+            AdminClient adminClient = new AdminClient(url,
+                                                      new AdminClientConfig(),
+                                                      new ClientConfig(),
+                                                      0);
             adminClients.add(adminClient);
             /* get Cluster */
             Cluster cluster = adminClient.getAdminClientCluster();
@@ -241,7 +260,7 @@ public class ConsistencyCheck {
         /* adminClient shutdown */
         for(AdminClient adminClient: adminClients) {
             if(adminClient != null) {
-                adminClient.stop();
+                adminClient.close();
             }
         }
 

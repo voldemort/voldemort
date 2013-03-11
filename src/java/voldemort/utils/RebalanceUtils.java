@@ -39,6 +39,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 import voldemort.VoldemortException;
+import voldemort.client.ClientConfig;
 import voldemort.client.protocol.admin.AdminClient;
 import voldemort.client.protocol.admin.AdminClientConfig;
 import voldemort.client.rebalance.RebalanceClusterPlan;
@@ -604,7 +605,7 @@ public class RebalanceUtils {
                                                           .setAdminSocketTimeoutSec(voldemortConfig.getAdminSocketTimeout())
                                                           .setAdminSocketBufferSize(voldemortConfig.getAdminSocketBufferSize());
 
-        return new AdminClient(cluster, config);
+        return new AdminClient(cluster, config, new ClientConfig());
     }
 
     /**
