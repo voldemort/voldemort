@@ -56,7 +56,7 @@ import voldemort.versioning.Versioned;
 public class ConsistencyCheckTest {
 
     final String STORE_NAME = "consistency-check";
-    final String STORES_XML = "test/common/voldemort/config/stores.xml";
+    final String STORES_XML = "test/common/voldemort/config/consistency-stores.xml";
 
     Node n1 = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());
     Node n1_dup = new Node(1, "localhost", 10000, 10001, 10002, 0, new ArrayList<Integer>());

@@ -410,9 +410,10 @@ public class AdminRebalanceTest {
 
             // Put a plan different from the plan that we actually want to
             // execute
+            int incorrectStealerId = (plans.get(0).getStealerId() + 1) % 3;
             getServer(plans.get(0).getStealerId()).getMetadataStore()
                                                   .put(MetadataStore.REBALANCING_STEAL_INFO,
-                                                       new RebalancerState(Lists.newArrayList(new RebalancePartitionsInfo(100,
+                                                       new RebalancerState(Lists.newArrayList(new RebalancePartitionsInfo(incorrectStealerId,
                                                                                                                           plans.get(0)
                                                                                                                                .getDonorId(),
                                                                                                                           plans.get(0)

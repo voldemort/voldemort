@@ -57,7 +57,7 @@ import voldemort.versioning.VectorClock;
 public class ConsistencyFixTest {
 
     final static String STORE_NAME = "consistency-fix";
-    final static String STORES_XML = "test/common/voldemort/config/stores.xml";
+    final static String STORES_XML = "test/common/voldemort/config/consistency-stores.xml";
 
     /**
      * 
