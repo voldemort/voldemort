@@ -1444,7 +1444,6 @@ public class AdminClient {
                                           boolean fetchValues,
                                           boolean fetchMasterEntries,
                                           Cluster initialCluster,
-                                          long skipRecords,
                                           long maxRecords) throws IOException {
             HashMap<Integer, List<Integer>> filteredReplicaToPartitionList = Maps.newHashMap();
             if(fetchMasterEntries) {
@@ -1460,7 +1459,6 @@ public class AdminClient {
                                                                                                                     .setFetchValues(fetchValues)
                                                                                                                     .addAllReplicaToPartition(ProtoUtils.encodePartitionTuple(filteredReplicaToPartitionList))
                                                                                                                     .setStore(storeName)
-                                                                                                                    .setSkipRecords(skipRecords)
                                                                                                                     .setMaxRecords(maxRecords);
 
             try {
@@ -1576,7 +1574,6 @@ public class AdminClient {
          * @param filter Custom filter implementation to filter out entries
          *        which should not be fetched.
          * @param fetchMasterEntries Fetch an entry only if master replica
-         * @param skipRecords Number of records to skip
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
@@ -1585,7 +1582,6 @@ public class AdminClient {
                                                                          List<Integer> partitionList,
                                                                          VoldemortFilter filter,
                                                                          boolean fetchMasterEntries,
-                                                                         long skipRecords,
                                                                          long maxRecords) {
             return fetchEntries(nodeId,
                                 storeName,
@@ -1593,7 +1589,6 @@ public class AdminClient {
                                 filter,
                                 fetchMasterEntries,
                                 null,
-                                skipRecords,
                                 maxRecords);
         }
 
@@ -1616,7 +1611,7 @@ public class AdminClient {
                                                                          List<Integer> partitionList,
                                                                          VoldemortFilter filter,
                                                                          boolean fetchMasterEntries) {
-            return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0, 0);
+            return fetchEntries(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
         // TODO: " HashMap<Integer, List<Integer>> replicaToPartitionList," is a
@@ -1652,7 +1647,6 @@ public class AdminClient {
          *        decision to fetch entries. This is important during
          *        rebalancing where-in we want to fetch keys using an older
          *        metadata compared to the new one.
-         * @param skipRecords Number of records to skip
          * @return An iterator which allows entries to be streamed as they're
          *         being iterated over.
          */
@@ -1662,7 +1656,6 @@ public class AdminClient {
                                                                          VoldemortFilter filter,
                                                                          boolean fetchMasterEntries,
                                                                          Cluster initialCluster,
-                                                                         long skipRecords,
                                                                          long maxRecords) {
 
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
@@ -1681,7 +1674,6 @@ public class AdminClient {
                                      true,
                                      fetchMasterEntries,
                                      initialCluster,
-                                     skipRecords,
                                      maxRecords);
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());
@@ -1800,7 +1792,6 @@ public class AdminClient {
          * @param filter Custom filter implementation to filter out entries
          *        which should not be fetched.
          * @param fetchMasterEntries Fetch a key only if master replica
-         * @param skipRecords Number of keys to skip
          * @return An iterator which allows keys to be streamed as they're being
          *         iterated over.
          */
@@ -1809,7 +1800,6 @@ public class AdminClient {
                                              List<Integer> partitionList,
                                              VoldemortFilter filter,
                                              boolean fetchMasterEntries,
-                                             long skipRecords,
                                              long maxRecords) {
             return fetchKeys(nodeId,
                              storeName,
@@ -1817,7 +1807,6 @@ public class AdminClient {
                              filter,
                              fetchMasterEntries,
                              null,
-                             skipRecords,
                              maxRecords);
         }
 
@@ -1840,7 +1829,7 @@ public class AdminClient {
                                              List<Integer> partitionList,
                                              VoldemortFilter filter,
                                              boolean fetchMasterEntries) {
-            return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0, 0);
+            return fetchKeys(nodeId, storeName, partitionList, filter, fetchMasterEntries, 0);
         }
 
         /**
@@ -1855,7 +1844,6 @@ public class AdminClient {
          * @param filter Custom filter
          * @param initialCluster Cluster to use for selecting a key. If null,
          *        use the default metadata from the metadata store
-         * @param skipRecords Number of records to skip [ Used for sampling ]
          * @return Returns an iterator of the keys
          */
         public Iterator<ByteArray> fetchKeys(int nodeId,
@@ -1864,7 +1852,6 @@ public class AdminClient {
                                              VoldemortFilter filter,
                                              boolean fetchMasterEntries,
                                              Cluster initialCluster,
-                                             long skipRecords,
                                              long maxRecords) {
             Node node = AdminClient.this.getAdminClientCluster().getNodeById(nodeId);
             final SocketDestination destination = new SocketDestination(node.getHost(),
@@ -1882,7 +1869,6 @@ public class AdminClient {
                                      false,
                                      fetchMasterEntries,
                                      initialCluster,
-                                     skipRecords,
                                      maxRecords);
             } catch(IOException e) {
                 helperOps.close(sands.getSocket());

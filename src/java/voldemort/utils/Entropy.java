@@ -250,7 +250,6 @@ public class Entropy {
                                                                                  .getPartitionIds(),
                                                                           null,
                                                                           false,
-                                                                          0,
                                                                           numKeysPerNode);
                                 for(long keyId = 0; keyId < numKeysPerNode && keys.hasNext(); keyId++) {
                                     ByteArray key = keys.next();
@@ -283,7 +282,6 @@ public class Entropy {
                                                                       partitions,
                                                                       null,
                                                                       false,
-                                                                      0,
                                                                       numKeysPerPartition);
                             while(keys.hasNext() && numKeysStored < numKeys) {
                                 ByteArray key = keys.next();

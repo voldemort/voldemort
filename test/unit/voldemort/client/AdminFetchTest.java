@@ -153,7 +153,6 @@ public class AdminFetchTest {
                                                                                                         null,
                                                                                                         false,
                                                                                                         cluster,
-                                                                                                        0,
                                                                                                         0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
@@ -177,7 +176,6 @@ public class AdminFetchTest {
                                                                                                         null,
                                                                                                         false,
                                                                                                         cluster,
-                                                                                                        0,
                                                                                                         0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
@@ -201,7 +199,6 @@ public class AdminFetchTest {
                                                                                                         null,
                                                                                                         false,
                                                                                                         cluster,
-                                                                                                        0,
                                                                                                         0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
@@ -220,7 +217,6 @@ public class AdminFetchTest {
                                                                                                         null,
                                                                                                         false,
                                                                                                         cluster,
-                                                                                                        0,
                                                                                                         0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);

@@ -92,7 +92,8 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
 
         // process the next partition
         if(entriesPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= maxRecords * skipRecords) {
+            if(currentIndex == partitionList.size() || counter >= maxRecords) {
+                // TODO: Make .info consistent
                 logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
                             + " records processed.");
                 return StreamRequestHandlerState.COMPLETE;
@@ -127,39 +128,33 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 counter++;
                 Pair<ByteArray, Versioned<byte[]>> entry = entriesPartitionIterator.next();
 
-                // honor skipRecords
-                if(counter % skipRecords == 0) {
-                    // do the filtering
-                    if(streamStats != null) {
-                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
-                        streamStats.reportStreamingScan(operation);
-                    }
-                    ByteArray key = entry.getFirst();
-                    Versioned<byte[]> value = entry.getSecond();
+                // do the filtering
+                if(streamStats != null) {
+                    streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                    streamStats.reportStreamingScan(operation);
+                }
+                ByteArray key = entry.getFirst();
+                Versioned<byte[]> value = entry.getSecond();
 
-                    throttler.maybeThrottle(key.length());
-                    if(filter.accept(key, value)) {
-                        fetched++;
-                        if(streamStats != null)
-                            streamStats.reportStreamingFetch(operation);
-                        VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-
-                        VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
-                                                                                              .setKey(ProtoUtils.encodeBytes(key))
-                                                                                              .setVersioned(ProtoUtils.encodeVersioned(value))
-                                                                                              .build();
-                        response.setPartitionEntry(partitionEntry);
-                        Message message = response.build();
-
-                        startNs = System.nanoTime();
-                        ProtoUtils.writeMessage(outputStream, message);
-                        if(streamStats != null)
-                            streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
-                        throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
-                    }
-                } else {
+                throttler.maybeThrottle(key.length());
+                if(filter.accept(key, value)) {
+                    fetched++;
                     if(streamStats != null)
-                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                        streamStats.reportStreamingFetch(operation);
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+
+                    VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
+                                                                                          .setKey(ProtoUtils.encodeBytes(key))
+                                                                                          .setVersioned(ProtoUtils.encodeVersioned(value))
+                                                                                          .build();
+                    response.setPartitionEntry(partitionEntry);
+                    Message message = response.build();
+
+                    startNs = System.nanoTime();
+                    ProtoUtils.writeMessage(outputStream, message);
+                    if(streamStats != null)
+                        streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
+                    throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
 
                 // log progress
@@ -174,7 +169,7 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
             }
 
             // reset the iterator if done with this partition
-            if(!entriesPartitionIterator.hasNext() || counter >= maxRecords * skipRecords) {
+            if(!entriesPartitionIterator.hasNext() || counter >= maxRecords) {
                 entriesPartitionIterator.close();
                 entriesPartitionIterator = null;
             }

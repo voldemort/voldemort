@@ -57,6 +57,7 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                     + "' with replica to partition mapping " + replicaToPartitionList);
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
@@ -73,14 +74,11 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         throttler.maybeThrottle(key.length());
         boolean keyAccepted = false;
         if(!fetchOrphaned) {
-            // normal code path
             if(StoreInstance.checkKeyBelongsToPartition(nodeId,
                                                         key.get(),
                                                         replicaToPartitionList,
                                                         initialCluster,
-                                                        storeDef)
-               && filter.accept(key, null)
-               && counter % skipRecords == 0) {
+                                                        storeDef) && filter.accept(key, null)) {
                 keyAccepted = true;
             }
 
@@ -100,8 +98,13 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
 
             startNs = System.nanoTime();
             ProtoUtils.writeMessage(outputStream, message);
-            if(streamStats != null)
+            if(streamStats != null) {
+                // TODO: The accounting for streaming reads should also
+                // move along with the next() call since we are indeed
+                // fetching from disk.. ---VChandar
+
                 streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
+            }
         }
 
         // log progress
@@ -116,7 +119,17 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                         + " s");
         }
 
-        if(keyIterator.hasNext() && counter < maxRecords * skipRecords)
+        // TODO: make usage clearer. Rename maxRecords to recordsPerPartition.
+        // And, make recordsPerPartition <=0 mean 'get them all'.
+
+        // TODO: Remove skipRecords from message and from code.
+
+        // TODO: Make sure the distinction between FetchKeysStream and
+        // FetchPartitionKeysStream is clear.
+
+        // TODO: Add logic to FetchKeys and FetchEntries to account for keys per
+        // partition.
+        if(keyIterator.hasNext() && (counter < maxRecords))
             return StreamRequestHandlerState.WRITING;
         else {
             return StreamRequestHandlerState.COMPLETE;

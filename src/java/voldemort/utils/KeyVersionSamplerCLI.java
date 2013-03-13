@@ -53,9 +53,10 @@ import voldemort.versioning.Versioned;
  * key-versions is generated.
  * 
  */
+// TODO: Rename KeyValueFetcher
 public class KeyVersionSamplerCLI {
 
-    private static Logger logger = Logger.getLogger(ConsistencyCheck.class);
+    private static Logger logger = Logger.getLogger(KeyVersionSamplerCLI.class);
 
     private final static int KEY_PARALLELISM = 4;
 
@@ -270,6 +271,8 @@ public class KeyVersionSamplerCLI {
         Utils.croak("\n" + errMessage);
     }
 
+    // TODO: Add option to fetch value in addition to version
+    // TODO: Add option to print human readable versions versus byte.hexstrings
     public static void main(String[] args) throws Exception {
         OptionSet options = null;
         try {

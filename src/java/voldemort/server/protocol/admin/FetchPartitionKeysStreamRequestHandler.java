@@ -84,13 +84,16 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
         }
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
 
         // process the next partition
         if(keysPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= maxRecords * skipRecords) {
+            if(currentIndex == partitionList.size() || counter >= maxRecords) {
+                // TODO: Make all .info messages consistent. "Records fetched"
+                // instead of "Done fetching".
                 logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
                             + " records processed.");
                 return StreamRequestHandlerState.COMPLETE;
@@ -125,32 +128,29 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                 counter++;
                 ByteArray key = keysPartitionIterator.next();
 
-                // honor skipRecords
-                if(counter % skipRecords == 0) {
-                    // do the filtering
-                    if(streamStats != null) {
-                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
-                        streamStats.reportStreamingScan(operation);
-                    }
-                    throttler.maybeThrottle(key.length());
-                    if(filter.accept(key, null)) {
+                // do the filtering
+                if(streamStats != null) {
+                    // TODO: The accounting for streaming reads should also
+                    // move along with the next() call since we are indeed
+                    // fetching from disk.. ---VChandar
+                    streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                    streamStats.reportStreamingScan(operation);
+                }
+                throttler.maybeThrottle(key.length());
+                if(filter.accept(key, null)) {
 
-                        VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
-                        response.setKey(ProtoUtils.encodeBytes(key));
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
+                    response.setKey(ProtoUtils.encodeBytes(key));
 
-                        fetched++;
-                        if(streamStats != null)
-                            streamStats.reportStreamingFetch(operation);
-                        Message message = response.build();
-
-                        startNs = System.nanoTime();
-                        ProtoUtils.writeMessage(outputStream, message);
-                        if(streamStats != null)
-                            streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
-                    }
-                } else {
+                    fetched++;
                     if(streamStats != null)
-                        streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
+                        streamStats.reportStreamingFetch(operation);
+                    Message message = response.build();
+
+                    startNs = System.nanoTime();
+                    ProtoUtils.writeMessage(outputStream, message);
+                    if(streamStats != null)
+                        streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
                 }
 
                 // log progress
@@ -166,7 +166,7 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
 
             // reset the iterator if done with this partition or fetched enough
             // records
-            if(!keysPartitionIterator.hasNext() || counter >= maxRecords * skipRecords) {
+            if(!keysPartitionIterator.hasNext() || (counter >= maxRecords)) {
                 keysPartitionIterator.close();
                 keysPartitionIterator = null;
             }

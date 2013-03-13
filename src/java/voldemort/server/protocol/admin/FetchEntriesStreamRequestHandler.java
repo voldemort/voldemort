@@ -87,7 +87,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                                                         key.get(),
                                                         replicaToPartitionList,
                                                         initialCluster,
-                                                        storeDef) && counter % skipRecords == 0) {
+                                                        storeDef)) {
                 entryAccepted = true;
             }
         } else {
@@ -142,7 +142,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                         + " s");
         }
 
-        if(keyIterator.hasNext() && counter < maxRecords * skipRecords)
+        if(keyIterator.hasNext() && counter < maxRecords)
             return StreamRequestHandlerState.WRITING;
         else {
             return StreamRequestHandlerState.COMPLETE;

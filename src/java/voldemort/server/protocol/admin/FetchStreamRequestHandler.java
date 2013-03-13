@@ -68,8 +68,6 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected long counter;
 
-    protected long skipRecords;
-
     protected long maxRecords;
 
     protected int fetched;
@@ -122,10 +120,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.startTime = System.currentTimeMillis();
         this.counter = 0;
 
-        this.skipRecords = 1;
-        if(request.hasSkipRecords() && request.getSkipRecords() >= 0) {
-            this.skipRecords = request.getSkipRecords() + 1;
-        }
+        // TODO: maxRecords should default to 0 for clarity imho. (And change to
+        // recordsPerPartition_
         this.maxRecords = Long.MAX_VALUE;
         if(request.hasMaxRecords() && request.getMaxRecords() > 0) {
             this.maxRecords = request.getMaxRecords();

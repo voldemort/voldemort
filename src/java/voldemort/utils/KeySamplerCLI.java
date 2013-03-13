@@ -49,16 +49,14 @@ import voldemort.store.StoreDefinition;
  * cluster. A distinct file of sampled keys is generated for each store.
  * 
  * By default, the "first" key of each partition is sampled. Optional arguments
- * control sampling more keys per partition, and skipping some keys on the
- * server while sampling.
+ * control sampling more keys per partition.
  */
 public class KeySamplerCLI {
 
-    private static Logger logger = Logger.getLogger(ConsistencyCheck.class);
+    private static Logger logger = Logger.getLogger(KeySamplerCLI.class);
 
-    private final static int NODE_PARALLELISM = 8;
-    private final static int MAX_RECORDS = 1;
-    private final static int SKIP_RECORDS = 0;
+    private final static int DEFAULT_NODE_PARALLELISM = 8;
+    private final static int DEFAULT_MAX_RECORDS = 1;
 
     private final AdminClient adminClient;
     private final Cluster cluster;
@@ -69,13 +67,8 @@ public class KeySamplerCLI {
     private final ExecutorService nodeSamplerService;
 
     private final int maxRecords;
-    private final int skipRecords;
 
-    public KeySamplerCLI(String url,
-                         String outDir,
-                         int nodeParallelism,
-                         int maxRecords,
-                         int skipRecords) {
+    public KeySamplerCLI(String url, String outDir, int nodeParallelism, int maxRecords) {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
@@ -92,7 +85,6 @@ public class KeySamplerCLI {
         this.nodeSamplerService = Executors.newFixedThreadPool(nodeParallelism);
 
         this.maxRecords = maxRecords;
-        this.skipRecords = skipRecords;
     }
 
     public boolean sampleStores() {
@@ -112,6 +104,7 @@ public class KeySamplerCLI {
 
         NodeSampleResult(boolean success, String keyString) {
             this.success = success;
+            // TODO: keysString versus keyString
             this.keyString = keyString;
         }
     }
@@ -136,6 +129,9 @@ public class KeySamplerCLI {
             for(int partitionId: node.getPartitionIds()) {
                 success = false;
 
+                // TODO: real per-server throttling and/or make '100' a command
+                // line argument.
+
                 // Simple, lame throttling since thread is going at same node
                 // repeatedly
                 try {
@@ -158,13 +154,11 @@ public class KeySamplerCLI {
                 while(attempts < 5 && !success) {
                     try {
                         Iterator<ByteArray> fetchIterator;
-                        // TODO: should fetchMasterEntries be true?
                         fetchIterator = adminClient.bulkFetchOps.fetchKeys(node.getId(),
                                                                            storeName,
                                                                            singlePartition,
                                                                            null,
-                                                                           false,
-                                                                           skipRecords,
+                                                                           true,
                                                                            maxRecords);
                         int keyCount = 0;
                         while(fetchIterator.hasNext()) {
@@ -175,6 +169,9 @@ public class KeySamplerCLI {
                         }
                         if(keyCount < maxRecords) {
                             logger.warn("Fewer keys (" + keyCount + ") than requested ("
+                                        + maxRecords + ") returned --- " + infoTag);
+                        } else if(keyCount < maxRecords) {
+                            logger.warn("More keys (" + keyCount + ") than requested ("
                                         + maxRecords + ") returned --- " + infoTag);
                         }
                         success = true;
@@ -289,19 +286,14 @@ public class KeySamplerCLI {
               .describedAs("outputDirectory")
               .ofType(String.class);
         parser.accepts("parallelism",
-                       "Number of nodes to sample in parallel. [Default: " + NODE_PARALLELISM
-                               + " ]")
+                       "Number of nodes to sample in parallel. [Default: "
+                               + DEFAULT_NODE_PARALLELISM + " ]")
               .withRequiredArg()
               .describedAs("storeParallelism")
               .ofType(Integer.class);
         parser.accepts("max-records",
-                       "Number of keys sampled per partitoin. [Default: " + MAX_RECORDS + " ]")
-              .withRequiredArg()
-              .describedAs("maxRecords")
-              .ofType(Integer.class);
-        parser.accepts("skip-records",
-                       "Number of keys to skip between samples  (per partition). [Default: "
-                               + SKIP_RECORDS + " ]")
+                       "Number of keys sampled per partitoin. [Default: " + DEFAULT_MAX_RECORDS
+                               + " ]")
               .withRequiredArg()
               .describedAs("maxRecords")
               .ofType(Integer.class);
@@ -322,7 +314,6 @@ public class KeySamplerCLI {
         help.append("  Optional:\n");
         help.append("    --parallelism <nodeParallelism>\n");
         help.append("    --max-records <maxRecords>\n");
-        help.append("    --skip-records <skipRecords>\n");
         help.append("    --help\n");
         System.out.print(help.toString());
     }
@@ -332,11 +323,11 @@ public class KeySamplerCLI {
         Utils.croak("\n" + errMessage);
     }
 
-    // TODO: Add a "stores" option so that a subset of stores can be done
-    // instead of all stores one-by-one.
+    // TODO: (if needed) Add a "stores" option so that a subset of stores can be
+    // done instead of all stores one-by-one.
 
-    // TODO: Add a "partitions" option so that a subset of partitions can be
-    // done instead of all partitions.
+    // TODO: (if needed) Add a "partitions" option so that a subset of
+    // partitions can be done instead of all partitions.
 
     public static void main(String[] args) throws Exception {
         OptionSet options = null;
@@ -362,36 +353,24 @@ public class KeySamplerCLI {
         String outDir = (String) options.valueOf("out-dir");
         Utils.mkdirs(new File(outDir));
 
-        Integer nodeParallelism = NODE_PARALLELISM;
+        Integer nodeParallelism = DEFAULT_NODE_PARALLELISM;
         if(options.hasArgument("parallelism")) {
             nodeParallelism = (Integer) options.valueOf("parallelism");
         }
 
-        Integer maxRecords = MAX_RECORDS;
+        Integer maxRecords = DEFAULT_MAX_RECORDS;
         if(options.hasArgument("max-records")) {
             maxRecords = (Integer) options.valueOf("max-records");
         }
 
-        Integer skipRecords = SKIP_RECORDS;
-        if(options.hasArgument("skip-records")) {
-            skipRecords = (Integer) options.valueOf("skip-records");
-        }
-
-        // TODO: Add a '--pid-server' and a '--unordered-server' option and
-        // require exactly one of them to be set. This forces the person
-        // invoking the command to determine if the servers can do per-partition
-        // sampling directly, or if many keys must be explicitly sampled so that
-        // determination of partition coverage is done client-side.
+        // TODO: Assuming "right thing" happens server-side, then do not need
+        // the below warning...
         logger.warn("This tool is hard-coded to take advantage of servers that "
                     + "use PID style layout of data in BDB. "
                     + "Use fo this tool against other types of servers is undefined.");
 
         try {
-            KeySamplerCLI sampler = new KeySamplerCLI(url,
-                                                      outDir,
-                                                      nodeParallelism,
-                                                      maxRecords,
-                                                      skipRecords);
+            KeySamplerCLI sampler = new KeySamplerCLI(url, outDir, nodeParallelism, maxRecords);
             try {
                 if(!sampler.sampleStores()) {
                     logger.error("Some stores were not successfully sampled.");

@@ -974,7 +974,6 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                                                                                                      filter,
                                                                                                                                      false,
                                                                                                                                      initialCluster,
-                                                                                                                                     0,
                                                                                                                                      0);
                                 long numTuples = 0;
                                 long startTime = System.currentTimeMillis();

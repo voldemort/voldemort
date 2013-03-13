@@ -76,10 +76,11 @@ message FetchPartitionEntriesRequest {
   required string store = 2;
   optional VoldemortFilter filter = 3;
   optional bool fetch_values = 4;
-  optional int64 skip_records = 5;
+  optional int64 OBSOLETE__DO_NOT_USE__skip_records = 5;
   optional string initial_cluster = 6;
   optional bool fetch_orphaned = 7;
   optional int64 max_records = 8;
+  // optional int64 records_per_partition = 8;
 }
 
 message FetchPartitionEntriesResponse {
