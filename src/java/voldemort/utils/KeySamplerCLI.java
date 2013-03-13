@@ -56,7 +56,7 @@ public class KeySamplerCLI {
     private static Logger logger = Logger.getLogger(KeySamplerCLI.class);
 
     private final static int DEFAULT_NODE_PARALLELISM = 8;
-    private final static int DEFAULT_MAX_RECORDS = 1;
+    private final static int DEFAULT_RECORDS_PER_PARTITION = 1;
 
     private final AdminClient adminClient;
     private final Cluster cluster;
@@ -66,9 +66,9 @@ public class KeySamplerCLI {
     private final String outDir;
     private final ExecutorService nodeSamplerService;
 
-    private final int maxRecords;
+    private final int recordsPerPartition;
 
-    public KeySamplerCLI(String url, String outDir, int nodeParallelism, int maxRecords) {
+    public KeySamplerCLI(String url, String outDir, int nodeParallelism, int recordsPerPartition) {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
@@ -84,7 +84,7 @@ public class KeySamplerCLI {
 
         this.nodeSamplerService = Executors.newFixedThreadPool(nodeParallelism);
 
-        this.maxRecords = maxRecords;
+        this.recordsPerPartition = recordsPerPartition;
     }
 
     public boolean sampleStores() {
@@ -126,11 +126,14 @@ public class KeySamplerCLI {
             String storeName = storeDefinition.getName();
             StringBuilder hexKeyStrings = new StringBuilder();
 
+            // TODO: Change this from a loop to flat st the list of partitoinIds
+            // are sent to server.
             for(int partitionId: node.getPartitionIds()) {
                 success = false;
 
                 // TODO: real per-server throttling and/or make '100' a command
-                // line argument.
+                // line argument. And, move near .next() to throttle server
+                // suckage.
 
                 // Simple, lame throttling since thread is going at same node
                 // repeatedly
@@ -159,7 +162,7 @@ public class KeySamplerCLI {
                                                                            singlePartition,
                                                                            null,
                                                                            true,
-                                                                           maxRecords);
+                                                                           recordsPerPartition);
                         int keyCount = 0;
                         while(fetchIterator.hasNext()) {
                             ByteArray key = fetchIterator.next();
@@ -167,12 +170,12 @@ public class KeySamplerCLI {
                             hexKeyStrings.append(hexKeyString + "\n");
                             keyCount++;
                         }
-                        if(keyCount < maxRecords) {
+                        if(keyCount < recordsPerPartition) {
                             logger.warn("Fewer keys (" + keyCount + ") than requested ("
-                                        + maxRecords + ") returned --- " + infoTag);
-                        } else if(keyCount < maxRecords) {
+                                        + recordsPerPartition + ") returned --- " + infoTag);
+                        } else if(keyCount < recordsPerPartition) {
                             logger.warn("More keys (" + keyCount + ") than requested ("
-                                        + maxRecords + ") returned --- " + infoTag);
+                                        + recordsPerPartition + ") returned --- " + infoTag);
                         }
                         success = true;
                     } catch(VoldemortException ve) {
@@ -291,11 +294,11 @@ public class KeySamplerCLI {
               .withRequiredArg()
               .describedAs("storeParallelism")
               .ofType(Integer.class);
-        parser.accepts("max-records",
-                       "Number of keys sampled per partitoin. [Default: " + DEFAULT_MAX_RECORDS
-                               + " ]")
+        parser.accepts("records-per-partition",
+                       "Number of keys sampled per partition. [Default: "
+                               + DEFAULT_RECORDS_PER_PARTITION + " ]")
               .withRequiredArg()
-              .describedAs("maxRecords")
+              .describedAs("recordsPerPartition")
               .ofType(Integer.class);
         return parser;
     }
@@ -313,7 +316,7 @@ public class KeySamplerCLI {
         help.append("    --out-dir <outputDirectory>\n");
         help.append("  Optional:\n");
         help.append("    --parallelism <nodeParallelism>\n");
-        help.append("    --max-records <maxRecords>\n");
+        help.append("    --records-per-partition <recordsPerPartition>\n");
         help.append("    --help\n");
         System.out.print(help.toString());
     }
@@ -358,9 +361,9 @@ public class KeySamplerCLI {
             nodeParallelism = (Integer) options.valueOf("parallelism");
         }
 
-        Integer maxRecords = DEFAULT_MAX_RECORDS;
-        if(options.hasArgument("max-records")) {
-            maxRecords = (Integer) options.valueOf("max-records");
+        Integer recordsPerPartition = DEFAULT_RECORDS_PER_PARTITION;
+        if(options.hasArgument("records-per-partition")) {
+            recordsPerPartition = (Integer) options.valueOf("records-per-partition");
         }
 
         // TODO: Assuming "right thing" happens server-side, then do not need
@@ -370,7 +373,10 @@ public class KeySamplerCLI {
                     + "Use fo this tool against other types of servers is undefined.");
 
         try {
-            KeySamplerCLI sampler = new KeySamplerCLI(url, outDir, nodeParallelism, maxRecords);
+            KeySamplerCLI sampler = new KeySamplerCLI(url,
+                                                      outDir,
+                                                      nodeParallelism,
+                                                      recordsPerPartition);
             try {
                 if(!sampler.sampleStores()) {
                     logger.error("Some stores were not successfully sampled.");

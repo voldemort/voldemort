@@ -127,9 +127,9 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
         // TODO: Make sure the distinction between FetchKeysStream and
         // FetchPartitionKeysStream is clear.
 
-        // TODO: Add logic to FetchKeys and FetchEntries to account for keys per
-        // partition.
-        if(keyIterator.hasNext() && (counter < maxRecords))
+        // TODO: Add logic to FetchKeys and FetchEntries to count keys per
+        // partition correctly.
+        if(keyIterator.hasNext() && (counter < recordsPerPartition))
             return StreamRequestHandlerState.WRITING;
         else {
             return StreamRequestHandlerState.COMPLETE;

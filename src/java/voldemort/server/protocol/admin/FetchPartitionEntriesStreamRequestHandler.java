@@ -86,13 +86,14 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
         }
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
 
         // process the next partition
         if(entriesPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= maxRecords) {
+            if(currentIndex == partitionList.size() || counter >= recordsPerPartition) {
                 // TODO: Make .info consistent
                 logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
                             + " records processed.");
@@ -168,8 +169,11 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                 }
             }
 
+            // TODO: Add logic to FetchKeys and FetchEntries to count keys per
+            // partition correctly.
+
             // reset the iterator if done with this partition
-            if(!entriesPartitionIterator.hasNext() || counter >= maxRecords) {
+            if(!entriesPartitionIterator.hasNext() || counter >= recordsPerPartition) {
                 entriesPartitionIterator.close();
                 entriesPartitionIterator = null;
             }

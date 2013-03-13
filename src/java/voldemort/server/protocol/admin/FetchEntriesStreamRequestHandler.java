@@ -68,6 +68,7 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                     + "' with replica to partition mapping " + replicaToPartitionList);
     }
 
+    @Override
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
@@ -142,7 +143,10 @@ public class FetchEntriesStreamRequestHandler extends FetchStreamRequestHandler 
                         + " s");
         }
 
-        if(keyIterator.hasNext() && counter < maxRecords)
+        // TODO: Add logic to FetchKeys and FetchEntries to count keys per
+        // partition correctly.
+
+        if(keyIterator.hasNext() && counter < recordsPerPartition)
             return StreamRequestHandlerState.WRITING;
         else {
             return StreamRequestHandlerState.COMPLETE;

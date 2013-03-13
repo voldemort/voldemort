@@ -91,7 +91,7 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
 
         // process the next partition
         if(keysPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= maxRecords) {
+            if(currentIndex == partitionList.size() || counter >= recordsPerPartition) {
                 // TODO: Make all .info messages consistent. "Records fetched"
                 // instead of "Done fetching".
                 logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
@@ -164,9 +164,12 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                 }
             }
 
+            // TODO: Add logic to FetchKeys and FetchEntries to count keys per
+            // partition correctly.
+
             // reset the iterator if done with this partition or fetched enough
             // records
-            if(!keysPartitionIterator.hasNext() || (counter >= maxRecords)) {
+            if(!keysPartitionIterator.hasNext() || (counter >= recordsPerPartition)) {
                 keysPartitionIterator.close();
                 keysPartitionIterator = null;
             }

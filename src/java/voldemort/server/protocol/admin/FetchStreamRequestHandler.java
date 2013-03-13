@@ -68,7 +68,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected long counter;
 
-    protected long maxRecords;
+    protected long recordsPerPartition;
 
     protected int fetched;
 
@@ -120,11 +120,9 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         this.startTime = System.currentTimeMillis();
         this.counter = 0;
 
-        // TODO: maxRecords should default to 0 for clarity imho. (And change to
-        // recordsPerPartition_
-        this.maxRecords = Long.MAX_VALUE;
-        if(request.hasMaxRecords() && request.getMaxRecords() > 0) {
-            this.maxRecords = request.getMaxRecords();
+        this.recordsPerPartition = 0;
+        if(request.hasRecordsPerPartition() && request.getRecordsPerPartition() > 0) {
+            this.recordsPerPartition = request.getRecordsPerPartition();
         }
         this.fetchOrphaned = request.hasFetchOrphaned() && request.getFetchOrphaned();
     }
@@ -139,10 +137,12 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         return def;
     }
 
+    @Override
     public final StreamRequestDirection getDirection() {
         return StreamRequestDirection.WRITING;
     }
 
+    @Override
     public void close(DataOutputStream outputStream) throws IOException {
         logger.info("Successfully scanned " + counter + " tuples, fetched " + fetched
                     + " tuples for store '" + storageEngine.getName() + "' in "
@@ -151,6 +151,7 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         ProtoUtils.writeEndOfStream(outputStream);
     }
 
+    @Override
     public final void handleError(DataOutputStream outputStream, VoldemortException e)
             throws IOException {
         VAdminProto.FetchPartitionEntriesResponse response = VAdminProto.FetchPartitionEntriesResponse.newBuilder()
