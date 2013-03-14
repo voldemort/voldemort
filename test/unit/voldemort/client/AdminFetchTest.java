@@ -65,14 +65,22 @@ public class AdminFetchTest {
     private HashMap<Integer, Set<String>> partitionToKeysMap;
 
     private final boolean useNio;
+    private final Properties properties;
 
-    public AdminFetchTest(boolean useNio) {
+    public AdminFetchTest(boolean useNio, boolean usePIDScan) {
         this.useNio = useNio;
+        properties = new Properties();
+        if(usePIDScan) {
+            properties.put("bdb.prefix.keys.with.partitionid", "true");
+        } else {
+            properties.put("bdb.prefix.keys.with.partitionid", "false");
+        }
     }
 
     @Parameters
     public static Collection<Object[]> configs() {
-        return Arrays.asList(new Object[][] { { true }, { false } });
+        return Arrays.asList(new Object[][] { { true, true }, { true, false }, { false, true },
+                { false, false } });
     }
 
     @Before
@@ -88,6 +96,7 @@ public class AdminFetchTest {
         final int numServers = 2;
         servers = new VoldemortServer[numServers];
         int partitionMap[][] = { { 0, 1, 2, 3 }, { 4, 5, 6, 7 } };
+
         cluster = ServerTestUtils.startVoldemortCluster(numServers,
                                                         servers,
                                                         partitionMap,
@@ -95,7 +104,7 @@ public class AdminFetchTest {
                                                         this.useNio,
                                                         null,
                                                         storesXmlfile,
-                                                        new Properties());
+                                                        properties);
 
         List<StoreDefinition> storeDefs = new StoreDefinitionsMapper().readStoreList(new File(storesXmlfile));
 
@@ -190,6 +199,36 @@ public class AdminFetchTest {
     }
 
     @Test
+    public void testFetchPartitionPrimaryTwoEntries() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(0, Arrays.asList(0, 3));
+        Iterator<Pair<ByteArray, Versioned<byte[]>>> entriesItr = adminClient.bulkFetchOps.fetchEntries(0,
+                                                                                                        testStoreName,
+                                                                                                        replicaToPartitionList,
+                                                                                                        null,
+                                                                                                        false,
+                                                                                                        cluster,
+                                                                                                        2);
+        Set<String> fetchedKeys = getEntries(entriesItr);
+
+        Set<String> partition0Keys = new HashSet<String>(partitionToKeysMap.get(0));
+        int numPartition0Keys = partition0Keys.size();
+        partition0Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 0 should be two less.",
+                     numPartition0Keys - 2,
+                     partition0Keys.size());
+
+        Set<String> partition3Keys = new HashSet<String>(partitionToKeysMap.get(3));
+        int numPartition3Keys = partition3Keys.size();
+        partition3Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 3 should be two less.",
+                     numPartition3Keys - 2,
+                     partition3Keys.size());
+
+        assertEquals("Total of four entries fetched.", 4, fetchedKeys.size());
+    }
+
+    @Test
     public void testFetchNonExistentEntriesPrimary() {
         HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
         replicaToPartitionList.put(0, Arrays.asList(5, 7));
@@ -220,6 +259,126 @@ public class AdminFetchTest {
                                                                                                         0);
         // gather all the keys obtained
         Set<String> fetchedKeys = getEntries(entriesItr);
+        // make sure it fetched nothing since these partitions belong to server
+        // 0 as primary
+        assertEquals("Obtained something:" + fetchedKeys, 0, fetchedKeys.size());
+    }
+
+    private Set<String> getKeys(Iterator<ByteArray> itr) {
+        HashSet<String> keySet = new HashSet<String>();
+        while(itr.hasNext()) {
+            keySet.add(new String(itr.next().get()));
+        }
+        return keySet;
+    }
+
+    @Test
+    public void testFetchPartitionPrimaryKeys() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(0, Arrays.asList(0, 3));
+        Iterator<ByteArray> keysItr = adminClient.bulkFetchOps.fetchKeys(0,
+                                                                         testStoreName,
+                                                                         replicaToPartitionList,
+                                                                         null,
+                                                                         false,
+                                                                         cluster,
+                                                                         0);
+        // gather all the keys obtained
+        Set<String> fetchedKeys = getKeys(keysItr);
+        // make sure it fetched all the keys from the partitions requested
+        Set<String> partition0Keys = new HashSet<String>(partitionToKeysMap.get(0));
+        Set<String> partition3Keys = new HashSet<String>(partitionToKeysMap.get(3));
+
+        partition0Keys.removeAll(fetchedKeys);
+        partition3Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 0" + partition0Keys, 0, partition0Keys.size());
+        assertEquals("Remainder in partition 3" + partition3Keys, 0, partition3Keys.size());
+    }
+
+    @Test
+    public void testFetchPartitionSecondaryKeys() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(1, Arrays.asList(4, 6));
+        Iterator<ByteArray> keysItr = adminClient.bulkFetchOps.fetchKeys(0,
+                                                                         testStoreName,
+                                                                         replicaToPartitionList,
+                                                                         null,
+                                                                         false,
+                                                                         cluster,
+                                                                         0);
+        // gather all the keys obtained
+        Set<String> fetchedKeys = getKeys(keysItr);
+        // make sure it fetched all the keys from the partitions requested
+        Set<String> partition4Keys = new HashSet<String>(partitionToKeysMap.get(4));
+        Set<String> partition6Keys = new HashSet<String>(partitionToKeysMap.get(6));
+
+        partition4Keys.removeAll(fetchedKeys);
+        partition6Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 4" + partition4Keys, 0, partition4Keys.size());
+        assertEquals("Remainder in partition 6" + partition6Keys, 0, partition6Keys.size());
+    }
+
+    @Test
+    public void testFetchPartitionPrimaryTwoKeys() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(0, Arrays.asList(0, 3));
+        Iterator<ByteArray> keysItr = adminClient.bulkFetchOps.fetchKeys(0,
+                                                                         testStoreName,
+                                                                         replicaToPartitionList,
+                                                                         null,
+                                                                         false,
+                                                                         cluster,
+                                                                         2);
+        Set<String> fetchedKeys = getKeys(keysItr);
+
+        Set<String> partition0Keys = new HashSet<String>(partitionToKeysMap.get(0));
+        int numPartition0Keys = partition0Keys.size();
+        partition0Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 0 should be two less.",
+                     numPartition0Keys - 2,
+                     partition0Keys.size());
+
+        Set<String> partition3Keys = new HashSet<String>(partitionToKeysMap.get(3));
+        int numPartition3Keys = partition3Keys.size();
+        partition3Keys.removeAll(fetchedKeys);
+        assertEquals("Remainder in partition 3 should be two less.",
+                     numPartition3Keys - 2,
+                     partition3Keys.size());
+
+        assertEquals("Total of four keys fetched.", 4, fetchedKeys.size());
+    }
+
+    @Test
+    public void testFetchNonExistentKeysPrimary() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(0, Arrays.asList(5, 7));
+        Iterator<ByteArray> keysItr = adminClient.bulkFetchOps.fetchKeys(0,
+                                                                         testStoreName,
+                                                                         replicaToPartitionList,
+                                                                         null,
+                                                                         false,
+                                                                         cluster,
+                                                                         0);
+        // gather all the keys obtained
+        Set<String> fetchedKeys = getKeys(keysItr);
+        // make sure it fetched nothing since these partitions belong to server
+        // 1
+        assertEquals("Obtained something:" + fetchedKeys, 0, fetchedKeys.size());
+    }
+
+    @Test
+    public void testFetchNonExistentKeysSecondary() {
+        HashMap<Integer, List<Integer>> replicaToPartitionList = new HashMap<Integer, List<Integer>>();
+        replicaToPartitionList.put(1, Arrays.asList(1, 2));
+        Iterator<ByteArray> keysItr = adminClient.bulkFetchOps.fetchKeys(0,
+                                                                         testStoreName,
+                                                                         replicaToPartitionList,
+                                                                         null,
+                                                                         false,
+                                                                         cluster,
+                                                                         0);
+        // gather all the keys obtained
+        Set<String> fetchedKeys = getKeys(keysItr);
         // make sure it fetched nothing since these partitions belong to server
         // 0 as primary
         assertEquals("Obtained something:" + fetchedKeys, 0, fetchedKeys.size());

@@ -57,9 +57,24 @@ public class StoreInstance {
         return storeDefinition;
     }
 
+    /**
+     * 
+     * @param partitionId
+     * @return List of partition IDs that replicate the partition ID.
+     */
     public List<Integer> getReplicationPartitionList(int partitionId) {
         return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
                                            .getReplicatingPartitionList(partitionId);
+    }
+
+    /**
+     * 
+     * @param key
+     * @return List of partition IDs that replicate the partition ID.
+     */
+    public List<Integer> getReplicationPartitionList(final byte[] key) {
+        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
+                                           .getReplicatingPartitionList(getMasterPartitionId(key));
     }
 
     public int getMasterPartitionId(final byte[] key) {

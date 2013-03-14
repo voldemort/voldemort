@@ -147,6 +147,12 @@ public class ProtoUtils {
         return tuples;
     }
 
+    /**
+     * 
+     * @param partitionTuples
+     * @return HashMap of replica type (Integer) to list of partition IDs
+     *         (Integer)
+     */
     public static HashMap<Integer, List<Integer>> decodePartitionTuple(List<PartitionTuple> partitionTuples) {
         HashMap<Integer, List<Integer>> replicaToPartitionList = Maps.newHashMap();
         for(PartitionTuple tuple: partitionTuples) {

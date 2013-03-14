@@ -100,12 +100,11 @@ public class KeySamplerCLI {
     public static class NodeSampleResult {
 
         public final boolean success;
-        public final String keyString;
+        public final String keysString;
 
-        NodeSampleResult(boolean success, String keyString) {
+        NodeSampleResult(boolean success, String keysString) {
             this.success = success;
-            // TODO: keysString versus keyString
-            this.keyString = keyString;
+            this.keysString = keysString;
         }
     }
 
@@ -124,7 +123,7 @@ public class KeySamplerCLI {
             boolean success = false;
 
             String storeName = storeDefinition.getName();
-            StringBuilder hexKeyStrings = new StringBuilder();
+            StringBuilder hexKeysString = new StringBuilder();
 
             // TODO: Change this from a loop to flat st the list of partitoinIds
             // are sent to server.
@@ -167,7 +166,7 @@ public class KeySamplerCLI {
                         while(fetchIterator.hasNext()) {
                             ByteArray key = fetchIterator.next();
                             String hexKeyString = ByteUtils.toHexString(key.get());
-                            hexKeyStrings.append(hexKeyString + "\n");
+                            hexKeysString.append(hexKeyString + "\n");
                             keyCount++;
                         }
                         if(keyCount < recordsPerPartition) {
@@ -196,7 +195,7 @@ public class KeySamplerCLI {
                     break;
                 }
             }
-            return new NodeSampleResult(success, hexKeyStrings.toString());
+            return new NodeSampleResult(success, hexKeysString.toString());
         }
     }
 
@@ -233,7 +232,7 @@ public class KeySamplerCLI {
                 try {
                     NodeSampleResult nodeSampleResult = future.get();
                     if(nodeSampleResult.success) {
-                        keyWriter.write(nodeSampleResult.keyString);
+                        keyWriter.write(nodeSampleResult.keysString);
                     } else {
                         success = false;
                         logger.error("Sampling on node " + node.getHost() + " of store "

@@ -29,15 +29,16 @@ import voldemort.store.ErrorCodeMapper;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
-import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.StoreInstance;
 
 import com.google.protobuf.Message;
 
-public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
-
-    protected final ClosableIterator<ByteArray> keyIterator;
+/**
+ * Fetches keys by scanning entire storage engine in storage-order.
+ * 
+ */
+public class FetchKeysStreamRequestHandler extends FetchItemsStreamRequestHandler {
 
     public FetchKeysStreamRequestHandler(FetchPartitionEntriesRequest request,
                                          MetadataStore metadataStore,
@@ -52,7 +53,6 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
               storeRepository,
               networkClassLoader,
               Operation.FETCH_KEYS);
-        this.keyIterator = storageEngine.keys();
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
     }
@@ -61,24 +61,21 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
     public StreamRequestHandlerState handleRequest(DataInputStream inputStream,
                                                    DataOutputStream outputStream)
             throws IOException {
-        if(!keyIterator.hasNext())
+        if(!keyIterator.hasNext()) {
             return StreamRequestHandlerState.COMPLETE;
-
-        long startNs = System.nanoTime();
-        ByteArray key = keyIterator.next();
-        if(streamStats != null) {
-            streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
-            streamStats.reportStreamingScan(operation);
         }
 
+        // NOTE: Storage time is accounted for somewhat incorrectly because
+        // .hasNext() is invoked at end of method for the common case.
+        long startNs = System.nanoTime();
+        ByteArray key = keyIterator.next();
+        reportStorageOpTime(startNs);
+
         throttler.maybeThrottle(key.length());
+
         boolean keyAccepted = false;
         if(!fetchOrphaned) {
-            if(StoreInstance.checkKeyBelongsToPartition(nodeId,
-                                                        key.get(),
-                                                        replicaToPartitionList,
-                                                        initialCluster,
-                                                        storeDef) && filter.accept(key, null)) {
+            if(keyIsNeeded(key.get()) && filter.accept(key, null)) {
                 keyAccepted = true;
             }
 
@@ -87,51 +84,30 @@ public class FetchKeysStreamRequestHandler extends FetchStreamRequestHandler {
                 keyAccepted = true;
             }
         }
+
         if(keyAccepted) {
+            keyFetched(key.get());
+
             VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
             response.setKey(ProtoUtils.encodeBytes(key));
-
-            fetched++;
-            if(streamStats != null)
-                streamStats.reportStreamingFetch(operation);
             Message message = response.build();
 
-            startNs = System.nanoTime();
-            ProtoUtils.writeMessage(outputStream, message);
-            if(streamStats != null) {
-                // TODO: The accounting for streaming reads should also
-                // move along with the next() call since we are indeed
-                // fetching from disk.. ---VChandar
-
-                streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
-            }
+            sendMessage(outputStream, message);
         }
 
         // log progress
-        counter++;
-
-        if(0 == counter % STAT_RECORDS_INTERVAL) {
-            long totalTime = (System.currentTimeMillis() - startTime) / 1000;
-
-            logger.info("Fetch keys scanned " + counter + " keys, fetched " + fetched
-                        + " keys for store '" + storageEngine.getName()
-                        + "' replicaToPartitionList:" + replicaToPartitionList + " in " + totalTime
-                        + " s");
+        scanned++;
+        if(0 == scanned % STAT_RECORDS_INTERVAL) {
+            progressInfoMessage("Fetch keys (progress)");
         }
 
-        // TODO: make usage clearer. Rename maxRecords to recordsPerPartition.
-        // And, make recordsPerPartition <=0 mean 'get them all'.
-
-        // TODO: Remove skipRecords from message and from code.
-
-        // TODO: Make sure the distinction between FetchKeysStream and
-        // FetchPartitionKeysStream is clear.
-
-        // TODO: Add logic to FetchKeys and FetchEntries to count keys per
-        // partition correctly.
-        if(keyIterator.hasNext() && (counter < recordsPerPartition))
+        if(keyIterator.hasNext() && !fetchedEnough()) {
             return StreamRequestHandlerState.WRITING;
-        else {
+        } else {
+            logger.info("Finished fetch keys for store '" + storageEngine.getName()
+                        + "' with replica to partition mapping " + replicaToPartitionList);
+            progressInfoMessage("Fetch keys (end of scan)");
+
             return StreamRequestHandlerState.COMPLETE;
         }
     }

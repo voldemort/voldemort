@@ -19,10 +19,6 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -37,22 +33,18 @@ import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.Pair;
 import voldemort.utils.StoreInstance;
-import voldemort.utils.Time;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.Message;
 
 /**
- * Fetches the entries using an efficient partition scan
+ * Fetches entries using an efficient partition scan. Of course, only works if
+ * isPartitionScanSupported() is true for the storage engine to be scanned..
  * 
  */
-public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamRequestHandler {
+public class FetchPartitionEntriesStreamRequestHandler extends FetchPartitionStreamRequestHandler {
 
-    protected Set<Integer> fetchedPartitions;
     protected ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entriesPartitionIterator;
-    protected List<Integer> replicaTypeList;
-    protected List<Integer> partitionList;
-    protected Integer currentIndex;
 
     public FetchPartitionEntriesStreamRequestHandler(FetchPartitionEntriesRequest request,
                                                      MetadataStore metadataStore,
@@ -69,21 +61,8 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
               Operation.FETCH_ENTRIES);
         logger.info("Starting fetch entries for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
-        fetchedPartitions = new HashSet<Integer>();
-        replicaTypeList = new ArrayList<Integer>();
-        partitionList = new ArrayList<Integer>();
-        currentIndex = 0;
-        entriesPartitionIterator = null;
 
-        // flatten the replicatype to partition map
-        for(Integer replicaType: replicaToPartitionList.keySet()) {
-            if(replicaToPartitionList.get(replicaType) != null) {
-                for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-                    partitionList.add(partitionId);
-                    replicaTypeList.add(replicaType);
-                }
-            }
-        }
+        entriesPartitionIterator = null;
     }
 
     @Override
@@ -93,18 +72,16 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
 
         // process the next partition
         if(entriesPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= recordsPerPartition) {
-                // TODO: Make .info consistent
-                logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
-                            + " records processed.");
+
+            if(currentIndex == partitionList.size()) {
                 return StreamRequestHandlerState.COMPLETE;
             }
 
-            boolean found = false;
             // find the next partition to scan
+            boolean found = false;
             while(!found && (currentIndex < partitionList.size())) {
-                Integer currentPartition = partitionList.get(currentIndex);
-                Integer currentReplicaType = replicaTypeList.get(currentIndex);
+                currentPartition = new Integer(partitionList.get(currentIndex));
+                currentReplicaType = new Integer(replicaTypeList.get(currentIndex));
 
                 // Check the current node contains the partition as the
                 // requested replicatype
@@ -114,11 +91,11 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                                                                 nodeId,
                                                                 initialCluster,
                                                                 storeDef)) {
-                    fetchedPartitions.add(currentPartition);
                     found = true;
-                    logger.info("Fetching [partition: " + currentPartition + ", replica type:"
-                                + currentReplicaType + "] for store " + storageEngine.getName());
+                    fetchedPartitions.add(currentPartition);
+                    partitionFetched = 0;
                     entriesPartitionIterator = storageEngine.entries(currentPartition);
+                    statusInfoMessage("Starting fetch entries");
                 }
                 currentIndex++;
             }
@@ -126,24 +103,17 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
             long startNs = System.nanoTime();
             // do a check before reading in case partition has 0 elements
             if(entriesPartitionIterator.hasNext()) {
-                counter++;
                 Pair<ByteArray, Versioned<byte[]>> entry = entriesPartitionIterator.next();
-
-                // do the filtering
-                if(streamStats != null) {
-                    streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
-                    streamStats.reportStreamingScan(operation);
-                }
                 ByteArray key = entry.getFirst();
                 Versioned<byte[]> value = entry.getSecond();
+                reportStorageOpTime(startNs);
 
                 throttler.maybeThrottle(key.length());
-                if(filter.accept(key, value)) {
-                    fetched++;
-                    if(streamStats != null)
-                        streamStats.reportStreamingFetch(operation);
-                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
 
+                if(filter.accept(key, value)) {
+                    recordFetched();
+
+                    VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
                                                                                           .setKey(ProtoUtils.encodeBytes(key))
                                                                                           .setVersioned(ProtoUtils.encodeVersioned(value))
@@ -151,31 +121,24 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchStreamReques
                     response.setPartitionEntry(partitionEntry);
                     Message message = response.build();
 
-                    startNs = System.nanoTime();
-                    ProtoUtils.writeMessage(outputStream, message);
-                    if(streamStats != null)
-                        streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
+                    sendMessage(outputStream, message);
+
                     throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
 
-                // log progress
-                if(0 == counter % STAT_RECORDS_INTERVAL) {
-                    long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
-
-                    logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched
-                                + " entries for store '" + storageEngine.getName()
-                                + "' replicaToPartitionList:" + replicaToPartitionList + " in "
-                                + totalTime + " s");
+                scanned++;
+                if(0 == scanned % STAT_RECORDS_INTERVAL) {
+                    progressInfoMessage("Fetch entries (progress)");
                 }
             }
 
-            // TODO: Add logic to FetchKeys and FetchEntries to count keys per
-            // partition correctly.
-
-            // reset the iterator if done with this partition
-            if(!entriesPartitionIterator.hasNext() || counter >= recordsPerPartition) {
+            if(!entriesPartitionIterator.hasNext() || fetchedEnough(partitionFetched)) {
+                // Finished current partition. Reset iterator. Info status.
                 entriesPartitionIterator.close();
                 entriesPartitionIterator = null;
+
+                statusInfoMessage("Finished fetch keys");
+                progressInfoMessage("Fetch entries (end of partition)");
             }
         }
         return StreamRequestHandlerState.WRITING;

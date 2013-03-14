@@ -1344,6 +1344,7 @@ public class AdminServiceRequestHandler implements RequestHandler {
      *        returns
      * @return True if the buffer holds a complete request, false otherwise
      */
+    @Override
     public boolean isCompleteRequest(ByteBuffer buffer) {
         DataInputStream inputStream = new DataInputStream(new ByteBufferBackedInputStream(buffer));
 

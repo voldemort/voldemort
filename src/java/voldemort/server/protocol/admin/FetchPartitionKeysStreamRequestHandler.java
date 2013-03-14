@@ -19,10 +19,6 @@ package voldemort.server.protocol.admin;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import voldemort.client.protocol.pb.ProtoUtils;
 import voldemort.client.protocol.pb.VAdminProto;
@@ -36,21 +32,17 @@ import voldemort.utils.ByteArray;
 import voldemort.utils.ClosableIterator;
 import voldemort.utils.NetworkClassLoader;
 import voldemort.utils.StoreInstance;
-import voldemort.utils.Time;
 
 import com.google.protobuf.Message;
 
 /**
- * Fetches the keys using an efficient partition scan
+ * Fetches keys using an efficient partition scan. Of course, only works if
+ * isPartitionScanSupported() is true for the storage engine to be scanned..
  * 
  */
-public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHandler {
+public class FetchPartitionKeysStreamRequestHandler extends FetchPartitionStreamRequestHandler {
 
     protected ClosableIterator<ByteArray> keysPartitionIterator;
-    protected Set<Integer> fetchedPartitions;
-    protected List<Integer> replicaTypeList;
-    protected List<Integer> partitionList;
-    protected Integer currentIndex;
 
     public FetchPartitionKeysStreamRequestHandler(FetchPartitionEntriesRequest request,
                                                   MetadataStore metadataStore,
@@ -67,21 +59,8 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
               Operation.FETCH_KEYS);
         logger.info("Starting fetch keys for store '" + storageEngine.getName()
                     + "' with replica to partition mapping " + replicaToPartitionList);
-        fetchedPartitions = new HashSet<Integer>();
-        replicaTypeList = new ArrayList<Integer>();
-        partitionList = new ArrayList<Integer>();
-        currentIndex = 0;
-        keysPartitionIterator = null;
 
-        // flatten the replicatype to partition map
-        for(Integer replicaType: replicaToPartitionList.keySet()) {
-            if(replicaToPartitionList.get(replicaType) != null) {
-                for(Integer partitionId: replicaToPartitionList.get(replicaType)) {
-                    partitionList.add(partitionId);
-                    replicaTypeList.add(replicaType);
-                }
-            }
-        }
+        keysPartitionIterator = null;
     }
 
     @Override
@@ -91,19 +70,16 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
 
         // process the next partition
         if(keysPartitionIterator == null) {
-            if(currentIndex == partitionList.size() || counter >= recordsPerPartition) {
-                // TODO: Make all .info messages consistent. "Records fetched"
-                // instead of "Done fetching".
-                logger.info("Done fetching  store " + storageEngine.getName() + " : " + counter
-                            + " records processed.");
+
+            if(currentIndex == partitionList.size()) {
                 return StreamRequestHandlerState.COMPLETE;
             }
 
+            // find the next partition to scan and set currentIndex.
             boolean found = false;
-            // find the next partition to scan
             while(!found && (currentIndex < partitionList.size())) {
-                Integer currentPartition = partitionList.get(currentIndex);
-                Integer currentReplicaType = replicaTypeList.get(currentIndex);
+                currentPartition = partitionList.get(currentIndex);
+                currentReplicaType = replicaTypeList.get(currentIndex);
 
                 // Check the current node contains the partition as the
                 // requested replicatype
@@ -113,11 +89,11 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
                                                                 nodeId,
                                                                 initialCluster,
                                                                 storeDef)) {
-                    fetchedPartitions.add(currentPartition);
                     found = true;
-                    logger.info("Fetching [partition: " + currentPartition + ", replica type:"
-                                + currentReplicaType + "] for store " + storageEngine.getName());
+                    fetchedPartitions.add(currentPartition);
+                    partitionFetched = 0;
                     keysPartitionIterator = storageEngine.keys(currentPartition);
+                    statusInfoMessage("Starting fetch keys");
                 }
                 currentIndex++;
             }
@@ -125,53 +101,34 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchStreamRequestHa
             long startNs = System.nanoTime();
             // do a check before reading in case partition has 0 elements
             if(keysPartitionIterator.hasNext()) {
-                counter++;
                 ByteArray key = keysPartitionIterator.next();
+                reportStorageOpTime(startNs);
 
-                // do the filtering
-                if(streamStats != null) {
-                    // TODO: The accounting for streaming reads should also
-                    // move along with the next() call since we are indeed
-                    // fetching from disk.. ---VChandar
-                    streamStats.reportStorageTime(operation, System.nanoTime() - startNs);
-                    streamStats.reportStreamingScan(operation);
-                }
                 throttler.maybeThrottle(key.length());
+
                 if(filter.accept(key, null)) {
+                    recordFetched();
 
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     response.setKey(ProtoUtils.encodeBytes(key));
-
-                    fetched++;
-                    if(streamStats != null)
-                        streamStats.reportStreamingFetch(operation);
                     Message message = response.build();
 
-                    startNs = System.nanoTime();
-                    ProtoUtils.writeMessage(outputStream, message);
-                    if(streamStats != null)
-                        streamStats.reportNetworkTime(operation, System.nanoTime() - startNs);
+                    sendMessage(outputStream, message);
                 }
 
-                // log progress
-                if(0 == counter % STAT_RECORDS_INTERVAL) {
-                    long totalTime = (System.currentTimeMillis() - startTime) / Time.MS_PER_SECOND;
-
-                    logger.info("Fetch entries scanned " + counter + " entries, fetched " + fetched
-                                + " entries for store '" + storageEngine.getName()
-                                + "' replicaToPartitionList:" + replicaToPartitionList + " in "
-                                + totalTime + " s");
+                scanned++;
+                if(0 == scanned % STAT_RECORDS_INTERVAL) {
+                    progressInfoMessage("Fetch keys (progress)");
                 }
             }
 
-            // TODO: Add logic to FetchKeys and FetchEntries to count keys per
-            // partition correctly.
-
-            // reset the iterator if done with this partition or fetched enough
-            // records
-            if(!keysPartitionIterator.hasNext() || (counter >= recordsPerPartition)) {
+            if(!keysPartitionIterator.hasNext() || fetchedEnough(partitionFetched)) {
+                // Finished current partition. Reset iterator. Info status.
                 keysPartitionIterator.close();
                 keysPartitionIterator = null;
+
+                statusInfoMessage("Finished fetch keys");
+                progressInfoMessage("Fetch keys (end of partition)");
             }
         }
         return StreamRequestHandlerState.WRITING;
