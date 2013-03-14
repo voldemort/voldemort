@@ -22,6 +22,7 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -29,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
@@ -56,7 +58,9 @@ public class KeySamplerCLI {
     private static Logger logger = Logger.getLogger(KeySamplerCLI.class);
 
     private final static int DEFAULT_NODE_PARALLELISM = 8;
-    private final static int DEFAULT_RECORDS_PER_PARTITION = 1;
+    private final static int DEFAULT_RECORDS_PER_PARTITION = 0; // INF
+    private final static int DEFAULT_KEYS_PER_SECOND_LIMIT = 200;
+    private final static int DEFAULT_PROGRESS_PERIOD_OPS = 1000;
 
     private final AdminClient adminClient;
     private final Cluster cluster;
@@ -64,11 +68,22 @@ public class KeySamplerCLI {
     private final Map<String, StringBuilder> storeNameToKeyStringsMap;
 
     private final String outDir;
+
+    private final List<Integer> partitionIds;
+
     private final ExecutorService nodeSamplerService;
-
     private final int recordsPerPartition;
+    private final int keysPerSecondLimit;
+    private final int progressPeriodOps;
 
-    public KeySamplerCLI(String url, String outDir, int nodeParallelism, int recordsPerPartition) {
+    public KeySamplerCLI(String url,
+                         String outDir,
+                         List<String> storeNames,
+                         List<Integer> partitionIds,
+                         int nodeParallelism,
+                         int recordsPerPartition,
+                         int keysPerSecondLimit,
+                         int progressPeriodOps) {
         if(logger.isInfoEnabled()) {
             logger.info("Connecting to bootstrap server: " + url);
         }
@@ -77,21 +92,47 @@ public class KeySamplerCLI {
         this.storeDefinitions = adminClient.metadataMgmtOps.getRemoteStoreDefList(0).getValue();
         this.storeNameToKeyStringsMap = new HashMap<String, StringBuilder>();
         for(StoreDefinition storeDefinition: storeDefinitions) {
-            this.storeNameToKeyStringsMap.put(storeDefinition.getName(), new StringBuilder());
+            String storeName = storeDefinition.getName();
+            if(storeNames != null) {
+                if(!storeNames.contains(storeName)) {
+                    logger.debug("Will not sample store "
+                                 + storeName
+                                 + " since it is not in list of storeNames provided on command line.");
+                    continue;
+                }
+            }
+            this.storeNameToKeyStringsMap.put(storeName, new StringBuilder());
+        }
+
+        if(storeNames != null) {
+            List<String> badStoreNames = new LinkedList<String>();
+            for(String storeName: storeNames) {
+                if(!this.storeNameToKeyStringsMap.keySet().contains(storeName)) {
+                    badStoreNames.add(storeName);
+                }
+            }
+            if(badStoreNames.size() > 0) {
+                Utils.croak("Some storeNames provided on the command line were not found on this cluster: "
+                            + badStoreNames);
+            }
         }
 
         this.outDir = outDir;
 
-        this.nodeSamplerService = Executors.newFixedThreadPool(nodeParallelism);
+        this.partitionIds = partitionIds;
 
+        this.nodeSamplerService = Executors.newFixedThreadPool(nodeParallelism);
         this.recordsPerPartition = recordsPerPartition;
+        this.keysPerSecondLimit = keysPerSecondLimit;
+        this.progressPeriodOps = progressPeriodOps;
     }
 
     public boolean sampleStores() {
         for(StoreDefinition storeDefinition: storeDefinitions) {
-            boolean success = sampleStore(storeDefinition);
-            if(!success) {
-                return false;
+            if(storeNameToKeyStringsMap.keySet().contains(storeDefinition.getName())) {
+                if(!sampleStore(storeDefinition)) {
+                    return false;
+                }
             }
         }
         return true;
@@ -112,90 +153,79 @@ public class KeySamplerCLI {
 
         private final Node node;
         private final StoreDefinition storeDefinition;
+        private final EventThrottler throttler;
 
         NodeSampler(Node node, StoreDefinition storeDefinition) {
             this.node = node;
             this.storeDefinition = storeDefinition;
+            this.throttler = new EventThrottler(keysPerSecondLimit);
         }
 
         @Override
         public NodeSampleResult call() throws Exception {
-            boolean success = false;
-
             String storeName = storeDefinition.getName();
             StringBuilder hexKeysString = new StringBuilder();
+            String nodeTag = node.getId() + " [" + node.getHost() + "]";
 
-            // TODO: Change this from a loop to flat st the list of partitoinIds
-            // are sent to server.
-            for(int partitionId: node.getPartitionIds()) {
-                success = false;
-
-                // TODO: real per-server throttling and/or make '100' a command
-                // line argument. And, move near .next() to throttle server
-                // suckage.
-
-                // Simple, lame throttling since thread is going at same node
-                // repeatedly
-                try {
-                    Thread.sleep(100);
-                } catch(InterruptedException e) {
-                    logger.warn("Sleep throttling interrupted : " + e.getMessage());
-                    e.printStackTrace();
+            List<Integer> nodePartitionIds = new ArrayList<Integer>(node.getPartitionIds());
+            if(partitionIds != null) {
+                nodePartitionIds.retainAll(partitionIds);
+                if(nodePartitionIds.size() == 0) {
+                    logger.info("No partitions to sample for store '" + storeName + "' on node "
+                                + nodeTag);
+                    return new NodeSampleResult(true, hexKeysString.toString());
                 }
+            }
 
-                String infoTag = "store " + storeName + ", partitionID " + partitionId
-                                 + " on node " + node.getId() + " [" + node.getHost() + "]";
-                logger.info("Starting sample --- " + infoTag);
+            String infoTag = "store " + storeName + ", partitionIDs " + nodePartitionIds
+                             + " on node " + nodeTag;
+            logger.info("Starting sample --- " + infoTag);
 
-                List<Integer> singlePartition = new ArrayList<Integer>();
-                singlePartition.add(partitionId);
+            long startTimeMs = System.currentTimeMillis();
 
-                // Wrap fetchKeys in backoff-and-retry loop
-                int attempts = 0;
-                int backoffMs = 1000;
-                while(attempts < 5 && !success) {
-                    try {
-                        Iterator<ByteArray> fetchIterator;
-                        fetchIterator = adminClient.bulkFetchOps.fetchKeys(node.getId(),
-                                                                           storeName,
-                                                                           singlePartition,
-                                                                           null,
-                                                                           true,
-                                                                           recordsPerPartition);
-                        int keyCount = 0;
-                        while(fetchIterator.hasNext()) {
-                            ByteArray key = fetchIterator.next();
-                            String hexKeyString = ByteUtils.toHexString(key.get());
-                            hexKeysString.append(hexKeyString + "\n");
-                            keyCount++;
-                        }
-                        if(keyCount < recordsPerPartition) {
-                            logger.warn("Fewer keys (" + keyCount + ") than requested ("
-                                        + recordsPerPartition + ") returned --- " + infoTag);
-                        } else if(keyCount < recordsPerPartition) {
-                            logger.warn("More keys (" + keyCount + ") than requested ("
-                                        + recordsPerPartition + ") returned --- " + infoTag);
-                        }
-                        success = true;
-                    } catch(VoldemortException ve) {
-                        logger.warn("Caught VoldemortException and will retry (" + infoTag + "): "
-                                    + ve.getMessage() + " --- " + ve.getCause().getMessage());
-                        try {
-                            Thread.sleep(backoffMs);
-                            backoffMs *= 2;
-                        } catch(InterruptedException e) {
-                            logger.warn("Backoff-and-retry sleep interrupted : " + e.getMessage());
-                            e.printStackTrace();
-                            break;
+            try {
+                Iterator<ByteArray> fetchIterator;
+                fetchIterator = adminClient.bulkFetchOps.fetchKeys(node.getId(),
+                                                                   storeName,
+                                                                   nodePartitionIds,
+                                                                   null,
+                                                                   true,
+                                                                   recordsPerPartition);
+                long keyCount = 0;
+                while(fetchIterator.hasNext()) {
+                    ByteArray key = fetchIterator.next();
+                    String hexKeyString = ByteUtils.toHexString(key.get());
+                    hexKeysString.append(hexKeyString + "\n");
+                    keyCount++;
+
+                    throttler.maybeThrottle(1);
+
+                    if(0 == keyCount % progressPeriodOps) {
+                        if(logger.isInfoEnabled()) {
+                            long durationS = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()
+                                                                             - startTimeMs);
+                            logger.info(infoTag + " --- " + keyCount + " keys sampled in "
+                                        + durationS + " seconds.");
                         }
                     }
                 }
-                if(!success) {
-                    logger.error("Failed to sample --- " + infoTag);
-                    break;
+
+                long expectedKeyCount = recordsPerPartition * node.getPartitionIds().size();
+                if(keyCount < expectedKeyCount) {
+                    logger.warn("Fewer keys (" + keyCount + ") than expected (" + expectedKeyCount
+                                + ") returned --- " + infoTag);
+                } else if(keyCount < recordsPerPartition) {
+                    logger.warn("More keys (" + keyCount + ") than expected (" + expectedKeyCount
+                                + ") returned --- " + infoTag);
                 }
+
+                logger.info("Finished sample --- " + infoTag);
+                return new NodeSampleResult(true, hexKeysString.toString());
+            } catch(VoldemortException ve) {
+                logger.error("Failed to sample --- " + infoTag + " --- VoldemortException caught ("
+                             + ve.getMessage() + ") caused by (" + ve.getCause().getMessage() + ")");
+                throw ve;
             }
-            return new NodeSampleResult(success, hexKeysString.toString());
         }
     }
 
@@ -287,6 +317,18 @@ public class KeySamplerCLI {
               .withRequiredArg()
               .describedAs("outputDirectory")
               .ofType(String.class);
+        parser.accepts("store-names",
+                       "Store names to sample. Comma delimited list or singleton. [Default: ALL]")
+              .withRequiredArg()
+              .describedAs("storeNames")
+              .withValuesSeparatedBy(',')
+              .ofType(String.class);
+        parser.accepts("partition-ids",
+                       "Partition IDs to sample for each store. Comma delimited list or singleton. [Default: ALL]")
+              .withRequiredArg()
+              .describedAs("partitionIds")
+              .withValuesSeparatedBy(',')
+              .ofType(Integer.class);
         parser.accepts("parallelism",
                        "Number of nodes to sample in parallel. [Default: "
                                + DEFAULT_NODE_PARALLELISM + " ]")
@@ -294,10 +336,21 @@ public class KeySamplerCLI {
               .describedAs("storeParallelism")
               .ofType(Integer.class);
         parser.accepts("records-per-partition",
-                       "Number of keys sampled per partition. [Default: "
-                               + DEFAULT_RECORDS_PER_PARTITION + " ]")
+                       "Number of keys sampled per partition. [Default: INF]")
               .withRequiredArg()
               .describedAs("recordsPerPartition")
+              .ofType(Integer.class);
+        parser.accepts("keys-per-second-limit",
+                       "Number of keys sampled per second limit. [Default: "
+                               + DEFAULT_KEYS_PER_SECOND_LIMIT + " ]")
+              .withRequiredArg()
+              .describedAs("keysPerSecondLimit")
+              .ofType(Integer.class);
+        parser.accepts("progress-period-ops",
+                       "Number of operations between progress info is displayed. [Default: "
+                               + DEFAULT_PROGRESS_PERIOD_OPS + " ]")
+              .withRequiredArg()
+              .describedAs("progressPeriodOps")
               .ofType(Integer.class);
         return parser;
     }
@@ -308,15 +361,24 @@ public class KeySamplerCLI {
     private static void printUsage() {
         StringBuilder help = new StringBuilder();
         help.append("KeySamplerCLI Tool\n");
-        help.append("  Find one key from each store-partition. Output keys per store.\n");
+        help.append("  Sample keys from store-partitions. Output keys per store.\n");
         help.append("Options:\n");
         help.append("  Required:\n");
         help.append("    --url <bootstrap-url>\n");
         help.append("    --out-dir <outputDirectory>\n");
         help.append("  Optional:\n");
+        help.append("    --store-names <storeName>[,<storeName>...]\n");
+        help.append("    --partition-ids <partitionId>[,<partitionId>...]\n");
         help.append("    --parallelism <nodeParallelism>\n");
         help.append("    --records-per-partition <recordsPerPartition>\n");
+        help.append("    --keys-per-second-limit <keysPerSecondLimit>\n");
+        help.append("    --progress-period-ops <progressPeriodOps>\n");
         help.append("    --help\n");
+        help.append("  Notes:\n");
+        help.append("    To select ALL storeNames or partitionIds, you must\n");
+        help.append("    not specify the pertinent optional argument.\n");
+        help.append("    To select INF records per partitoin, either do not\n");
+        help.append("    specify the argument, or specify a value <= 0.\n");
         System.out.print(help.toString());
     }
 
@@ -325,27 +387,26 @@ public class KeySamplerCLI {
         Utils.croak("\n" + errMessage);
     }
 
-    // TODO: (if needed) Add a "stores" option so that a subset of stores can be
-    // done instead of all stores one-by-one.
-
-    // TODO: (if needed) Add a "partitions" option so that a subset of
-    // partitions can be done instead of all partitions.
-
     public static void main(String[] args) throws Exception {
+        OptionParser parser = null;
         OptionSet options = null;
         try {
-            options = getParser().parse(args);
+            parser = getParser();
+            options = parser.parse(args);
         } catch(OptionException oe) {
+            parser.printHelpOn(System.out);
             printUsageAndDie("Exception when parsing arguments : " + oe.getMessage());
             return;
         }
 
         /* validate options */
         if(options.hasArgument("help")) {
+            parser.printHelpOn(System.out);
             printUsage();
             return;
         }
         if(!options.hasArgument("url") || !options.hasArgument("out-dir")) {
+            parser.printHelpOn(System.out);
             printUsageAndDie("Missing a required argument.");
             return;
         }
@@ -354,6 +415,20 @@ public class KeySamplerCLI {
 
         String outDir = (String) options.valueOf("out-dir");
         Utils.mkdirs(new File(outDir));
+
+        List<String> storeNames = null;
+        if(options.hasArgument("store-names")) {
+            @SuppressWarnings("unchecked")
+            List<String> list = (List<String>) options.valuesOf("store-names");
+            storeNames = list;
+        }
+
+        List<Integer> partitionIds = null;
+        if(options.hasArgument("partition-ids")) {
+            @SuppressWarnings("unchecked")
+            List<Integer> list = (List<Integer>) options.valuesOf("partition-ids");
+            partitionIds = list;
+        }
 
         Integer nodeParallelism = DEFAULT_NODE_PARALLELISM;
         if(options.hasArgument("parallelism")) {
@@ -365,28 +440,31 @@ public class KeySamplerCLI {
             recordsPerPartition = (Integer) options.valueOf("records-per-partition");
         }
 
-        // TODO: Assuming "right thing" happens server-side, then do not need
-        // the below warning...
-        logger.warn("This tool is hard-coded to take advantage of servers that "
-                    + "use PID style layout of data in BDB. "
-                    + "Use fo this tool against other types of servers is undefined.");
+        Integer keysPerSecondLimit = DEFAULT_KEYS_PER_SECOND_LIMIT;
+        if(options.hasArgument("keys-per-second-limit")) {
+            keysPerSecondLimit = (Integer) options.valueOf("keys-per-second-limit");
+        }
+        System.err.println("throttle: " + keysPerSecondLimit);
 
-        try {
-            KeySamplerCLI sampler = new KeySamplerCLI(url,
-                                                      outDir,
-                                                      nodeParallelism,
-                                                      recordsPerPartition);
-            try {
-                if(!sampler.sampleStores()) {
-                    logger.error("Some stores were not successfully sampled.");
-                }
-            } finally {
-                sampler.stop();
-            }
-
-        } catch(Exception e) {
-            Utils.croak("Exception during key sampling: " + e.getMessage());
+        Integer progressPeriodOps = DEFAULT_PROGRESS_PERIOD_OPS;
+        if(options.hasArgument("progress-period-ops")) {
+            progressPeriodOps = (Integer) options.valueOf("progress-period-ops");
         }
 
+        KeySamplerCLI sampler = new KeySamplerCLI(url,
+                                                  outDir,
+                                                  storeNames,
+                                                  partitionIds,
+                                                  nodeParallelism,
+                                                  recordsPerPartition,
+                                                  keysPerSecondLimit,
+                                                  progressPeriodOps);
+        try {
+            if(!sampler.sampleStores()) {
+                logger.error("Some stores were not successfully sampled.");
+            }
+        } finally {
+            sampler.stop();
+        }
     }
 }

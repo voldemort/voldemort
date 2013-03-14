@@ -48,8 +48,9 @@ import voldemort.xml.StoreDefinitionsMapper;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 
-// Entropy is replaced by KeySamplerCLI and KeyVersionFetcherCLI. Entropy never
-// really worked as described and had a complicated interface.
+// TODO: Remove from the code base.
+// Entropy is replaced by KeySamplerCLI and KeyVersionFetcherCLI. Entropy
+// never really worked as described and had a complicated interface.
 @Deprecated
 public class Entropy {
 

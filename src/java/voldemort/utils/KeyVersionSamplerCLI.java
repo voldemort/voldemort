@@ -46,6 +46,8 @@ import voldemort.cluster.Cluster;
 import voldemort.store.StoreDefinition;
 import voldemort.versioning.Versioned;
 
+// TODO: Rename KeyValueFetcher
+
 /**
  * The KeyVersionSamplerCLI is a rudimentary tool that outputs a sampling of
  * existing keys from a cluster. For each store in the cluster, a distinct file
@@ -53,7 +55,6 @@ import voldemort.versioning.Versioned;
  * key-versions is generated.
  * 
  */
-// TODO: Rename KeyValueFetcher
 public class KeyVersionSamplerCLI {
 
     private static Logger logger = Logger.getLogger(KeyVersionSamplerCLI.class);
@@ -271,24 +272,31 @@ public class KeyVersionSamplerCLI {
         Utils.croak("\n" + errMessage);
     }
 
-    // TODO: Add option to fetch value in addition to version
-    // TODO: Add option to print human readable versions versus byte.hexstrings
+    // In the future, this tool could be expanded with the following options:
+    // - fetch value in addition to version
+    // - choose between printing human readable data (.toString()) or computer
+    // readable data (ByteUtils.toHexString(byte[])).
     public static void main(String[] args) throws Exception {
+        OptionParser parser = null;
         OptionSet options = null;
         try {
-            options = getParser().parse(args);
+            parser = getParser();
+            options = parser.parse(args);
         } catch(OptionException oe) {
+            parser.printHelpOn(System.out);
             printUsageAndDie("Exception when parsing arguments : " + oe.getMessage());
             return;
         }
 
         /* validate options */
         if(options.hasArgument("help")) {
+            parser.printHelpOn(System.out);
             printUsage();
             return;
         }
         if(!options.hasArgument("url") || !options.hasArgument("in-dir")
            || !options.hasArgument("out-dir")) {
+            parser.printHelpOn(System.out);
             printUsageAndDie("Missing a required argument.");
             return;
         }
