@@ -1,77 +1,8 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html xmlns:og="http://ogp.me/ns#">
-	<head>
-		<title>Project Voldemort</title>
-		<link rel='stylesheet' href='styles.css' type='text/css'>
-		<link rel="icon" type="image/png" href="images/voldemort_logo.png"><meta name="keywords" content="Project Voldemort, Voldemort, key-value storage, distributed storage, Amazon Dynamo, persistence, scalability"><meta name="description" content="A distributed database.">		<meta http-equiv='Content-Type' content='text/html;charset=utf-8' />
-		
-		<meta property="og:title" value="Project Voldemort" />
-		<meta property="og:image" value="images/voldemort_logo.png" />
-		<meta property="og:description" value="A distributed database." />
-		<meta property="og:site_name" value="sna-projects" />
-		<meta property="og:type" value="website" />
-	</head>
-	<body>
-		<div>
-			<div id="header" style="overflow: hidden">
-				<div style='float: left; margin-right: 10px'>
-					<img src='images/voldemort_logo.png'>				</div>
-				<div>
-					<div class="title">Project Voldemort</div>
-					<div class="subtitle">A distributed database.</div>
-					<div class="projects"><a href="http://sna-projects.com/zoie" title="Real-time search indexing.">zoie</a> &middot;
-<a href="http://sna-projects.com/bobo" title="Fast faceted search with Lucene.">bobo</a> &middot;
-<a href="http://sna-projects.com/cleo" title="Flexible, partial, out-of-order and real-time typeahead search.">cleo</a> &middot;
-<a href="http://sna-projects.com/decomposer" title="Massive matrix decompositions.">decomposer</a> &middot;
-<a href="http://sna-projects.com/norbert" title="Partitioned routing and cluster management.">norbert</a> &middot;
-<a href="http://project-voldemort.com" title="A distributed database.">voldemort</a> &middot;
-<a href="http://incubator.apache.org/kafka" title="A high-throughput distributed messaging system.">kafka</a> &middot;
-<a href="http://sna-projects.com/kamikaze" title="Doc set compression.">kamikaze</a> &middot;
-<a href="http://sna-projects.com/krati" title="A persistent high-performance data store.">krati</a> &middot;
-<a href="http://sna-projects.com/sensei" title="A distributed, elastic, realtime, searchable database.">sensei</a> &middot;
-<a href="http://sna-projects.com/azkaban" title="Simple hadoop workflow.">azkaban</a> &middot;
-<a href="http://sna-projects.com/datafu" title="UDFs for working with Pig">datafu</a> &middot;
-<a href="http://sna-projects.com/sna" title="Search, Network, Analytics">sna</a> &middot;
-<a href="http://sna-projects.com/blog" title="Our Blog">blog</a>
-</div>
-				</div>
-			</div>
-	<div class="lsidebar">
-		<ul>
-		<li>
-					      <a href="quickstart.html">quickstart</a>
-				      </li><li>
-					      <a href="design.html">design</a>
-				      </li><li>
-					      <a href="http://github.com/voldemort/voldemort/tree/master">source</a>
-				      </li><li>
-					      <a href="http://groups.google.com/group/project-voldemort">mailing list</a>
-				      </li><li>
-					      <a href="http://github.com/voldemort/voldemort/downloads">download</a>
-				      </li><li>
-					      <a href="http://test.project-voldemort.com:8080/job/voldemort-master">snapshot build</a>
-				      </li><li>
-					      <a href="build-and-push.html">Build and Push</a>
-				      </li><li>
-					      <a href="configuration.html">configuration</a>
-				      </li><li>
-					      <a href="javadoc/all">javadoc</a>
-				      </li><li>
-					      <a href="developer.html">developer&nbsp;info</a>
-				      </li><li>
-					      <a href="http://wiki.github.com/voldemort/voldemort/fun-projects">fun&nbsp;projects</a>
-				      </li><li>
-					      <a href="performance.html">performance</a>
-				      </li><li>
-					      <a href="http://code.google.com/p/project-voldemort/issues">bugs</a>
-				      </li><li>
-					      <a href="http://wiki.github.com/voldemort/voldemort">wiki</a>
-				      </li>		</ul>
-	
-			</div>
-	
-	<div class='content'>
-	
+---
+layout: default
+title: Configuration - Voldemort
+---
+
 <h2>Configuration</h2>
 
 <p>There are three configuration files that control server operation:</p>
@@ -81,7 +12,7 @@
 <i>cluster.xml</i> &ndash; This holds the information about all the nodes (i.e. servers) in the cluster, what hostname they are at, the ports they use, etc. It is exactly the same for all voldemort nodes. It does not hold tuning parameters or data directories for those nodes, since that is not information public to the cluster but is specific to that particular nodes configuration.
 </li>
 <li>
-	<i>stores.xml</i> &ndash; This holds the information about all the stores (i.e. tables) in the cluster. This includes information about the required number of successful reads to maintain consistency, the required number of writes, as well as how keys and values are serialized into bytes. It is the same on all nodes in the cluster.</li>
+  <i>stores.xml</i> &ndash; This holds the information about all the stores (i.e. tables) in the cluster. This includes information about the required number of successful reads to maintain consistency, the required number of writes, as well as how keys and values are serialized into bytes. It is the same on all nodes in the cluster.</li>
 <li><i>server.properties</i> &ndash; This contains the tuning parameters that control a particular node. This includes the id of the local node so it knows which entry in cluster.xml corresponds to itself, also the threadpool size, as well as any configuration needed for the local persistence engine such as BDB or mysql. This file is different on each node.
 </li>
 </ul>
@@ -93,7 +24,7 @@
 
 <p>Here is an example cluster.xml for a 2-node cluster with 8 data partitions. We also have optional 'zone' fields which allow you to map nodes to certain logical clusters ( datacenter, rack, etc ) called zones:
 
-<pre>	
+<pre> 
   &lt;cluster&gt;
     &lt!-- The name is just to help users identify this cluster from the gui --&gt
     &lt;name&gt;mycluster&lt;/name&gt;
@@ -145,48 +76,48 @@ Note that the configuration is currently simple files so it is important that th
 <p>Here is an examples stores.xml for a store named test, that requires only a single read and write and uses bdb for persistence:</p>
 
 <pre>
-	&lt;stores&gt;
-	    &lt;store&gt;
-	        &lt;name&gt;test&lt;/name&gt;
-	        &lt;replication-factor&gt;2&lt;/replication-factor&gt;
-	        &lt;preferred-reads&gt;2&lt;/preferred-reads&gt;
-	        &lt;required-reads&gt;1&lt;/required-reads&gt;
-	        &lt;preferred-writes&gt;2&lt;/preferred-writes&gt;
-	        &lt;required-writes&gt;1&lt;/required-writes&gt;
-	        &lt;persistence&gt;bdb&lt;/persistence&gt;
-	        &lt;routing&gt;client&lt;/routing&gt;
-	        &lt;routing-strategy&gt;consistent-routing&lt;/routing-strategy&gt;
-	        &lt;key-serializer&gt;
-	            &lt;type&gt;string&lt;/type&gt;
-	            &lt;schema-info&gt;utf8&lt;/schema-info&gt;
-	        &lt;/key-serializer&gt;
-	        &lt;value-serializer&gt;
-	            &lt;type&gt;json&lt;/type&gt;
-	            &lt;schema-info version="1"&gt;[{"id":"int32", "name":"string"}]&lt;/schema-info&gt;
-	            &lt;compression&gt;
-			&lt;type&gt;gzip&lt;type&gt;
-		    &lt;/compression&gt;
-	        &lt;/value-serializer&gt;
-	    &lt;/store&gt;
-	&lt;/stores&gt;
+  &lt;stores&gt;
+      &lt;store&gt;
+          &lt;name&gt;test&lt;/name&gt;
+          &lt;replication-factor&gt;2&lt;/replication-factor&gt;
+          &lt;preferred-reads&gt;2&lt;/preferred-reads&gt;
+          &lt;required-reads&gt;1&lt;/required-reads&gt;
+          &lt;preferred-writes&gt;2&lt;/preferred-writes&gt;
+          &lt;required-writes&gt;1&lt;/required-writes&gt;
+          &lt;persistence&gt;bdb&lt;/persistence&gt;
+          &lt;routing&gt;client&lt;/routing&gt;
+          &lt;routing-strategy&gt;consistent-routing&lt;/routing-strategy&gt;
+          &lt;key-serializer&gt;
+              &lt;type&gt;string&lt;/type&gt;
+              &lt;schema-info&gt;utf8&lt;/schema-info&gt;
+          &lt;/key-serializer&gt;
+          &lt;value-serializer&gt;
+              &lt;type&gt;json&lt;/type&gt;
+              &lt;schema-info version="1"&gt;[{"id":"int32", "name":"string"}]&lt;/schema-info&gt;
+              &lt;compression&gt;
+      &lt;type&gt;gzip&lt;type&gt;
+        &lt;/compression&gt;
+          &lt;/value-serializer&gt;
+      &lt;/store&gt;
+  &lt;/stores&gt;
 </pre>
 <p>
 Each of these parameters deserves a quick discussion:
 <ul>
-	<li><i>name</i>&mdash; The name of the store. This is the string by which clients will be able to connect and operate on this store. It is equivalent to the table name in sql.</li>
-	<li><i>replication-factor</i>&mdash; This is the total number of times the data is stored. Each put or delete operation must eventually hit this many nodes. A replication factor of <i>n</i> means it can be possible to tolerate up to <i>n</i> - 1 node failures without data loss.</li>
-	<li><i>preferred-reads</i> (optional)&mdash;The number of successful reads the client will attempt to do before returning a value to the application. This defaults to be equal to required reads</li>
-	<li><i>required-reads</i>&mdash;The least number of reads that can succeed without throwing an exception. Consider a case where the replication factor is 5, preferred reads is 4, and required reads is 2. If 3 of the 5 nodes are operational then the client may try all the nodes to try to reach the preferred 4 reads, but since only 3 are responsive it will allow the read to complete. Had only 1 been responsive it would have thrown an exception, since that was lower than the consistency guarantee requested for this table (and that could mean returning stale data).</li>
-	<li><i>preferred-writes</i>(optional)&mdash;The number of successful writes the client attempts to block for before returning success. Defaults to required-writes</li>
-	<li><i>required-writes</i>&mdash; The least number of writes that can succeed without the client getting back an exception.</li>
-	<li><i>persistence</i>&mdash; The persistence backend used by the store. Currently this could be one of <i>bdb</i>, <i>mysql</i>, <i>memory</i>, <i>readonly</i>, and <i>cache</i>. The difference between <i>cache</i> and <i>memory</i> is that <i>memory</i> will throw and OutOfMemory exception if it grows larger than the JVM heap whereas <i>cache</i> will discard data.</li>
-	<li><i>routing</i>&mdash; Determines the routing policy. We support both <i>client</i> ( Client side routing ) and <i>server</i> ( Server side routing ).</li>
-	<li><i>routing-strategy</i>&mdash; Determines how we store the replicas. Currently we support three routing-strategies - <i>consistent-routing</i> (default), <i>zone-routing</i> and <i>all-routing</i>.</li>
-	<li><i>key-serializer</i>&mdash; The serialization type used for reading and writing <i>keys</i>. The type can be <i>json</i>, <i>java-serialization</i>, <i>string</i>, <i>protobuff</i>, <i>thrift</i>, or <i>identity</i> (meaning raw bytes). The schema-info gives information to the serializer about how to perform the mapping (e.g. the JSON schema described in <a href="design.html">here</a>).
-	</li>
-	<li><i>value-serializer</i>&mdash; The serialization type used for reading and writing <i>values</i>. The supported types are the same as for keys. In the above example we also highlight the subelement 'compression' which currently supports 'gzip' and 'lzf' compression. The subelements are same as for the key-serializer, except that the the value serializer can have multiple schema-infos with different versions. The highest version is the one used for writing data, but data is always read with the version it was written with. This allows for gradual schema evolution. Versioning is only supported by the JSON serializer as other serialization formats have their own versioning systems.
-		Here are some example serializers:
-			<pre>
+  <li><i>name</i>&mdash; The name of the store. This is the string by which clients will be able to connect and operate on this store. It is equivalent to the table name in sql.</li>
+  <li><i>replication-factor</i>&mdash; This is the total number of times the data is stored. Each put or delete operation must eventually hit this many nodes. A replication factor of <i>n</i> means it can be possible to tolerate up to <i>n</i> - 1 node failures without data loss.</li>
+  <li><i>preferred-reads</i> (optional)&mdash;The number of successful reads the client will attempt to do before returning a value to the application. This defaults to be equal to required reads</li>
+  <li><i>required-reads</i>&mdash;The least number of reads that can succeed without throwing an exception. Consider a case where the replication factor is 5, preferred reads is 4, and required reads is 2. If 3 of the 5 nodes are operational then the client may try all the nodes to try to reach the preferred 4 reads, but since only 3 are responsive it will allow the read to complete. Had only 1 been responsive it would have thrown an exception, since that was lower than the consistency guarantee requested for this table (and that could mean returning stale data).</li>
+  <li><i>preferred-writes</i>(optional)&mdash;The number of successful writes the client attempts to block for before returning success. Defaults to required-writes</li>
+  <li><i>required-writes</i>&mdash; The least number of writes that can succeed without the client getting back an exception.</li>
+  <li><i>persistence</i>&mdash; The persistence backend used by the store. Currently this could be one of <i>bdb</i>, <i>mysql</i>, <i>memory</i>, <i>readonly</i>, and <i>cache</i>. The difference between <i>cache</i> and <i>memory</i> is that <i>memory</i> will throw and OutOfMemory exception if it grows larger than the JVM heap whereas <i>cache</i> will discard data.</li>
+  <li><i>routing</i>&mdash; Determines the routing policy. We support both <i>client</i> ( Client side routing ) and <i>server</i> ( Server side routing ).</li>
+  <li><i>routing-strategy</i>&mdash; Determines how we store the replicas. Currently we support three routing-strategies - <i>consistent-routing</i> (default), <i>zone-routing</i> and <i>all-routing</i>.</li>
+  <li><i>key-serializer</i>&mdash; The serialization type used for reading and writing <i>keys</i>. The type can be <i>json</i>, <i>java-serialization</i>, <i>string</i>, <i>protobuff</i>, <i>thrift</i>, or <i>identity</i> (meaning raw bytes). The schema-info gives information to the serializer about how to perform the mapping (e.g. the JSON schema described in <a href="design.html">here</a>).
+  </li>
+  <li><i>value-serializer</i>&mdash; The serialization type used for reading and writing <i>values</i>. The supported types are the same as for keys. In the above example we also highlight the subelement 'compression' which currently supports 'gzip' and 'lzf' compression. The subelements are same as for the key-serializer, except that the the value serializer can have multiple schema-infos with different versions. The highest version is the one used for writing data, but data is always read with the version it was written with. This allows for gradual schema evolution. Versioning is only supported by the JSON serializer as other serialization formats have their own versioning systems.
+    Here are some example serializers:
+      <pre>
     &lt;!-- A serializer that serializes plain strings in UTF8 encoding --&gt;
     &lt;value-serializer&gt;
         &lt;type&gt;string&lt;/type&gt;
@@ -200,28 +131,28 @@ Each of these parameters deserves a quick discussion:
         &lt;type&gt;json&lt;/type&gt;
         &lt;schema-info&gt;[{"id":"int32", "name":"string"}]&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-		
+    
     &lt;!-- A serializer that serializes protocol buffer objects of the given class. --&gt;
     &lt;value-serializer&gt;
         &lt;type&gt;protobuff&lt;/type&gt;
         &lt;schema-info&gt;java=com.something.YourProtoBuffClassName&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-		
+    
     &lt;!-- A serializer that serializes thrift generated objects using one of the 
             following protocols - 'binary', 'json' or 'simple-json'.
-	    Current support for Java clients only. --&gt;
+      Current support for Java clients only. --&gt;
     &lt;value-serializer&gt;
         &lt;type&gt;thrift&lt;/type&gt;
         &lt;schema-info&gt;java=com.something.YourThriftClassName,protocol=binary&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-			
+      
     &lt;!-- Avro serialization - either 'avro-generic', 'avro-specific' or 'avro-reflective' --&gt;
     &lt;value-serializer&gt;
         &lt;type&gt;avro-generic&lt;/type&gt;
         &lt;schema-info&gt;{"name": "Kind", "type": "enum", "symbols": ["FOO","BAR"]}&lt;/schema-info&gt;
     &lt;/value-serializer&gt;
-			</pre>
-		</li>
+      </pre>
+    </li>
         </li>
         <li><i>retention-days</i> (optional)&mdash; This optional parameter allows you to set a retention property to your data. Then every day, at a specified time on the servers, a scheduled job will be run to delete all data having timestamp > retention-days. This is useful to keep your data trimmed. </li>
         <li><i>retention-scan-throttle-rate</i> (optional)&mdash; If <i>retention-days</i> is specified this is the rate at which we'll scan the tuples to delete data.</li>
@@ -230,27 +161,27 @@ Each of these parameters deserves a quick discussion:
 <p>
 If you intend to use the <i>zone-routing</i> strategy we need to extend the store definition to tell it how to replicate w.r.t. zones. Here is an example of a store definition with 'zone-routing' enabled.
 <pre>
-	&lt;stores&gt;
-	    &lt;store&gt;
-	        &lt;name&gt;test&lt;/name&gt;
-	        ...
+  &lt;stores&gt;
+      &lt;store&gt;
+          &lt;name&gt;test&lt;/name&gt;
+          ...
                 &lt;routing-strategy&gt;zone-routing&lt;/routing-strategy&gt;
                 &lt;!-- This number should be total of individual zone-replication-factor's --&gt;
                 &lt;replication-factor&gt;2&lt;/replication-factor&gt;
-	        &lt;zone-replication-factor&gt;
-	            &lt;replication-factor zone-id="0"&gt;1&lt;/replication-factor&gt;
-	            &lt;replication-factor zone-id="1"&gt;1&lt;/replication-factor&gt;
-	        &lt;/zone-replication-factor&gt;
-	        &lt;zone-count-reads&gt;0&lt;/zone-count-reads&gt;
-	        &lt;zone-count-writes&gt;0&lt;/zone-count-writes&gt;
-	        &lt;hinted-handoff-strategy&gt;proximity-handoff&lt;/hinted-handoff-strategy&gt;
-	        ... 
+          &lt;zone-replication-factor&gt;
+              &lt;replication-factor zone-id="0"&gt;1&lt;/replication-factor&gt;
+              &lt;replication-factor zone-id="1"&gt;1&lt;/replication-factor&gt;
+          &lt;/zone-replication-factor&gt;
+          &lt;zone-count-reads&gt;0&lt;/zone-count-reads&gt;
+          &lt;zone-count-writes&gt;0&lt;/zone-count-writes&gt;
+          &lt;hinted-handoff-strategy&gt;proximity-handoff&lt;/hinted-handoff-strategy&gt;
+          ... 
            &lt;/store&gt;
-	&lt;/stores&gt;
+  &lt;/stores&gt;
 </pre>
  The important change here is the introduction of <i>zone-replication-factor</i> which should contain a replication factor that you would want in every zone. Other parameters :
 <ul>
-	<li><i>zone-count-*</i>&mdash; The number of zones we want to block for during reads / writes before we return the request. The number <i>0</i> means we'll block for atleast one request from the <i>local</i> zone only. The number <i>1</i> means we'll block for atleast one request from one other zone.</li> 
+  <li><i>zone-count-*</i>&mdash; The number of zones we want to block for during reads / writes before we return the request. The number <i>0</i> means we'll block for atleast one request from the <i>local</i> zone only. The number <i>1</i> means we'll block for atleast one request from one other zone.</li> 
         <li><i>hinted-handoff-strategy</i> (optional) &mdash; Another consistency mechanism which we've added recently is <a href="https://github.com/voldemort/voldemort/wiki/Hinted-Handoff">Hinted handoff</a>. We can turn on this feature on a per store basis. This parameter defines the strategy we would use to decide which live nodes to write our "hint" to. The various options are <i>any-handoff</i>, <i>consistent-handoff</i> and <i>proximity-handoff</i>. 
 </ul>
 </p>
@@ -260,344 +191,344 @@ If you intend to use the <i>zone-routing</i> strategy we need to extend the stor
 <p>We store per-node based configuration in the server.properties file. Most of the properties have sane defaults ( hopefully ). The bare minimal file should have the following property.</p> 
 
 <pre>
-	# The ID of *this* particular cluster node (different for each node in cluster)
-	node.id=0
+  # The ID of *this* particular cluster node (different for each node in cluster)
+  node.id=0
 </pre>
 
 Here is a list of all the configuration options supported:
 
 <table class="data-table">
 <tr>
-	<th>name</th>
-	<th>default</th>
-	<th>description</th>
+  <th>name</th>
+  <th>default</th>
+  <th>description</th>
 </tr>
 <tr>
- 	<td>node.id</td>
+  <td>node.id</td>
         <td>none</td>
         <td>The unique, sequential identifier for this server in the cluster (starts with 0)</td>
 </tr>
 <tr>
-	<td>voldemort.home</td>
-	<td>none</td>
-	<td>The base directory for voldemort. Can also be specified via the environment variable VOLDEMORT_HOME or via a command line option.</td>
+  <td>voldemort.home</td>
+  <td>none</td>
+  <td>The base directory for voldemort. Can also be specified via the environment variable VOLDEMORT_HOME or via a command line option.</td>
 </tr>
 <tr>
-	<td>data.directory</td>
-	<td>${voldemort.home}/data</td>
-	<td>The directory where voldemort data is stored</td>
+  <td>data.directory</td>
+  <td>${voldemort.home}/data</td>
+  <td>The directory where voldemort data is stored</td>
 </tr>
 <tr>
-	<td>metadata.directory</td>
-	<td>${voldemort.home}/config</td>
-	<td>The directory where voldemort configuration is stored</td>
+  <td>metadata.directory</td>
+  <td>${voldemort.home}/config</td>
+  <td>The directory where voldemort configuration is stored</td>
 </tr>
 <tr>
- 	<th colspan="3">BDB stores configuration</th>
+  <th colspan="3">BDB stores configuration</th>
 </tr>
 <tr>
-	<td>enable.bdb.engine</td>
-	<td>true</td>
-	<td>Should the BDB engine be enabled?</td>
+  <td>enable.bdb.engine</td>
+  <td>true</td>
+  <td>Should the BDB engine be enabled?</td>
 </tr>
 <tr>
-	<td>bdb.cache.size</td>
-	<td>200MB</td>
-	<td>The BDB cache that is shared by all BDB tables. Bigger is better.</td>
+  <td>bdb.cache.size</td>
+  <td>200MB</td>
+  <td>The BDB cache that is shared by all BDB tables. Bigger is better.</td>
 </tr>
 <tr>
-	<td>bdb.write.transactions</td>
-	<td>false</td>
-	<td>Should transactions be immediately written to disk?</td>
+  <td>bdb.write.transactions</td>
+  <td>false</td>
+  <td>Should transactions be immediately written to disk?</td>
 </tr>
 <tr>
-	<td>bdb.flush.transactions</td>
-	<td>false</td>
-	<td>When the transaction has been written to disk should we force the disk to flush the OS cache. This is a fairly expensive operation.</td>
+  <td>bdb.flush.transactions</td>
+  <td>false</td>
+  <td>When the transaction has been written to disk should we force the disk to flush the OS cache. This is a fairly expensive operation.</td>
 </tr>
 <tr>
-	<td>bdb.data.directory</td>
-	<td>${data.directory}/bdb</td>
-	<td>The directory where the BDB environment is located</td>
+  <td>bdb.data.directory</td>
+  <td>${data.directory}/bdb</td>
+  <td>The directory where the BDB environment is located</td>
 </tr>
 <tr>
-	<td>bdb.max.logfile.size</td>
-	<td>1GB</td>
-	<td>The size of an individual log file</td>
+  <td>bdb.max.logfile.size</td>
+  <td>1GB</td>
+  <td>The size of an individual log file</td>
 </tr>
 <tr>
-	<td>bdb.btree.fanout</td>
-	<td>512</td>
-	<td>The fanout size for the btree. Bigger fanout more effienciently supports larger btrees.</td>
+  <td>bdb.btree.fanout</td>
+  <td>512</td>
+  <td>The fanout size for the btree. Bigger fanout more effienciently supports larger btrees.</td>
 </tr>
 <tr>
-	<td>bdb.checkpoint.interval.bytes</td>
-	<td>20 * 1024 * 1024</td>
-	<td>How often (in bytes) should we checkpoint the transaction log? Checkpoints make startup and shutdown faster.</td>
+  <td>bdb.checkpoint.interval.bytes</td>
+  <td>20 * 1024 * 1024</td>
+  <td>How often (in bytes) should we checkpoint the transaction log? Checkpoints make startup and shutdown faster.</td>
 </tr>
 <tr>
-	<td>bdb.checkpoint.interval.ms</td>
-	<td>30000</td>
-	<td>How often in ms should we checkpoint the transaction log</td>
+  <td>bdb.checkpoint.interval.ms</td>
+  <td>30000</td>
+  <td>How often in ms should we checkpoint the transaction log</td>
 </tr>
 <tr>
-	<td>bdb.one.env.per.store</td>
-	<td>false</td>
-	<td>Use one BDB environment for every store</td>
+  <td>bdb.one.env.per.store</td>
+  <td>false</td>
+  <td>Use one BDB environment for every store</td>
 </tr>
 <tr>
-	<td>bdb.cleaner.threads</td>
-	<td>1</td>
-	<td>Number of BDB cleaner threads</td>
+  <td>bdb.cleaner.threads</td>
+  <td>1</td>
+  <td>Number of BDB cleaner threads</td>
 </tr>
 <tr>
-     	<th colspan="3">MySQL stores configuration</th>
+      <th colspan="3">MySQL stores configuration</th>
 </tr>
 <tr>
-	<td>enable.mysql.engine</td>
-	<td>false</td>
-	<td>Should we enabled the mysql storage engine? Doing so will create a connection pool that will be used for the mysql instance</td>
+  <td>enable.mysql.engine</td>
+  <td>false</td>
+  <td>Should we enabled the mysql storage engine? Doing so will create a connection pool that will be used for the mysql instance</td>
 </tr>
 <tr>
-	<td>mysql.user</td>
-	<td>root</td>
-	<td>The mysql username to user</td>
+  <td>mysql.user</td>
+  <td>root</td>
+  <td>The mysql username to user</td>
 </tr>
 <tr>
-	<td>mysql.password</td>
-	<td></td>
-	<td>The mysql password to user</td>
+  <td>mysql.password</td>
+  <td></td>
+  <td>The mysql password to user</td>
 </tr>
 <tr>
-	<td>mysql.host</td>
-	<td>localhost</td>
-	<td>The host of the mysql instance</td>
+  <td>mysql.host</td>
+  <td>localhost</td>
+  <td>The host of the mysql instance</td>
 </tr>
 <tr>
-	<td>mysql.port</td>
-	<td>3306</td>
-	<td>The port of the mysql instance</td>
+  <td>mysql.port</td>
+  <td>3306</td>
+  <td>The port of the mysql instance</td>
 </tr>
 <tr>
-	<td>mysql.database</td>
-	<td>voldemort</td>
-	<td>The name of the mysql database</td>
+  <td>mysql.database</td>
+  <td>voldemort</td>
+  <td>The name of the mysql database</td>
 </tr>
 <tr>
-     	<th colspan="3">Read-only stores configuration</th>
+      <th colspan="3">Read-only stores configuration</th>
 </tr>
 <tr>
-	<td>enable.readonly.engine</td>
-	<td>false</td>
-	<td>Should we enable the readonly storage engine?</td>
+  <td>enable.readonly.engine</td>
+  <td>false</td>
+  <td>Should we enable the readonly storage engine?</td>
 </tr>
 <tr>
-	<td>readonly.backups</td>
-	<td>1</td>
-	<td>The number of backup copies of the data to keep around for rollback.</td>
+  <td>readonly.backups</td>
+  <td>1</td>
+  <td>The number of backup copies of the data to keep around for rollback.</td>
 </tr>
 <tr>
-	<td>readonly.search.strategy</td>
-	<td>BinarySearchStrategy</td>
-	<td>Class name of search strategy to use while finding key. We support BinarySearchStrategy and InterpolationSearchStrategy</td>
+  <td>readonly.search.strategy</td>
+  <td>BinarySearchStrategy</td>
+  <td>Class name of search strategy to use while finding key. We support BinarySearchStrategy and InterpolationSearchStrategy</td>
 </tr>
 <tr>
-	<td>readonly.data.directory</td>
-	<td>${data.directory}/read-only</td>
-	<td>The directory in which to store readonly data files.</td>
+  <td>readonly.data.directory</td>
+  <td>${data.directory}/read-only</td>
+  <td>The directory in which to store readonly data files.</td>
 </tr>
 <tr>
-	<td>readonly.delete.backup.ms</td>
-	<td>0</td>
-	<td>Millisecond we wait for before deleting old data. Useful to decreasing IO during swap.</td>
+  <td>readonly.delete.backup.ms</td>
+  <td>0</td>
+  <td>Millisecond we wait for before deleting old data. Useful to decreasing IO during swap.</td>
 </tr>
 <tr>
- 	<th colspan="3">Slop store configuration</th>
+  <th colspan="3">Slop store configuration</th>
 </tr>
 <tr>
-	<td>slop.enable</td>
-	<td>true</td>
-	<td>Do we want to initialize a storage engine for slops + have the job enabled?</td>
+  <td>slop.enable</td>
+  <td>true</td>
+  <td>Do we want to initialize a storage engine for slops + have the job enabled?</td>
 </tr>
 <tr>
-	<td>slop.store.engine</td>
-	<td>bdb</td>
-	<td>What storage engine should we use for storing misdelivered messages that need to be rerouted?</td>
+  <td>slop.store.engine</td>
+  <td>bdb</td>
+  <td>What storage engine should we use for storing misdelivered messages that need to be rerouted?</td>
 </tr>
 <tr>
-	<td>slop.pusher.enable</td>
-	<td>true</td>
-	<td>Enable the slop pusher job which pushes every 'slop.frequency.ms' ms ( Prerequisite - slop.enable=true )</td>
+  <td>slop.pusher.enable</td>
+  <td>true</td>
+  <td>Enable the slop pusher job which pushes every 'slop.frequency.ms' ms ( Prerequisite - slop.enable=true )</td>
 </tr>
 <tr>
-	<td>slop.read.byte.per.sec</td>
-	<td>10 * 1000 * 1000</td>
-	<td>Slop max read throughput </td>
+  <td>slop.read.byte.per.sec</td>
+  <td>10 * 1000 * 1000</td>
+  <td>Slop max read throughput </td>
 </tr>
 <tr>
-	<td>slop.write.byte.per.sec</td>
-	<td>10 * 1000 * 1000</td>
-	<td>Slop max write throughput </td>
+  <td>slop.write.byte.per.sec</td>
+  <td>10 * 1000 * 1000</td>
+  <td>Slop max write throughput </td>
 </tr>
 <tr>
-	<td>pusher.type</td>
-	<td>StreamingSlopPusherJob</td>
-	<td>Job type to use for pushing out the slops</td>
+  <td>pusher.type</td>
+  <td>StreamingSlopPusherJob</td>
+  <td>Job type to use for pushing out the slops</td>
 </tr>
 <tr>
-	<td>slop.frequency.ms</td>
-	<td>5 * 60 * 1000</td>
-	<td>Frequency at which we'll try to push out the slops </td>
+  <td>slop.frequency.ms</td>
+  <td>5 * 60 * 1000</td>
+  <td>Frequency at which we'll try to push out the slops </td>
 </tr>
 <tr>
-	<th colspan="3">Rebalancing configuration</th>
+  <th colspan="3">Rebalancing configuration</th>
 </tr>
 <tr>
-	<td>enable.rebalancing</td>
-	<td>true</td>
-	<td>Enable rebalance service?</td>
+  <td>enable.rebalancing</td>
+  <td>true</td>
+  <td>Enable rebalance service?</td>
 </tr>
 <tr>
-	<td>max.rebalancing.attempts</td>
-	<td>3</td>
-	<td>Number of attempts the server side rebalancer makes to fetch data</td>
+  <td>max.rebalancing.attempts</td>
+  <td>3</td>
+  <td>Number of attempts the server side rebalancer makes to fetch data</td>
 </tr>
 <tr>
-	<td>rebalancing.timeout.seconds</td>
-	<td>10 * 24 * 60 * 60</td>
-	<td>Time we give for the server side rebalancing to finish copying data</td>
+  <td>rebalancing.timeout.seconds</td>
+  <td>10 * 24 * 60 * 60</td>
+  <td>Time we give for the server side rebalancing to finish copying data</td>
 </tr>
 <tr>
-	<td>max.parallel.stores.rebalancing</td>
-	<td>3</td>
-	<td>Stores to rebalancing in parallel</td>
+  <td>max.parallel.stores.rebalancing</td>
+  <td>3</td>
+  <td>Stores to rebalancing in parallel</td>
 </tr>
 <tr>
-	<td>rebalancing.optimization</td>
-	<td>true</td>
-	<td>Should we run our rebalancing optimization for non-partition aware stores?</td>
+  <td>rebalancing.optimization</td>
+  <td>true</td>
+  <td>Should we run our rebalancing optimization for non-partition aware stores?</td>
 </tr>
 <tr>
-	<th colspan="3">Retention configuration</th>
+  <th colspan="3">Retention configuration</th>
 </tr>
 <tr>
-	<td>retention.cleanup.first.start.hour</td>
-	<td>0</td>
-	<td>Hour when we want to start the first retention cleanup job</td>
+  <td>retention.cleanup.first.start.hour</td>
+  <td>0</td>
+  <td>Hour when we want to start the first retention cleanup job</td>
 </tr>
 <tr>
-	<td>retention.cleanup.period.hours</td>
-	<td>24</td>
-	<td>Run the retention clean up job every n hours</td>
+  <td>retention.cleanup.period.hours</td>
+  <td>24</td>
+  <td>Run the retention clean up job every n hours</td>
 </tr>
 <tr>
-	<th colspan="3">Gossip configuration</th>
+  <th colspan="3">Gossip configuration</th>
 <tr>
 <tr>
-	<td>enable.gossip</td>
-	<td>false</td>
-	<td>Enable gossip to synchronize state</td>
+  <td>enable.gossip</td>
+  <td>false</td>
+  <td>Enable gossip to synchronize state</td>
 </tr>
 <tr>
-	<td>gossip.interval.ms</td>
-	<td>30*1000</td>
-	<td>Enable gossup every n ms</td>
+  <td>gossip.interval.ms</td>
+  <td>30*1000</td>
+  <td>Enable gossup every n ms</td>
 </tr>
 <tr>
-	<th colspan="3">Admin service</th>
+  <th colspan="3">Admin service</th>
 </tr>
 <tr>
-	<td>admin.enable</td>
-	<td>true</td>
-	<td>Enable the Admin service?</td>
+  <td>admin.enable</td>
+  <td>true</td>
+  <td>Enable the Admin service?</td>
 </tr>
 <tr>
-	<td>admin.max.threads</td>
-	<td>20</td>
-	<td>Max Number of threads used by Admin services. Used by BIO ( i.e. if enable.nio.connector = false )</td>
+  <td>admin.max.threads</td>
+  <td>20</td>
+  <td>Max Number of threads used by Admin services. Used by BIO ( i.e. if enable.nio.connector = false )</td>
 </tr>
 <tr>
-	<td>admin.core.threads</td>
-	<td>max(1, ${admin.max.threads} / 2)</td>
-	<td>The number of threads to keep alive by Admin service even when idle. Used by BIO ( i.e. if enable.nio.connector = false )</td>
+  <td>admin.core.threads</td>
+  <td>max(1, ${admin.max.threads} / 2)</td>
+  <td>The number of threads to keep alive by Admin service even when idle. Used by BIO ( i.e. if enable.nio.connector = false )</td>
 </tr>
 <tr>
-	<td>nio.admin.connector.selectors</td>
-	<td>max ( 8, number of processors )</td>
-	<td>Number of selector threads for admin operations. Used by NIO ( i.e. if enable.nio.connector = true )</td>
+  <td>nio.admin.connector.selectors</td>
+  <td>max ( 8, number of processors )</td>
+  <td>Number of selector threads for admin operations. Used by NIO ( i.e. if enable.nio.connector = true )</td>
 </tr>
 <tr>
- 	<th colspan="3">Core Voldemort server configuration</th>
+  <th colspan="3">Core Voldemort server configuration</th>
 <tr>
 <tr>
-	<td>enable.nio.connector</td>
-	<td>true</td>
-	<td>Enable NIO on server side</td>
+  <td>enable.nio.connector</td>
+  <td>true</td>
+  <td>Enable NIO on server side</td>
 </tr>
 <tr>
-	<td>nio.connector.selectors</td>
-	<td>max ( 8, number of processors )</td>
-	<td>Number of selector threads for normal operations. Used by NIO ( i.e. if enable.nio.connector = true )</td>
+  <td>nio.connector.selectors</td>
+  <td>max ( 8, number of processors )</td>
+  <td>Number of selector threads for normal operations. Used by NIO ( i.e. if enable.nio.connector = true )</td>
 </tr>
 <tr>
-	<td>max.threads</td>
-	<td>100</td>
-	<td>The maximum number of threads the server can use ( Used by HTTP and BIO - enable.nio.connector = false -  service only )</td>
+  <td>max.threads</td>
+  <td>100</td>
+  <td>The maximum number of threads the server can use ( Used by HTTP and BIO - enable.nio.connector = false -  service only )</td>
 </tr>
 <tr>
-	<td>core.threads</td>
-	<td>max(1, ${max.threads} / 2)</td>
-	<td>The number of threads to keep alive even when idle ( Used by HTTP and BIO - enable.nio.connector = false -  service only )</td>
+  <td>core.threads</td>
+  <td>max(1, ${max.threads} / 2)</td>
+  <td>The number of threads to keep alive even when idle ( Used by HTTP and BIO - enable.nio.connector = false -  service only )</td>
 </tr>
 <tr>
-	<td>socket.timeout.ms</td>
-	<td>4000</td>
-	<td>The socket SO_TIMEOUT. Essentially the amount of time to block on a low-level network operation before throwing an error.</td>
+  <td>socket.timeout.ms</td>
+  <td>4000</td>
+  <td>The socket SO_TIMEOUT. Essentially the amount of time to block on a low-level network operation before throwing an error.</td>
 </tr>
 <tr>
-	<td>routing.timeout.ms</td>
-	<td>5000</td>
-	<td>The total amount of time to wait for adequate responses from all nodes before throwing an error.</td>
+  <td>routing.timeout.ms</td>
+  <td>5000</td>
+  <td>The total amount of time to wait for adequate responses from all nodes before throwing an error.</td>
 </tr>
 <tr>
-	<td>stream.read.byte.per.sec</td>
-	<td>10 * 1000 * 1000</td>
-	<td>Max read throughput allowed when Admin service streams data</td>
+  <td>stream.read.byte.per.sec</td>
+  <td>10 * 1000 * 1000</td>
+  <td>Max read throughput allowed when Admin service streams data</td>
 </tr>
 <tr>
-	<td>stream.write.byte.per.sec</td>
-	<td>10 * 1000 * 1000</td>
-	<td>Max write throughput allowed when Admin service streams data</td>
+  <td>stream.write.byte.per.sec</td>
+  <td>10 * 1000 * 1000</td>
+  <td>Max write throughput allowed when Admin service streams data</td>
 </tr>
 <tr>
-	<td>http.enable</td>
-	<td>true</td>
-	<td>Enable the HTTP data server?</td>
+  <td>http.enable</td>
+  <td>true</td>
+  <td>Enable the HTTP data server?</td>
 </tr>
 <tr>
-	<td>socket.enable</td>
-	<td>true</td>
-	<td>Enable the socket data server?</td>
+  <td>socket.enable</td>
+  <td>true</td>
+  <td>Enable the socket data server?</td>
 </tr>
 <tr>
-	<td>jmx.enable</td>
-	<td>true</td>
-	<td>Enable JMX monitoring?</td>
+  <td>jmx.enable</td>
+  <td>true</td>
+  <td>Enable JMX monitoring?</td>
 </tr>
 <tr>
-	<td>enable.verbose.logging</td>
-	<td>true</td>
-	<td>Log every operation on all stores.</td>
+  <td>enable.verbose.logging</td>
+  <td>true</td>
+  <td>Log every operation on all stores.</td>
 </tr>
 <tr>
-	<td>enable.stat.tracking</td>
-	<td>true</td>
-	<td>Track load statistics on the stores.</td>
+  <td>enable.stat.tracking</td>
+  <td>true</td>
+  <td>Track load statistics on the stores.</td>
 </tr>
 <tr>
-	<td>scheduler.threads</td>
-	<td>6</td>
-	<td>Number of threads to use for scheduled jobs</td>
+  <td>scheduler.threads</td>
+  <td>6</td>
+  <td>Number of threads to use for scheduled jobs</td>
 </tr>
 </table>
 
@@ -613,112 +544,112 @@ Here is a list of all the configuration options supported:
 
 <table class="data-table">
 <tr>
-	<th>name</th>
-	<th>default</th>
-	<th>description</th>
+  <th>name</th>
+  <th>default</th>
+  <th>description</th>
 </tr>
 <tr>
-	<td>max_connections</td>
+  <td>max_connections</td>
         <td>50</td>
         <td>Maximum number of connection allowed to each voldemort node</td>
 </tr>
 <tr>
-	<td>max_threads</td>
-	<td>5</td>
-	<td>The maximum number of client threads ( Used by the client thread pool )</td>
+  <td>max_threads</td>
+  <td>5</td>
+  <td>The maximum number of client threads ( Used by the client thread pool )</td>
 </tr>
 <tr>
-	<td>max_queued_requests</td>
-	<td>50</td>
-	<td>The maximum number of queued node operations before client actions will be blocked ( Used by the client thread pool )</td>
+  <td>max_queued_requests</td>
+  <td>50</td>
+  <td>The maximum number of queued node operations before client actions will be blocked ( Used by the client thread pool )</td>
 </tr>
 <tr>
-	<td>thread_idle_ms</td>
-	<td>100000</td>
-	<td>The amount of time to keep an idle client thread alive ( Used by the client thread pool )</td>
+  <td>thread_idle_ms</td>
+  <td>100000</td>
+  <td>The amount of time to keep an idle client thread alive ( Used by the client thread pool )</td>
 </tr>
 <tr>
-	<td>connection_timeout_ms</td>
-	<td>500</td>
-	<td>Set the maximum allowable time to block waiting for a free connection</td>
+  <td>connection_timeout_ms</td>
+  <td>500</td>
+  <td>Set the maximum allowable time to block waiting for a free connection</td>
 </tr>
 <tr>
-	<td>socket_timeout_ms</td>
-	<td>5000</td>
-	<td>Maximum amount of time the socket will block waiting for network activity</td>
+  <td>socket_timeout_ms</td>
+  <td>5000</td>
+  <td>Maximum amount of time the socket will block waiting for network activity</td>
 </tr>
 <tr>
-	<td>routing_timeout_ms</td>
-	<td>15000</td>
-	<td>Set the timeout for all blocking operations to complete on all nodes. The number of blocking operations can be configured using the preferred-reads and preferred-writes configuration for the store.</td>
+  <td>routing_timeout_ms</td>
+  <td>15000</td>
+  <td>Set the timeout for all blocking operations to complete on all nodes. The number of blocking operations can be configured using the preferred-reads and preferred-writes configuration for the store.</td>
 </tr>
 <tr>
-	<td>selectors</td>
-	<td>8</td>
-	<td>Number of selectors used for multiplexing requests in our NIO client</td>
+  <td>selectors</td>
+  <td>8</td>
+  <td>Number of selectors used for multiplexing requests in our NIO client</td>
 </tr>
 <tr>
-	<td>socket_buffer_size</td>
-	<td>64 * 1024</td>
-	<td>Set the size of the socket buffer (in bytes) to use for both socket reads and socket writes</td>
+  <td>socket_buffer_size</td>
+  <td>64 * 1024</td>
+  <td>Set the size of the socket buffer (in bytes) to use for both socket reads and socket writes</td>
 </tr>
 <tr>
-	<td>enable_jmx</td>
-	<td>true</td>
-	<td>Enable JMX monitoring</td>
+  <td>enable_jmx</td>
+  <td>true</td>
+  <td>Enable JMX monitoring</td>
 </tr>
 <tr>
-	<td>enable_pipeline_routed_store</td>
-	<td>true</td>
-	<td>Use the new pipeline routed store for client side routing</td>
+  <td>enable_pipeline_routed_store</td>
+  <td>true</td>
+  <td>Use the new pipeline routed store for client side routing</td>
 </tr>
 <tr>
-	<td>max_bootstrap_retries</td>
-	<td>2</td>
-	<td>Number of times we'll try to connect to bootstrap url</td>
+  <td>max_bootstrap_retries</td>
+  <td>2</td>
+  <td>Number of times we'll try to connect to bootstrap url</td>
 </tr>
 <tr>
-	<td>bootstrap_urls</td>
-	<td>Compulsory parameter</td>
-	<td>Comma separated list of URLs to use as bootstrap servers</td>
+  <td>bootstrap_urls</td>
+  <td>Compulsory parameter</td>
+  <td>Comma separated list of URLs to use as bootstrap servers</td>
 </tr>
 <tr>
-	<td>serializer_factory_class</td>
-	<td>Default serializer factory with support for avro, pb, java, etc.</td>
-	<td>Custom serializer factory class name</td>
+  <td>serializer_factory_class</td>
+  <td>Default serializer factory with support for avro, pb, java, etc.</td>
+  <td>Custom serializer factory class name</td>
 </tr>
 <tr>
-	<td>client_zone_id</td>
-	<td>0</td>
-	<td>Zone id where the client resides. Used to make smarter routing decision in case of 'zone-routing'</td>
+  <td>client_zone_id</td>
+  <td>0</td>
+  <td>Zone id where the client resides. Used to make smarter routing decision in case of 'zone-routing'</td>
 </tr>
 <tr>
         <th colspan="3">Failure detector configs</th>
 </tr>
 <tr>
-	<td>failuredetector_implementation</td>
-	<td>ThresholdFailureDetector</td>
-	<td>Class name of the failure detector that the client will use. We support BannagePeriodFailureDetector and ThresholdFailureDetector</td>
+  <td>failuredetector_implementation</td>
+  <td>ThresholdFailureDetector</td>
+  <td>Class name of the failure detector that the client will use. We support BannagePeriodFailureDetector and ThresholdFailureDetector</td>
 </tr>
 <tr>
-	<td>failuredetector_bannage_period</td>
-	<td>30000</td>
-	<td>BannagePeriodFailureDetector : The number of milliseconds this node is considered as 'banned'</td>
+  <td>failuredetector_bannage_period</td>
+  <td>30000</td>
+  <td>BannagePeriodFailureDetector : The number of milliseconds this node is considered as 'banned'</td>
 </tr>
 <tr>
-	<td>failuredetector_threshold_countminimum</td>
-	<td>30</td>
-	<td>ThresholdFailureDetector : Minimum number of failures that must occur before the success ratio is checked against the threshold</td>
+  <td>failuredetector_threshold_countminimum</td>
+  <td>30</td>
+  <td>ThresholdFailureDetector : Minimum number of failures that must occur before the success ratio is checked against the threshold</td>
 </tr>
 <tr>
-	<td>failuredetector_threshold_interval</td>
-	<td>30000</td>
-	<td>ThresholdFailureDetector : Millisecond interval for which the threshold is valid; it is 'reset' after this period is exceeded</td>
+  <td>failuredetector_threshold_interval</td>
+  <td>30000</td>
+  <td>ThresholdFailureDetector : Millisecond interval for which the threshold is valid; it is 'reset' after this period is exceeded</td>
 </tr>
 <tr>
-	<td>failuredetector_threshold</td>
-	<td>95</td>
-	<td>ThresholdFailureDector : The integer percentage representation of the threshold that must be met or exceeded</td>
+  <td>failuredetector_threshold</td>
+  <td>95</td>
+  <td>ThresholdFailureDector : The integer percentage representation of the threshold that must be met or exceeded</td>
 </tr>
 </table>
 
@@ -729,20 +660,20 @@ Here is a list of all the configuration options supported:
 At LinkedIn we maintain two sets of clusters, read-only and read-write. The read-write clusters are clusters using BDB stores and have totally different JVM characteristics from those using read-only stores. Here is what we use at LinkedIn for our read-write stores:
 
 <pre>
-	# Min, max, total JVM size 
-	JVM_SIZE="-server -Xms22g -Xmx22g"
+  # Min, max, total JVM size 
+  JVM_SIZE="-server -Xms22g -Xmx22g"
 
-	# New Generation Sizes 
-	JVM_SIZE_NEW="-XX:NewSize=2048m -XX:MaxNewSize=2048m"
+  # New Generation Sizes 
+  JVM_SIZE_NEW="-XX:NewSize=2048m -XX:MaxNewSize=2048m"
 
-	# Type of Garbage Collector to use
-	JVM_GC_TYPE="-XX:+UseConcMarkSweepGC -XX:+UseParNewGC"
+  # Type of Garbage Collector to use
+  JVM_GC_TYPE="-XX:+UseConcMarkSweepGC -XX:+UseParNewGC"
 
-	# Tuning options for the above garbage collector
-	JVM_GC_OPTS="-XX:CMSInitiatingOccupancyFraction=70 -XX:SurvivorRatio=2"
+  # Tuning options for the above garbage collector
+  JVM_GC_OPTS="-XX:CMSInitiatingOccupancyFraction=70 -XX:SurvivorRatio=2"
 
-	# JVM GC activity logging settings
-	JVM_GC_LOG="-XX:+PrintTenuringDistribution -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$LOG_DIR/gc.log"
+  # JVM GC activity logging settings
+  JVM_GC_LOG="-XX:+PrintTenuringDistribution -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:$LOG_DIR/gc.log"
 </pre>
 
 This is the setup on a 32GB RAM box with a BDB cache size of 10GB and 3 cleaner threads. There are two key things here: (1) BDB cache must fit in heap or else it won't work (obviously), (2) you must use the concurrent mark and sweep gc or else the GC pauses from collecting such a large heap will cause unresponsive periods (it doesn't happen at first either, it creeps up and then eventually goes into a spiral of gc pause death). 
@@ -750,14 +681,8 @@ This is the setup on a 32GB RAM box with a BDB cache size of 10GB and 3 cleaner 
 For the read-only clusters we use the same JVM GC settings, except the heap size is set to a smaller value.
 </p>
 <pre>
-	# Min, max, total JVM size 
-	JVM_SIZE="-server -Xms4096m -Xmx4096m"
+  # Min, max, total JVM size 
+  JVM_SIZE="-server -Xms4096m -Xmx4096m"
 </pre>
 
 This is done because in the case of read-only stores we rely on the OS page cache and don't really want our JVM heap to take up space. 
-			</div>
-		</div>
-    <a href="https://github.com/voldemort/voldemort"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
-<script type="text/javascript" src="js/ga-include.js"></script>
-	</body>
-</html>

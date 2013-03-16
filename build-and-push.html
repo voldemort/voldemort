@@ -1,243 +1,144 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html xmlns:og="http://ogp.me/ns#">
-	<head>
-		<title>Project Voldemort</title>
-		<link rel='stylesheet' href='styles.css' type='text/css'>
-		<link rel="icon" type="image/png" href="images/voldemort_logo.png"><meta name="keywords" content="Project Voldemort, Voldemort, key-value storage, distributed storage, Amazon Dynamo, persistence, scalability"><meta name="description" content="A distributed database.">		<meta http-equiv='Content-Type' content='text/html;charset=utf-8' />
-		
-		<meta property="og:title" value="Project Voldemort" />
-		<meta property="og:image" value="images/voldemort_logo.png" />
-		<meta property="og:description" value="A distributed database." />
-		<meta property="og:site_name" value="sna-projects" />
-		<meta property="og:type" value="website" />
-	</head>
-	<body>
-		<div>
-			<div id="header" style="overflow: hidden">
-				<div style='float: left; margin-right: 10px'>
-					<img src='images/voldemort_logo.png'>				</div>
-				<div>
-					<div class="title">Project Voldemort</div>
-					<div class="subtitle">A distributed database.</div>
-					<div class="projects"><a href="http://sna-projects.com/zoie" title="Real-time search indexing.">zoie</a> &middot;
-<a href="http://sna-projects.com/bobo" title="Fast faceted search with Lucene.">bobo</a> &middot;
-<a href="http://sna-projects.com/cleo" title="Flexible, partial, out-of-order and real-time typeahead search.">cleo</a> &middot;
-<a href="http://sna-projects.com/decomposer" title="Massive matrix decompositions.">decomposer</a> &middot;
-<a href="http://sna-projects.com/norbert" title="Partitioned routing and cluster management.">norbert</a> &middot;
-<a href="http://project-voldemort.com" title="A distributed database.">voldemort</a> &middot;
-<a href="http://incubator.apache.org/kafka" title="A high-throughput distributed messaging system.">kafka</a> &middot;
-<a href="http://sna-projects.com/kamikaze" title="Doc set compression.">kamikaze</a> &middot;
-<a href="http://sna-projects.com/krati" title="A persistent high-performance data store.">krati</a> &middot;
-<a href="http://sna-projects.com/sensei" title="A distributed, elastic, realtime, searchable database.">sensei</a> &middot;
-<a href="http://sna-projects.com/azkaban" title="Simple hadoop workflow.">azkaban</a> &middot;
-<a href="http://sna-projects.com/datafu" title="UDFs for working with Pig">datafu</a> &middot;
-<a href="http://sna-projects.com/sna" title="Search, Network, Analytics">sna</a> &middot;
-<a href="http://sna-projects.com/blog" title="Our Blog">blog</a>
-</div>
-				</div>
-			</div>
-	<div class="lsidebar">
-		<ul>
-		<li>
-					      <a href="quickstart.html">quickstart</a>
-				      </li><li>
-					      <a href="design.html">design</a>
-				      </li><li>
-					      <a href="http://github.com/voldemort/voldemort/tree/master">source</a>
-				      </li><li>
-					      <a href="http://groups.google.com/group/project-voldemort">mailing list</a>
-				      </li><li>
-					      <a href="http://github.com/voldemort/voldemort/downloads">download</a>
-				      </li><li>
-					      <a href="http://test.project-voldemort.com:8080/job/voldemort-master">snapshot build</a>
-				      </li><li>
-					      <a href="configuration.html">configuration</a>
-				      </li><li>
-					      <a href="build-and-push.html">Build and Push</a>
-				      </li><li>
-					      <a href="javadoc/all">javadoc</a>
-				      </li><li>
-					      <a href="developer.html">developer&nbsp;info</a>
-				      </li><li>
-					      <a href="http://wiki.github.com/voldemort/voldemort/fun-projects">fun&nbsp;projects</a>
-				      </li><li>
-					      <a href="performance.html">performance</a>
-				      </li><li>
-					      <a href="http://code.google.com/p/project-voldemort/issues">bugs</a>
-				      </li><li>
-					      <a href="http://wiki.github.com/voldemort/voldemort">wiki</a>
-				      </li>		</ul>
-	
-			</div>
-	
-	<div class='content'>
-	
+---
+layout: default
+title: Build And Push - Voldemort
+---
+
+
 <h1>Build and Push Jobs for Voldemort Read Only Stores</h1>
 
 <h2>Introduction </h2>
 
-<p> We have been using the Build and Push Job at Linkedin to create Voldemort Read-Only stores from data present in sequence files/ Avro Container files on HDFS. <br/> 
-
-The Voldemort build and push job uses the fault tolerance and parallelism of Hadoop and builds individual Voldemort node/partition-level data stores, which are
-transferred to Voldemort for serving. <br/> A Hadoop job reads
-data from a source in HDFS, repartitions it on a
-per-node basis, and ﬁnally writes the data to individual
-Read-only storage engine [1].
-<br/><br/>
-The VoldemortBuildAndPushJob will behave in the following way:
-
-<ol>
-<li>Build an XML storeDef for your data (based off of the key and value metadata in your JsonSequenceFile/Avro on HDFS).</li>
-
-<li>Connect to push.cluster</li>
-
-<li>Get the storeDefs for all stores in the push.cluster</li>
-
-<li>Look through the storeDefs for a store with the same name as push.store.name. If one is found, validate that the storeDef in the cluster matches the storeDef for your data. If it doesn’t, fail. If no storeDef exists on the cluster that matches push.store.name, then add your storeDef to the cluster.</li>
-
-<li>Build the Voldemort store in Hadoop </li>
-
-<li>Push the Voldemort store to push.cluster </li>
-
-</ol>
+<p>We have been using the Build and Push Job at Linkedin to create Voldemort Read-Only stores from data present in sequence files/ Avro Container files on HDFS.
+  <br/>The Voldemort build and push job uses the fault tolerance and parallelism of Hadoop and builds individual Voldemort node/partition-level data stores, which are transferred to Voldemort for serving.
+  <br/>A Hadoop job reads data from a source in HDFS, repartitions it on a per-node basis, and ﬁnally writes the data to individual Read-only storage engine [1].
+  <br/>
+  <br/>The VoldemortBuildAndPushJob will behave in the following way:
+  <ol>
+    <li>Build an XML storeDef for your data (based off of the key and value metadata in your JsonSequenceFile/Avro on HDFS).</li>
+    <li>Connect to push.cluster</li>
+    <li>Get the storeDefs for all stores in the push.cluster</li>
+    <li>Look through the storeDefs for a store with the same name as push.store.name. If one is found, validate that the storeDef in the cluster matches the storeDef for your data. If it doesn’t, fail. If no storeDef exists on the cluster that matches push.store.name,
+        then add your storeDef to the cluster.</li>
+    <li>Build the Voldemort store in Hadoop</li>
+    <li>Push the Voldemort store to push.cluster</li>
+  </ol>
 </p>
-
 
 <h4> Azkaban Job </h4>
-<p>
-The Build and Push Job is an Azkaban job. Azkaban is a workflow scheduler used at LinkedIn [2]. You provide a job file to Azkaban with a set of properties and the jars and Azkaban executes this job.
-<br/><br/>
-You can <a href="build-and-push.tar.gz"> download </a> the tarball.
-Then Untar it
-<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">tar</span> <span style="color: #d0d0d0">-xvf</span> <span style="color: #d0d0d0">build-</span><span style="color: #6ab825; font-weight: bold">and</span><span style="color: #d0d0d0">-push.tar.gz</span>
-</pre></div>
 
+<p>The Build and Push Job is an Azkaban job. Azkaban is a workflow scheduler used at LinkedIn [2]. You provide a job file to Azkaban with a set of properties and the jars and Azkaban executes this job.</p>
+<p>You can<a href="build-and-push.tar.gz">download</a>the tarball. Then Untar it</p>
+
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+  <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">tar -xvf build-and-push.tar.gz</span></pre>
+</div>
+    
 <h5>Structure </h5>
-<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #AA22FF; font-weight: bold">/</span><span style="color: #B8860B">conf</span>
-<span style="color: #B8860B">All</span> <span style="color: #B8860B">Azkaban</span> <span style="color: #B8860B">.job</span> <span style="color: #AA22FF; font-weight: bold">and</span> <span style="color: #B8860B">.properties</span> <span style="color: #B8860B">files</span> <span style="color: #B8860B">must</span> <span style="color: #B8860B">go</span> <span style="color: #B8860B">in</span> <span style="color: #B8860B">this</span> <span style="color: #AA22FF; font-weight: bold">directory</span><span style="color: #B8860B">.</span>
-<span style="color: #AA22FF; font-weight: bold">/</span><span style="color: #B8860B">lib</span>
-<span style="color: #B8860B">All</span> <span style="color: #B8860B">.jar</span> <span style="color: #B8860B">files</span> <span style="color: #B8860B">should</span> <span style="color: #B8860B">go</span> <span style="color: #B8860B">into</span> <span style="color: #B8860B">this</span> <span style="color: #AA22FF; font-weight: bold">directory</span><span style="color: #B8860B">.</span>
-<span style="color: #AA22FF; font-weight: bold">/</span><span style="color: #B8860B">src</span>
-<span style="color: #B8860B">All</span> <span style="color: #B8860B">code</span> <span style="color: #B8860B">should</span> <span style="color: #B8860B">go</span> <span style="color: #B8860B">into</span> <span style="color: #B8860B">this</span> <span style="color: #AA22FF; font-weight: bold">directory</span><span style="color: #B8860B">.</span> <span style="color: #B8860B">This</span> <span style="color: #B8860B">includes</span> <span style="color: #B8860B">Java,</span> <span style="color: #B8860B">as</span> <span style="color: #B8860B">well</span> <span style="color: #B8860B">as</span> <span style="color: #B8860B">scripting</span> <span style="color: #B8860B">languages</span> <span style="color: #AA22FF; font-weight: bold">and</span> <span style="color: #B8860B">shell</span> <span style="color: #B8860B">scripts.</span>
-<span style="color: #AA22FF; font-weight: bold">/</span><span style="color: #B8860B">test</span>
-<span style="color: #B8860B">Any</span> <span style="color: #B8860B">testing</span> <span style="color: #B8860B">code</span> <span style="color: #B8860B">should</span> <span style="color: #B8860B">be</span> <span style="color: #B8860B">placed</span> <span style="color: #B8860B">in</span> <span style="color: #B8860B">this</span> <span style="color: #B8860B">folder.</span>
-</pre></div>
 
+<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+	<pre style="margin: 0; line-height: 125%">/conf
+All Azkaban .job and .properties files must go in this directory.
+/lib
+All .jar files should go into this directory.
+/src
+All code should go into this directory. This includes Java, as well as scripting languages and shell scripts.
+/test
+Any testing code should be placed in this folder.</pre>
+</div>
 </p>
-<p>
-
-PS: In case you are running Voldemort Server locally before you start the Voldemort server ensure that the server.properties file has the following entry
-<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #B8860B">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</span>
-</pre></div>
-
-
-This instructs the server to use that class while fetching files from Hadoop during the push phase
-</p>
-
+<p>PS: In case you are running Voldemort Server locally before you start the Voldemort server ensure that the server.properties file has the following entry</p>
+  <div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+  	<pre style="margin: 0; line-height: 125%">file.fetcher.class=voldemort.store.readonly.fetcher.HdfsFetcher</pre>
+  </div>
+<p>This instructs the server to use that class while fetching files from Hadoop during the push phase</p>
 
 <h4>Pushing JSON Data - Job File</h4>
 
 <!-- HTML generated using hilite.me -->
-<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #AA22FF">type</span><span style="color: #666666">=</span>java
-job<span style="color: #666666">.</span>class<span style="color: #666666">=</span>voldemort<span style="color: #666666">.</span>store<span style="color: #666666">.</span>readonly<span style="color: #666666">.</span>mr<span style="color: #666666">.</span>azkaban<span style="color: #666666">.</span>VoldemortBuildAndPushJob
-hadoop<span style="color: #666666">.</span>job<span style="color: #666666">.</span>ugi<span style="color: #666666">=</span>anagpal,hadoop
-build<span style="color: #666666">.</span>input<span style="color: #666666">.</span>path<span style="color: #666666">=/</span>tmp<span style="color: #666666">/</span>new_op
-build<span style="color: #666666">.</span>output<span style="color: #666666">.</span>dir<span style="color: #666666">=/</span>tmp<span style="color: #666666">/</span>build_output<span style="color: #666666">/</span>
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>name<span style="color: #666666">=</span>anagpal<span style="color: #666666">-</span>test<span style="color: #666666">-</span>old
-push<span style="color: #666666">.</span>cluster<span style="color: #666666">=</span>tcp:<span style="color: #666666">//</span>localhost:<span style="color: #666666">6666</span>
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>description<span style="color: #666666">=</span><span style="color: #BB4444">&quot;test store&quot;</span>
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>owners<span style="color: #666666">=</span>myemail<span style="color: #AA22FF">@myworkplace.com</span>
-build<span style="color: #666666">.</span>replication<span style="color: #666666">.</span>factor<span style="color: #666666">=1</span>
-</pre></div>
+<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+	<pre style="margin: 0; line-height: 125%">type=java
+job.class=voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob
+hadoop.job.ugi=anagpal,hadoop
+build.input.path=/tmp/new_op
+build.output.dir=/tmp/build_output/
+push.store.name=anagpal-test-old
+push.cluster=tcp://localhost:6666
+push.store.description="test store"
+push.store.owners=myemail@myworkplace.com
+build.replication.factor=1</pre>
+</div>
+
 
 <h4>Pushing AVRO Data - Job File</h4>
 
-<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #AA22FF">type</span><span style="color: #666666">=</span>java
-job<span style="color: #666666">.</span>class<span style="color: #666666">=</span>voldemort<span style="color: #666666">.</span>store<span style="color: #666666">.</span>readonly<span style="color: #666666">.</span>mr<span style="color: #666666">.</span>azkaban<span style="color: #666666">.</span>VoldemortBuildAndPushJob
-build<span style="color: #666666">.</span>input<span style="color: #666666">.</span>path<span style="color: #666666">=/</span>user<span style="color: #666666">/</span>anagpal<span style="color: #666666">/</span>avro<span style="color: #666666">-</span>data
-build<span style="color: #666666">.</span>output<span style="color: #666666">.</span>dir<span style="color: #666666">=/</span>tmp
-push<span style="color: #666666">.</span>cluster<span style="color: #666666">=</span>tcp:<span style="color: #666666">//</span>localhost:<span style="color: #666666">6666</span>
-azkaban<span style="color: #666666">.</span>should<span style="color: #666666">.</span>proxy<span style="color: #666666">=</span>true
-user<span style="color: #666666">.</span>to<span style="color: #666666">.</span>proxy<span style="color: #666666">=</span> anagpal
-build<span style="color: #666666">.</span>replication<span style="color: #666666">.</span>factor<span style="color: #666666">=</span> <span style="color: #666666">1</span>
-build<span style="color: #666666">.</span>type<span style="color: #666666">.</span>avro<span style="color: #666666">=</span>true
-build<span style="color: #666666">.</span>output<span style="color: #666666">.</span>dir<span style="color: #666666">=/</span>tmp<span style="color: #666666">/</span>
-avro<span style="color: #666666">.</span>key<span style="color: #666666">.</span>field<span style="color: #666666">=</span>memberId
-avro<span style="color: #666666">.</span>value<span style="color: #666666">.</span>field<span style="color: #666666">=</span>localizedFirstNames
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>name<span style="color: #666666">=</span>test<span style="color: #666666">-</span>avro<span style="color: #666666">-</span>store
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>description<span style="color: #666666">=</span><span style="color: #BB4444">&quot;Testing avro build and push&quot;</span>
-push<span style="color: #666666">.</span>store<span style="color: #666666">.</span>owners<span style="color: #666666">=</span> myemail<span style="color: #AA22FF">@myworkplace.com</span>
-build<span style="color: #666666">.</span>input<span style="color: #666666">.</span>path<span style="color: #666666">=/</span>user<span style="color: #666666">/</span>anagpal<span style="color: #666666">/</span>avro<span style="color: #666666">-</span>data
-build<span style="color: #666666">.</span>output<span style="color: #666666">.</span>dir<span style="color: #666666">=/</span>tmp
-</pre></div>
+<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+	<pre style="margin: 0; line-height: 125%">type=java
+job.class=voldemort.store.readonly.mr.azkaban.VoldemortBuildAndPushJob
+build.input.path=/user/anagpal/avro-data
+build.output.dir=/tmp
+push.cluster=tcp://localhost:6666
+azkaban.should.proxy=true
+user.to.proxy= anagpal
+build.replication.factor= 1
+build.type.avro=true
+build.output.dir=/tmp/
+avro.key.field=memberId
+avro.value.field=localizedFirstNames
+push.store.name=test-avro-store
+push.store.description="Testing avro build and push"
+push.store.owners= myemail@myworkplace.com
+build.input.path=/user/anagpal/avro-data
+build.output.dir=/tmp</pre>
+</div>
 
-<br/>
-Notice the following properties: 
+<p>Notice the following properties:</p>
 <ol>
-
-<li> build.type.avro=true This specifies that input data is Avro. </li>
-
-<li>  avro.key.field=memberId This specifies the field to be used as the key </li>
-
-<li> avro.value.field=localizedFirstNames This specifies the field to be used as the value </li>
+  <li>build.type.avro=true This specifies that input data is Avro.</li>
+  <li>avro.key.field=memberId This specifies the field to be used as the key</li>
+  <li>avro.value.field=localizedFirstNames This specifies the field to be used as the value</li>
 </ol>
-
 
 <h4>Running the Job</h4>
-<p>
 
-<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">ant</span>
-</pre></div>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+    <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">ant</span>
+</pre>
+</div>
+<p>Then after compiling on your hadoop gateway/local machine copy the directory and execute the following command:</p>
+<div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+  <pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">./run-job dist/build-and-push-1.00-all.jar -j dist/package/ -c dist/package/ --ignore-deps &lt;job name&gt;</span></pre>
+</div>
+<p>You need to change the input/output paths along with the ugi name,store name and server location. You can then query the voldemort server to see the new store entries</p>
 
-Then  after compiling on your hadoop gateway/local machine copy the directory and execute the following command:
+<h4>File Format</h4>
 
- <div style="background: #202020; overflow:auto;width:auto;color:white;background:black;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #d0d0d0">./run-job</span> <span style="color: #d0d0d0">dist/build-and-push-</span><span style="color: #3677a9">1.00</span><span style="color: #d0d0d0">-</span><span style="color: #24909d">all</span><span style="color: #d0d0d0">.jar</span> <span style="color: #d0d0d0">-j</span> <span style="color: #d0d0d0">dist/package/</span> <span style="color: #d0d0d0">-c</span> <span style="color: #d0d0d0">dist/package/</span> <span style="color: #d0d0d0">--ignore-deps</span> <span style="color: #d0d0d0">&lt;job</span> <span style="color: #d0d0d0">name&gt;</span>
-</pre></div>
+<p>We use a custom data and index format for the Read-Only store.</p>
+<p>Ony every Node you will find a node directory containing one or mutliple data and index files with the following naming convention:</p>
+<!-- HTML generated using hilite.me -->
+<div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;">
+  <pre style="margin: 0; line-height: 125%">partition_id.replica_id.chunkset_id</pre>
+</div>
 
-You need to change the input/output paths along with the ugi name,store name and server location. <br/>
+<h4>Troubleshoot</h4>
+    
+<h5>Chunk size issue: </h5>
+<dl>
+  <dt>Symptom (possible): </dt>
+  <dd>Caused by: java.io.IOException: Job failed! :</dd>
+  <dt>Cause: </dt>
+  <dd>Check the number of mappers and / or reducers (limit = 10000). If they're over the limit, use the num.chunks parameter to reduce number of chunks and hence #mappers, reducer</dd>
+</dl>
 
-You can then query the voldemort server to see the new store entries
-
-</p>
-
-<h4> File Format </h4>
-We use a custom data and index format for the Read-Only store.<br/>
-Ony every Node you will find a node directory containing one or mutliple data and index files with the following naming convention:
-
-<!-- HTML generated using hilite.me --><div style="background: #f8f8f8; overflow:auto;width:auto;color:black;background:white;border:solid gray;border-width:.1em .1em .1em .8em;padding:.2em .6em;"><pre style="margin: 0; line-height: 125%"><span style="color: #B8860B">partition_id.replica_id.chunkset_id</span>
-</pre></div>
-
-
-<h4> Watch Out</h4>
-
-<p>
-<h5>Chunk size issue: </h5> 
-
-Symptom (possible): Caused by: java.io.IOException: Job failed! : <br/>
-
-Cause: Check the number of mappers and / or reducers (limit = 10000). If they're over the limit, use the num.chunks parameter to reduce number of chunks and hence #mappers, reducer
-</p>
 
 <h5> Size limit  Chunk overflow exception: chunk  </h5>
-
-Cause:  Each chunk data file is capped at 2 Gb and hence you may want to increase the num.chunks to break it down into multiple chunks
+<dl>
+  <dt>Cause: </dt>
+  <dd>Each chunk data file is capped at 2 Gb and hence you may want to increase the num.chunks to break it down into multiple chunks</dd>
+</dl>
 
 <h4>References</h4>
+
 <ol>
-<li>
-<a href="http://static.usenix.org/events/fast12/tech/full_papers/Sumbaly.pdf">Serving Large-scale Batch Computed Data with Project Voldemort </a>
-</li>
-
-<li>
-<a href="http://data.linkedin.com/opensource/azkaban">Azkaban </a>
-</li>
-
+    <li><a href="http://static.usenix.org/events/fast12/tech/full_papers/Sumbaly.pdf">Serving Large-scale Batch Computed Data with Project Voldemort</a></li>
+    <li><a href="http://data.linkedin.com/opensource/azkaban">Azkaban</a></li>
 </ol>
-
-
-			</div>
-		</div>
-		<a href="https://github.com/voldemort/voldemort"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
-<script type="text/javascript" src="js/ga-include.js"></script>
-	</body>
-</html>
