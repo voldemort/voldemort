@@ -147,10 +147,6 @@
       <fileset dir="${classes.dir}">
         <include name="**/*.*" />
       </fileset>
-      <!-- include xsds -->
-      <fileset dir="${java.dir}">
-        <include name="**/*.xsd" />
-      </fileset>
     	
     	<fileset dir=".">
     	 		<include name="META-INF/MANIFEST.MF" />
