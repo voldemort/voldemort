@@ -547,14 +547,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
 
         if(fetchValues) {
             if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
-                return new FetchPartitionEntriesStreamRequestHandler(request,
+                return new PartitionScanFetchEntriesRequestHandler(request,
                                                                      metadataStore,
                                                                      errorCodeMapper,
                                                                      voldemortConfig,
                                                                      storeRepository,
                                                                      networkClassLoader);
             else
-                return new FetchEntriesStreamRequestHandler(request,
+                return new FullScanFetchEntriesRequestHandler(request,
                                                             metadataStore,
                                                             errorCodeMapper,
                                                             voldemortConfig,
@@ -562,14 +562,14 @@ public class AdminServiceRequestHandler implements RequestHandler {
                                                             networkClassLoader);
         } else {
             if(storageEngine.isPartitionScanSupported() && !fetchOrphaned)
-                return new FetchPartitionKeysStreamRequestHandler(request,
+                return new PartitionScanFetchKeysRequestHandler(request,
                                                                   metadataStore,
                                                                   errorCodeMapper,
                                                                   voldemortConfig,
                                                                   storeRepository,
                                                                   networkClassLoader);
             else
-                return new FetchKeysStreamRequestHandler(request,
+                return new FullScanFetchKeysRequestHandler(request,
                                                          metadataStore,
                                                          errorCodeMapper,
                                                          voldemortConfig,

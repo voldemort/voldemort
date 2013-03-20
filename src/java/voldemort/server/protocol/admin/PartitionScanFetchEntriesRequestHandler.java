@@ -42,16 +42,16 @@ import com.google.protobuf.Message;
  * isPartitionScanSupported() is true for the storage engine to be scanned..
  * 
  */
-public class FetchPartitionEntriesStreamRequestHandler extends FetchPartitionStreamRequestHandler {
+public class PartitionScanFetchEntriesRequestHandler extends PartitionScanFetchStreamRequestHandler {
 
     protected ClosableIterator<Pair<ByteArray, Versioned<byte[]>>> entriesPartitionIterator;
 
-    public FetchPartitionEntriesStreamRequestHandler(FetchPartitionEntriesRequest request,
-                                                     MetadataStore metadataStore,
-                                                     ErrorCodeMapper errorCodeMapper,
-                                                     VoldemortConfig voldemortConfig,
-                                                     StoreRepository storeRepository,
-                                                     NetworkClassLoader networkClassLoader) {
+    public PartitionScanFetchEntriesRequestHandler(FetchPartitionEntriesRequest request,
+                                                   MetadataStore metadataStore,
+                                                   ErrorCodeMapper errorCodeMapper,
+                                                   VoldemortConfig voldemortConfig,
+                                                   StoreRepository storeRepository,
+                                                   NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
@@ -92,8 +92,7 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchPartitionStr
                                                                 initialCluster,
                                                                 storeDef)) {
                     found = true;
-                    fetchedPartitions.add(currentPartition);
-                    partitionFetched = 0;
+                    completedFetchingCurrentPartition();
                     entriesPartitionIterator = storageEngine.entries(currentPartition);
                     statusInfoMessage("Starting fetch entries");
                 }
@@ -126,13 +125,10 @@ public class FetchPartitionEntriesStreamRequestHandler extends FetchPartitionStr
                     throttler.maybeThrottle(AdminServiceRequestHandler.valueSize(value));
                 }
 
-                scanned++;
-                if(0 == scanned % STAT_RECORDS_INTERVAL) {
-                    progressInfoMessage("Fetch entries (progress)");
-                }
+                accountForScanProgress("entries");
             }
 
-            if(!entriesPartitionIterator.hasNext() || fetchedEnough(partitionFetched)) {
+            if(!entriesPartitionIterator.hasNext() || fetchedEnoughForCurrentPartition()) {
                 // Finished current partition. Reset iterator. Info status.
                 entriesPartitionIterator.close();
                 entriesPartitionIterator = null;

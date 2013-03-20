@@ -42,6 +42,7 @@ import voldemort.store.system.SystemStoreConstants;
 import voldemort.utils.ByteArray;
 import voldemort.utils.EventThrottler;
 import voldemort.utils.NetworkClassLoader;
+import voldemort.utils.StoreInstance;
 import voldemort.utils.Time;
 import voldemort.xml.ClusterMapper;
 
@@ -85,9 +86,11 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
 
     protected int nodeId;
 
-    protected StoreDefinition storeDef;
+    protected final StoreDefinition storeDef;
 
     protected boolean fetchOrphaned;
+
+    protected final StoreInstance storeInstance;
 
     protected FetchStreamRequestHandler(VAdminProto.FetchPartitionEntriesRequest request,
                                         MetadataStore metadataStore,
@@ -116,6 +119,8 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
         } else {
             this.initialCluster = metadataStore.getCluster();
         }
+        this.storeInstance = new StoreInstance(this.initialCluster, this.storeDef);
+
         this.throttler = new EventThrottler(voldemortConfig.getStreamMaxReadBytesPerSec());
         if(request.hasFilter()) {
             this.filter = AdminServiceRequestHandler.getFilterFromRequest(request.getFilter(),
@@ -185,6 +190,19 @@ public abstract class FetchStreamRequestHandler implements StreamRequestHandler 
             logger.info(tag + " : scanned " + scanned + " and fetched " + fetched + " for store '"
                         + storageEngine.getName() + "' replicaToPartitionList:"
                         + replicaToPartitionList + " in " + totalTimeS + " s");
+        }
+    }
+
+    /**
+     * Account for item being scanned.
+     * 
+     * @param itemTag mad libs style string to insert into progress message.
+     * 
+     */
+    protected void accountForScanProgress(String itemTag) {
+        scanned++;
+        if(0 == scanned % STAT_RECORDS_INTERVAL) {
+            progressInfoMessage("Fetch " + itemTag + " (progress)");
         }
     }
 

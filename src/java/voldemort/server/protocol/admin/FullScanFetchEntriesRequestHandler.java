@@ -31,7 +31,6 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.stats.StreamingStats.Operation;
 import voldemort.utils.ByteArray;
 import voldemort.utils.NetworkClassLoader;
-import voldemort.utils.StoreInstance;
 import voldemort.versioning.Versioned;
 
 import com.google.protobuf.Message;
@@ -43,14 +42,14 @@ import com.google.protobuf.Message;
  * unwanted keys and then call storageEngine.get() for valid keys.
  * <p>
  */
-public class FetchEntriesStreamRequestHandler extends FetchItemsStreamRequestHandler {
+public class FullScanFetchEntriesRequestHandler extends FullScanFetchStreamRequestHandler {
 
-    public FetchEntriesStreamRequestHandler(FetchPartitionEntriesRequest request,
-                                            MetadataStore metadataStore,
-                                            ErrorCodeMapper errorCodeMapper,
-                                            VoldemortConfig voldemortConfig,
-                                            StoreRepository storeRepository,
-                                            NetworkClassLoader networkClassLoader) {
+    public FullScanFetchEntriesRequestHandler(FetchPartitionEntriesRequest request,
+                                              MetadataStore metadataStore,
+                                              ErrorCodeMapper errorCodeMapper,
+                                              VoldemortConfig voldemortConfig,
+                                              StoreRepository storeRepository,
+                                              NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
@@ -82,25 +81,14 @@ public class FetchEntriesStreamRequestHandler extends FetchItemsStreamRequestHan
         // Cannot invoke 'throttler.maybeThrottle(key.length());' here since
         // that would affect timing measurements of storage operations.
 
-        boolean entryAccepted = false;
-        if(!fetchOrphaned) {
-            if(keyIsNeeded(key.get())) {
-                entryAccepted = true;
-            }
-        } else {
-            if(!StoreInstance.checkKeyBelongsToNode(key.get(), nodeId, initialCluster, storeDef)) {
-                entryAccepted = true;
-            }
-        }
-
-        if(entryAccepted) {
+        if(isItemAccepted(key.get())) {
             List<Versioned<byte[]>> values = storageEngine.get(key, null);
             reportStorageOpTime(startNs);
             throttler.maybeThrottle(key.length());
             for(Versioned<byte[]> value: values) {
 
                 if(filter.accept(key, value)) {
-                    keyFetched(key.get());
+                    accountForFetchedKey(key.get());
 
                     VAdminProto.FetchPartitionEntriesResponse.Builder response = VAdminProto.FetchPartitionEntriesResponse.newBuilder();
                     VAdminProto.PartitionEntry partitionEntry = VAdminProto.PartitionEntry.newBuilder()
@@ -120,27 +108,9 @@ public class FetchEntriesStreamRequestHandler extends FetchItemsStreamRequestHan
             throttler.maybeThrottle(key.length());
         }
 
-        // log progress
-        scanned++;
-        if(0 == scanned % STAT_RECORDS_INTERVAL) {
-            progressInfoMessage("Fetch entries (progress)");
-        }
+        accountForScanProgress("entries");
 
-        if(keyIterator.hasNext() && !fetchedEnough()) {
-            return StreamRequestHandlerState.WRITING;
-        } else {
-            logger.info("Finished fetch entries for store '" + storageEngine.getName()
-                        + "' with replica to partition mapping " + replicaToPartitionList);
-            progressInfoMessage("Fetch entries (end of scan)");
-
-            return StreamRequestHandlerState.COMPLETE;
-        }
+        return determineRequestHandlerState("entries");
     }
 
-    @Override
-    public final void close(DataOutputStream outputStream) throws IOException {
-        if(null != keyIterator)
-            keyIterator.close();
-        super.close(outputStream);
-    }
 }

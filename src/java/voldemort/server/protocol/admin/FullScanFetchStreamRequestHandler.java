@@ -1,8 +1,11 @@
 package voldemort.server.protocol.admin;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import voldemort.client.protocol.pb.VAdminProto.FetchPartitionEntriesRequest;
 import voldemort.server.StoreRepository;
@@ -17,24 +20,26 @@ import voldemort.utils.StoreInstance;
 import voldemort.utils.Utils;
 
 /**
- * Base class for key/entry stream fetching handlers that do not rely on PID
- * layout.
+ * Base class for key/entry stream fetching handlers that do an unordered full
+ * scan to fetch items.
  * 
  */
-public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestHandler {
+public abstract class FullScanFetchStreamRequestHandler extends FetchStreamRequestHandler {
 
     protected final ClosableIterator<ByteArray> keyIterator;
 
     // PartitionId to count of fetches on that partition.
     protected Map<Integer, Long> partitionFetches;
+    // PartitionIds of partitions that still need more fetched...
+    protected Set<Integer> partitionsToFetch;
 
-    public FetchItemsStreamRequestHandler(FetchPartitionEntriesRequest request,
-                                          MetadataStore metadataStore,
-                                          ErrorCodeMapper errorCodeMapper,
-                                          VoldemortConfig voldemortConfig,
-                                          StoreRepository storeRepository,
-                                          NetworkClassLoader networkClassLoader,
-                                          StreamingStats.Operation operation) {
+    public FullScanFetchStreamRequestHandler(FetchPartitionEntriesRequest request,
+                                             MetadataStore metadataStore,
+                                             ErrorCodeMapper errorCodeMapper,
+                                             VoldemortConfig voldemortConfig,
+                                             StoreRepository storeRepository,
+                                             NetworkClassLoader networkClassLoader,
+                                             StreamingStats.Operation operation) {
         super(request,
               metadataStore,
               errorCodeMapper,
@@ -53,26 +58,18 @@ public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestH
                 }
             }
         }
+        this.partitionsToFetch = new HashSet<Integer>(partitionFetches.keySet());
     }
 
     /**
      * Given the key, figures out which partition on the local node hosts the
-     * key based on contents of the "replica to partition list" data structure.
+     * key.
      * 
      * @param key
      * @return
      */
     private Integer getKeyPartitionId(byte[] key) {
-        StoreInstance storeInstance = new StoreInstance(initialCluster, storeDef);
-        Integer keyPartitionId = null;
-        for(Integer partitionId: storeInstance.getReplicationPartitionList(key)) {
-            for(Map.Entry<Integer, List<Integer>> rtps: replicaToPartitionList.entrySet()) {
-                if(rtps.getValue().contains(partitionId)) {
-                    keyPartitionId = partitionId;
-                    break;
-                }
-            }
-        }
+        Integer keyPartitionId = storeInstance.getNodesPartitionIdForKey(nodeId, key);
         Utils.notNull(keyPartitionId);
         return keyPartitionId;
     }
@@ -89,7 +86,7 @@ public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestH
      * @param storeDef
      * @return true iff key is needed.
      */
-    protected boolean keyIsNeeded(byte[] key) {
+    protected boolean isKeyNeeded(byte[] key) {
         if(!StoreInstance.checkKeyBelongsToPartition(nodeId,
                                                      key,
                                                      replicaToPartitionList,
@@ -101,16 +98,32 @@ public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestH
         if(recordsPerPartition <= 0) {
             return true;
         }
-
-        Integer keyPartitionId = getKeyPartitionId(key);
-        Long partitionFetch = partitionFetches.get(keyPartitionId);
-        Utils.notNull(partitionFetch);
-
-        if(partitionFetch >= recordsPerPartition) {
-            return false;
+        if(partitionsToFetch.contains(getKeyPartitionId(key))) {
+            return true;
         }
+        return false;
+    }
 
-        return true;
+    /**
+     * Determines if entry is accepted. For normal usage, this means confirming
+     * that the key is needed. For orphan usage, this simply means confirming
+     * the key belongs to the node.
+     * 
+     * @param key
+     * @return
+     */
+    protected boolean isItemAccepted(byte[] key) {
+        boolean entryAccepted = false;
+        if(!fetchOrphaned) {
+            if(isKeyNeeded(key)) {
+                entryAccepted = true;
+            }
+        } else {
+            if(!StoreInstance.checkKeyBelongsToNode(key, nodeId, initialCluster, storeDef)) {
+                entryAccepted = true;
+            }
+        }
+        return entryAccepted;
     }
 
     /**
@@ -118,7 +131,7 @@ public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestH
      * 
      * @param key
      */
-    protected void keyFetched(byte[] key) {
+    protected void accountForFetchedKey(byte[] key) {
         fetched++;
         if(streamStats != null) {
             streamStats.reportStreamingFetch(operation);
@@ -131,27 +144,62 @@ public abstract class FetchItemsStreamRequestHandler extends FetchStreamRequestH
         Integer keyPartitionId = getKeyPartitionId(key);
         Long partitionFetch = partitionFetches.get(keyPartitionId);
         Utils.notNull(partitionFetch);
+        partitionFetch++;
 
-        partitionFetches.put(keyPartitionId, partitionFetch + 1);
+        partitionFetches.put(keyPartitionId, partitionFetch);
+        if(partitionFetch == recordsPerPartition) {
+            if(partitionsToFetch.contains(keyPartitionId)) {
+                partitionsToFetch.remove(keyPartitionId);
+            } else {
+                logger.warn("Partitions to fetch did not contain expected partition ID: "
+                            + keyPartitionId);
+            }
+        } else if(partitionFetch > recordsPerPartition) {
+            logger.warn("Partition fetch count larger than expected for partition ID "
+                        + keyPartitionId + " : " + partitionFetch);
+        }
     }
 
     /**
-     * True iff enough partitions have been fetched relative to
-     * recordsPerPartition value.
+     * True iff enough items have been fetched for all partitions, where
+     * 'enough' is relative to recordsPerPartition value.
      * 
-     * @param partitionFetched Records fetched for current partition
      * @return
      */
-    protected boolean fetchedEnough() {
+    protected boolean fetchedEnoughForAllPartitions() {
         if(recordsPerPartition <= 0) {
             return false;
         }
 
-        for(Map.Entry<Integer, Long> partitionFetch: partitionFetches.entrySet()) {
-            if(partitionFetch.getValue() < recordsPerPartition) {
-                return false;
-            }
+        if(partitionsToFetch.size() > 0) {
+            return false;
         }
         return true;
+    }
+
+    /**
+     * Determines if still WRITING or COMPLETE.
+     * 
+     * @param itemTag mad libs style string to insert into progress message.
+     * @return
+     */
+    protected StreamRequestHandlerState determineRequestHandlerState(String itemTag) {
+
+        if(keyIterator.hasNext() && !fetchedEnoughForAllPartitions()) {
+            return StreamRequestHandlerState.WRITING;
+        } else {
+            logger.info("Finished fetch " + itemTag + " for store '" + storageEngine.getName()
+                        + "' with replica to partition mapping " + replicaToPartitionList);
+            progressInfoMessage("Fetch " + itemTag + " (end of scan)");
+
+            return StreamRequestHandlerState.COMPLETE;
+        }
+    }
+
+    @Override
+    public final void close(DataOutputStream outputStream) throws IOException {
+        if(null != keyIterator)
+            keyIterator.close();
+        super.close(outputStream);
     }
 }

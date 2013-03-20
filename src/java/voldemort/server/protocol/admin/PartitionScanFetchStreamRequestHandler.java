@@ -34,7 +34,7 @@ import voldemort.utils.NetworkClassLoader;
  * isPartitionScanSupported() is true for the storage engine to be scanned..
  * 
  */
-public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequestHandler {
+public abstract class PartitionScanFetchStreamRequestHandler extends FetchStreamRequestHandler {
 
     protected Set<Integer> fetchedPartitions;
     protected List<Integer> replicaTypeList;
@@ -43,15 +43,15 @@ public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequ
     protected Integer currentIndex;
     protected Integer currentPartition;
     protected Integer currentReplicaType;
-    protected long partitionFetched;
+    protected long currentPartitionFetched;
 
-    public FetchPartitionStreamRequestHandler(FetchPartitionEntriesRequest request,
-                                              MetadataStore metadataStore,
-                                              ErrorCodeMapper errorCodeMapper,
-                                              VoldemortConfig voldemortConfig,
-                                              StoreRepository storeRepository,
-                                              NetworkClassLoader networkClassLoader,
-                                              StreamingStats.Operation operation) {
+    public PartitionScanFetchStreamRequestHandler(FetchPartitionEntriesRequest request,
+                                                  MetadataStore metadataStore,
+                                                  ErrorCodeMapper errorCodeMapper,
+                                                  VoldemortConfig voldemortConfig,
+                                                  StoreRepository storeRepository,
+                                                  NetworkClassLoader networkClassLoader,
+                                                  StreamingStats.Operation operation) {
         super(request,
               metadataStore,
               errorCodeMapper,
@@ -63,7 +63,6 @@ public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequ
         fetchedPartitions = new HashSet<Integer>();
         replicaTypeList = new ArrayList<Integer>();
         partitionList = new ArrayList<Integer>();
-        currentIndex = 0;
 
         // flatten the replicatype to partition map
         for(Integer replicaType: replicaToPartitionList.keySet()) {
@@ -75,9 +74,10 @@ public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequ
             }
         }
 
+        currentIndex = 0;
         currentPartition = null;
         currentReplicaType = null;
-        partitionFetched = 0;
+        currentPartitionFetched = 0;
     }
 
     /**
@@ -89,23 +89,21 @@ public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequ
     protected void statusInfoMessage(final String tag) {
         if(logger.isInfoEnabled()) {
             logger.info(tag + " : [partition: " + currentPartition + ", replica type:"
-                        + currentReplicaType + ", partitionFetched: " + partitionFetched
+                        + currentReplicaType + ", partitionFetched: " + currentPartitionFetched
                         + "] for store " + storageEngine.getName());
         }
     }
 
     /**
-     * True iff enough partitions have been fetched relative to
-     * recordsPerPartition value.
+     * True iff enough items have been fetched for current partition
      * 
-     * @param partitionFetched Records fetched for current partition
      * @return
      */
-    protected boolean fetchedEnough(long partitionFetched) {
+    protected boolean fetchedEnoughForCurrentPartition() {
         if(recordsPerPartition <= 0) {
             return false;
         }
-        return (partitionFetched >= recordsPerPartition);
+        return (currentPartitionFetched >= recordsPerPartition);
     }
 
     /**
@@ -115,9 +113,17 @@ public abstract class FetchPartitionStreamRequestHandler extends FetchStreamRequ
      */
     protected void recordFetched() {
         fetched++;
-        partitionFetched++;
+        currentPartitionFetched++;
         if(streamStats != null) {
             streamStats.reportStreamingFetch(operation);
         }
+    }
+
+    /**
+     * Called when current partition has been completely fetched.
+     */
+    protected void completedFetchingCurrentPartition() {
+        fetchedPartitions.add(currentPartition);
+        currentPartitionFetched = 0;
     }
 }

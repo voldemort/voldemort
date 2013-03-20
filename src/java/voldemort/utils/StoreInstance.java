@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
  * effectively helper or util style methods for analyzing partitions and so on
  * which are a function of both Cluster and StoreDefinition.
  */
+// TODO: Add StoreInstanceTest unit test for these helper methods.
 public class StoreInstance {
 
     private final Cluster cluster;
@@ -58,32 +59,62 @@ public class StoreInstance {
     }
 
     /**
+     * Determines list of partition IDs that replicate the master partition ID.
      * 
-     * @param partitionId
-     * @return List of partition IDs that replicate the partition ID.
+     * @param masterPartitionId
+     * @return List of partition IDs that replicate the master partition ID.
      */
-    public List<Integer> getReplicationPartitionList(int partitionId) {
+    public List<Integer> getReplicationPartitionList(int masterPartitionId) {
         return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                           .getReplicatingPartitionList(partitionId);
+                                           .getReplicatingPartitionList(masterPartitionId);
     }
 
     /**
+     * Determines list of partition IDs that replicate the key.
      * 
      * @param key
      * @return List of partition IDs that replicate the partition ID.
      */
     public List<Integer> getReplicationPartitionList(final byte[] key) {
-        return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
-                                           .getReplicatingPartitionList(getMasterPartitionId(key));
+        return getReplicationPartitionList(getMasterPartitionId(key));
     }
 
+    /**
+     * Determines master partition ID for the key.
+     * 
+     * @param key
+     * @return
+     */
     public int getMasterPartitionId(final byte[] key) {
         return new RoutingStrategyFactory().updateRoutingStrategy(storeDefinition, cluster)
                                            .getMasterPartition(key);
     }
 
+    /**
+     * Determines node ID that hosts the specified partition ID.
+     * 
+     * @param partitionId
+     * @return
+     */
     public int getNodeIdForPartitionId(int partitionId) {
         return partitionIdToNodeIdMap.get(partitionId);
+    }
+
+    /**
+     * Determines the partition ID that replicates the key on the given node.
+     * 
+     * @param nodeId of the node
+     * @param key to look up.
+     * @return partitionId if found, otherwise null.
+     */
+    public Integer getNodesPartitionIdForKey(int nodeId, final byte[] key) {
+        List<Integer> partitionIds = getReplicationPartitionList(key);
+        for(Integer partitionId: partitionIds) {
+            if(getNodeIdForPartitionId(partitionId) == nodeId) {
+                return partitionId;
+            }
+        }
+        return null;
     }
 
     /**
@@ -187,7 +218,7 @@ public class StoreInstance {
      * 
      * @return true if the partition belongs to the node with given replicatype
      */
-    public static boolean checkPartitionBelongsToNode(int partition,
+    public static boolean checkPartitionBelongsToNode(int partitionId,
                                                       int replicaType,
                                                       int nodeId,
                                                       Cluster cluster,
@@ -196,7 +227,7 @@ public class StoreInstance {
         List<Integer> nodePartitions = cluster.getNodeById(nodeId).getPartitionIds();
         List<Integer> replicatingPartitions = new RoutingStrategyFactory().updateRoutingStrategy(storeDef,
                                                                                                  cluster)
-                                                                          .getReplicatingPartitionList(partition);
+                                                                          .getReplicatingPartitionList(partitionId);
         // validate replicaType
         if(replicaType < replicatingPartitions.size()) {
             // check if the replicaType'th partition in the replicating list,

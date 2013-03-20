@@ -40,16 +40,16 @@ import com.google.protobuf.Message;
  * isPartitionScanSupported() is true for the storage engine to be scanned..
  * 
  */
-public class FetchPartitionKeysStreamRequestHandler extends FetchPartitionStreamRequestHandler {
+public class PartitionScanFetchKeysRequestHandler extends PartitionScanFetchStreamRequestHandler {
 
     protected ClosableIterator<ByteArray> keysPartitionIterator;
 
-    public FetchPartitionKeysStreamRequestHandler(FetchPartitionEntriesRequest request,
-                                                  MetadataStore metadataStore,
-                                                  ErrorCodeMapper errorCodeMapper,
-                                                  VoldemortConfig voldemortConfig,
-                                                  StoreRepository storeRepository,
-                                                  NetworkClassLoader networkClassLoader) {
+    public PartitionScanFetchKeysRequestHandler(FetchPartitionEntriesRequest request,
+                                                MetadataStore metadataStore,
+                                                ErrorCodeMapper errorCodeMapper,
+                                                VoldemortConfig voldemortConfig,
+                                                StoreRepository storeRepository,
+                                                NetworkClassLoader networkClassLoader) {
         super(request,
               metadataStore,
               errorCodeMapper,
@@ -90,8 +90,7 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchPartitionStream
                                                                 initialCluster,
                                                                 storeDef)) {
                     found = true;
-                    fetchedPartitions.add(currentPartition);
-                    partitionFetched = 0;
+                    completedFetchingCurrentPartition();
                     keysPartitionIterator = storageEngine.keys(currentPartition);
                     statusInfoMessage("Starting fetch keys");
                 }
@@ -116,13 +115,10 @@ public class FetchPartitionKeysStreamRequestHandler extends FetchPartitionStream
                     sendMessage(outputStream, message);
                 }
 
-                scanned++;
-                if(0 == scanned % STAT_RECORDS_INTERVAL) {
-                    progressInfoMessage("Fetch keys (progress)");
-                }
+                accountForScanProgress("keys");
             }
 
-            if(!keysPartitionIterator.hasNext() || fetchedEnough(partitionFetched)) {
+            if(!keysPartitionIterator.hasNext() || fetchedEnoughForCurrentPartition()) {
                 // Finished current partition. Reset iterator. Info status.
                 keysPartitionIterator.close();
                 keysPartitionIterator = null;
