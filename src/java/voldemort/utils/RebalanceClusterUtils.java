@@ -42,6 +42,10 @@ import com.google.common.collect.Maps;
  */
 public class RebalanceClusterUtils {
 
+    // TODO: (refactor) Improve upon the name "RebalanceClusterUtils". All of
+    // these util methods support moving partitions around a cluster to achieve
+    // better balance.
+
     private static Logger logger = Logger.getLogger(RebalanceClusterUtils.class);
 
     /**
@@ -371,6 +375,8 @@ public class RebalanceClusterUtils {
         return returnCluster;
     }
 
+    // TODO: Add a similar method that rebalances a cluster to ensure that no
+    // Node hosts contiguous partition IDs (rather than doing so at zone level).
     /**
      * Loops over cluster and repeatedly tries to break up contiguous runs of
      * partitions. After each phase of breaking up contiguous partitions, random

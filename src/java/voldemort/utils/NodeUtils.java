@@ -27,6 +27,11 @@ import voldemort.cluster.Node;
 
 import com.google.common.collect.Sets;
 
+// TODO: (refactor) Move all of the static "util" methods for which Node is
+// the only complex type that the method operates on to be members of the
+// Cluster class. Unclear how to treat the Integer and List types of partition
+// ids...
+
 /**
  * NodeUtils provides basic tools for manipulating and inspecting nodes.
  * 

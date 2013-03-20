@@ -30,13 +30,18 @@ import voldemort.store.StoreDefinition;
 
 import com.google.common.collect.Lists;
 
+// TODO: Add StoreInstanceTest unit test for these helper methods.
+
 /**
  * This class wraps up a Cluster object and a StoreDefinition. The methods are
  * effectively helper or util style methods for analyzing partitions and so on
  * which are a function of both Cluster and StoreDefinition.
  */
-// TODO: Add StoreInstanceTest unit test for these helper methods.
 public class StoreInstance {
+
+    // TODO: (refactor) Improve upon the name "StoreInstance". Object-oriented
+    // meaning of 'instance' is too easily confused with system notion of an
+    // "instance of a cluster" (the intended usage in this class name).
 
     private final Cluster cluster;
     private final StoreDefinition storeDefinition;

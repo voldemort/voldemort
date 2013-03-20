@@ -32,6 +32,10 @@ import voldemort.cluster.Zone;
 
 import com.google.common.collect.Maps;
 
+// TODO: (refactor) Move all of the static "util" methods for which Cluster is
+// the only complex type that the method operates on to be members of the
+// Cluster class. Unclear whether 'nodeid' and 'partitionid' should be treated
+// as complex types since they are proxies for complicated concepts.
 /**
  * ClusterUtils provides basic tools for manipulating and inspecting a cluster.
  * 
