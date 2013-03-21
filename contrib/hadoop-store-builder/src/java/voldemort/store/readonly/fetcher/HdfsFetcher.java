@@ -510,6 +510,10 @@ public class HdfsFetcher implements FileFetcher {
                     throw ioe;
                 }
 
+            } catch(Exception e) {
+                e.printStackTrace();
+            } catch(Throwable te) {
+                te.printStackTrace();
             } finally {
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
