@@ -1,3 +1,19 @@
+/*
+ * Copyright 2008-2009 LinkedIn, Inc
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
 package voldemort.store.readonly.fetcher;
 
 import static org.junit.Assert.assertEquals;
@@ -29,10 +45,17 @@ import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.fetcher.HdfsFetcher.CopyStats;
 
+/*
+ * This test suite tests the HDFSFetcher We test the fetch from hadoop by
+ * simulating exceptions during fetches
+ */
 public class HDFSFetcherAdvancedTest {
 
     public static final Random UNSEEDED_RANDOM = new Random();
 
+    /*
+     * Tests that HdfsFetcher can correctly fetch a file in happy path
+     */
     @Test
     public void testCheckSumMetadata() throws Exception {
 
@@ -124,9 +147,13 @@ public class HDFSFetcherAdvancedTest {
         return ret;
     }
 
+    /*
+     * Tests that HdfsFetcher can correctly fetch a file when there is an
+     * IOException, specifically an EofException during the fetch
+     */
     @Test
     public void testEofExceptionIntermittent() throws Exception {
-        // Generate 0_0.[index | data] and their corresponding metadata
+
         File testSourceDirectory = createTempDir();
         File testDestinationDirectory = createTempDir();
 
@@ -142,7 +169,6 @@ public class HDFSFetcherAdvancedTest {
 
         HdfsFetcher fetcher = new HdfsFetcher();
 
-        HdfsFetcher spyfetcher = Mockito.spy(fetcher);
         Configuration config = new Configuration();
 
         FileSystem fs = source.getFileSystem(config);
@@ -169,9 +195,16 @@ public class HDFSFetcherAdvancedTest {
 
     }
 
+    /*
+     * Tests that HdfsFetcher can correctly fetch a file when there is an
+     * IOException, specifically an EofException during the fetch this test case
+     * is different from the earlier one since it simulates an excpetion midway
+     * a fetch
+     */
+
     @Test
-    public void testEofExceptionIntermittent2() throws Exception {
-        // Generate 0_0.[index | data] and their corresponding metadata
+    public void testEofExceptionIntermittentDuringFetch() throws Exception {
+
         File testSourceDirectory = createTempDir();
         File testDestinationDirectory = createTempDir();
 
@@ -187,7 +220,6 @@ public class HDFSFetcherAdvancedTest {
 
         HdfsFetcher fetcher = new HdfsFetcher();
 
-        HdfsFetcher spyfetcher = Mockito.spy(fetcher);
         Configuration config = new Configuration();
 
         FileSystem fs = source.getFileSystem(config);
@@ -221,6 +253,54 @@ public class HDFSFetcherAdvancedTest {
 
     }
 
+    /*
+     * Tests that HdfsFetcher can correctly handle when there is an
+     * RuntimeException
+     * 
+     * Expected- the exception should be consumed without spilling it over
+     */
+
+    @Test
+    public void testIntermittentRuntimeExceptions() throws Exception {
+
+        File testSourceDirectory = createTempDir();
+        File testDestinationDirectory = createTempDir();
+
+        File indexFile = new File(testSourceDirectory, "0_0.index");
+        byte[] indexBytes = TestUtils.randomBytes(100);
+        FileUtils.writeByteArrayToFile(indexFile, indexBytes);
+
+        final Path source = new Path(indexFile.getAbsolutePath());
+        CheckSum fileCheckSumGenerator = CheckSum.getInstance(CheckSumType.MD5);
+
+        fileCheckSumGenerator.update(indexBytes);
+
+        HdfsFetcher fetcher = new HdfsFetcher();
+
+        Configuration config = new Configuration();
+
+        FileSystem fs = source.getFileSystem(config);
+
+        FileSystem spyfs = Mockito.spy(fs);
+        CopyStats stats = new CopyStats(testSourceDirectory.getAbsolutePath(), sizeOfPath(fs,
+                                                                                          source));
+
+        File destination = new File(testDestinationDirectory.getAbsolutePath() + "1");
+        File copyLocation = new File(destination, "0_0.index");
+
+        Mockito.doThrow(new RuntimeException())
+               .doAnswer(Mockito.CALLS_REAL_METHODS)
+               .when(spyfs)
+               .open(source);
+
+        Object[] params = { spyfs, source, copyLocation, stats, CheckSumType.MD5 };
+
+        CheckSum ckSum = (CheckSum) this.invokePrivateMethod(fetcher,
+                                                             "copyFileWithCheckSum",
+                                                             params);
+
+    }
+
     private long sizeOfPath(FileSystem fs, Path path) throws IOException {
         long size = 0;
         FileStatus[] statuses = fs.listStatus(path);
@@ -235,6 +315,9 @@ public class HDFSFetcherAdvancedTest {
         return size;
     }
 
+    /*
+     * Helper method to delete a non empty directory
+     */
     public static boolean deleteDir(File dir) {
         if(dir.isDirectory()) {
             String[] children = dir.list();
@@ -248,6 +331,9 @@ public class HDFSFetcherAdvancedTest {
         return dir.delete();
     }
 
+    /*
+     * Helper method to calculate checksum for a single file
+     */
     private byte[] calculateCheckSumForFile(Path source) throws Exception {
         CheckSum fileCheckSumGenerator = CheckSum.getInstance(CheckSumType.MD5);
         byte[] buffer = new byte[VoldemortConfig.DEFAULT_BUFFER_SIZE];
