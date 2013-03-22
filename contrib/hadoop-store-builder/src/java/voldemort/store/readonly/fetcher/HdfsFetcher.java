@@ -511,10 +511,18 @@ public class HdfsFetcher implements FileFetcher {
                 }
 
             } catch(Exception e) {
-                e.printStackTrace();
+                logger.error("Error during copying file ", e);
+                return null;
+
             } catch(Throwable te) {
-                te.printStackTrace();
-            } finally {
+                logger.error("Error during copying file ", te);
+                return null;
+
+            }
+            // the finally block _always_ executes even if we have
+            // return in the catch block
+
+            finally {
                 IOUtils.closeQuietly(output);
                 IOUtils.closeQuietly(input);
                 if(success) {
