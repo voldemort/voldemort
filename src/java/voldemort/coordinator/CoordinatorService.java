@@ -16,6 +16,8 @@
 
 package voldemort.coordinator;
 
+import static voldemort.utils.Utils.croak;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -44,10 +46,14 @@ import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.client.SystemStoreRepository;
 import voldemort.client.scheduler.AsyncMetadataVersionManager;
+import voldemort.common.service.AbstractService;
 import voldemort.common.service.SchedulerService;
+import voldemort.common.service.ServiceType;
+import voldemort.server.VoldemortServer;
 import voldemort.store.StoreDefinition;
 import voldemort.store.metadata.MetadataStore;
 import voldemort.utils.SystemTime;
+import voldemort.utils.Utils;
 import voldemort.xml.StoreDefinitionsMapper;
 
 import com.google.common.base.Joiner;
@@ -57,20 +63,24 @@ import com.google.common.base.Joiner;
  * clients and invokes the corresponding Fat client API.
  * 
  */
-public class CoordinatorService {
+public class CoordinatorService extends AbstractService {
+
+    private CoordinatorConfig config = null;
+
+    public CoordinatorService(CoordinatorConfig config) {
+        super(ServiceType.COORDINATOR);
+        this.config = config;
+    }
 
     private static boolean noop = false;
     private static SocketStoreClientFactory storeClientFactory = null;
-    private static String[] bootstrapURLs;
     private static AsyncMetadataVersionManager asyncMetadataManager = null;
     private static SchedulerService schedulerService = null;
     private static final Logger logger = Logger.getLogger(CoordinatorService.class);
     private static Map<String, FatClientWrapper> fatClientMap = null;
-    private static long asyncMetadataCheckIntervalInMs = 5000;
     public final static Schema CLIENT_CONFIGS_AVRO_SCHEMA = Schema.parse("{ \"name\": \"clientConfigs\",  \"type\":\"array\","
                                                                          + "\"items\": { \"name\": \"clientConfig\", \"type\": \"map\", \"values\":\"string\" }}}");
     private static final String STORE_NAME_KEY = "store_name";
-    private static String CLIENT_CONFIG_AVRO_FILE_PATH = "";
 
     /**
      * Initializes all the Fat clients (1 per store) for the cluster that this
@@ -78,7 +88,7 @@ public class CoordinatorService {
      * time the Metadata manager detects changes to the cluster and stores
      * metadata.
      */
-    private static void initializeFatClients() {
+    private void initializeFatClients() {
         StoreDefinitionsMapper storeMapper = new StoreDefinitionsMapper();
 
         // Fetch the state once and use this to initialize all the Fat clients
@@ -87,8 +97,8 @@ public class CoordinatorService {
 
         List<StoreDefinition> storeDefList = storeMapper.readStoreList(new StringReader(storesXml),
                                                                        false);
-        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(CLIENT_CONFIG_AVRO_FILE_PATH,
-                                                                        bootstrapURLs);
+        Map<String, ClientConfig> fatClientConfigMap = readClientConfig(this.config.getFatClientConfigPath(),
+                                                                        this.config.getBootstrapURLs());
         // For now Simply create the map of store definition to
         // FatClientWrappers
         // TODO: After the fat client improvements is done, modify this to
@@ -101,36 +111,19 @@ public class CoordinatorService {
             logger.info("Creating a Fat client wrapper for store: " + storeName);
             logger.info("Using config: " + fatClientConfigMap.get(storeName));
             fatClientMap.put(storeName, new FatClientWrapper(storeName,
-                                                             bootstrapURLs,
+                                                             this.config,
                                                              fatClientConfigMap.get(storeName),
                                                              storesXml,
                                                              clusterXml));
-
         }
-
     }
 
-    public static void main(String[] args) {
-
-        if(args.length < 2) {
-            System.err.println("Missing argument: <Bootstrap URL> <fat client config file path>");
-            System.exit(-1);
-        }
-
-        if(args.length == 3) {
-            if(args[2].equals("noop")) {
-                noop = true;
-            }
-        }
-
-        // Initialize Config
-        bootstrapURLs = new String[1];
-        bootstrapURLs[0] = args[0];
-        CLIENT_CONFIG_AVRO_FILE_PATH = args[1];
+    @Override
+    protected void startInner() {
 
         // Initialize the Voldemort Metadata
         ClientConfig clientConfig = new ClientConfig();
-        clientConfig.setBootstrapUrls(bootstrapURLs);
+        clientConfig.setBootstrapUrls(this.config.getBootstrapURLs());
         storeClientFactory = new SocketStoreClientFactory(clientConfig);
         initializeFatClients();
 
@@ -160,7 +153,7 @@ public class CoordinatorService {
         schedulerService.schedule(asyncMetadataManager.getClass().getName(),
                                   asyncMetadataManager,
                                   new Date(),
-                                  asyncMetadataCheckIntervalInMs);
+                                  this.config.getMetadataCheckIntervalInMs());
 
         // Configure the server.
         ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
@@ -235,5 +228,40 @@ public class CoordinatorService {
         }
 
         return storeNameConfigMap;
+    }
+
+    @Override
+    protected void stopInner() {}
+
+    public static void main(String[] args) throws Exception {
+        CoordinatorConfig config = null;
+        try {
+            if(args.length != 1) {
+                croak("USAGE: java " + VoldemortServer.class.getName()
+                      + " [coordinator_config_file]");
+
+                System.exit(-1);
+            }
+
+            config = new CoordinatorConfig(new File(args[0]));
+        } catch(Exception e) {
+            logger.error(e);
+            Utils.croak("Error while loading configuration: " + e.getMessage());
+        }
+
+        final CoordinatorService coordinator = new CoordinatorService(config);
+        if(!coordinator.isStarted()) {
+            coordinator.start();
+        }
+
+        // add a shutdown hook to stop the coordinator
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+
+            @Override
+            public void run() {
+                if(coordinator.isStarted())
+                    coordinator.stop();
+            }
+        });
     }
 }

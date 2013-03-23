@@ -19,10 +19,16 @@ package voldemort.coordinator;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.codehaus.jackson.JsonParseException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ExceptionEvent;
@@ -35,8 +41,13 @@ import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.util.CharsetUtil;
 
 import voldemort.common.VoldemortOpCode;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.store.CompositeDeleteVoldemortRequest;
+import voldemort.store.CompositeGetAllVoldemortRequest;
+import voldemort.store.CompositeGetVoldemortRequest;
+import voldemort.store.CompositePutVoldemortRequest;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
+import voldemort.versioning.VectorClock;
 
 /**
  * A class to handle the HTTP request and execute the same on behalf of the thin
@@ -51,13 +62,11 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     private boolean readingChunks;
     /** Buffer that stores the response content */
     private final StringBuilder buf = new StringBuilder();
-    public ChannelBuffer responseContent;
     private Map<String, FatClientWrapper> fatClientMap;
     private final Logger logger = Logger.getLogger(VoldemortHttpRequestHandler.class);
-    private String storeName = null;
-    private FatClientWrapper fatClientWrapper = null;
     public static final String X_VOLD_REQUEST_TIMEOUT_MS = "X-VOLD-Request-Timeout-ms";
     public static final String X_VOLD_INCONSISTENCY_RESOLVER = "X-VOLD-Inconsistency-Resolver";
+    private static final String X_VOLD_VECTOR_CLOCK = "X-VOLD-Vector-Clock";
     public static final String CUSTOM_RESOLVING_STRATEGY = "custom";
     public static final String DEFAULT_RESOLVING_STRATEGY = "timestamp";
 
@@ -72,14 +81,14 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
      * Function to parse the HTTP headers and build a Voldemort request object
      * 
      * @param requestURI URI of the REST request
-     * @param operationType Message Event object used to write the response to
+     * @param httpMethod Message Event object used to write the response to
      * @param e The REST (Voldemort) operation type
      * @return true if a valid request was received. False otherwise
      */
-    private VoldemortRequestWrapper parseRequest(String requestURI,
-                                                 MessageEvent e,
-                                                 byte operationType) {
-        VoldemortRequestWrapper requestWrapper = null;
+    private CompositeVoldemortRequest<ByteArray, byte[]> parseRequest(String requestURI,
+                                                                      MessageEvent e,
+                                                                      HttpMethod httpMethod) {
+        CompositeVoldemortRequest<ByteArray, byte[]> requestWrapper = null;
         long operationTimeoutInMs = 1500;
         boolean resolveConflicts = true;
 
@@ -108,26 +117,27 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
             }
         }
 
-        // Get the store name from the REST request
-        storeName = getStoreName(requestURI);
-        this.fatClientWrapper = null;
-        if(storeName != null) {
-            this.fatClientWrapper = this.fatClientMap.get(storeName);
-        }
-
-        if(storeName == null || fatClientWrapper == null) {
-            handleBadRequest(e, "Invalid store name. Critical error.");
+        List<ByteArray> keyList = readKey(requestURI);
+        if(keyList == null) {
+            handleBadRequest(e, "Error: No key specified !");
             return null;
         }
+
+        byte operationType = getOperationType(httpMethod, keyList);
 
         // Build the request object based on the operation type
         switch(operationType) {
             case VoldemortOpCode.GET_OP_CODE:
-                ByteArray getKey = readKey(requestURI);
-                requestWrapper = new VoldemortRequestWrapper(getKey,
-                                                             operationTimeoutInMs,
-                                                             resolveConflicts);
+                requestWrapper = new CompositeGetVoldemortRequest<ByteArray, byte[]>(keyList.get(0),
+                                                                                     operationTimeoutInMs,
+                                                                                     resolveConflicts);
                 break;
+            case VoldemortOpCode.GET_ALL_OP_CODE:
+                requestWrapper = new CompositeGetAllVoldemortRequest<ByteArray, byte[]>(keyList,
+                                                                                        operationTimeoutInMs,
+                                                                                        resolveConflicts);
+                break;
+
             case VoldemortOpCode.PUT_OP_CODE:
                 ChannelBuffer content = request.getContent();
                 if(!content.readable()) {
@@ -135,11 +145,31 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
                     return null;
                 }
 
-                ByteArray putKey = readKey(requestURI);
+                ByteArray putKey = null;
+                if(keyList.size() == 1) {
+                    putKey = keyList.get(0);
+                } else {
+                    handleBadRequest(e, "Cannot have multiple keys in a put operation");
+                    return null;
+                }
                 byte[] putValue = readValue(content);
-                requestWrapper = new VoldemortRequestWrapper(putKey, putValue, operationTimeoutInMs);
+                requestWrapper = new CompositePutVoldemortRequest<ByteArray, byte[]>(putKey,
+                                                                                     putValue,
+                                                                                     operationTimeoutInMs);
 
                 break;
+            case VoldemortOpCode.DELETE_OP_CODE:
+                VectorClock vc = getVectorClock(this.request.getHeader(X_VOLD_VECTOR_CLOCK));
+                if(vc == null) {
+                    // handleBadRequest(e,
+                    // "Incorrect vector clock specified in the request");
+                }
+                requestWrapper = new CompositeDeleteVoldemortRequest<ByteArray, byte[]>(keyList.get(0),
+                                                                                        vc,
+                                                                                        operationTimeoutInMs);
+
+                break;
+
             default:
                 handleBadRequest(e, "Illegal Operation.");
                 return null;
@@ -153,25 +183,56 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
 
         if(!readingChunks) {
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
-            byte operationType = getOperationType(this.request.getMethod());
             String requestURI = this.request.getUri();
-            logger.info(requestURI);
+            if(logger.isDebugEnabled()) {
+                logger.debug("Request URI: " + requestURI);
+            }
 
             if(request.isChunked()) {
                 readingChunks = true;
             } else {
 
-                VoldemortRequestWrapper requestObject = parseRequest(requestURI, e, operationType);
-                if(requestObject == null) {
+                CompositeVoldemortRequest<ByteArray, byte[]> requestObject = parseRequest(requestURI,
+                                                                                          e,
+                                                                                          this.request.getMethod());
+
+                // Get the store name from the REST request and the
+                // corresponding Fat client
+                String storeName = getStoreName(requestURI);
+                FatClientWrapper fatClientWrapper = null;
+                if(storeName != null) {
+                    fatClientWrapper = this.fatClientMap.get(storeName);
+                }
+
+                if(storeName == null || fatClientWrapper == null) {
+                    handleBadRequest(e, "Invalid store name. Critical error.");
                     return;
                 }
 
-                switch(operationType) {
+                if(requestObject == null) {
+                    handleBadRequest(e, "Illegal request.");
+                    return;
+                }
+
+                switch(requestObject.getOperationType()) {
                     case VoldemortOpCode.GET_OP_CODE:
-                        this.fatClientWrapper.submitGetRequest(requestObject, e);
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("Incoming get request");
+                        }
+                        fatClientWrapper.submitGetRequest(requestObject, e);
                         break;
+                    case VoldemortOpCode.GET_ALL_OP_CODE:
+                        fatClientWrapper.submitGetAllRequest(requestObject, e, storeName);
+                        break;
+
                     case VoldemortOpCode.PUT_OP_CODE:
-                        this.fatClientWrapper.submitPutRequest(requestObject, e);
+                        if(logger.isDebugEnabled()) {
+                            logger.debug("Incoming put request");
+                        }
+                        fatClientWrapper.submitPutRequest(requestObject, e);
+                        break;
+                    case VoldemortOpCode.DELETE_OP_CODE:
+                        fatClientWrapper.submitDeleteRequest(requestObject, e);
                         break;
                     default:
                         String errorMessage = "Illegal operation.";
@@ -209,6 +270,39 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     }
 
     /**
+     * Parse and return a VectorClock object from the request header
+     * 
+     * @param vectorClockHeader Header containing the Vector clock in JSON
+     *        format
+     * @return Equivalent VectorClock object
+     */
+    private VectorClock getVectorClock(String vectorClockHeader) {
+        VectorClock vc = null;
+        ObjectMapper mapper = new ObjectMapper();
+        if(logger.isDebugEnabled()) {
+            logger.debug("Received vector clock : " + vectorClockHeader);
+        }
+        try {
+            VectorClockWrapper vcWrapper = mapper.readValue(vectorClockHeader,
+                                                            VectorClockWrapper.class);
+            vc = new VectorClock(vcWrapper.getVersions(), vcWrapper.getTimestamp());
+        } catch(NullPointerException npe) {
+            // npe.printStackTrace();
+        } catch(JsonParseException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch(JsonMappingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch(IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        return vc;
+    }
+
+    /**
      * Send a BAD_REQUEST HTTP error back to the client with the specified
      * message.
      * 
@@ -225,13 +319,20 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
      * Method to determine the operation type
      * 
      * @param httpMethod The HTTP Method object received by the Netty handler
+     * @param keyList
      * @return A voldemortOpCode object representing the operation type
      */
-    protected byte getOperationType(HttpMethod httpMethod) {
+    protected byte getOperationType(HttpMethod httpMethod, List<ByteArray> keyList) {
         if(httpMethod.equals(HttpMethod.POST)) {
             return VoldemortOpCode.PUT_OP_CODE;
         } else if(httpMethod.equals(HttpMethod.GET)) {
-            return VoldemortOpCode.GET_OP_CODE;
+            if(keyList.size() == 1) {
+                return VoldemortOpCode.GET_OP_CODE;
+            } else if(keyList.size() > 1) {
+                return VoldemortOpCode.GET_ALL_OP_CODE;
+            }
+        } else if(httpMethod.equals(HttpMethod.DELETE)) {
+            return VoldemortOpCode.DELETE_OP_CODE;
         }
 
         return -1;
@@ -250,19 +351,31 @@ public class VoldemortHttpRequestHandler extends SimpleChannelUpstreamHandler {
     }
 
     /**
-     * Method to read a key present in the HTTP request URI
+     * Method to read a key (or keys) present in the HTTP request URI. The URI
+     * must be of the format /<store_name>/<key>[,<key>,...]
      * 
      * @param requestURI The URI of the HTTP request
-     * @return the ByteArray representing the key
+     * @return the List<ByteArray> representing the key (or keys)
      */
-    private ByteArray readKey(String requestURI) {
-        ByteArray key = null;
+    private List<ByteArray> readKey(String requestURI) {
+        List<ByteArray> keyList = null;
         String[] parts = requestURI.split("/");
         if(parts.length > 2) {
-            String base64Key = parts[2];
-            key = new ByteArray(Base64.decodeBase64(base64Key.getBytes()));
+            String base64KeyList = parts[2];
+            keyList = new ArrayList<ByteArray>();
+
+            if(!base64KeyList.contains(",")) {
+                String rawKey = base64KeyList.trim();
+                keyList.add(new ByteArray(Base64.decodeBase64(rawKey.getBytes())));
+            } else {
+                String[] base64KeyArray = base64KeyList.split(",");
+                for(String base64Key: base64KeyArray) {
+                    String rawKey = base64Key.trim();
+                    keyList.add(new ByteArray(Base64.decodeBase64(rawKey.getBytes())));
+                }
+            }
         }
-        return key;
+        return keyList;
     }
 
     /**

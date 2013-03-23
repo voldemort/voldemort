@@ -26,7 +26,7 @@ import voldemort.annotations.jmx.JmxOperation;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -156,7 +156,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
     }
 
     @Override
-    public List<Versioned<byte[]>> get(VoldemortRequestWrapper<ByteArray, byte[]> request)
+    public List<Versioned<byte[]>> get(CompositeVoldemortRequest<ByteArray, byte[]> request)
             throws VoldemortException {
         List<Versioned<byte[]>> result = null;
         long start = System.nanoTime();
@@ -182,7 +182,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
 
     @Override
     // TODO: Validate all the keys in the request object
-    public Map<ByteArray, List<Versioned<byte[]>>> getAll(VoldemortRequestWrapper<ByteArray, byte[]> request)
+    public Map<ByteArray, List<Versioned<byte[]>>> getAll(CompositeVoldemortRequest<ByteArray, byte[]> request)
             throws VoldemortException {
         Map<ByteArray, List<Versioned<byte[]>>> result = null;
         long start = System.nanoTime();
@@ -219,7 +219,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
     }
 
     @Override
-    public void put(VoldemortRequestWrapper<ByteArray, byte[]> request) throws VoldemortException {
+    public void put(CompositeVoldemortRequest<ByteArray, byte[]> request) throws VoldemortException {
         long start = System.nanoTime();
         try {
             super.put(request);
@@ -237,7 +237,7 @@ public class StatTrackingStore extends DelegatingStore<ByteArray, byte[], byte[]
     }
 
     @Override
-    public boolean delete(VoldemortRequestWrapper<ByteArray, byte[]> request)
+    public boolean delete(CompositeVoldemortRequest<ByteArray, byte[]> request)
             throws VoldemortException {
         long start = System.nanoTime();
         try {

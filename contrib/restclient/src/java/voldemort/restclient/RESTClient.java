@@ -18,6 +18,7 @@ package voldemort.restclient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import voldemort.client.RoutingTier;
 import voldemort.client.StoreClient;
@@ -36,6 +37,7 @@ import voldemort.store.versioned.InconsistencyResolvingStore;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.ChainedResolver;
 import voldemort.versioning.InconsistencyResolver;
+import voldemort.versioning.InconsistentDataException;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.TimeBasedInconsistencyResolver;
 import voldemort.versioning.VectorClock;
@@ -43,11 +45,14 @@ import voldemort.versioning.VectorClockInconsistencyResolver;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
 
+import com.google.common.collect.Maps;
+
 public class RESTClient<K, V> implements StoreClient<K, V> {
 
     private Store<K, V, Object> clientStore = null;
     private SerializerFactory serializerFactory = new DefaultSerializerFactory();
     private StoreDefinition storeDef;
+    private String storeName;
 
     /**
      * A REST ful equivalent of the DefaultStoreClient. This uses the R2Store to
@@ -60,8 +65,7 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
         String baseURL = "http://" + bootstrapURL.split(":")[1].substring(2) + ":8080";
         // The lowest layer : Transporting request to coordinator
-        Store<ByteArray, byte[], byte[]> store = (Store<ByteArray, byte[], byte[]>) new R2Store(baseURL,
-                                                                                                "R2Store");
+        Store<ByteArray, byte[], byte[]> store = new R2Store(baseURL, storeName);
 
         // TODO
         // Get the store definition so that we can learn the Serialization
@@ -96,6 +100,8 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         clientStore = new InconsistencyResolvingStore<K, V, Object>(clientStore,
                                                                     new ChainedResolver<Versioned<V>>(new VectorClockInconsistencyResolver(),
                                                                                                       secondaryResolver));
+
+        this.storeName = storeName;
     }
 
     @Override
@@ -119,9 +125,27 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         return this.clientStore.get(key, null).get(0);
     }
 
+    protected Versioned<V> getItemOrThrow(K key, Versioned<V> defaultValue, List<Versioned<V>> items) {
+        if(items.size() == 0)
+            return defaultValue;
+        else if(items.size() == 1)
+            return items.get(0);
+        else
+            throw new InconsistentDataException("Unresolved versions returned from get(" + key
+                                                + ") = " + items, items);
+    }
+
     @Override
     public Map<K, Versioned<V>> getAll(Iterable<K> keys) {
-        return null;
+        Map<K, List<Versioned<V>>> items = null;
+        items = this.clientStore.getAll(keys, null);
+        Map<K, Versioned<V>> result = Maps.newHashMapWithExpectedSize(items.size());
+
+        for(Entry<K, List<Versioned<V>>> mapEntry: items.entrySet()) {
+            Versioned<V> value = getItemOrThrow(mapEntry.getKey(), null, mapEntry.getValue());
+            result.put(mapEntry.getKey(), value);
+        }
+        return result;
     }
 
     @Override
@@ -131,7 +155,11 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     @Override
     public Versioned<V> get(K key, Versioned<V> defaultValue) {
-        return this.clientStore.get(key, null).get(0);
+        List<Versioned<V>> resultList = this.clientStore.get(key, null);
+        if(resultList.size() == 0) {
+            return null;
+        }
+        return resultList.get(0);
     }
 
     @Override
@@ -153,7 +181,12 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     @Override
     public boolean putIfNotObsolete(K key, Versioned<V> versioned) {
-        return false;
+        try {
+            put(key, versioned);
+            return true;
+        } catch(ObsoleteVersionException e) {
+            return false;
+        }
     }
 
     @Override
@@ -186,12 +219,15 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
 
     @Override
     public boolean delete(K key) {
-        return false;
+        Versioned<V> versioned = get(key);
+        if(versioned == null)
+            return false;
+        return this.clientStore.delete(key, versioned.getVersion());
     }
 
     @Override
     public boolean delete(K key, Version version) {
-        return false;
+        return this.clientStore.delete(key, version);
     }
 
     @Override
@@ -199,4 +235,7 @@ public class RESTClient<K, V> implements StoreClient<K, V> {
         return null;
     }
 
+    public void close() {
+        this.clientStore.close();
+    }
 }

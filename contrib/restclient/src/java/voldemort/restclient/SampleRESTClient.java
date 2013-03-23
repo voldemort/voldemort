@@ -16,6 +16,9 @@
 
 package voldemort.restclient;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SampleRESTClient {
 
     public static void main(String[] args) {
@@ -26,8 +29,15 @@ public class SampleRESTClient {
 
         // Sample put
         clientStore.put("a", "Howdy!!!!");
+        clientStore.put("b", "Partner!!!!");
 
         // Do a sample operation:
         System.out.println("Received response : " + clientStore.get("a"));
+        List<String> keyList = new ArrayList<String>();
+        keyList.add("a");
+        keyList.add("b");
+        System.out.println("Received response : " + clientStore.getAll(keyList));
+
+        clientStore.close();
     }
 }

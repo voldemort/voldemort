@@ -23,7 +23,7 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.versioning.InconsistencyResolver;
 import voldemort.versioning.Versioned;
 
@@ -69,7 +69,7 @@ public class InconsistencyResolvingStore<K, V, T> extends DelegatingStore<K, V, 
     }
 
     @Override
-    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         if(request.resolveConflicts()) {
             return resolver.resolveConflicts(super.get(request));
         }
@@ -77,7 +77,7 @@ public class InconsistencyResolvingStore<K, V, T> extends DelegatingStore<K, V, 
     }
 
     @Override
-    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+    public Map<K, List<Versioned<V>>> getAll(CompositeVoldemortRequest<K, V> request)
             throws VoldemortException {
         Map<K, List<Versioned<V>>> m = super.getAll(request);
         if(request.resolveConflicts()) {

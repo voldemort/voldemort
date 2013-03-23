@@ -26,9 +26,10 @@ import voldemort.VoldemortException;
 import voldemort.client.AbstractStoreClientFactory;
 import voldemort.client.DefaultStoreClient;
 import voldemort.client.StoreClientFactory;
+import voldemort.store.CompositeVersionedPutVoldemortRequest;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.InvalidMetadataException;
 import voldemort.store.StoreTimeoutException;
-import voldemort.store.VoldemortRequestWrapper;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Version;
@@ -75,8 +76,8 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         this.store = factory.getRawStore(storeName, null, customStoresXml, customClusterXml, null);
     }
 
-    public Versioned<V> getWithCustomTimeout(VoldemortRequestWrapper<K, V> requestWrapper) {
-        validateTimeout(requestWrapper.getRoutingTimeout());
+    public Versioned<V> getWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
+        validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 List<Versioned<V>> items = store.get(requestWrapper);
@@ -91,17 +92,15 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    public Version putWithCustomTimeout(VoldemortRequestWrapper<K, V> requestWrapper) {
-        validateTimeout(requestWrapper.getRoutingTimeout());
+    public Version putWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
+        validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         Versioned<V> versioned;
         long startTime = System.currentTimeMillis();
 
         // We use the full timeout for doing the Get. In this, we're being
         // optimistic that the subsequent put might be faster all the steps
         // might finish within the alloted time
-        versioned = getWithCustomTimeout(new VoldemortRequestWrapper<K, V>(requestWrapper.getKey(),
-                                                                           requestWrapper.getRoutingTimeout(),
-                                                                           true));
+        versioned = getWithCustomTimeout(requestWrapper);
 
         long endTime = System.currentTimeMillis();
         if(versioned == null)
@@ -111,18 +110,18 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
 
         // This should not happen unless there's a bug in the
         // getWithCustomTimeout
-        if((endTime - startTime) > requestWrapper.getRoutingTimeout()) {
+        if((endTime - startTime) > requestWrapper.getRoutingTimeoutInMs()) {
             throw new StoreTimeoutException("PUT request timed out");
         }
 
-        return putVersionedWithCustomTimeout(new VoldemortRequestWrapper<K, V>(requestWrapper.getKey(),
-                                                                               versioned,
-                                                                               (requestWrapper.getRoutingTimeout() - (endTime - startTime))));
+        return putVersionedWithCustomTimeout(new CompositeVersionedPutVoldemortRequest<K, V>(requestWrapper.getKey(),
+                                                                                             versioned,
+                                                                                             (requestWrapper.getRoutingTimeoutInMs() - (endTime - startTime))));
     }
 
-    public Version putVersionedWithCustomTimeout(VoldemortRequestWrapper<K, V> requestWrapper)
+    public Version putVersionedWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper)
             throws ObsoleteVersionException {
-        validateTimeout(requestWrapper.getRoutingTimeout());
+        validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         for(int attempts = 0; attempts < this.metadataRefreshAttempts; attempts++) {
             try {
                 store.put(requestWrapper);
@@ -137,19 +136,15 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
                                      + " metadata refresh attempts failed.");
     }
 
-    public Map<K, Versioned<V>> getAllWithCustomTimeout(Iterable<K> keys,
-                                                        long getAllOpTimeoutInMs,
-                                                        boolean resolveConflicts) {
-        validateTimeout(getAllOpTimeoutInMs);
+    public Map<K, Versioned<V>> getAllWithCustomTimeout(CompositeVoldemortRequest<K, V> requestWrapper) {
+        validateTimeout(requestWrapper.getRoutingTimeoutInMs());
         Map<K, List<Versioned<V>>> items = null;
         for(int attempts = 0;; attempts++) {
             if(attempts >= this.metadataRefreshAttempts)
                 throw new VoldemortException(this.metadataRefreshAttempts
                                              + " metadata refresh attempts failed.");
             try {
-                items = store.getAll(new VoldemortRequestWrapper(keys,
-                                                                 getAllOpTimeoutInMs,
-                                                                 resolveConflicts));
+                items = store.getAll(requestWrapper);
                 break;
             } catch(InvalidMetadataException e) {
                 logger.info("Received invalid metadata exception during getAll [  "
@@ -166,12 +161,49 @@ public class DynamicTimeoutStoreClient<K, V> extends DefaultStoreClient<K, V> {
         return result;
     }
 
+    public boolean deleteWithCustomTimeout(CompositeVoldemortRequest<K, V> deleteRequestObject) {
+        validateTimeout(deleteRequestObject.getRoutingTimeoutInMs());
+        if(deleteRequestObject.getVersion() == null) {
+
+            long startTimeInMs = System.currentTimeMillis();
+
+            // We use the full timeout for doing the Get. In this, we're being
+            // optimistic that the subsequent delete might be faster all the
+            // steps might finish within the alloted time
+            Versioned<V> versioned = getWithCustomTimeout(deleteRequestObject);
+            if(versioned == null) {
+                return false;
+            }
+
+            long endTimeInMs = System.currentTimeMillis();
+            long diffInMs = endTimeInMs - startTimeInMs;
+
+            // This should not happen unless there's a bug in the
+            // getWithCustomTimeout
+            if(diffInMs > deleteRequestObject.getRoutingTimeoutInMs()) {
+                throw new StoreTimeoutException("DELETE request timed out");
+            }
+
+            // Update the version and the new timeout
+            deleteRequestObject.setVersion(versioned.getVersion());
+            deleteRequestObject.setRoutingTimeoutInMs(deleteRequestObject.getRoutingTimeoutInMs()
+                                                      - diffInMs);
+
+        }
+
+        return store.delete(deleteRequestObject);
+    }
+
     // Make sure that the timeout specified is valid
     private void validateTimeout(long opTimeoutInMs) {
         if(opTimeoutInMs <= 0) {
             throw new IllegalArgumentException("Illegal parameter: Timeout is too low: "
                                                + opTimeoutInMs);
         }
+    }
+
+    public String getStoreName() {
+        return this.storeName;
     }
 
 }

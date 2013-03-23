@@ -22,12 +22,12 @@ public class AbstractStorageEngine<K, V, T> extends AbstractStore<K, V, T> imple
     }
 
     @Override
-    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partition) {
+    public ClosableIterator<Pair<K, Versioned<V>>> entries(int partitionId) {
         return null;
     }
 
     @Override
-    public ClosableIterator<K> keys(int partition) {
+    public ClosableIterator<K> keys(int partitionId) {
         return null;
     }
 

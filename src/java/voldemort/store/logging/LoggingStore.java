@@ -24,7 +24,7 @@ import voldemort.VoldemortException;
 import voldemort.store.DelegatingStore;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.utils.SystemTime;
 import voldemort.utils.Time;
 import voldemort.versioning.Version;
@@ -143,7 +143,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     @Override
-    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
         if(logger.isDebugEnabled())
@@ -158,7 +158,7 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
     }
 
     @Override
-    public void put(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public void put(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         long startTimeNs = 0;
         boolean succeeded = false;
         if(logger.isDebugEnabled()) {
@@ -171,4 +171,20 @@ public class LoggingStore<K, V, T> extends DelegatingStore<K, V, T> {
             printTimedMessage("PUT", succeeded, startTimeNs);
         }
     }
+
+    @Override
+    public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
+        long startTimeNs = 0;
+        boolean succeeded = false;
+        if(logger.isDebugEnabled())
+            startTimeNs = time.getNanoseconds();
+        try {
+            boolean deletedSomething = getInnerStore().delete(request);
+            succeeded = true;
+            return deletedSomething;
+        } finally {
+            printTimedMessage("DELETE", succeeded, startTimeNs);
+        }
+    }
+
 }

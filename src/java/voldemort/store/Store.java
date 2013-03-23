@@ -117,7 +117,7 @@ public interface Store<K, V, T> {
      *         are found.
      * @throws VoldemortException
      */
-    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException;
 
     /**
      * Get the values associated with the given keys and returns them in a Map
@@ -129,7 +129,7 @@ public interface Store<K, V, T> {
      * @return A Map of keys to a list of versioned values.
      * @throws VoldemortException
      */
-    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+    public Map<K, List<Versioned<V>>> getAll(CompositeVoldemortRequest<K, V> request)
             throws VoldemortException;
 
     /**
@@ -138,7 +138,7 @@ public interface Store<K, V, T> {
      * @param request Contains the key to use along with the value and version
      *        to use.
      */
-    public void put(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
+    public void put(CompositeVoldemortRequest<K, V> request) throws VoldemortException;
 
     /**
      * Delete all entries prior to the given version
@@ -146,5 +146,5 @@ public interface Store<K, V, T> {
      * @param request: Contains the key to delete and current version of the key
      * @return True if anything was deleted
      */
-    public boolean delete(VoldemortRequestWrapper<K, V> request) throws VoldemortException;
+    public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException;
 }

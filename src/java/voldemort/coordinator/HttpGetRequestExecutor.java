@@ -35,15 +35,14 @@ import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.VoldemortException;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.StoreTimeoutException;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 
@@ -53,13 +52,13 @@ import voldemort.versioning.Versioned;
  * corresponding REST GET request.
  * 
  */
-public class GetRequestExecutor implements Runnable {
+public class HttpGetRequestExecutor implements Runnable {
 
     private MessageEvent getRequestMessageEvent;
     private ChannelBuffer responseContent;
-    DynamicTimeoutStoreClient<Object, Object> storeClient;
-    private final Logger logger = Logger.getLogger(GetRequestExecutor.class);
-    private final VoldemortRequestWrapper getRequestObject;
+    DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient;
+    private final Logger logger = Logger.getLogger(HttpGetRequestExecutor.class);
+    private final CompositeVoldemortRequest<ByteArray, byte[]> getRequestObject;
 
     /**
      * 
@@ -70,20 +69,20 @@ public class GetRequestExecutor implements Runnable {
      * @param storeClient Reference to the fat client for performing this Get
      *        operation
      */
-    public GetRequestExecutor(VoldemortRequestWrapper getRequestObject,
-                              MessageEvent requestEvent,
-                              DynamicTimeoutStoreClient<Object, Object> storeClient) {
+    public HttpGetRequestExecutor(CompositeVoldemortRequest<ByteArray, byte[]> getRequestObject,
+                                  MessageEvent requestEvent,
+                                  DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient) {
         this.getRequestMessageEvent = requestEvent;
         this.storeClient = storeClient;
         this.getRequestObject = getRequestObject;
     }
 
-    public void writeResponse(Versioned<Object> responseVersioned) {
+    public void writeResponse(Versioned<byte[]> responseVersioned) {
 
-        byte[] value = (byte[]) responseVersioned.getValue();
+        byte[] value = responseVersioned.getValue();
 
         // Set the value as the HTTP response payload
-        byte[] responseValue = (byte[]) responseVersioned.getValue();
+        byte[] responseValue = responseVersioned.getValue();
         this.responseContent = ChannelBuffers.dynamicBuffer(responseValue.length);
         this.responseContent.writeBytes(value);
 
@@ -101,13 +100,15 @@ public class GetRequestExecutor implements Runnable {
             e.printStackTrace();
         }
 
-        logger.info("ETAG : " + eTag);
+        if(logger.isDebugEnabled()) {
+            logger.debug("ETAG : " + eTag);
+        }
 
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 
         // 2. Set the right headers
-        response.setHeader(CONTENT_TYPE, "application/json");
+        response.setHeader(CONTENT_TYPE, "binary");
         response.setHeader(CONTENT_TRANSFER_ENCODING, "binary");
         response.setHeader(ETAG, eTag);
 
@@ -115,22 +116,18 @@ public class GetRequestExecutor implements Runnable {
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
-        logger.info("Response = " + response);
+        if(logger.isDebugEnabled()) {
+            logger.debug("Response = " + response);
+        }
 
         // Write the response to the Netty Channel
-        ChannelFuture future = this.getRequestMessageEvent.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        future.addListener(ChannelFutureListener.CLOSE);
-
+        this.getRequestMessageEvent.getChannel().write(response);
     }
 
     @Override
     public void run() {
         try {
-            Versioned<Object> responseVersioned = storeClient.getWithCustomTimeout(this.getRequestObject);
-            logger.info("Get successful !");
+            Versioned<byte[]> responseVersioned = storeClient.getWithCustomTimeout(this.getRequestObject);
             if(responseVersioned == null) {
                 if(this.getRequestObject.getValue() != null) {
                     responseVersioned = this.getRequestObject.getValue();
@@ -139,6 +136,9 @@ public class GetRequestExecutor implements Runnable {
                                                  this.getRequestMessageEvent,
                                                  false,
                                                  "Requested Key does not exist");
+                }
+                if(logger.isDebugEnabled()) {
+                    logger.debug("GET successful !");
                 }
             }
             writeResponse(responseVersioned);

@@ -19,7 +19,6 @@ package voldemort.coordinator;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
-import org.apache.log4j.Logger;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -35,8 +34,6 @@ import org.jboss.netty.util.CharsetUtil;
  * 
  */
 public class RESTErrorHandler {
-
-    private static final Logger logger = Logger.getLogger(RESTErrorHandler.class);
 
     public static void handleError(HttpResponseStatus status,
                                    MessageEvent e,

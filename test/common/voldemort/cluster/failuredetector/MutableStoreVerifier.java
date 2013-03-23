@@ -7,10 +7,10 @@ import java.util.Map;
 
 import voldemort.VoldemortException;
 import voldemort.cluster.Node;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.Store;
 import voldemort.store.StoreCapabilityType;
 import voldemort.store.UnreachableStoreException;
-import voldemort.store.VoldemortRequestWrapper;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.Version;
 import voldemort.versioning.Versioned;
@@ -67,56 +67,64 @@ public class MutableStoreVerifier extends BasicStoreVerifier<ByteArray, byte[], 
     private static Store<ByteArray, byte[], byte[]> createStore() {
         return new Store<ByteArray, byte[], byte[]>() {
 
+            @Override
             public void close() throws VoldemortException {}
 
+            @Override
             public boolean delete(ByteArray key, Version version) throws VoldemortException {
                 return false;
             }
 
+            @Override
             public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms)
                     throws VoldemortException {
                 return null;
             }
 
+            @Override
             public Map<ByteArray, List<Versioned<byte[]>>> getAll(Iterable<ByteArray> keys,
                                                                   Map<ByteArray, byte[]> transforms)
                     throws VoldemortException {
                 return null;
             }
 
+            @Override
             public Object getCapability(StoreCapabilityType capability) {
                 return null;
             }
 
+            @Override
             public String getName() {
                 return null;
             }
 
+            @Override
             public List<Version> getVersions(ByteArray key) {
                 return null;
             }
 
+            @Override
             public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
                     throws VoldemortException {}
 
             @Override
-            public List<Versioned<byte[]>> get(VoldemortRequestWrapper<ByteArray, byte[]> request)
+            public List<Versioned<byte[]>> get(CompositeVoldemortRequest<ByteArray, byte[]> request)
                     throws VoldemortException {
                 return null;
             }
 
             @Override
-            public Map<ByteArray, List<Versioned<byte[]>>> getAll(VoldemortRequestWrapper<ByteArray, byte[]> request)
+            public Map<ByteArray, List<Versioned<byte[]>>> getAll(CompositeVoldemortRequest<ByteArray, byte[]> request)
                     throws VoldemortException {
                 return null;
             }
 
             @Override
-            public void put(VoldemortRequestWrapper<ByteArray, byte[]> request)
+            public void put(CompositeVoldemortRequest<ByteArray, byte[]> request)
                     throws VoldemortException {}
 
             @Override
-            public boolean delete(VoldemortRequestWrapper<ByteArray, byte[]> request)
+            public boolean delete(CompositeVoldemortRequest<ByteArray, byte[]> request)
                     throws VoldemortException {
                 return false;
             }

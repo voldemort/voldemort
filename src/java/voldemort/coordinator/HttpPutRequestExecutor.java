@@ -26,15 +26,14 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.REQUEST_TIME
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.apache.log4j.Logger;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import voldemort.VoldemortException;
+import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.StoreTimeoutException;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.ObsoleteVersionException;
 
 /**
@@ -43,12 +42,17 @@ import voldemort.versioning.ObsoleteVersionException;
  * corresponding REST POST (PUT) request.
  * 
  */
-public class PutRequestExecutor implements Runnable {
+public class HttpPutRequestExecutor implements Runnable {
 
     private MessageEvent putRequestMessageEvent;
-    DynamicTimeoutStoreClient<Object, Object> storeClient;
-    private final Logger logger = Logger.getLogger(PutRequestExecutor.class);
-    private final VoldemortRequestWrapper putRequestObject;
+    DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient;
+    private final Logger logger = Logger.getLogger(HttpPutRequestExecutor.class);
+    private final CompositeVoldemortRequest<ByteArray, byte[]> putRequestObject;
+
+    public HttpPutRequestExecutor(MessageEvent requestEvent) {
+        this.putRequestMessageEvent = requestEvent;
+        this.putRequestObject = null;
+    }
 
     /**
      * 
@@ -59,15 +63,15 @@ public class PutRequestExecutor implements Runnable {
      * @param storeClient Reference to the fat client for performing this Get
      *        operation
      */
-    public PutRequestExecutor(VoldemortRequestWrapper putRequestObject,
-                              MessageEvent requestEvent,
-                              DynamicTimeoutStoreClient<Object, Object> storeClient) {
+    public HttpPutRequestExecutor(CompositeVoldemortRequest<ByteArray, byte[]> putRequestObject,
+                                  MessageEvent requestEvent,
+                                  DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient) {
         this.putRequestMessageEvent = requestEvent;
         this.storeClient = storeClient;
         this.putRequestObject = putRequestObject;
     }
 
-    private void writeResponse() {
+    public void writeResponse() {
         // 1. Create the Response object
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 
@@ -75,15 +79,10 @@ public class PutRequestExecutor implements Runnable {
         response.setHeader(CONTENT_TYPE, "application/json");
 
         // 3. Copy the data into the payload
-        // response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, 0);
 
         // Write the response to the Netty Channel
-        ChannelFuture future = this.putRequestMessageEvent.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        future.addListener(ChannelFutureListener.CLOSE);
+        this.putRequestMessageEvent.getChannel().write(response);
     }
 
     @Override
@@ -91,7 +90,11 @@ public class PutRequestExecutor implements Runnable {
 
         try {
             this.storeClient.putWithCustomTimeout(putRequestObject);
-            logger.info("Put successful !");
+            if(logger.isDebugEnabled()) {
+                logger.debug("PUT successful !");
+            }
+            writeResponse();
+
         } catch(IllegalArgumentException illegalArgsException) {
             String errorDescription = "PUT Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
@@ -103,7 +106,6 @@ public class PutRequestExecutor implements Runnable {
         } catch(ObsoleteVersionException oe) {
             String errorDescription = "PUT Failed !!! Obsolete version exception: "
                                       + oe.getMessage();
-            logger.error(errorDescription);
             RESTErrorHandler.handleError(PRECONDITION_FAILED,
                                          this.putRequestMessageEvent,
                                          false,
@@ -124,8 +126,6 @@ public class PutRequestExecutor implements Runnable {
                                          false,
                                          errorDescription);
         }
-
-        writeResponse();
     }
 
 }

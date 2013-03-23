@@ -54,21 +54,21 @@ public abstract class AbstractStore<K, V, T> implements Store<K, V, T> {
     }
 
     @Override
-    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         return null;
     }
 
     @Override
-    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+    public Map<K, List<Versioned<V>>> getAll(CompositeVoldemortRequest<K, V> request)
             throws VoldemortException {
         return null;
     }
 
     @Override
-    public void put(VoldemortRequestWrapper<K, V> request) throws VoldemortException {}
+    public void put(CompositeVoldemortRequest<K, V> request) throws VoldemortException {}
 
     @Override
-    public boolean delete(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         return false;
     }
 

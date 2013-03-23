@@ -91,25 +91,25 @@ public class DelegatingStore<K, V, T> extends AbstractStore<K, V, T> {
     }
 
     @Override
-    public List<Versioned<V>> get(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public List<Versioned<V>> get(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         StoreUtils.assertValidKey(request.getKey());
         return innerStore.get(request);
     }
 
     // TODO: Validate all the keys in the request object
     @Override
-    public Map<K, List<Versioned<V>>> getAll(VoldemortRequestWrapper<K, V> request)
+    public Map<K, List<Versioned<V>>> getAll(CompositeVoldemortRequest<K, V> request)
             throws VoldemortException {
         return innerStore.getAll(request);
     }
 
     @Override
-    public void put(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public void put(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         innerStore.put(request);
     }
 
     @Override
-    public boolean delete(VoldemortRequestWrapper<K, V> request) throws VoldemortException {
+    public boolean delete(CompositeVoldemortRequest<K, V> request) throws VoldemortException {
         return innerStore.delete(request);
     }
 }

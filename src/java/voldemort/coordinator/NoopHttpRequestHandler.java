@@ -16,12 +16,14 @@
 
 package voldemort.coordinator;
 
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.handler.codec.http.HttpMethod;
+import org.jboss.netty.handler.codec.http.HttpRequest;
 
 import voldemort.common.VoldemortOpCode;
-import voldemort.store.VoldemortRequestWrapper;
+import voldemort.store.CompositeGetVoldemortRequest;
+import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 /**
@@ -36,29 +38,40 @@ public class NoopHttpRequestHandler extends VoldemortHttpRequestHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+        this.request = (HttpRequest) e.getMessage();
         byte operationType = getOperationType(this.request.getMethod());
 
         switch(operationType) {
             case VoldemortOpCode.GET_OP_CODE:
-                GetRequestExecutor getExecutor = new GetRequestExecutor(new VoldemortRequestWrapper(null,
-                                                                                                    0l,
-                                                                                                    false),
-                                                                        e,
-                                                                        null);
+                HttpGetRequestExecutor getExecutor = new HttpGetRequestExecutor(new CompositeGetVoldemortRequest<ByteArray, byte[]>(null,
+                                                                                                                                    0l,
+                                                                                                                                    false),
+                                                                                e,
+                                                                                null);
 
-                Versioned<Object> responseVersioned = null;
+                Versioned<byte[]> responseVersioned = null;
                 byte[] nullByteArray = new byte[1];
                 nullByteArray[0] = 0;
-                responseVersioned = new Versioned<Object>(nullByteArray);
+                responseVersioned = new Versioned<byte[]>(nullByteArray);
                 getExecutor.writeResponse(responseVersioned);
                 break;
             case VoldemortOpCode.PUT_OP_CODE:
-                this.responseContent = ChannelBuffers.EMPTY_BUFFER;
+                HttpPutRequestExecutor putRequestExecutor = new HttpPutRequestExecutor(e);
+                putRequestExecutor.writeResponse();
                 break;
             default:
                 System.err.println("Illegal operation.");
-                this.responseContent = ChannelBuffers.copiedBuffer("Illegal operation.".getBytes());
                 return;
         }
+    }
+
+    private byte getOperationType(HttpMethod method) {
+        if(method.equals(HttpMethod.POST)) {
+            return VoldemortOpCode.PUT_OP_CODE;
+        } else if(method.equals(HttpMethod.GET)) {
+            return VoldemortOpCode.GET_OP_CODE;
+        }
+
+        return -1;
     }
 }
