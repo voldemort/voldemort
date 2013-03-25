@@ -21,7 +21,10 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
-base_dir=$(dirname $0)/..
+script_path=$(readlink -f "$0")
+script_dir=`dirname "$script_path"`
+
+base_dir=`dirname "$script_dir"`
 
 for file in $base_dir/lib/*.jar;
 do
