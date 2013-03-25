@@ -155,7 +155,7 @@ public class HDFSFetcherAdvancedTest {
     public void testEofExceptionIntermittent() throws Exception {
 
         File testSourceDirectory = createTempDir();
-        File testDestinationDirectory = createTempDir();
+        File testDestinationDirectory = testSourceDirectory;
 
         File indexFile = new File(testSourceDirectory, "0_0.index");
         byte[] indexBytes = TestUtils.randomBytes(100);
@@ -206,7 +206,7 @@ public class HDFSFetcherAdvancedTest {
     public void testEofExceptionIntermittentDuringFetch() throws Exception {
 
         File testSourceDirectory = createTempDir();
-        File testDestinationDirectory = createTempDir();
+        File testDestinationDirectory = testSourceDirectory;
 
         File indexFile = new File(testSourceDirectory, "0_0.index");
         byte[] indexBytes = TestUtils.randomBytes(VoldemortConfig.DEFAULT_BUFFER_SIZE * 3);
