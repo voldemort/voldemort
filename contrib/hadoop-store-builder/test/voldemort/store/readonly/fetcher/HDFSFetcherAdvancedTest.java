@@ -44,6 +44,7 @@ import voldemort.store.readonly.checksum.CheckSum;
 import voldemort.store.readonly.checksum.CheckSum.CheckSumType;
 import voldemort.store.readonly.checksum.CheckSumTests;
 import voldemort.store.readonly.fetcher.HdfsFetcher.CopyStats;
+import voldemort.utils.Utils;
 
 /*
  * This test suite tests the HDFSFetcher We test the fetch from hadoop by
@@ -83,20 +84,20 @@ public class HDFSFetcherAdvancedTest {
                                                                               CheckSumType.MD5))));
         FileUtils.writeStringToFile(metadataFile, metadata.toJsonString());
 
-        File tempDest = new File(testDestinationDirectory.getAbsolutePath() + "3");
+        File tempDest = new File(testDestinationDirectory.getAbsolutePath() + "1");
         if(tempDest.exists()) {
 
             deleteDir(tempDest);
         }
 
         File fetchedFile = fetcher.fetch(testSourceDirectory.getAbsolutePath(),
-                                         testDestinationDirectory.getAbsolutePath() + "3");
+                                         testDestinationDirectory.getAbsolutePath() + "1");
 
         assertNotNull(fetchedFile);
         assertEquals(fetchedFile.getAbsolutePath(), testDestinationDirectory.getAbsolutePath()
-                                                    + "3");
+                                                    + "1");
 
-        tempDest = new File(testDestinationDirectory.getAbsolutePath() + "3");
+        tempDest = new File(testDestinationDirectory.getAbsolutePath() + "1");
         if(tempDest.exists()) {
 
             deleteDir(tempDest);
@@ -178,6 +179,7 @@ public class HDFSFetcherAdvancedTest {
                                                                                           source));
 
         File destination = new File(testDestinationDirectory.getAbsolutePath() + "1");
+        Utils.mkdirs(destination);
         File copyLocation = new File(destination, "0_0.index");
 
         Mockito.doThrow(new IOException())
@@ -229,6 +231,7 @@ public class HDFSFetcherAdvancedTest {
                                                                                           source));
 
         File destination = new File(testDestinationDirectory.getAbsolutePath() + "1");
+        Utils.mkdirs(destination);
         File copyLocation = new File(destination, "0_0.index");
 
         FSDataInputStream input = null;
@@ -286,6 +289,7 @@ public class HDFSFetcherAdvancedTest {
                                                                                           source));
 
         File destination = new File(testDestinationDirectory.getAbsolutePath() + "1");
+        Utils.mkdirs(destination);
         File copyLocation = new File(destination, "0_0.index");
 
         Mockito.doThrow(new RuntimeException())
