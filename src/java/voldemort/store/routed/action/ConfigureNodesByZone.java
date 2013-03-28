@@ -113,6 +113,9 @@ public class ConfigureNodesByZone<V, PD extends BasicPipelineData<V>> extends
         if(clientZoneNodes != null && clientZoneNodes.size() > 0)
             nodes.addAll(clientZoneNodes);
         // ...followed by other zones sorted by proximity list
+        // NOTE : its imperative that the proximity list does not contain the
+        // client zone. If this happens, we will add those nodes twice to the
+        // list
         for(int index = 0; index < zoneProximityList.size(); index++) {
             List<Node> zoneNodes = zoneIdToNode.get(zoneProximityList.get(index));
             if(zoneNodes != null && zoneNodes.size() > 0) {

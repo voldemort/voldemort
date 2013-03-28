@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,11 +57,14 @@ import voldemort.routing.RoutingStrategyFactory;
 import voldemort.routing.RoutingStrategyType;
 import voldemort.serialization.SerializerDefinition;
 import voldemort.serialization.json.JsonReader;
+import voldemort.server.VoldemortServer;
 import voldemort.store.Store;
 import voldemort.store.StoreDefinition;
 import voldemort.store.StoreDefinitionBuilder;
 import voldemort.store.UnreachableStoreException;
 import voldemort.store.bdb.BdbStorageConfiguration;
+import voldemort.store.metadata.MetadataStore;
+import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.readonly.JsonStoreBuilder;
 import voldemort.store.readonly.ReadOnlyStorageConfiguration;
 import voldemort.store.readonly.ReadOnlyStorageEngineTestInstance;
@@ -69,7 +73,9 @@ import voldemort.store.readonly.swapper.AdminStoreSwapper;
 import voldemort.utils.ByteArray;
 import voldemort.utils.ByteUtils;
 import voldemort.utils.RebalanceUtils;
+import voldemort.versioning.ClockEntry;
 import voldemort.versioning.ObsoleteVersionException;
+import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
 import voldemort.xml.StoreDefinitionsMapper;
 
@@ -273,7 +279,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         // start servers 0 , 1 only
         List<Integer> serverList = Arrays.asList(0, 1);
         Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "50");
+        configProps.put("admin.max.threads", "5");
 
         currentCluster = startServers(currentCluster,
                                       storeDefFileWithReplication,
@@ -333,7 +339,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         // seems to only affect ThreadPoolBasedNonblockingStoreImpl tests rather
         // than Nio-based tests.
         Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "50");
+        configProps.put("admin.max.threads", "5");
         currentCluster = startServers(currentCluster,
                                       roStoreDefFileWithReplication,
                                       serverList,
@@ -430,6 +436,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(false);
+        config.setStealerBasedRebalancing(!useDonorBased);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -506,6 +513,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
         RebalanceClientConfig config = new RebalanceClientConfig();
         config.setDeleteAfterRebalancingEnabled(false);
+        config.setStealerBasedRebalancing(!useDonorBased);
         RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(currentCluster,
                                                                                       0),
                                                                       config);
@@ -695,7 +703,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
         // start servers 0 , 1 only
         final List<Integer> serverList = Arrays.asList(0, 1);
         Map<String, String> configProps = new HashMap<String, String>();
-        configProps.put("admin.max.threads", "50");
+        configProps.put("admin.max.threads", "5");
         final Cluster updatedCurrentCluster = startServers(currentCluster,
                                                            storeDefFileWithReplication,
                                                            serverList,
@@ -708,6 +716,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
         RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
         rebalanceClientConfig.setMaxParallelRebalancing(2);
+        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
 
         final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
                                                                                             0),
@@ -782,6 +791,7 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
 
         executors.execute(new Runnable() {
 
+            @Override
             public void run() {
                 try {
 
@@ -794,7 +804,6 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                     Thread.sleep(500);
                     rebalancingToken.set(true);
                     checkConsistentMetadata(updatedTargetCluster, serverList);
-
                 } catch(Exception e) {
                     exceptions.add(e);
                 } finally {
@@ -817,6 +826,194 @@ public abstract class AbstractNonZonedRebalanceTest extends AbstractRebalanceTes
                 e.printStackTrace();
             }
             fail("Should not see any exceptions.");
+        }
+    }
+
+    @Test(timeout = 600000)
+    public void testProxyPutDuringRebalancing() throws Exception {
+        logger.info("Starting testProxyPutDuringRebalancing");
+        Cluster currentCluster = ServerTestUtils.getLocalCluster(3, new int[][] { { 0 }, { 1, 3 },
+                { 2 } });
+
+        Cluster targetCluster = RebalanceUtils.createUpdatedCluster(currentCluster,
+                                                                    2,
+                                                                    Lists.newArrayList(3));
+
+        // start servers 0,1,2 only
+        final List<Integer> serverList = Arrays.asList(0, 1, 2);
+        Map<String, String> configProps = new HashMap<String, String>();
+        configProps.put("admin.max.threads", "5");
+        final Cluster updatedCurrentCluster = startServers(currentCluster,
+                                                           rwStoreDefFileWithReplication,
+                                                           serverList,
+                                                           configProps);
+        final Cluster updatedTargetCluster = updateCluster(targetCluster);
+
+        ExecutorService executors = Executors.newFixedThreadPool(2);
+        final AtomicBoolean rebalancingToken = new AtomicBoolean(false);
+        final List<Exception> exceptions = Collections.synchronizedList(new ArrayList<Exception>());
+
+        RebalanceClientConfig rebalanceClientConfig = new RebalanceClientConfig();
+        rebalanceClientConfig.setMaxParallelRebalancing(2);
+        rebalanceClientConfig.setStealerBasedRebalancing(!useDonorBased);
+
+        final RebalanceController rebalanceClient = new RebalanceController(getBootstrapUrl(updatedCurrentCluster,
+                                                                                            0),
+                                                                            rebalanceClientConfig);
+
+        populateData(updatedCurrentCluster,
+                     rwStoreDefWithReplication,
+                     rebalanceClient.getAdminClient(),
+                     false);
+
+        final AdminClient adminClient = rebalanceClient.getAdminClient();
+        // the plan would cause these partitions to move
+        // Partition : Donor -> Stealer
+        // p2 (SEC) : 1 -> 0
+        // p3 (PRI) : 1 -> 2
+        final List<ByteArray> movingKeysList = sampleKeysFromPartition(adminClient,
+                                                                       1,
+                                                                       rwStoreDefWithReplication.getName(),
+                                                                       Arrays.asList(2, 3),
+                                                                       20);
+        final AtomicBoolean rebalancingStarted = new AtomicBoolean(false);
+        final AtomicBoolean proxyWritesDone = new AtomicBoolean(false);
+        final HashMap<String, String> baselineTuples = new HashMap<String, String>(testEntries);
+        final HashMap<String, VectorClock> baselineVersions = new HashMap<String, VectorClock>();
+
+        for(String key: baselineTuples.keySet()) {
+            baselineVersions.put(key, new VectorClock());
+        }
+
+        // start get operation.
+        executors.execute(new Runnable() {
+
+            @Override
+            public void run() {
+                SocketStoreClientFactory factory = null;
+                try {
+                    // wait for the rebalancing to begin
+                    // TODO also need to somehow test how live writes handle the
+                    // metadata transition.
+                    List<VoldemortServer> serverList = Lists.newArrayList(serverMap.get(0),
+                                                                          serverMap.get(2));
+                    while(!rebalancingToken.get()) {
+                        Iterator<VoldemortServer> serverIterator = serverList.iterator();
+                        while(serverIterator.hasNext()) {
+                            VoldemortServer server = serverIterator.next();
+                            if(ByteUtils.getString(server.getMetadataStore()
+                                                         .get(MetadataStore.SERVER_STATE_KEY, null)
+                                                         .get(0)
+                                                         .getValue(),
+                                                   "UTF-8")
+                                        .compareTo(VoldemortState.REBALANCING_MASTER_SERVER.toString()) == 0) {
+                                serverIterator.remove();
+                            }
+                        }
+                        if(serverList.size() == 0) {
+                            rebalancingStarted.set(true);
+                            break;
+                        }
+                    }
+                    factory = new SocketStoreClientFactory(new ClientConfig().setBootstrapUrls(getBootstrapUrl(updatedCurrentCluster,
+                                                                                                               0))
+                                                                             .setEnableLazy(false)
+                                                                             .setSocketTimeout(120,
+                                                                                               TimeUnit.SECONDS));
+
+                    final StoreClient<String, String> storeClientRW = new DefaultStoreClient<String, String>(testStoreNameRW,
+                                                                                                             null,
+                                                                                                             factory,
+                                                                                                             3);
+
+                    // Now perform some writes and determine the end state of
+                    // the changed keys. Intially, all data now with zero vector
+                    // clock
+                    if(!rebalancingToken.get()) {
+                        for(ByteArray movingKey: movingKeysList) {
+                            String keyStr = ByteUtils.getString(movingKey.get(), "UTF-8");
+                            String valStr = "proxy_write";
+                            storeClientRW.put(keyStr, valStr);
+                            baselineTuples.put(keyStr, valStr);
+                            // all these keys will have [2:1] vector clock is
+                            // node 2 is the pseudo master in both moves
+                            baselineVersions.get(keyStr)
+                                            .incrementVersion(2, System.currentTimeMillis());
+                            proxyWritesDone.set(true);
+                            if(rebalancingToken.get()) {
+                                break;
+                            }
+                        }
+                    }
+                } catch(Exception e) {
+                    exceptions.add(e);
+                } finally {
+                    if(factory != null)
+                        factory.close();
+                }
+            }
+
+        });
+
+        executors.execute(new Runnable() {
+
+            @Override
+            public void run() {
+                try {
+                    rebalanceClient.rebalance(updatedTargetCluster);
+                    Thread.sleep(500);
+                } catch(Exception e) {
+                    logger.error("Error in rebalancing... ", e);
+                    exceptions.add(e);
+                } finally {
+                    rebalancingToken.set(true);
+                }
+            }
+        });
+
+        executors.shutdown();
+        executors.awaitTermination(300, TimeUnit.SECONDS);
+
+        assertEquals("Client did not see all server transition into rebalancing state",
+                     rebalancingStarted.get(),
+                     true);
+        assertEquals("Not enough time to begin proxy writing", proxyWritesDone.get(), true);
+        checkEntriesPostRebalance(updatedCurrentCluster,
+                                  updatedTargetCluster,
+                                  Lists.newArrayList(rwStoreDefWithReplication),
+                                  Arrays.asList(0, 1, 2),
+                                  baselineTuples,
+                                  baselineVersions);
+        checkConsistentMetadata(updatedTargetCluster, serverList);
+        // check No Exception
+        if(exceptions.size() > 0) {
+
+            for(Exception e: exceptions) {
+                e.printStackTrace();
+            }
+            fail("Should not see any exceptions.");
+        }
+        // check that the proxy writes were made to the original donor, node 1
+        List<ClockEntry> clockEntries = new ArrayList<ClockEntry>(serverList.size());
+        for(Integer nodeid: serverList)
+            clockEntries.add(new ClockEntry(nodeid.shortValue(), System.currentTimeMillis()));
+        VectorClock clusterXmlClock = new VectorClock(clockEntries, System.currentTimeMillis());
+        for(Integer nodeid: serverList)
+            adminClient.metadataMgmtOps.updateRemoteCluster(nodeid, currentCluster, clusterXmlClock);
+
+        adminClient.setAdminClientCluster(currentCluster);
+        checkForTupleEquivalence(adminClient,
+                                 1,
+                                 testStoreNameRW,
+                                 movingKeysList,
+                                 baselineTuples,
+                                 baselineVersions);
+
+        // stop servers
+        try {
+            stopServer(serverList);
+        } catch(Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

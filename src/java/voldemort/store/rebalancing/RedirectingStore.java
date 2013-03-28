@@ -39,6 +39,7 @@ import voldemort.store.metadata.MetadataStore;
 import voldemort.store.metadata.MetadataStore.VoldemortState;
 import voldemort.store.socket.SocketStoreFactory;
 import voldemort.utils.ByteArray;
+import voldemort.utils.ByteUtils;
 import voldemort.utils.Time;
 import voldemort.versioning.ObsoleteVersionException;
 import voldemort.versioning.Version;
@@ -107,7 +108,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     @Override
     public List<Versioned<byte[]>> get(ByteArray key, byte[] transforms) throws VoldemortException {
         RebalancePartitionsInfo stealInfo = redirectingKey(key);
-
+        logger.info("BEGIN GET from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()));
         /**
          * If I am rebalancing for this key, try to do remote get(), put it
          * locally first to get the correct version ignoring any
@@ -119,14 +121,16 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         if(stealInfo != null) {
             proxyGetAndLocalPut(key, stealInfo.getDonorId(), transforms);
         }
-
+        logger.info("END GET from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()));
         return getInnerStore().get(key, transforms);
     }
 
     @Override
     public List<Version> getVersions(ByteArray key) {
         RebalancePartitionsInfo stealInfo = redirectingKey(key);
-
+        logger.info("BEGIN GETVERSIONS from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()));
         /**
          * If I am rebalancing for this key, try to do remote get(), put it
          * locally first to get the correct version ignoring any
@@ -138,7 +142,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         if(stealInfo != null) {
             proxyGetAndLocalPut(key, stealInfo.getDonorId(), null);
         }
-
+        logger.info("END GETVERSIONS from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()));
         return getInnerStore().getVersions(key);
     }
 
@@ -167,7 +172,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     public void put(ByteArray key, Versioned<byte[]> value, byte[] transforms)
             throws VoldemortException {
         RebalancePartitionsInfo stealInfo = redirectingKey(key);
-
+        logger.info("BEGIN PUT from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()) + " value " + value);
         /**
          * If I am rebalancing for this key, try to do remote get() , put it
          * locally first to get the correct version ignoring any
@@ -181,6 +187,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
             proxyPut(key, value, transforms, stealInfo.getDonorId());
         // TODO if I fail though for some reason, the aborting rebalance can
         // surface phantom writes
+        logger.info("END PUT from stealer:" + metadata.getNodeId() + " key "
+                    + ByteUtils.toHexString(key.get()) + " value " + value);
         getInnerStore().put(key, value, transforms);
     }
 
@@ -245,6 +253,8 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
     private void proxyPut(ByteArray key, Versioned<byte[]> value, byte[] transforms, int donorNodeId) {
         Node donorNode = metadata.getCluster().getNodeById(donorNodeId);
         checkNodeAvailable(donorNode);
+        logger.info("BEGIN PROXY PUT for donor: " + donorNodeId + " from stealer:"
+                    + metadata.getNodeId() + " key " + ByteUtils.toHexString(key.get()));
         long startNs = System.nanoTime();
         try {
             Store<ByteArray, byte[], byte[]> redirectingStore = getRedirectingSocketStore(getName(),
@@ -254,7 +264,14 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
         } catch(UnreachableStoreException e) {
             recordException(donorNode, startNs, e);
             throw new ProxyUnreachableException("Failed to reach proxy node " + donorNode, e);
+        } catch(ObsoleteVersionException ove) {
+            logger.error("OVE in proxy put for donor: " + donorNodeId + " from stealer:"
+                                 + metadata.getNodeId() + " key "
+                                 + ByteUtils.toHexString(key.get()),
+                         ove);
         }
+        logger.info("END PROXY PUT for donor: " + donorNodeId + " from stealer:"
+                    + metadata.getNodeId() + " key " + ByteUtils.toHexString(key.get()));
     }
 
     private void checkNodeAvailable(Node donorNode) {
@@ -328,14 +345,18 @@ public class RedirectingStore extends DelegatingStore<ByteArray, byte[], byte[]>
                                                         int donorId,
                                                         byte[] transforms)
             throws VoldemortException {
+        logger.info("BEGIN PROXY GET LOCAL PUT for donor: " + donorId + " from stealer:"
+                    + metadata.getNodeId() + " key " + ByteUtils.toHexString(key.get()));
         List<Versioned<byte[]>> proxyValues = proxyGet(key, donorId, transforms);
         for(Versioned<byte[]> proxyValue: proxyValues) {
             try {
                 getInnerStore().put(key, proxyValue, null);
             } catch(ObsoleteVersionException e) {
-                // ignore these
+                logger.info("OVE in proxy get local put", e);
             }
         }
+        logger.info("END PROXY GET LOCAL PUT for donor: " + donorId + " from stealer:"
+                    + metadata.getNodeId() + " key " + ByteUtils.toHexString(key.get()));
         return proxyValues;
     }
 

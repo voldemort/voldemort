@@ -347,7 +347,7 @@ public class ServerTestUtils {
         for(int i = 0; i < numberOfZones; i++) {
             LinkedList<Integer> proximityList = Lists.newLinkedList();
             int zoneId = i + 1;
-            for(int j = 0; j < numberOfZones; j++) {
+            for(int j = 0; j < numberOfZones - 1; j++) {
                 proximityList.add(zoneId % numberOfZones);
                 zoneId++;
             }
@@ -405,7 +405,7 @@ public class ServerTestUtils {
             for(int i = 0; i < numberOfZones; i++) {
                 LinkedList<Integer> proximityList = Lists.newLinkedList();
                 int zoneId = i + 1;
-                for(int j = 0; j < numberOfZones; j++) {
+                for(int j = 0; j < numberOfZones - 1; j++) {
                     proximityList.add(zoneId % numberOfZones);
                     zoneId++;
                 }
@@ -840,7 +840,6 @@ public class ServerTestUtils {
             matchingOperationIds = service.getMatchingAsyncOperationList(asyncOperationPattern,
                                                                          true);
             if(matchingOperationIds.size() > 0) {
-                System.err.println(">>" + matchingOperationIds);
                 break;
             }
         }
@@ -849,7 +848,6 @@ public class ServerTestUtils {
             List<Integer> completedOps = new ArrayList<Integer>(matchingOperationIds.size());
             for(Integer op: matchingOperationIds) {
                 if(service.isComplete(op)) {
-                    System.err.println("Operation " + op + " is complete");
                     completedOps.add(op);
                 }
             }

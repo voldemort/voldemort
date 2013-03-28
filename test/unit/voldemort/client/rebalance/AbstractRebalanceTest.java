@@ -180,7 +180,20 @@ public abstract class AbstractRebalanceTest {
                                      RebalanceController rebalanceClient,
                                      List<Integer> nodeCheckList) {
         rebalanceClient.rebalance(targetCluster);
+        checkEntriesPostRebalance(currentCluster,
+                                  targetCluster,
+                                  storeDefs,
+                                  nodeCheckList,
+                                  testEntries,
+                                  null);
+    }
 
+    protected void checkEntriesPostRebalance(Cluster currentCluster,
+                                             Cluster targetCluster,
+                                             List<StoreDefinition> storeDefs,
+                                             List<Integer> nodeCheckList,
+                                             HashMap<String, String> baselineTuples,
+                                             HashMap<String, VectorClock> baselineVersions) {
         for(StoreDefinition storeDef: storeDefs) {
             Map<Integer, Set<Pair<Integer, Integer>>> currentNodeToPartitionTuples = RebalanceUtils.getNodeIdToAllPartitions(currentCluster,
                                                                                                                              storeDef,
@@ -204,20 +217,23 @@ public abstract class AbstractRebalanceTest {
                                 targetCluster,
                                 storeDef,
                                 store,
-                                flattenedPresentTuples);
+                                flattenedPresentTuples,
+                                baselineTuples,
+                                baselineVersions);
             }
         }
-
     }
 
     protected void checkGetEntries(Node node,
                                    Cluster cluster,
                                    StoreDefinition def,
                                    Store<ByteArray, byte[], byte[]> store,
-                                   HashMap<Integer, List<Integer>> flattenedPresentTuples) {
+                                   HashMap<Integer, List<Integer>> flattenedPresentTuples,
+                                   HashMap<String, String> baselineTuples,
+                                   HashMap<String, VectorClock> baselineVersions) {
         RoutingStrategy routing = new RoutingStrategyFactory().updateRoutingStrategy(def, cluster);
 
-        for(Entry<String, String> entry: testEntries.entrySet()) {
+        for(Entry<String, String> entry: baselineTuples.entrySet()) {
             ByteArray keyBytes = new ByteArray(ByteUtils.getBytes(entry.getKey(), "UTF-8"));
 
             List<Integer> partitions = routing.getPartitionList(keyBytes.get());
@@ -234,8 +250,18 @@ public abstract class AbstractRebalanceTest {
                 }
                 assertEquals("Expecting exactly one version", 1, values.size());
                 Versioned<byte[]> value = values.get(0);
-                // check version matches (expecting base version for all)
-                assertEquals("Value version should match", new VectorClock(), value.getVersion());
+                // check version matches
+                if(baselineVersions == null) {
+                    // expecting base version for all
+                    assertEquals("Value version should match",
+                                 new VectorClock(),
+                                 value.getVersion());
+                } else {
+                    assertEquals("Value version should match",
+                                 baselineVersions.get(entry.getKey()),
+                                 value.getVersion());
+                }
+
                 // check value matches.
                 assertEquals("Value bytes should match",
                              entry.getValue(),
@@ -290,6 +316,46 @@ public abstract class AbstractRebalanceTest {
             assertEquals("Error fetching key " + key, null, e);
             assertEquals("Value not found for key " + key, true, vals != null & vals.size() != 0);
 
+        }
+    }
+
+    /**
+     * REFACTOR: these should belong AdminClient so existence checks can be done
+     * easily across the board
+     * 
+     * @param admin
+     * @param serverId
+     * @param store
+     * @param keyList
+     */
+    protected void checkForTupleEquivalence(AdminClient admin,
+                                            int serverId,
+                                            String store,
+                                            List<ByteArray> keyList,
+                                            HashMap<String, String> baselineTuples,
+                                            HashMap<String, VectorClock> baselineVersions) {
+        // do the positive tests
+        Iterator<Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>>> positiveTestResultsItr = admin.storeOps.queryKeys(serverId,
+                                                                                                                              store,
+                                                                                                                              keyList.iterator());
+        while(positiveTestResultsItr.hasNext()) {
+            Pair<ByteArray, Pair<List<Versioned<byte[]>>, Exception>> item = positiveTestResultsItr.next();
+            ByteArray key = item.getFirst();
+            List<Versioned<byte[]>> vals = item.getSecond().getFirst();
+            Exception e = item.getSecond().getSecond();
+
+            assertEquals("Error fetching key " + key, null, e);
+            assertEquals("Value not found for key " + key, true, vals != null & vals.size() != 0);
+
+            String keyStr = ByteUtils.getString(key.get(), "UTF-8");
+            if(baselineTuples != null)
+                assertEquals("Value does not match up ",
+                             baselineTuples.get(keyStr),
+                             ByteUtils.getString(vals.get(0).getValue(), "UTF-8"));
+            if(baselineVersions != null)
+                assertEquals("Version does not match up",
+                             baselineVersions.get(keyStr),
+                             vals.get(0).getVersion());
         }
     }
 
