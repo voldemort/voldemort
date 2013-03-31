@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -22,8 +22,6 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 
 import voldemort.common.VoldemortOpCode;
-import voldemort.store.CompositeGetVoldemortRequest;
-import voldemort.utils.ByteArray;
 import voldemort.versioning.Versioned;
 
 /**
@@ -43,16 +41,11 @@ public class NoopHttpRequestHandler extends VoldemortHttpRequestHandler {
 
         switch(operationType) {
             case VoldemortOpCode.GET_OP_CODE:
-                HttpGetRequestExecutor getExecutor = new HttpGetRequestExecutor(new CompositeGetVoldemortRequest<ByteArray, byte[]>(null,
-                                                                                                                                    0l,
-                                                                                                                                    false),
-                                                                                e,
-                                                                                null);
+                HttpGetRequestExecutor getExecutor = new HttpGetRequestExecutor(e);
 
                 Versioned<byte[]> responseVersioned = null;
-                byte[] nullByteArray = new byte[1];
-                nullByteArray[0] = 0;
-                responseVersioned = new Versioned<byte[]>(nullByteArray);
+                byte[] sampleByteArray = "a".getBytes();
+                responseVersioned = new Versioned<byte[]>(sampleByteArray);
                 getExecutor.writeResponse(responseVersioned);
                 break;
             case VoldemortOpCode.PUT_OP_CODE:

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,10 +16,9 @@
 
 package voldemort.coordinator;
 
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -27,10 +26,14 @@ import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.MessageEvent;
 
+import voldemort.annotations.jmx.JmxGetter;
+import voldemort.annotations.jmx.JmxManaged;
 import voldemort.client.ClientConfig;
 import voldemort.client.SocketStoreClientFactory;
 import voldemort.store.CompositeVoldemortRequest;
+import voldemort.store.stats.StoreStats;
 import voldemort.utils.ByteArray;
+import voldemort.utils.JmxUtils;
 
 /**
  * A Wrapper class to provide asynchronous API for calling the fat client
@@ -38,13 +41,17 @@ import voldemort.utils.ByteArray;
  * of invoking the Fat Client methods on its own
  * 
  */
+@JmxManaged(description = "A Wrapper for a Fat client in order to execute requests asynchronously")
 public class FatClientWrapper {
 
-    private ExecutorService fatClientExecutor;
+    private ThreadPoolExecutor fatClientExecutor;
     private SocketStoreClientFactory storeClientFactory;
     private DynamicTimeoutStoreClient<ByteArray, byte[]> dynamicTimeoutClient;
     private final CoordinatorConfig config;
     private final Logger logger = Logger.getLogger(FatClientWrapper.class);
+    private final String storeName;
+    private final CoordinatorErrorStats errorStats;
+    private final StoreStats coordinatorPerfStats;
 
     /**
      * 
@@ -53,12 +60,16 @@ public class FatClientWrapper {
      * @param clientConfig The config used to bootstrap the fat client
      * @param storesXml Stores XML used to bootstrap the fat client
      * @param clusterXml Cluster XML used to bootstrap the fat client
+     * @param errorStats
+     * @param coordinatorPerfStats
      */
     public FatClientWrapper(String storeName,
                             CoordinatorConfig config,
                             ClientConfig clientConfig,
                             String storesXml,
-                            String clusterXml) {
+                            String clusterXml,
+                            CoordinatorErrorStats errorStats,
+                            StoreStats coordinatorPerfStats) {
 
         this.config = config;
 
@@ -68,10 +79,8 @@ public class FatClientWrapper {
                                                         this.config.getFatClientWrapperKeepAliveInSecs(), // Keepalive
                                                         TimeUnit.SECONDS, // Keepalive
                                                                           // Timeunit
-                                                        new SynchronousQueue<Runnable>(), // Queue
-                                                                                          // for
-                                                                                          // pending
-                                                                                          // tasks
+                                                        new ArrayBlockingQueue<Runnable>(this.config.getFatClientWrapperMaxPoolSize(),
+                                                                                         true),
 
                                                         new ThreadFactory() {
 
@@ -95,7 +104,6 @@ public class FatClientWrapper {
 
                                                             }
                                                         });
-        // this.fatClientRequestQueue = new SynchronousQueue<Future>();
 
         this.storeClientFactory = new SocketStoreClientFactory(clientConfig);
         this.dynamicTimeoutClient = new DynamicTimeoutStoreClient<ByteArray, byte[]>(storeName,
@@ -103,7 +111,24 @@ public class FatClientWrapper {
                                                                                      1,
                                                                                      storesXml,
                                                                                      clusterXml);
+        this.errorStats = errorStats;
+        this.coordinatorPerfStats = coordinatorPerfStats;
+        this.storeName = storeName;
 
+        // Register the Mbean
+        JmxUtils.registerMbean(this,
+                               JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                         JmxUtils.getClassName(this.getClass())
+                                                                 + "-" + storeName));
+
+    }
+
+    public void close() {
+        // Register the Mbean
+        JmxUtils.unregisterMbean(JmxUtils.createObjectName(JmxUtils.getPackageName(this.getClass()),
+                                                           JmxUtils.getClassName(this.getClass())
+                                                                   + "-" + this.storeName));
+        this.storeClientFactory.close();
     }
 
     /**
@@ -111,22 +136,25 @@ public class FatClientWrapper {
      * 
      * @param getRequestObject Contains the key used in the get operation
      * @param getRequestMessageEvent MessageEvent to write the response back to
+     * @param startTimestampInNs The start timestamp used to measure turnaround
+     *        time
      */
     void submitGetRequest(final CompositeVoldemortRequest<ByteArray, byte[]> getRequestObject,
-                          final MessageEvent getRequestMessageEvent) {
+                          final MessageEvent getRequestMessageEvent,
+                          long startTimestampInNs) {
         try {
 
             this.fatClientExecutor.submit(new HttpGetRequestExecutor(getRequestObject,
                                                                      getRequestMessageEvent,
-                                                                     this.dynamicTimeoutClient));
+                                                                     this.dynamicTimeoutClient,
+                                                                     startTimestampInNs,
+                                                                     this.coordinatorPerfStats));
             if(logger.isDebugEnabled()) {
                 logger.debug("Submitted a get request");
             }
 
-            // Keep track of this request for monitoring
-            // this.fatClientRequestQueue.add(f);
         } catch(RejectedExecutionException rej) {
-            handleRejectedException(getRequestMessageEvent);
+            handleRejectedException(rej, getRequestMessageEvent);
         }
     }
 
@@ -136,50 +164,56 @@ public class FatClientWrapper {
      * @param getAllRequestObject Contains the keys used in the getAll oepration
      * @param getAllRequestMessageEvent MessageEvent to write the response back
      *        to
+     * @param storeName Name of the store to be specified in the response
+     *        (header)
+     * @param startTimestampInNs The start timestamp used to measure turnaround
+     *        time
      */
     void submitGetAllRequest(final CompositeVoldemortRequest<ByteArray, byte[]> getAllRequestObject,
                              final MessageEvent getAllRequestMessageEvent,
-                             final String storeName) {
+                             final String storeName,
+                             long startTimestampInNs) {
         try {
 
             this.fatClientExecutor.submit(new HttpGetAllRequestExecutor(getAllRequestObject,
                                                                         getAllRequestMessageEvent,
                                                                         this.dynamicTimeoutClient,
-                                                                        storeName));
+                                                                        storeName,
+                                                                        startTimestampInNs,
+                                                                        this.coordinatorPerfStats));
             if(logger.isDebugEnabled()) {
                 logger.debug("Submitted a get all request");
             }
 
-            // Keep track of this request for monitoring
-            // this.fatClientRequestQueue.add(f);
         } catch(RejectedExecutionException rej) {
-            handleRejectedException(getAllRequestMessageEvent);
+            handleRejectedException(rej, getAllRequestMessageEvent);
         }
     }
 
     /**
      * Interface to perform put operation on the Fat client
      * 
-     * @param key: ByteArray representation of the key to put
-     * @param value: value corresponding to the key to put
-     * @param putRequest: MessageEvent to write the response on.
-     * @param operationTimeoutInMs The timeout value for this operation
+     * @param putRequestObject Request object containing the key and value
+     * @param putRequestMessageEvent MessageEvent to write the response on.
+     * @param startTimestampInNs The start timestamp used to measure turnaround
+     *        time
      */
     void submitPutRequest(final CompositeVoldemortRequest<ByteArray, byte[]> putRequestObject,
-                          final MessageEvent putRequest) {
+                          final MessageEvent putRequestMessageEvent,
+                          long startTimestampInNs) {
         try {
 
             this.fatClientExecutor.submit(new HttpPutRequestExecutor(putRequestObject,
-                                                                     putRequest,
-                                                                     this.dynamicTimeoutClient));
+                                                                     putRequestMessageEvent,
+                                                                     this.dynamicTimeoutClient,
+                                                                     startTimestampInNs,
+                                                                     this.coordinatorPerfStats));
             if(logger.isDebugEnabled()) {
                 logger.debug("Submitted a put request");
             }
 
-            // Keep track of this request for monitoring
-            // this.fatClientRequestQueue.add(f);
         } catch(RejectedExecutionException rej) {
-            handleRejectedException(putRequest);
+            handleRejectedException(rej, putRequestMessageEvent);
         }
     }
 
@@ -189,37 +223,46 @@ public class FatClientWrapper {
      * @param deleteRequestObject Contains the key and the version used in the
      *        delete operation
      * @param deleteRequestEvent MessageEvent to write the response back to
+     * @param startTimestampInNs The start timestamp used to measure turnaround
+     *        time
      */
     public void submitDeleteRequest(CompositeVoldemortRequest<ByteArray, byte[]> deleteRequestObject,
-                                    MessageEvent deleteRequestEvent) {
+                                    MessageEvent deleteRequestEvent,
+                                    long startTimestampInNs) {
         try {
 
             this.fatClientExecutor.submit(new HttpDeleteRequestExecutor(deleteRequestObject,
                                                                         deleteRequestEvent,
-                                                                        this.dynamicTimeoutClient));
+                                                                        this.dynamicTimeoutClient,
+                                                                        startTimestampInNs,
+                                                                        this.coordinatorPerfStats));
 
-            // Keep track of this request for monitoring
-            // this.fatClientRequestQueue.add(f);
         } catch(RejectedExecutionException rej) {
-            handleRejectedException(deleteRequestEvent);
+            handleRejectedException(rej, deleteRequestEvent);
         }
 
     }
 
     // TODO: Add a custom HTTP Error status 429: Too many requests
-    private void handleRejectedException(MessageEvent getRequest) {
+    private void handleRejectedException(RejectedExecutionException rej, MessageEvent getRequest) {
+        this.errorStats.reportException(rej);
         logger.error("rejected !!!");
         getRequest.getChannel().write(null); // Write error back to the thin
                                              // client
-                                             // String errorDescription =
-                                             // "Request queue for store " +
-                                             // this.dynamicTimeoutClient.getStoreName()
-                                             // + " is full !");
-        // logger.error(errorDescription);
-        // RESTErrorHandler.handleError(REQUEST_TIMEOUT,
-        // this.getRequestMessageEvent,
-        // false,
-        // errorDescription);
     }
 
+    @JmxGetter(name = "numberOfActiveThreads", description = "The number of active Fat client wrapper threads.")
+    public int getNumberOfActiveThreads() {
+        return this.fatClientExecutor.getActiveCount();
+    }
+
+    @JmxGetter(name = "numberOfThreads", description = "The total number of Fat client wrapper threads, active and idle.")
+    public int getNumberOfThreads() {
+        return this.fatClientExecutor.getPoolSize();
+    }
+
+    @JmxGetter(name = "queuedRequests", description = "Number of requests in the Fat client wrapper queue waiting to execute.")
+    public int getQueuedRequests() {
+        return this.fatClientExecutor.getQueue().size();
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2013 LinkedIn, Inc
+ * Copyright 2013 LinkedIn, Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -44,8 +44,6 @@ import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponse;
@@ -53,6 +51,8 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import voldemort.VoldemortException;
 import voldemort.store.CompositeVoldemortRequest;
 import voldemort.store.StoreTimeoutException;
+import voldemort.store.stats.StoreStats;
+import voldemort.store.stats.Tracked;
 import voldemort.utils.ByteArray;
 import voldemort.versioning.VectorClock;
 import voldemort.versioning.Versioned;
@@ -70,6 +70,8 @@ public class HttpGetAllRequestExecutor implements Runnable {
     private final Logger logger = Logger.getLogger(HttpGetRequestExecutor.class);
     private final CompositeVoldemortRequest<ByteArray, byte[]> getAllRequestObject;
     private final String storeName;
+    private final long startTimestampInNs;
+    private final StoreStats coordinatorPerfStats;
 
     /**
      * 
@@ -79,15 +81,24 @@ public class HttpGetAllRequestExecutor implements Runnable {
      *        error
      * @param storeClient Reference to the fat client for performing this Get
      *        operation
+     * @param storeName Name of the store intended to be included in the
+     *        response (content-location)
+     * @param coordinatorPerfStats Stats object used to measure the turnaround
+     *        time
+     * @param startTimestampInNs start timestamp of the request
      */
     public HttpGetAllRequestExecutor(CompositeVoldemortRequest<ByteArray, byte[]> getAllRequestObject,
                                      MessageEvent requestMessageEvent,
                                      DynamicTimeoutStoreClient<ByteArray, byte[]> storeClient,
-                                     String storeName) {
+                                     String storeName,
+                                     long startTimestampInNs,
+                                     StoreStats coordinatorPerfStats) {
         this.getRequestMessageEvent = requestMessageEvent;
         this.storeClient = storeClient;
         this.getAllRequestObject = getAllRequestObject;
         this.storeName = storeName;
+        this.startTimestampInNs = startTimestampInNs;
+        this.coordinatorPerfStats = coordinatorPerfStats;
     }
 
     public void writeResponse(Map<ByteArray, Versioned<byte[]>> responseVersioned) {
@@ -160,13 +171,14 @@ public class HttpGetAllRequestExecutor implements Runnable {
         response.setContent(responseContent);
         response.setHeader(CONTENT_LENGTH, response.getContent().readableBytes());
 
+        // Update the stats
+        if(this.coordinatorPerfStats != null) {
+            long durationInNs = System.nanoTime() - startTimestampInNs;
+            this.coordinatorPerfStats.recordTime(Tracked.GET_ALL, durationInNs);
+        }
+
         // Write the response to the Netty Channel
-        ChannelFuture future = this.getRequestMessageEvent.getChannel().write(response);
-
-        // Close the non-keep-alive connection after the write operation is
-        // done.
-        future.addListener(ChannelFutureListener.CLOSE);
-
+        this.getRequestMessageEvent.getChannel().write(response);
     }
 
     @Override
@@ -176,7 +188,6 @@ public class HttpGetAllRequestExecutor implements Runnable {
             if(responseVersioned == null) {
                 RESTErrorHandler.handleError(NOT_FOUND,
                                              this.getRequestMessageEvent,
-                                             false,
                                              "Requested Key does not exist");
             }
             writeResponse(responseVersioned);
@@ -184,22 +195,17 @@ public class HttpGetAllRequestExecutor implements Runnable {
             String errorDescription = "GETALL Failed !!! Illegal Arguments : "
                                       + illegalArgsException.getMessage();
             logger.error(errorDescription);
-            RESTErrorHandler.handleError(BAD_REQUEST,
-                                         this.getRequestMessageEvent,
-                                         false,
-                                         errorDescription);
+            RESTErrorHandler.handleError(BAD_REQUEST, this.getRequestMessageEvent, errorDescription);
         } catch(StoreTimeoutException timeoutException) {
             String errorDescription = "GET Request timed out: " + timeoutException.getMessage();
             logger.error(errorDescription);
             RESTErrorHandler.handleError(REQUEST_TIMEOUT,
                                          this.getRequestMessageEvent,
-                                         false,
                                          errorDescription);
         } catch(VoldemortException ve) {
             String errorDescription = "Voldemort Exception: " + ve.getMessage();
             RESTErrorHandler.handleError(INTERNAL_SERVER_ERROR,
                                          this.getRequestMessageEvent,
-                                         false,
                                          errorDescription);
         }
     }
